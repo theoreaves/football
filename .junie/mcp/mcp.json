@@ -1,0 +1,20 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "/Users/treaves/Library/Application Support/Herd/bin/php83",
+            "args": [
+                "/Users/treaves/Development/projects/football/artisan",
+                "boost:mcp"
+            ]
+        },
+        "herd": {
+            "command": "/Users/treaves/Library/Application Support/Herd/bin/php83",
+            "args": [
+                "/Applications/Herd.app/Contents/Resources/herd-mcp.phar"
+            ],
+            "env": {
+                "SITE_PATH": "/Users/treaves/Development/projects/football"
+            }
+        }
+    }
+}
