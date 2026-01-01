@@ -19,6 +19,7 @@ class Player extends Model
             ->withPivot([
                 'team_year',
                 'position',
+                'jersey_number',
                 'depth_chart_position',
                 'kick_return_depth_chart_position',
                 'punt_return_depth_chart_position',

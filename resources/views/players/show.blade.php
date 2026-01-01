@@ -164,6 +164,7 @@
                             <th class="text-left px-4 py-3">Team</th>
                             <th class="text-left px-4 py-3">Year</th>
                             <th class="text-left px-4 py-3">Pos</th>
+                            <th class="text-left px-4 py-3">#</th>
                             <th class="text-left px-4 py-3">Depth</th>
                             <th class="text-center px-4 py-3">Catch</th>
                             <th class="text-center px-4 py-3">Catch+</th>
@@ -186,8 +187,8 @@
                                 </td>
                                 <td class="px-4 py-3">{{ $t->pivot->team_year }}</td>
                                 <td class="px-4 py-3">{{ $t->pivot->position }}</td>
+                                <td class="px-4 py-3">{{ $t->pivot->jersey_number }}</td>
                                 <td class="px-4 py-3">{{ $t->pivot->depth_chart_position }}</td>
-
                                 <td class="text-center px-4 py-3">{{ $range($t->pivot->catch_from, $t->pivot->catch_to) }}</td>
                                 <td class="text-center px-4 py-3">{{ $range($t->pivot->catch_plus_from, $t->pivot->catch_plus_to) }}</td>
                                 <td class="text-center px-4 py-3">{{ $range($t->pivot->rush_from, $t->pivot->rush_to) }}</td>

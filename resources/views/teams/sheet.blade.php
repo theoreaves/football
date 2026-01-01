@@ -12,19 +12,36 @@
                 return ((int)$from === (int)$to) ? (string)(int)$from : ((int)$from . '-' . (int)$to);
             };
 
-            // Group by pivot position (you’re using depth_chart_position for section membership)
+            // Show "-" for 0 / null, otherwise show the value
+            $val = function ($v) {
+                return ((int)($v ?? 0) === 0) ? '-' : (string)$v;
+            };
+
+            // Helper: format "from-to"; if both 0 (or null), show "-"
+            $range = function($from, $to) {
+                $from = (int)($from ?? 0);
+                $to   = (int)($to ?? 0);
+
+                if ($from === 0 && $to === 0) return '-';
+                return ($from === $to) ? (string)$from : ($from . '-' . $to);
+            };
+
+
+
+
+        // Group by pivot position (you’re using depth_chart_position for section membership)
             $pos = fn($p) => strtoupper((string)($p->pivot->depth_chart_position ?? ''));
 
             // OFFENSE
-            $qbs = $players->filter(fn($p) => in_array($pos($p), ['QB1','QB2','QB3','QB4'], true));
+            $qbs = $players->filter(fn($p) => in_array($pos($p), ['QB1','QB2','QB3','QB4'], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
             $skill = $players->filter(fn($p) => in_array($pos($p), [
                 'RB1','RB2','RB3','RB4',
                 'WR1','WR2','WR3','WR4',
                 'TE1','TE2',
-            ], true));
+            ], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
-            $ol = $players->filter(fn($p) => in_array($pos($p), ['LT','LG','C','RG','RT','OL'], true));
+            $ol = $players->filter(fn($p) => in_array($pos($p), ['LT','LG','C','RG','RT','OL'], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
             // DEFENSE
             $dl = $players->filter(fn($p) => in_array($pos($p), [
@@ -32,27 +49,27 @@
                 'DE2','DT2','NT2','DL2',
                 'DE3','DT3','NT3','DL3',
                 'DE4','DT4','NT4','DL4',
-            ], true));
+            ], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
             $lb = $players->filter(fn($p) => in_array($pos($p), [
                 'LB1','MLB1','OLB1',
                 'LB2','MLB2','OLB2',
                 'LB3','MLB3','OLB3',
                 'LB4','MLB4','OLB4',
-            ], true));
+            ], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
             $db = $players->filter(fn($p) => in_array($pos($p), [
                 'CB1','FS1','SS1','DB1',
                 'CB2','FS2','SS2','DB2',
                 'CB3','FS3','SS3','DB3',
                 'CB4','FS4','SS4','DB4',
-            ], true));
+            ], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
             // SPECIAL TEAMS
-            $kp = $players->filter(fn($p) => in_array(strtoupper((string)($p->pivot->position ?? '')), ['K','P'], true));
+            $kp = $players->filter(fn($p) => in_array(strtoupper((string)($p->pivot->position ?? '')), ['K','P'], true))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
-            $kr = $players->filter(fn($p) => !empty($p->pivot->kick_return_depth_chart_position));
-            $pr = $players->filter(fn($p) => !empty($p->pivot->punt_return_depth_chart_position));
+            $kr = $players->filter(fn($p) => !empty($p->pivot->kick_return_depth_chart_position))->sortBy(fn($p) => $p->pivot->depth_chart_position);
+            $pr = $players->filter(fn($p) => !empty($p->pivot->punt_return_depth_chart_position))->sortBy(fn($p) => $p->pivot->depth_chart_position);
 
             // Convenience
             $teamName = trim(($team->city ?? '') . ' ' . ($team->name ?? ''));
@@ -125,6 +142,7 @@
                             <thead class="bg-white/5 text-gray-300">
                             <tr>
                                 <th class="text-left px-3 py-2">Pos</th>
+                                <th class="text-left px-3 py-2">#</th>
                                 <th class="text-left px-3 py-2">Player</th>
                                 <th class="text-center px-3 py-2">Rush</th>
                                 <th class="text-center px-3 py-2">Evade</th>
@@ -140,6 +158,7 @@
                             @forelse($qbs as $p)
                                 <tr class="bg-gray-950">
                                     <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
+                                    <td class="px-3 py-2 font-semibold">{{ $p->pivot->jersey_number }}</td>
                                     <td class="px-3 py-2">
                                         <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
                                             {{ $p->firstname }} {{ $p->lastname }}
@@ -147,13 +166,13 @@
                                         </a>
                                     </td>
 
-                                    <td class="text-center px-3 py-2">{{ $p->rush }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->pass_evade }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->pass_accuracy }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->pass_deep }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->fumble }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->speed }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->pass_control }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->rush) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->pass_evade) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->pass_accuracy) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->pass_deep) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->fumble) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->speed) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->pass_control) }}</td>
                                     <td class="text-center px-3 py-2">{{ $range($p->pivot->rush_from, $p->pivot->rush_to) }}</td>
                                 </tr>
                             @empty
@@ -178,6 +197,7 @@
                             <thead class="bg-white/5 text-gray-300">
                             <tr>
                                 <th class="text-left px-3 py-2">Pos</th>
+                                <th class="text-left px-3 py-2">#</th>
                                 <th class="text-left px-3 py-2">Player</th>
 
                                 <th class="text-center px-3 py-2">Rush</th>
@@ -196,6 +216,7 @@
                             @forelse($skill as $p)
                                 <tr class="bg-gray-950">
                                     <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
+                                    <td class="px-3 py-2 font-semibold">{{ $p->pivot->jersey_number }}</td>
                                     <td class="px-3 py-2">
                                         <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
                                             {{ $p->firstname }} {{ $p->lastname }}
@@ -203,12 +224,12 @@
                                         </a>
                                     </td>
 
-                                    <td class="text-center px-3 py-2">{{ $p->rush }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->rush_power }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->receive }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->receive_deep }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->fumble }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->speed }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->rush) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->rush_power) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->receive) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->receive_deep) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->fumble) }}</td>
+                                    <td class="text-center px-3 py-2">{{$val($p->speed) }}</td>
 
                                     <td class="text-center px-3 py-2">{{ $range($p->pivot->catch_from, $p->pivot->catch_to) }}</td>
                                     <td class="text-center px-3 py-2">{{ $range($p->pivot->catch_plus_from, $p->pivot->catch_plus_to) }}</td>
@@ -307,6 +328,7 @@
                                 <thead class="text-gray-300">
                                 <tr class="border-b border-white/10">
                                     <th class="text-left px-3 py-2">Pos</th>
+                                    <th class="text-left px-3 py-2">#</th>
                                     <th class="text-left px-3 py-2">Player</th>
                                     <th class="text-center px-3 py-2">Tkl</th>
                                     <th class="text-center px-3 py-2">Sack</th>
@@ -320,15 +342,16 @@
                                 @forelse($dl as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
+                                        <td class="px-3 py-2 font-semibold">{{ $p->pivot->jersey_number }}</td>
                                         <td class="px-3 py-2">
                                         <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
                                             {{ $p->firstname }} {{ $p->lastname }}
                                         </a>
                                         </td>
 
-                                        <td class="text-center px-3 py-2">{{ $p->tackle }}</td>
-                                        <td class="text-center px-3 py-2">{{ $p->sack }}</td>
-                                        <td class="text-center px-3 py-2">{{ $p->strip }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->tackle) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->sack) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->strip) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->sack_from, $p->pivot->sack_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->interception_from, $p->pivot->interception_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->tackle_from ?? null, $p->pivot->tackle_to ?? null) }}</td>
@@ -349,6 +372,7 @@
                                 <thead class="text-gray-300">
                                 <tr class="border-b border-white/10">
                                     <th class="text-left px-3 py-2">Pos</th>
+                                    <th class="text-left px-3 py-2">#</th>
                                     <th class="text-left px-3 py-2">Player</th>
                                     <th class="text-center px-3 py-2">Tkl</th>
                                     <th class="text-center px-3 py-2">Cov</th>
@@ -362,14 +386,15 @@
                                 @forelse($lb as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
+                                        <td class="px-3 py-2 font-semibold">{{ $p->pivot->jersey_number }}</td>
                                         <td class="px-3 py-2">
                                             <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
                                                 {{ $p->firstname }} {{ $p->lastname }}
                                             </a>
                                         </td>
-                                        <td class="text-center px-3 py-2">{{ $p->tackle }}</td>
-                                        <td class="text-center px-3 py-2">{{ $p->cover }}</td>
-                                        <td class="text-center px-3 py-2">{{ $p->interception }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->tackle) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->cover) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->interception) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->sack_from, $p->pivot->sack_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->interception_from, $p->pivot->interception_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->tackle_from ?? null, $p->pivot->tackle_to ?? null) }}</td>
@@ -390,6 +415,7 @@
                                 <thead class="text-gray-300">
                                 <tr class="border-b border-white/10">
                                     <th class="text-left px-3 py-2">Pos</th>
+                                    <th class="text-left px-3 py-2">#</th>
                                     <th class="text-left px-3 py-2">Player</th>
                                     <th class="text-center px-3 py-2">Tkl</th>
                                     <th class="text-center px-3 py-2">Cov</th>
@@ -403,14 +429,15 @@
                                 @forelse($db as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
+                                        <td class="px-3 py-2 font-semibold">{{ $p->pivot->jersey_number }}</td>
                                         <td class="px-3 py-2">
                                             <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
                                                 {{ $p->firstname }} {{ $p->lastname }}
                                             </a>
                                         </td>
-                                        <td class="text-center px-3 py-2">{{ $p->tackle }}</td>
-                                        <td class="text-center px-3 py-2">{{ $p->cover }}</td>
-                                        <td class="text-center px-3 py-2">{{ $p->interception }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->tackle) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->cover) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->interception) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->sack_from, $p->pivot->sack_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->interception_from, $p->pivot->interception_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->tackle_from ?? null, $p->pivot->tackle_to ?? null) }}</td>
@@ -436,6 +463,7 @@
                             <thead class="bg-white/5 text-gray-300">
                             <tr>
                                 <th class="text-left px-3 py-2">Pos</th>
+                                <th class="text-left px-3 py-2">#</th>
                                 <th class="text-left px-3 py-2">Player</th>
                                 <th class="text-center px-3 py-2">Kick30</th>
                                 <th class="text-center px-3 py-2">Kick39</th>
@@ -453,6 +481,7 @@
                             @forelse($kp as $p)
                                 <tr class="bg-gray-950">
                                     <td class="px-3 py-2 font-semibold">{{ strtoupper((string)$p->pivot->position) }}</td>
+                                    <td class="px-3 py-2 font-semibold">{{ $p->pivot->jersey_number }}</td>
                                     <td class="px-3 py-2">
                                         <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
                                             {{ $p->firstname }} {{ $p->lastname }}
