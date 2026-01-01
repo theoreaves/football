@@ -42,3 +42,7 @@ Route::get('/games/{game}/lookup-jersey', [GameLookupController::class, 'lookup'
 use \App\Http\Controllers\GameCardsController;
 Route::get('/game-cards/{cardType}', [GameCardsController::class, 'index'])
     ->name('games-cards.index');
+
+use App\Http\Controllers\DiceController;
+Route::get('/dice', [DiceController::class, 'index'])
+    ->name('dice.index');

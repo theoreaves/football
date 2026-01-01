@@ -883,6 +883,7 @@
                     <div class="font-semibold cursor-pointer" onclick="openPlayCard('offense')" >Offense Plays</div>
                     <div class="font-semibold cursor-pointer" onclick="openPlayCard('defense')" >Defense Plays</div>
                     <div class="font-semibold cursor-pointer" onclick="openPlayCard('coach')" >Coach</div>
+                    <div class="font-semibold cursor-pointer" onclick="openDice()" >Dice</div>
                 </div>
 
                 {{-- Spot (Kickoff / Spot) --}}
@@ -1200,6 +1201,21 @@
                 height: 700,
                 x: x,
                 y: y,
+                background: '#111827',
+
+                index: 100000,
+            });
+        }
+
+        function openDice() {
+            new WinBox({
+                id: 'dice',
+                title: 'Game Dice',
+                url: `/dice`, // your existing team sheet route
+                width: 500,
+                height: 800,
+                x: 'center',
+                y: 'center',
                 background: '#111827',
 
                 index: 100000,
