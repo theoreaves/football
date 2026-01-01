@@ -2,7 +2,25 @@
 
     <div class="flex items-center gap-6 text-white/90 justify-between">
         <div class="font-semibold">Q{{ $game->quarter }} — {{ $this->clockDisplay }}</div>
-        <div>{{ $game->away_label }} AT {{ $game->home_label }}</div>
+{{--        <div>{{ $game->away_label }} AT {{ $game->home_label }}</div>--}}
+        <div class="font-semibold flex gap-2">
+            <button
+                class="text-blue-400 hover:underline"
+                onclick="openTeamSheet({{ $game->away_team_id }}, '{{ $game->away_label }}')"
+            >
+                {{ $game->away_label }}
+            </button>
+
+            <span>AT</span>
+
+            <button
+                class="text-blue-400 hover:underline"
+                onclick="openTeamSheet({{ $game->home_team_id }}, '{{ $game->home_label }}')"
+            >
+                {{ $game->home_label }}
+            </button>
+        </div>
+
     </div>
 
 
@@ -841,13 +859,14 @@
                 <div class="text-sm border-b border-gray-700 pb-2">
                     <div class="opacity-80">
                         #{{ $p->seq }}
-                        — {{ $p->possession_before }}
+                        — {{ strtoupper($p->possessionBeforeTeam()->name) }}
                         — {{ $p->side_before }} {{ $p->yardline_before }}
                         — {{ $p->down_before }}&amp;{{ $p->togo_before }}
                     </div>
                     <div class="font-medium">{{ $p->summary }}</div>
                     <div class="opacity-80">
-                        After: {{ $p->possession_after }} — {{ $p->side_after }} {{ $p->yardline_after }}
+                        After: {{ strtoupper($p->possessionAfterTeam()->name) }}
+                        } — {{ $p->side_after }} {{ $p->yardline_after }}
                         — {{ $p->down_after }}&amp;{{ $p->togo_after }}
                     </div>
                 </div>
@@ -859,7 +878,12 @@
 
 
             <div class="p-4 rounded bg-gray-800 border border-gray-700 space-y-4">
-                <div class="font-semibold">Game Controls</div>
+                <div class="flex justify-between">
+                    <div class="font-semibold">Game Controls</div>
+                    <div class="font-semibold cursor-pointer" onclick="openPlayCard('offense')" >Offense Plays</div>
+                    <div class="font-semibold cursor-pointer" onclick="openPlayCard('defense')" >Defense Plays</div>
+                    <div class="font-semibold cursor-pointer" onclick="openPlayCard('coach')" >Coach</div>
+                </div>
 
                 {{-- Spot (Kickoff / Spot) --}}
                 <div class="flex flex-wrap gap-2 items-end">
@@ -1138,6 +1162,50 @@
         });
     </script>
 
+
+    <script>
+        function openTeamSheet(teamId, label) {
+            new WinBox({
+                id: 'team-sheet-' + teamId,
+                title: label + ' — Team Sheet',
+                url: `/teams/${teamId}/sheet`, // your existing team sheet route
+                width: 1000,
+                height: 700,
+                x: 'center',
+                y: 'center',
+                background: '#111827',
+
+                index: 100000,
+            });
+        }
+
+        function openPlayCard(cardType) {
+
+            x = 'center';
+            y = 'center';
+            if (cardType === 'offense') {
+                x = 0;
+                y = 0;
+            }
+            if (cardType === 'defense') {
+                x = window.innerWidth - 410;
+                y = 0;
+            }
+
+            new WinBox({
+                id: 'play-card-' + cardType,
+                title: cardType.toUpperCase() + ' Play Card',
+                url: `/game-cards/${cardType}`, // your existing team sheet route
+                width: 400,
+                height: 700,
+                x: x,
+                y: y,
+                background: '#111827',
+
+                index: 100000,
+            });
+        }
+    </script>
 
 
 

@@ -38,3 +38,7 @@ Route::get('/games/{gameId}', GameCompanion::class)->name('games.show');
 use \App\Http\Controllers\GameLookupController;
 Route::get('/games/{game}/lookup-jersey', [GameLookupController::class, 'lookup'])
     ->name('games.lookupJersey');
+
+use \App\Http\Controllers\GameCardsController;
+Route::get('/game-cards/{cardType}', [GameCardsController::class, 'index'])
+    ->name('games-cards.index');
