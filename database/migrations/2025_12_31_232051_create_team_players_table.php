@@ -30,6 +30,8 @@ return new class extends Migration
             $table->integer('sack_to');
             $table->integer('interception_from');
             $table->integer('interception_to');
+            $table->integer('tackle_from');
+            $table->integer('tackle_to');
             $table->integer('kick_from');
             $table->integer('kick_to');
             $table->integer('punt_from');

@@ -18,6 +18,10 @@ return new class extends Migration
             $table->integer('playcalling_behind')->default(0);
             $table->integer('playcalling_tied')->default(0);
             $table->integer('playcalling_ahead')->default(0);
+            $table->integer('ol_rush')->default(0);
+            $table->integer('ol_power')->default(0);
+            $table->integer('ol_pass')->default(0);
+            $table->integer('ol_protect')->default(0);
             $table->timestamps();
         });
     }

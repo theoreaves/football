@@ -106,6 +106,8 @@ class SeedGenericTeams extends Command
                         'sack_to' => $row['sack'][1],
                         'interception_from' => $row['int'][0],
                         'interception_to' => $row['int'][1],
+                        'tackle_from' => $row['int'][0],
+                        'tackle_to' => $row['int'][1],
 
                         // Return ranges
                         'kick_from' => $row['kick'][0],

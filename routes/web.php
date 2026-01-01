@@ -10,3 +10,10 @@ Route::get('/', function () {
 
 Route::get('/football', GameCompanion::class);
 Route::get('/football/{gameId}', GameCompanion::class);
+
+use App\Http\Controllers\TeamSheetController;
+
+Route::get('/teams/{team}/sheet/{year?}', [TeamSheetController::class, 'show'])
+    ->whereNumber('team')
+    ->name('teams.sheet');
+
