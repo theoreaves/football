@@ -43,6 +43,14 @@ class GameCompanion extends Component
 
     public ?string $kickoff_kicking_team = null; // HOME|AWAY
 
+    // Participants (plays table FKs -> team_players.id)
+    public ?int $qb_team_player_id = null;
+    public ?int $ballcarrier_team_player_id = null;
+    public ?int $receiver_team_player_id = null;
+    public ?int $tackled_by_team_player_id = null;
+    public ?int $intercepted_by_team_player_id = null;
+    public ?int $fumble_recovered_by_team_player_id = null;
+
 
     protected $listeners = ['setDownAndDistance'];
 
@@ -215,6 +223,22 @@ class GameCompanion extends Component
         $this->handleEngineResult($result);
 
 
+        // Decide which participant columns apply for this play type
+        $pt = strtoupper((string) $this->play_type);
+
+        $qb  = in_array($pt, ['PASS','INCOMPLETE','INT','SACK'], true) ? $this->qb_team_player_id : null;
+        $rcv = in_array($pt, ['PASS','INCOMPLETE','INT'], true) ? $this->receiver_team_player_id : null;
+
+        $bc  = in_array($pt, ['RUN','FUMBLE'], true) ? $this->ballcarrier_team_player_id : null;
+
+        $tkl = in_array($pt, ['RUN','PASS','INCOMPLETE','FUMBLE','SACK'], true) ? $this->tackled_by_team_player_id : null;
+
+        $intBy = ($pt === 'INT') ? $this->intercepted_by_team_player_id : null;
+
+// NOTE: “fumble recovered by” only on FUMBLE (per your note)
+        $fumRec = ($pt === 'FUMBLE') ? $this->fumble_recovered_by_team_player_id : null;
+
+
         Play::create([
             'game_id' => $this->game->id,
             'seq' => $this->game->play_seq,
@@ -237,11 +261,28 @@ class GameCompanion extends Component
             'first_down' => (bool)$result['first_down'],
             'turnover' => (bool)$result['turnover'],
             'touchdown' => (bool)$result['touchdown'],
+
+            'qb_team_player_id' => $qb,
+            'ballcarrier_team_player_id' => $bc,
+            'receiver_team_player_id' => $rcv,
+            'tackled_by_team_player_id' => $tkl,
+            'intercepted_by_team_player_id' => $intBy,
+            'fumble_recovered_by_team_player_id' => $fumRec,
         ]);
 
         $this->play_type = '';
         $this->play_yards = 0;
         $this->play_note = '';
+
+        $this->qb_team_player_id = null;
+        $this->ballcarrier_team_player_id = null;
+        $this->receiver_team_player_id = null;
+        $this->tackled_by_team_player_id = null;
+        $this->intercepted_by_team_player_id = null;
+        $this->fumble_recovered_by_team_player_id = null;
+
+
+
         $this->game->refresh();
 
         $this->dispatch('play-recorded');
@@ -804,6 +845,12 @@ class GameCompanion extends Component
             'first_down' => true,
             'turnover' => true,
             'touchdown' => (bool) ($res['touchdown'] ?? false),
+            'qb_team_player_id' => $this->qb_team_player_id,
+            'receiver_team_player_id' => $this->receiver_team_player_id,
+            'intercepted_by_team_player_id' => $this->intercepted_by_team_player_id,
+            'tackled_by_team_player_id' => $this->tackled_by_team_player_id,
+
+
         ]);
 
         $this->int_recorded = false;
@@ -872,6 +919,10 @@ class GameCompanion extends Component
             'first_down' => (bool) ($res['turnover'] ?? false),
             'turnover' => (bool) ($res['turnover'] ?? false),
             'touchdown' => (bool) ($res['touchdown'] ?? false),
+            'ballcarrier_team_player_id' => $this->ballcarrier_team_player_id,
+            'tackled_by_team_player_id' => $this->tackled_by_team_player_id,
+            'fumble_recovered_by_team_player_id' => $this->fumble_recovered_by_team_player_id,
+
         ]);
 
         $this->fumble_recovered_by = 'OFFENSE';

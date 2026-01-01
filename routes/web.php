@@ -34,3 +34,7 @@ Route::get('/games/new', [GameSetupController::class, 'create'])->name('games.cr
 Route::post('/games/new', [GameSetupController::class, 'store'])->name('games.store');
 
 Route::get('/games/{gameId}', GameCompanion::class)->name('games.show');
+
+use \App\Http\Controllers\GameLookupController;
+Route::get('/games/{game}/lookup-jersey', [GameLookupController::class, 'lookup'])
+    ->name('games.lookupJersey');
