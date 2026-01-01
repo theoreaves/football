@@ -70,6 +70,13 @@
                     <div>Generated: {{ now()->format('Y-m-d H:i') }}</div>
                     <div>Total Players: {{ $players->count() }}</div>
                 </div>
+
+                <div class="text-right">
+                    <a href="{{ route('teams.index') }}"
+                       class="text-blue-400 hover:text-blue-300 font-medium">
+                        ← Back
+                    </a>
+                </div>
             </div>
 
             <div class="mt-4 h-px bg-white/10"></div>
@@ -134,8 +141,10 @@
                                 <tr class="bg-gray-950">
                                     <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
                                     <td class="px-3 py-2">
-                                        {{ $p->firstname }} {{ $p->lastname }}
-                                        <span class="text-xs text-gray-400">({{ $p->age }})</span>
+                                        <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                            {{ $p->firstname }} {{ $p->lastname }}
+                                            <span class="text-xs text-gray-400">({{ $p->age }})</span>
+                                        </a>
                                     </td>
 
                                     <td class="text-center px-3 py-2">{{ $p->rush }}</td>
@@ -188,8 +197,10 @@
                                 <tr class="bg-gray-950">
                                     <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
                                     <td class="px-3 py-2">
-                                        {{ $p->firstname }} {{ $p->lastname }}
-                                        <span class="text-xs text-gray-400">({{ $p->age }})</span>
+                                        <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                            {{ $p->firstname }} {{ $p->lastname }}
+                                            <span class="text-xs text-gray-400">({{ $p->age }})</span>
+                                        </a>
                                     </td>
 
                                     <td class="text-center px-3 py-2">{{ $p->rush }}</td>
@@ -309,7 +320,12 @@
                                 @forelse($dl as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
-                                        <td class="px-3 py-2">{{ $p->firstname }} {{ $p->lastname }}</td>
+                                        <td class="px-3 py-2">
+                                        <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                            {{ $p->firstname }} {{ $p->lastname }}
+                                        </a>
+                                        </td>
+
                                         <td class="text-center px-3 py-2">{{ $p->tackle }}</td>
                                         <td class="text-center px-3 py-2">{{ $p->sack }}</td>
                                         <td class="text-center px-3 py-2">{{ $p->strip }}</td>
@@ -346,7 +362,11 @@
                                 @forelse($lb as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
-                                        <td class="px-3 py-2">{{ $p->firstname }} {{ $p->lastname }}</td>
+                                        <td class="px-3 py-2">
+                                            <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                                {{ $p->firstname }} {{ $p->lastname }}
+                                            </a>
+                                        </td>
                                         <td class="text-center px-3 py-2">{{ $p->tackle }}</td>
                                         <td class="text-center px-3 py-2">{{ $p->cover }}</td>
                                         <td class="text-center px-3 py-2">{{ $p->interception }}</td>
@@ -383,7 +403,11 @@
                                 @forelse($db as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
-                                        <td class="px-3 py-2">{{ $p->firstname }} {{ $p->lastname }}</td>
+                                        <td class="px-3 py-2">
+                                            <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                                {{ $p->firstname }} {{ $p->lastname }}
+                                            </a>
+                                        </td>
                                         <td class="text-center px-3 py-2">{{ $p->tackle }}</td>
                                         <td class="text-center px-3 py-2">{{ $p->cover }}</td>
                                         <td class="text-center px-3 py-2">{{ $p->interception }}</td>
@@ -429,7 +453,11 @@
                             @forelse($kp as $p)
                                 <tr class="bg-gray-950">
                                     <td class="px-3 py-2 font-semibold">{{ strtoupper((string)$p->pivot->position) }}</td>
-                                    <td class="px-3 py-2">{{ $p->firstname }} {{ $p->lastname }}</td>
+                                    <td class="px-3 py-2">
+                                        <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                            {{ $p->firstname }} {{ $p->lastname }}
+                                        </a>
+                                    </td>
 
                                     <td class="text-center px-3 py-2">{{ $p->kick30 }}</td>
                                     <td class="text-center px-3 py-2">{{ $p->kick39 }}</td>
@@ -476,7 +504,11 @@
                                     @forelse($kr as $p)
                                         <tr class="bg-gray-950">
                                             <td class="px-3 py-2 font-semibold">{{ $p->pivot->kick_return_depth_chart_position }}</td>
-                                            <td class="px-3 py-2">{{ $p->firstname }} {{ $p->lastname }}</td>
+                                            <td class="px-3 py-2">
+                                                <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                                    {{ $p->firstname }} {{ $p->lastname }}
+                                                </a>
+                                            </td>
                                             <td class="text-center px-3 py-2">{{ $p->return_yards }}</td>
                                             <td class="text-center px-3 py-2">{{ $p->return_speed }}</td>
                                             <td class="text-center px-3 py-2">{{ $p->return_fumble }}</td>
@@ -506,7 +538,11 @@
                                     @forelse($pr as $p)
                                         <tr class="bg-gray-950">
                                             <td class="px-3 py-2 font-semibold">{{ $p->pivot->punt_return_depth_chart_position }}</td>
-                                            <td class="px-3 py-2">{{ $p->firstname }} {{ $p->lastname }}</td>
+                                            <td class="px-3 py-2">
+                                                <a href="{{ route('players.show', $p) }}" class="text-blue-400 hover:text-blue-300">
+                                                    {{ $p->firstname }} {{ $p->lastname }}
+                                                </a>
+                                            </td>
                                             <td class="text-center px-3 py-2">{{ $p->return_yards }}</td>
                                             <td class="text-center px-3 py-2">{{ $p->return_speed }}</td>
                                             <td class="text-center px-3 py-2">{{ $p->return_fumble }}</td>

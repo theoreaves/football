@@ -17,3 +17,11 @@ Route::get('/teams/{team}/sheet/{year?}', [TeamSheetController::class, 'show'])
     ->whereNumber('team')
     ->name('teams.sheet');
 
+use App\Http\Controllers\TeamController;
+
+Route::get('/teams', [TeamController::class, 'index'])->name('teams.index');
+Route::get('/teams/{team}/sheet', [TeamController::class, 'sheet'])->name('teams.sheet');
+
+use App\Http\Controllers\PlayerController;
+
+Route::get('/players/{player}', [PlayerController::class, 'show'])->name('players.show');
