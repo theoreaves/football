@@ -35,4 +35,16 @@ class Game extends Model
     {
         return "{$this->pos_side} {$this->pos_yardline}";
     }
+
+    public function homeTeam() { return $this->belongsTo(Team::class, 'home_team_id'); }
+    public function awayTeam() { return $this->belongsTo(Team::class, 'away_team_id'); }
+
+    public function getHomeLabelAttribute() { return $this->homeTeam?->city.' '.$this->homeTeam?->name ?? 'HOME'; }
+    public function getAwayLabelAttribute() { return $this->awayTeam?->city.' '.$this->awayTeam?->name ?? 'AWAY'; }
+
+    public function labelForSide(string $side): string
+    {
+        return $side === 'AWAY' ? $this->away_label : $this->home_label;
+    }
+
 }

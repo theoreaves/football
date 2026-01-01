@@ -48,9 +48,14 @@ class GameCompanion extends Component
 
     public function mount(?int $gameId = null): void
     {
+//        $this->game = $gameId
+//            ? \App\Models\Game::findOrFail($gameId)
+//            : \App\Models\Game::create();
+
         $this->game = $gameId
-            ? \App\Models\Game::findOrFail($gameId)
+            ? \App\Models\Game::with(['homeTeam','awayTeam'])->findOrFail($gameId)
             : \App\Models\Game::create();
+
 
         $this->kickoff_kicking_team = $this->game->kick_team; // likely null
 

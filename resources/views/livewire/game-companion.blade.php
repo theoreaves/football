@@ -22,12 +22,12 @@
             $aq = $game->away_q ?? [0,0,0,0,0];
         @endphp
         <tr>
-            <td class="py-1 font-semibold">AWAY</td>
+            <td class="py-1 font-semibold">{{ $game->away_label }}</td>
             <td>{{ $aq[0] }}</td><td>{{ $aq[1] }}</td><td>{{ $aq[2] }}</td> <td>{{ $aq[3] }}</td> <td>{{ $aq[4] }}</td>
             <td class="font-semibold">{{ array_sum($aq) }}</td>
         </tr>
         <tr>
-            <td class="py-1 font-semibold">HOME</td>
+            <td class="py-1 font-semibold">{{ $game->home_label }}</td>
             <td>{{ $hq[0] }}</td><td>{{ $hq[1] }}</td><td>{{ $hq[2] }}</td> <td>{{ $hq[3] }}</td> <td>{{ $hq[4] }}</td>
             <td class="font-semibold">{{ array_sum($hq) }}</td>
         </tr>
@@ -38,7 +38,7 @@
     <div class="flex flex-wrap gap-4 items-center">
         <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
             <div class="text-sm opacity-80">Possession</div>
-            <div class="font-semibold">{{ $game->possession }}</div>
+            <div class="font-semibold">{{ $game->labelForSide($game->possession) }}</div>
         </div>
 
         <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
@@ -483,8 +483,9 @@
                             <select wire:model="kickoff_kicking_team"
                                     class="bg-gray-900 border border-gray-700 rounded px-2 py-1">
                                 <option value="">Choose…</option>
-                                <option value="HOME">{{ $game->home_name ?? 'HOME' }}</option>
-                                <option value="AWAY">{{ $game->away_name ?? 'AWAY' }}</option>
+                                <option value="AWAY">{{ $game->away_label }}</option>
+                                <option value="HOME">{{ $game->home_label }}</option>
+
                             </select>
 
                             <button type="button"
