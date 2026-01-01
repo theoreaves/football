@@ -47,4 +47,13 @@ class Game extends Model
         return $side === 'AWAY' ? $this->away_label : $this->home_label;
     }
 
+    // App\Models\Game.php
+    public function possessionTeam()
+    {
+        return $this->possession === 'HOME'
+            ? $this->homeTeam
+            : $this->awayTeam;
+    }
+
+
 }

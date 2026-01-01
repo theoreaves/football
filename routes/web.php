@@ -29,6 +29,7 @@ Route::get('/players/{player}', [PlayerController::class, 'show'])->name('player
 use App\Http\Controllers\GameSetupController;
 //use App\Livewire\GameCompanion;
 
+Route::get('/games/', [GameSetupController::class, 'index'])->name('games.index');
 Route::get('/games/new', [GameSetupController::class, 'create'])->name('games.create');
 Route::post('/games/new', [GameSetupController::class, 'store'])->name('games.store');
 

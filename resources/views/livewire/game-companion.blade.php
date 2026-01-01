@@ -1,10 +1,37 @@
 <div class="p-4 space-y-4 text-gray-100">
 
-    <div class="flex items-center gap-6 text-white/90">
+    <div class="flex items-center gap-6 text-white/90 justify-between">
         <div class="font-semibold">Q{{ $game->quarter }} — {{ $this->clockDisplay }}</div>
+        <div>{{ $game->away_label }} AT {{ $game->home_label }}</div>
     </div>
 
-    <table class="w-full mt-3 text-sm text-white/80">
+
+
+    <div class="flex gap-6 items-center">
+    <div class="flex flex-wrap gap-4 items-center w-1/2">
+        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
+            <div class="text-sm opacity-80">Possession</div>
+            <div class="font-semibold">{{ $game->labelForSide($game->possession) }}</div>
+        </div>
+
+        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
+            <div class="text-sm opacity-80">Spot</div>
+            <div class="font-semibold">{{ $game->spot_label }}</div>
+        </div>
+
+        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
+            <div class="text-sm opacity-80">Down & Distance</div>
+            <div class="font-semibold">{{ $game->down }} &amp; {{ $game->to_go }}</div>
+        </div>
+
+        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
+            <div class="text-sm opacity-80">Score</div>
+            <div class="font-semibold">{{ $game->away_score }} {{ strtoupper($game->awayTeam->name) }} - {{ strtoupper($game->homeTeam->name) }} {{ $game->home_score }}</div>
+        </div>
+    </div>
+
+
+    <table class="w-1/2 mt-3 text-sm text-white/80">
         <thead>
         <tr class="text-left">
             <th class="py-1"></th>
@@ -34,31 +61,7 @@
         </tbody>
     </table>
 
-
-    <div class="flex flex-wrap gap-4 items-center">
-        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
-            <div class="text-sm opacity-80">Possession</div>
-            <div class="font-semibold">{{ $game->labelForSide($game->possession) }}</div>
-        </div>
-
-        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
-            <div class="text-sm opacity-80">Spot</div>
-            <div class="font-semibold">{{ $game->spot_label }}</div>
-        </div>
-
-        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
-            <div class="text-sm opacity-80">Down & Distance</div>
-            <div class="font-semibold">{{ $game->down }} &amp; {{ $game->to_go }}</div>
-        </div>
-
-        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
-            <div class="text-sm opacity-80">Score</div>
-            <div class="font-semibold">{{ $game->away_score }} {{ $game->away_name }} - {{ $game->home_name }} {{ $game->home_score }}</div>
-        </div>
     </div>
-
-
-
 
     {{-- NEW Field --}}
     @php
@@ -285,10 +288,21 @@
             @endif
 
             {{-- Optional spot text --}}
+{{--            <div class="absolute bottom-2 left-2 text-xs text-white/80 bg-black/40 px-2 py-1 rounded">--}}
+{{--                {{ $game->possession }} ball — {{ $game->pos_side }} {{ (int)$game->pos_yardline }}--}}
+{{--                (abs from HOME: {{ $this->absFromHome }})--}}
+{{--            </div>--}}
+
+            @php
+                $posTeam = $game->possessionTeam();
+            @endphp
+
             <div class="absolute bottom-2 left-2 text-xs text-white/80 bg-black/40 px-2 py-1 rounded">
-                {{ $game->possession }} ball — {{ $game->pos_side }} {{ (int)$game->pos_yardline }}
-                (abs from HOME: {{ $this->absFromHome }})
+                {{ strtoupper($posTeam->name) }} ball
+                — {{ $game->pos_side }} {{ (int)$game->pos_yardline }}
+{{--                (abs from {{ $game->homeTeam->name }}: {{ $this->absFromHome }})--}}
             </div>
+
 
         </div>
     </div>

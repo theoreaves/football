@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 
 class GameSetupController extends Controller
 {
+    public function index()
+    {
+        $games = Game::all();
+        return view('games.index', compact('games'));
+    }
     public function create()
     {
         $teams = Team::orderBy('city')->orderBy('name')->get();
