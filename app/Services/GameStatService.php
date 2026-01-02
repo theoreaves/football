@@ -87,7 +87,7 @@ class GameStatService
             $fumRec = $p->fumbleRecoveredByTeamPlayer;
 
             // Passing: PASS, INCOMPLETE, INT are attempts
-            if (in_array($type, ['PASS', 'INCOMPLETE', 'INT'], true)) {
+            if (in_array($type, ['PASS', 'INCOMPLETE', 'INT', 'INTERCEPTION'], true)) {
                 if ($qb) {
                     $ensure($qb);
                     $side = $players[$qb->id]['side'];
@@ -120,7 +120,7 @@ class GameStatService
                         }
                     }
 
-                    if ($type === 'INT') {
+                    if ($type === 'INT' or $type === 'INTERCEPTION') {
                         $addPlayer($qb, 'passing', 'int', 1);
                         if ($side) $addTeam($side, 'passing', 'int', 1);
                     }
@@ -135,7 +135,7 @@ class GameStatService
                 }
 
                 // Defensive INT + return yards: on INT play, yards should represent return yards (as you’ve been doing)
-                if ($type === 'INT' && $intBy) {
+                if (($type === 'INT' or $type === 'INTERCEPTION') && $intBy) {
                     $ensure($intBy);
                     $iSide = $players[$intBy->id]['side'];
                     $addPlayer($intBy, 'defense', 'int', 1);

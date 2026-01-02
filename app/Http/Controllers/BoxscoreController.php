@@ -73,9 +73,9 @@ class BoxscoreController extends Controller
                 ->count();
         };
 
-        $passAtt = fn(string $side) => $count($side, ['PASS','INCOMPLETE','INT']); // sacks excluded
+        $passAtt = fn(string $side) => $count($side, ['PASS','INCOMPLETE','INT', 'INTERCEPTION']); // sacks excluded
         $passComp = fn(string $side) => $count($side, ['PASS']); // “PASS” is complete per your rules
-        $passYds = fn(string $side) => $sum($side, ['PASS','INCOMPLETE','INT']); // if you store yards on incompletions as 0 this is fine
+        $passYds = fn(string $side) => $sum($side, ['PASS','INCOMPLETE','INT', 'INTERCEPTION']); // if you store yards on incompletions as 0 this is fine
         $rushAtt = fn(string $side) => $count($side, ['RUN']); // sacks are NOT rush attempts (per your rule)
         $rushYds = fn(string $side) => $sum($side, ['RUN']);
 
@@ -190,7 +190,7 @@ class BoxscoreController extends Controller
             $type = (string)($p->type ?? '');
 
             // Passing attempts are PASS, INCOMPLETE, INT (not SACK)
-            if (in_array($type, ['PASS','INCOMPLETE','INT'], true) && $p->qb_team_player_id) {
+            if (in_array($type, ['PASS','INCOMPLETE','INT', 'INTERCEPTION'], true) && $p->qb_team_player_id) {
                 $side = $getSideForTeamPlayer($p->qb_team_player_id);
                 if ($side) {
                     $k = $p->qb_team_player_id;
@@ -199,7 +199,7 @@ class BoxscoreController extends Controller
                     $out[$side]['passing'][$k]['cmp']  = ($out[$side]['passing'][$k]['cmp'] ?? 0) + ($type === 'PASS' ? 1 : 0);
                     $out[$side]['passing'][$k]['yds']  = ($out[$side]['passing'][$k]['yds'] ?? 0) + (int)($p->yards ?? 0);
                     $out[$side]['passing'][$k]['td']   = ($out[$side]['passing'][$k]['td'] ?? 0) + ((int)($p->touchdown ?? 0) === 1 ? 1 : 0);
-                    $out[$side]['passing'][$k]['int']  = ($out[$side]['passing'][$k]['int'] ?? 0) + ($type === 'INT' ? 1 : 0);
+                    $out[$side]['passing'][$k]['int']  = ($out[$side]['passing'][$k]['int'] ?? 0) + (($type === 'INT' or $type === 'INTERCEPTION') ? 1 : 0);
                 }
             }
 
@@ -238,7 +238,7 @@ class BoxscoreController extends Controller
             }
 
             // Defense interceptions
-            if ($type === 'INT' && $p->intercepted_by_team_player_id) {
+            if (($type === 'INT' or $type === 'INTERCEPTION') && $p->intercepted_by_team_player_id) {
                 $side = $getSideForTeamPlayer($p->intercepted_by_team_player_id);
                 if ($side) {
                     $k = $p->intercepted_by_team_player_id;

@@ -142,6 +142,7 @@ class Play extends Model
                 break;
 
             case 'INT':
+            case 'INTERCEPTION':
                 $txt = "PASS";
                 if ($qb) $txt .= " by {$qb}";
                 $txt .= " INTERCEPTED";
