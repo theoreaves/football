@@ -66,6 +66,10 @@
                                    class="text-blue-400 hover:text-blue-300 font-semibold">
                                     Open →
                                 </a>
+                                <a href="{{ route('games.boxscore', $game) }}"
+                                   class="text-blue-400 hover:text-blue-300 font-semibold">
+                                    Box →
+                                </a>
                             </td>
                         </tr>
                     @empty

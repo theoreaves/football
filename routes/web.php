@@ -57,3 +57,10 @@ use App\Http\Controllers\PdfLibraryController;
 
 Route::get('/pdf-library', [PdfLibraryController::class, 'index'])->name('pdf.library');
 Route::get('/pdf-library/list', [PdfLibraryController::class, 'list'])->name('pdf.library.list');
+
+// routes/web.php
+use App\Http\Controllers\BoxscoreController;
+
+Route::get('/games/{game}/boxscore', [BoxscoreController::class, 'show'])
+    ->name('games.boxscore');
+
