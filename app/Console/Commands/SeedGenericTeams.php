@@ -6,6 +6,7 @@ use App\Models\Player;
 use App\Models\Team;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Faker\Factory as Faker;
 
 class SeedGenericTeams extends Command
 {
@@ -170,25 +171,25 @@ class SeedGenericTeams extends Command
             ['position'=>'WR', 'depth'=>'WR4', 'real_name'=>'Justin Watson',       'catch'=>$R('20'),    'catch_plus'=>$R('20'),    'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
 
             // Defense (only sack/int shown on your sheet; tackle range not provided => 0)
-            ['position'=>'DL', 'depth'=>'DL1', 'real_name'=>'Chris Jones',      'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('1-7'),   'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'DL', 'depth'=>'DL2', 'real_name'=>'George Karlaftis', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('8-10'),  'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'DL', 'depth'=>'DL3', 'real_name'=>'Frank Clark',      'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('11-12'), 'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'DL', 'depth'=>'DL4', 'real_name'=>'Khalen Saunders',  'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('13'),    'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'DL', 'depth'=>'DL5', 'real_name'=>'Carlos Dunlap',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('14-15'), 'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'DL', 'depth'=>'DL1', 'real_name'=>'Chris Jones',      'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('1-7'),   'int'=>$R('-'), 'tackle'=>$R('1'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'DL', 'depth'=>'DL2', 'real_name'=>'George Karlaftis', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('8-10'),  'int'=>$R('-'), 'tackle'=>$R('2'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'DL', 'depth'=>'DL3', 'real_name'=>'Frank Clark',      'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('11-12'), 'int'=>$R('-'), 'tackle'=>$R('3'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'DL', 'depth'=>'DL4', 'real_name'=>'Khalen Saunders',  'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('13'),    'int'=>$R('-'), 'tackle'=>$R('4'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'DL', 'depth'=>'DL5', 'real_name'=>'Carlos Dunlap',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('14-15'), 'int'=>$R('-'), 'tackle'=>$R('5'), 'kick'=>$R('-'), 'punt'=>$R('-')],
 
-            ['position'=>'LB', 'depth'=>'LB1', 'real_name'=>'Nick Bolton',   'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('16'), 'int'=>$R('1-4'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'LB', 'depth'=>'LB2', 'real_name'=>'Willie Gay',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('17'), 'int'=>$R('5-6'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'LB', 'depth'=>'LB3', 'real_name'=>'Darius Harris', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('18'), 'int'=>$R('7'),   'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'LB', 'depth'=>'LB4', 'real_name'=>'Leo Chenal',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'),  'int'=>$R('-'),   'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'LB', 'depth'=>'LB5', 'real_name'=>'Jack Cochrane', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'),  'int'=>$R('-'),   'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'LB', 'depth'=>'LB1', 'real_name'=>'Nick Bolton',   'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('16'), 'int'=>$R('1-4'), 'tackle'=>$R('6-9'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'LB', 'depth'=>'LB2', 'real_name'=>'Willie Gay',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('17'), 'int'=>$R('5-6'), 'tackle'=>$R('10'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'LB', 'depth'=>'LB3', 'real_name'=>'Darius Harris', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('18'), 'int'=>$R('7'),   'tackle'=>$R('11'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'LB', 'depth'=>'LB4', 'real_name'=>'Leo Chenal',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'),  'int'=>$R('-'),   'tackle'=>$R('12'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'LB', 'depth'=>'LB5', 'real_name'=>'Jack Cochrane', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'),  'int'=>$R('-'),   'tackle'=>$R('-'), 'kick'=>$R('-'), 'punt'=>$R('-')],
 
-            ['position'=>'CB', 'depth'=>'CB1', 'real_name'=>"L'Jarius Sneed", 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('19-20'), 'int'=>$R('8-11'),  'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'CB', 'depth'=>'CB2', 'real_name'=>'Trent McDuffie',  'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'),     'int'=>$R('12-13'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'CB', 'depth'=>'CB1', 'real_name'=>"L'Jarius Sneed", 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('19-20'), 'int'=>$R('8-11'),  'tackle'=>$R('13-15'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'CB', 'depth'=>'CB2', 'real_name'=>'Trent McDuffie',  'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'),     'int'=>$R('12-13'), 'tackle'=>$R('16'), 'kick'=>$R('-'), 'punt'=>$R('-')],
 
-            ['position'=>'S',  'depth'=>'S1', 'real_name'=>'Justin Reid',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('14-15'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
-            ['position'=>'S',  'depth'=>'S2', 'real_name'=>'Juan Thornhill', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('16-17'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'S',  'depth'=>'S1', 'real_name'=>'Justin Reid',    'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('14-15'), 'tackle'=>$R('17-18'), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'S',  'depth'=>'S2', 'real_name'=>'Juan Thornhill', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('16-17'), 'tackle'=>$R('19'), 'kick'=>$R('-'), 'punt'=>$R('-')],
 
-            ['position'=>'DB', 'depth'=>'DB1','real_name'=>'Jaylen Watson',  'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('18-20'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
+            ['position'=>'DB', 'depth'=>'DB1','real_name'=>'Jaylen Watson',  'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('18-20'), 'tackle'=>$R('20'), 'kick'=>$R('-'), 'punt'=>$R('-')],
 
             // Specialists
             ['position'=>'K', 'depth'=>'K', 'real_name'=>'Harrison Butker', 'catch'=>$R('-'),'catch_plus'=>$R('-'),'rush'=>$R('-'), 'sack'=>$R('-'), 'int'=>$R('-'), 'tackle'=>$Z(), 'kick'=>$R('-'), 'punt'=>$R('-')],
@@ -296,14 +297,16 @@ class SeedGenericTeams extends Command
 
     private function randomFirstName(): string
     {
-        $pool = ['Alex','Jordan','Taylor','Chris','Drew','Miles','Evan','Noah','Liam','Mason','Carter','Logan','Aiden','Jace','Cole'];
-        return $pool[array_rand($pool)];
+//        $pool = ['Alex','Jordan','Taylor','Chris','Drew','Miles','Evan','Noah','Liam','Mason','Carter','Logan','Aiden','Jace','Cole'];
+//        return $pool[array_rand($pool)];
+        return Faker::create()->firstName;
     }
 
     private function randomLastName(): string
     {
-        $pool = ['Hayes','Walker','Bennett','Reed','Coleman','Parker','Simmons','Young','Price','Howard','Brooks','James','Foster','Murphy','Turner'];
-        return $pool[array_rand($pool)];
+//        $pool = ['Hayes','Walker','Bennett','Reed','Coleman','Parker','Simmons','Young','Price','Howard','Brooks','James','Foster','Murphy','Turner'];
+//        return $pool[array_rand($pool)];
+        return Faker::create()->lastName;
     }
 
     private function randomAttributesForPosition(string $pos): array
