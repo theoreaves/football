@@ -243,9 +243,14 @@
                         die.spin = null;
                     },
 
+                    finalize10Die(die) {
+                        die.value = this.rand(0, 9);
+                        die.spin = null;
+                    },
+
                     computePlayResult() {
                         // only from first two dice: red + white => "57" style
-                        if (!this.red.value || !this.white.value) return null;
+                        if (!this.red.value && !this.white.value) return null;
                         return parseInt(String(this.red.value) + String(this.white.value), 10);
                     },
 
@@ -260,17 +265,20 @@
                         // spinning values
                         const spinTimer = setInterval(() => {
                             this.red.spin    = this.rand(1, this.red.sides);
-                            this.white.spin  = this.rand(1, this.white.sides);
-                            this.blue.spin   = this.rand(1, this.blue.sides);
+                            // this.white.spin  = this.rand(1, this.white.sides);
+                            // this.blue.spin   = this.rand(1, this.blue.sides);
                             this.green.spin  = this.rand(1, this.green.sides);
                             this.orange.spin = this.rand(1, this.orange.sides);
+                            this.white.spin  = this.rand(0, 9);
+                            this.blue.spin   = this.rand(0, 9);
+
 
                             if (Date.now() - start >= duration) {
                                 clearInterval(spinTimer);
 
                                 this.finalizeDie(this.red);
-                                this.finalizeDie(this.white);
-                                this.finalizeDie(this.blue);
+                                this.finalize10Die(this.white);
+                                this.finalize10Die(this.blue);
                                 this.finalizeDie(this.green);
                                 this.finalizeDie(this.orange);
 

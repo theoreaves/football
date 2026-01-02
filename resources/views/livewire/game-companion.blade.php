@@ -880,10 +880,10 @@
             <div class="p-4 rounded bg-gray-800 border border-gray-700 space-y-4">
                 <div class="flex justify-between">
                     <div class="font-semibold">Game Controls</div>
-                    <div class="font-semibold cursor-pointer" onclick="openPlayCard('offense')" >Offense Plays</div>
-                    <div class="font-semibold cursor-pointer" onclick="openPlayCard('defense')" >Defense Plays</div>
-                    <div class="font-semibold cursor-pointer" onclick="openPlayCard('coach')" >Coach</div>
-                    <div class="font-semibold cursor-pointer" onclick="openDice()" >Dice</div>
+                    <div class="font-semibold cursor-pointer text-sm" onclick="openPlayCard('offense')" >Offense Plays</div>
+                    <div class="font-semibold cursor-pointer text-sm" onclick="openPlayCard('defense')" >Defense Plays</div>
+                    <div class="font-semibold cursor-pointer text-sm" onclick="openPlayCard('coach')" >Coach</div>
+                    <div class="font-semibold cursor-pointer text-sm" onclick="openDice()" >Dice</div>
                 </div>
 
                 {{-- Spot (Kickoff / Spot) --}}
