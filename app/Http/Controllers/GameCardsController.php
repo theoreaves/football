@@ -37,6 +37,28 @@ class GameCardsController extends Controller
                     ['key' => 'card7', 'label' => 'Deep Zone', 'src' => asset('defense-cards/deep_zone.png')],
                 ];
                 break;
+            case 'game':
+                $cardSheet = 'Game Charts';
+                $cards = [
+                    ['key' => 'card1', 'label' => 'Field Goals', 'src' => asset('special-teams-cards/field_goals.png')],
+                    ['key' => 'card2', 'label' => 'Kickoffs', 'src' => asset('special-teams-cards/kickoffs.png')],
+                    ['key' => 'card3', 'label' => 'Onside Kicks', 'src' => asset('special-teams-cards/onside_kicks.png')],
+                    ['key' => 'card4', 'label' => 'Pooch Punts', 'src' => asset('special-teams-cards/pooch_punts.png')],
+                    ['key' => 'card5', 'label' => 'Punt Returns', 'src' => asset('special-teams-cards/punt_returns.png')],
+                    ['key' => 'card6', 'label' => 'Punts', 'src' => asset('special-teams-cards/punts.png')],
+                    ['key' => 'card7', 'label' => 'Breakaways', 'src' => asset('play-charts/breakaway.png')],
+                    ['key' => 'card8', 'label' => 'Fumble Recovery', 'src' => asset('play-charts/fumble_recovery.png')],
+                    ['key' => 'card9', 'label' => 'Interception Return', 'src' => asset('play-charts/interception_return.png')],
+                    ['key' => 'card10', 'label' => 'Play Selection', 'src' => asset('helper-cards/play_selection2.png')],
+                ];
+                break;
+            case 'advanced':
+                $cardSheet = 'Advanced Game Charts';
+                $cards = [
+                    ['key' => 'card1', 'label' => 'Disrupter', 'src' => asset('disrupter-cards/card-0.png')],
+                    ['key' => 'card2', 'label' => 'Penalities', 'src' => asset('disrupter-cards/card-1.png')],
+                ];
+                break;
             case 'coach':
                 $cardSheet = 'Defense Game Cards';
                 $cards = [

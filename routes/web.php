@@ -46,3 +46,14 @@ Route::get('/game-cards/{cardType}', [GameCardsController::class, 'index'])
 use App\Http\Controllers\DiceController;
 Route::get('/dice', [DiceController::class, 'index'])
     ->name('dice.index');
+
+// routes/web.php
+
+use App\Http\Controllers\PdfLibraryController;
+
+//Route::get('/pdf-library/list', [PdfLibraryController::class, 'list'])->name('pdf.library.list');
+//Route::get('/pdf-library/view/{file}', [PdfLibraryController::class, 'view'])->where('file', '.*')->name('pdf.library.view');
+//
+
+Route::get('/pdf-library', [PdfLibraryController::class, 'index'])->name('pdf.library');
+Route::get('/pdf-library/list', [PdfLibraryController::class, 'list'])->name('pdf.library.list');

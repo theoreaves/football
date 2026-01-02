@@ -2,7 +2,11 @@
 
     <div class="flex items-center gap-6 text-white/90 justify-between">
         <div class="font-semibold">Q{{ $game->quarter }} — {{ $this->clockDisplay }}</div>
-{{--        <div>{{ $game->away_label }} AT {{ $game->home_label }}</div>--}}
+        <div class="flex gap-6">
+            <div class="font-semibold cursor-pointer text-sm" onclick="openPlayCard('game')" >Game Charts</div>
+            <div class="font-semibold cursor-pointer text-sm" onclick="openAdvanced('advanced')" >Advanced Charts</div>
+            <div class="font-semibold cursor-pointer text-sm" onclick="openPdfLibrary()" >PDF Library</div>
+        </div>
         <div class="font-semibold flex gap-2">
             <button
                 class="text-blue-400 hover:underline"
@@ -1207,6 +1211,33 @@
             });
         }
 
+        function openAdvanced(cardType) {
+
+            x = 'center';
+            y = 'center';
+            if (cardType === 'offense') {
+                x = 0;
+                y = 0;
+            }
+            if (cardType === 'defense') {
+                x = window.innerWidth - 410;
+                y = 0;
+            }
+
+            new WinBox({
+                id: 'play-card-' + cardType,
+                title: cardType.toUpperCase() + ' Play Card',
+                url: `/game-cards/${cardType}`, // your existing team sheet route
+                width: 800,
+                height: 700,
+                x: x,
+                y: y,
+                // background: '#111827',
+
+                index: 100000,
+            });
+        }
+
         function openDice() {
             new WinBox({
                 id: 'dice',
@@ -1221,7 +1252,27 @@
                 index: 100000,
             });
         }
+
+
+        function openPdfLibrary() {
+            new WinBox({
+                id: 'dice',
+                title: 'Game Dice',
+                url: "{{ route('pdf.library') }}",
+                width: 900,
+                height: 800,
+                x: 'center',
+                y: 0,
+                // background: '#111827',
+
+                index: 100000,
+            });
+        }
+
+
+
     </script>
+
 
 
 
