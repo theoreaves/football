@@ -391,8 +391,34 @@
             <div class="font-semibold">Add Play</div>
 
 
-                <div
-                    x-data="{
+
+
+                <div class="flex flex-wrap gap-2 items-center">
+                <select  x-ref="result" wire:model="play_type" class="bg-gray-900 border border-gray-700 rounded px-2 py-1">
+                    <option value="">Result</option>
+                    <option value="RUN">RUN</option>
+                    <option value="PASS">PASS</option>
+                    <option value="INCOMPLETE">INCOMPLETE PASS</option>
+                    <option value="FIELDGOAL">FIELD GOAL ATTEMPT</option>
+                    <option value="INT">INTERCEPTION</option>
+                    <option value="FUMBLE">FUMBLE</option>
+                    <option value="SACK">SACK</option>
+                    <option value="PENALTY">PENALTY</option>
+                    <option value="PUNT">PUNT</option>
+                    <option value="KICKOFF">KICKOFF</option>
+                </select>
+
+                <input type="number" min="-99" max="99" x-ref="yards" wire:model="play_yards"
+                       class="w-24 bg-gray-900 border border-gray-700 rounded px-2 py-1"
+                       placeholder="Yards" />
+
+                <input type="text" wire:model="play_note"
+                       class="flex-1 min-w-[180px] bg-gray-900 border border-gray-700 rounded px-2 py-1"
+                       placeholder="Note (optional)" />
+
+
+                    <div
+                        x-data="{
 {{--        playType: @entangle('newPlayType').defer ?? 'RUSH', // if Livewire; otherwise set manually--}}
         playType: @entangle('play_type').live,
 
@@ -456,130 +482,109 @@
             }
         }
     }"
-                    class="rounded-lg border border-white/10 p-4 bg-gray-950"
-                >
-                    <div class="text-sm font-semibold text-gray-200 mb-3">Play Participants</div>
+                        class="rounded-lg border border-white/10 p-4 bg-gray-950"
+                    >
+                        <div class="text-sm font-semibold text-gray-200 mb-3">Play Participants</div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- QB (passing only, offense side) -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- QB (passing only, offense side) -->
 
-                        <div x-show="playType === 'PASS' || playType === 'INCOMPLETE' || playType === 'INT'" x-cloak >
-                            <label class="block text-xs text-gray-400 mb-1">QB Jersey # ({{ $offSide }})</label>
-                            <input type="number" min="0"
-                                   class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
-                                   x-model="qb.number"
-                                   @keydown.enter.prevent="doLookup('qb','{{ $offSide }}')"
-                                   @blur="doLookup('qb','{{ $offSide }}')"
-                                   placeholder="e.g. 15">
-                            <input type="hidden" name="qb_team_player_id" :value="qb.team_player_id">
-                            <div class="mt-1 text-xs" :class="qb.found ? 'text-green-400' : 'text-red-400'" x-text="qb.text"></div>
-                        </div>
-
-                        <!-- Ball Carrier (rush/fumble, offense side) -->
-                        <div x-show="playType === 'RUN' || playType === 'FUMBLE'" x-cloak>
-                            <label class="block text-xs text-gray-400 mb-1">Ball Carrier Jersey # ({{ $offSide }})</label>
-                            <input type="number" min="0"
-                                   class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
-                                   x-model="bc.number"
-                                   @keydown.enter.prevent="doLookup('bc','{{ $offSide }}')"
-                                   @blur="doLookup('bc','{{ $offSide }}')"
-                                   placeholder="e.g. 10">
-                            <input type="hidden" name="ballcarrier_team_player_id" :value="bc.team_player_id">
-                            <div class="mt-1 text-xs" :class="bc.found ? 'text-green-400' : 'text-red-400'" x-text="bc.text"></div>
-                        </div>
-
-                        <!-- Receiver (passing only, offense side) -->
-                        <div x-show="playType === 'PASS' || playType === 'INCOMPLETE' || playType === 'INT'" x-cloak >
-                            <label class="block text-xs text-gray-400 mb-1">Receiver Jersey # ({{ $offSide }})</label>
-                            <input type="number" min="0"
-                                   class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
-                                   x-model="wr.number"
-                                   @keydown.enter.prevent="doLookup('wr','{{ $offSide }}')"
-                                   @blur="doLookup('wr','{{ $offSide }}')"
-                                   placeholder="e.g. 87">
-                            <input type="hidden" name="receiver_team_player_id" :value="wr.team_player_id">
-                            <div class="mt-1 text-xs" :class="wr.found ? 'text-green-400' : 'text-red-400'" x-text="wr.text"></div>
-                        </div>
-
-                        <!-- Tackled By (rush/pass/fumble, defense side) -->
-                        <div x-show="playType === 'RUN' || playType === 'PASS' || playType === 'INCOMPLETE' || playType === 'FUMBLE' || playType === 'SACK'" x-cloak>
-                            <label class="block text-xs text-gray-400 mb-1">Tackled By Jersey # ({{ $defSide }})</label>
-                            <input type="number" min="0"
-                                   class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
-                                   x-model="tkl.number"
-                                   @keydown.enter.prevent="doLookup('tkl','{{ $defSide }}')"
-                                   @blur="doLookup('tkl','{{ $defSide }}')"
-                                   placeholder="e.g. 32">
-                            <input type="hidden" name="tackled_by_team_player_id" :value="tkl.team_player_id">
-                            <div class="mt-1 text-xs" :class="tkl.found ? 'text-green-400' : 'text-red-400'" x-text="tkl.text"></div>
-                        </div>
-
-                        <!-- Intercepted By (only if play result is INT — you can gate this on a checkbox/select) -->
-                        <div x-show="playType === 'INT'" x-cloak>
-                            <label class="block text-xs text-gray-400 mb-1">Intercepted By Jersey # ({{ $defSide }})</label>
-                            <input type="number" min="0"
-                                   class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
-                                   x-model="intBy.number"
-                                   @keydown.enter.prevent="doLookup('intBy','{{ $defSide }}')"
-                                   @blur="doLookup('intBy','{{ $defSide }}')"
-                                   placeholder="e.g. 35">
-                            <input type="hidden" name="intercepted_by_team_player_id" :value="intBy.team_player_id">
-                            <div class="mt-1 text-xs" :class="intBy.found ? 'text-green-400' : 'text-red-400'" x-text="intBy.text"></div>
-                        </div>
-
-                        <!-- Fumble recovered by (fumble only) -->
-                        <div x-show="playType === 'FUMBLE'" x-cloak>
-                            <label class="block text-xs text-gray-400 mb-1">Fumble Recovered By Jersey #</label>
-                            <div class="flex gap-2">
-                                <select class="bg-gray-900 border border-white/10 rounded px-2 py-2 text-sm"
-                                        x-data
-                                        x-on:change="$event.target.dataset.side = $event.target.value">
-                                    <option value="{{ $offSide }}">Recovered by {{ $offSide }}</option>
-                                    <option value="{{ $defSide }}">Recovered by {{ $defSide }}</option>
-                                </select>
-
+                            <div x-show="playType === 'PASS' || playType === 'INCOMPLETE' || playType === 'INT'" x-cloak >
+                                <label class="block text-xs text-gray-400 mb-1">QB Jersey # ({{ $offSide }})</label>
                                 <input type="number" min="0"
                                        class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
-                                       x-model="fumRec.number"
-                                       @keydown.enter.prevent="
+                                       x-model="qb.number"
+                                       @keydown.enter.prevent="doLookup('qb','{{ $offSide }}')"
+                                       @blur="doLookup('qb','{{ $offSide }}')"
+                                       placeholder="e.g. 15">
+                                <input type="hidden" name="qb_team_player_id" :value="qb.team_player_id">
+                                <div class="mt-1 text-xs" :class="qb.found ? 'text-green-400' : 'text-red-400'" x-text="qb.text"></div>
+                            </div>
+
+                            <!-- Ball Carrier (rush/fumble, offense side) -->
+                            <div x-show="playType === 'RUN' || playType === 'FUMBLE'" x-cloak>
+                                <label class="block text-xs text-gray-400 mb-1">Ball Carrier Jersey # ({{ $offSide }})</label>
+                                <input type="number" min="0"
+                                       class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
+                                       x-model="bc.number"
+                                       @keydown.enter.prevent="doLookup('bc','{{ $offSide }}')"
+                                       @blur="doLookup('bc','{{ $offSide }}')"
+                                       placeholder="e.g. 10">
+                                <input type="hidden" name="ballcarrier_team_player_id" :value="bc.team_player_id">
+                                <div class="mt-1 text-xs" :class="bc.found ? 'text-green-400' : 'text-red-400'" x-text="bc.text"></div>
+                            </div>
+
+                            <!-- Receiver (passing only, offense side) -->
+                            <div x-show="playType === 'PASS' || playType === 'INCOMPLETE' || playType === 'INT'" x-cloak >
+                                <label class="block text-xs text-gray-400 mb-1">Receiver Jersey # ({{ $offSide }})</label>
+                                <input type="number" min="0"
+                                       class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
+                                       x-model="wr.number"
+                                       @keydown.enter.prevent="doLookup('wr','{{ $offSide }}')"
+                                       @blur="doLookup('wr','{{ $offSide }}')"
+                                       placeholder="e.g. 87">
+                                <input type="hidden" name="receiver_team_player_id" :value="wr.team_player_id">
+                                <div class="mt-1 text-xs" :class="wr.found ? 'text-green-400' : 'text-red-400'" x-text="wr.text"></div>
+                            </div>
+
+                            <!-- Tackled By (rush/pass/fumble, defense side) -->
+                            <div x-show="playType === 'RUN' || playType === 'PASS' || playType === 'INCOMPLETE' || playType === 'FUMBLE' || playType === 'SACK'" x-cloak>
+                                <label class="block text-xs text-gray-400 mb-1">Tackled By Jersey # ({{ $defSide }})</label>
+                                <input type="number" min="0"
+                                       class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
+                                       x-model="tkl.number"
+                                       @keydown.enter.prevent="doLookup('tkl','{{ $defSide }}')"
+                                       @blur="doLookup('tkl','{{ $defSide }}')"
+                                       placeholder="e.g. 32">
+                                <input type="hidden" name="tackled_by_team_player_id" :value="tkl.team_player_id">
+                                <div class="mt-1 text-xs" :class="tkl.found ? 'text-green-400' : 'text-red-400'" x-text="tkl.text"></div>
+                            </div>
+
+                            <!-- Intercepted By (only if play result is INT — you can gate this on a checkbox/select) -->
+                            <div x-show="playType === 'INT'" x-cloak>
+                                <label class="block text-xs text-gray-400 mb-1">Intercepted By Jersey # ({{ $defSide }})</label>
+                                <input type="number" min="0"
+                                       class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
+                                       x-model="intBy.number"
+                                       @keydown.enter.prevent="doLookup('intBy','{{ $defSide }}')"
+                                       @blur="doLookup('intBy','{{ $defSide }}')"
+                                       placeholder="e.g. 35">
+                                <input type="hidden" name="intercepted_by_team_player_id" :value="intBy.team_player_id">
+                                <div class="mt-1 text-xs" :class="intBy.found ? 'text-green-400' : 'text-red-400'" x-text="intBy.text"></div>
+                            </div>
+
+                            <!-- Fumble recovered by (fumble only) -->
+                            <div x-show="playType === 'FUMBLE'" x-cloak>
+                                <label class="block text-xs text-gray-400 mb-1">Fumble Recovered By Jersey #</label>
+                                <div class="flex gap-2">
+                                    <select class="bg-gray-900 border border-white/10 rounded px-2 py-2 text-sm"
+                                            x-data
+                                            x-on:change="$event.target.dataset.side = $event.target.value">
+                                        <option value="{{ $offSide }}">Recovered by {{ $offSide }}</option>
+                                        <option value="{{ $defSide }}">Recovered by {{ $defSide }}</option>
+                                    </select>
+
+                                    <input type="number" min="0"
+                                           class="w-full bg-gray-900 border border-white/10 rounded px-3 py-2"
+                                           x-model="fumRec.number"
+                                           @keydown.enter.prevent="
                            // default to defense if you want; otherwise hardcode a side or add a dedicated side selector
                            doLookup('fumRec','{{ $defSide }}')
                        "
-                                       @blur="doLookup('fumRec','{{ $defSide }}')"
-                                       placeholder="e.g. 56">
-                            </div>
+                                           @blur="doLookup('fumRec','{{ $defSide }}')"
+                                           placeholder="e.g. 56">
+                                </div>
 
-                            <input type="hidden" name="fumble_recovered_by_team_player_id" :value="fumRec.team_player_id">
-                            <div class="mt-1 text-xs" :class="fumRec.found ? 'text-green-400' : 'text-red-400'" x-text="fumRec.text"></div>
+                                <input type="hidden" name="fumble_recovered_by_team_player_id" :value="fumRec.team_player_id">
+                                <div class="mt-1 text-xs" :class="fumRec.found ? 'text-green-400' : 'text-red-400'" x-text="fumRec.text"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
 
-                <div class="flex flex-wrap gap-2 items-center">
-                <select  x-ref="result" wire:model="play_type" class="bg-gray-900 border border-gray-700 rounded px-2 py-1">
-                    <option value="">Result</option>
-                    <option value="RUN">RUN</option>
-                    <option value="PASS">PASS</option>
-                    <option value="INCOMPLETE">INCOMPLETE PASS</option>
-                    <option value="FIELDGOAL">FIELD GOAL ATTEMPT</option>
-                    <option value="INT">INTERCEPTION</option>
-                    <option value="FUMBLE">FUMBLE</option>
-                    <option value="SACK">SACK</option>
-                    <option value="PENALTY">PENALTY</option>
-                    <option value="PUNT">PUNT</option>
-                    <option value="KICKOFF">KICKOFF</option>
-                </select>
 
-                <input type="number" min="-99" max="99" x-ref="yards" wire:model="play_yards"
-                       class="w-24 bg-gray-900 border border-gray-700 rounded px-2 py-1"
-                       placeholder="Yards" />
 
-                <input type="text" wire:model="play_note"
-                       class="flex-1 min-w-[180px] bg-gray-900 border border-gray-700 rounded px-2 py-1"
-                       placeholder="Note (optional)" />
-
-                <button type="submit"
+                    <button type="submit"
                         class="px-3 py-1 rounded bg-green-600 hover:bg-green-500">
                     Add
                 </button>

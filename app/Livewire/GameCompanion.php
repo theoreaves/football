@@ -275,12 +275,13 @@ class GameCompanion extends Component
         $this->play_yards = 0;
         $this->play_note = '';
 
-        $this->qb_team_player_id = null;
-        $this->ballcarrier_team_player_id = null;
-        $this->receiver_team_player_id = null;
-        $this->tackled_by_team_player_id = null;
-        $this->intercepted_by_team_player_id = null;
-        $this->fumble_recovered_by_team_player_id = null;
+        //keep this out of the reset above so that user can quickly enter another play with same participants
+//        $this->qb_team_player_id = null;
+//        $this->ballcarrier_team_player_id = null;
+//        $this->receiver_team_player_id = null;
+//        $this->tackled_by_team_player_id = null;
+//        $this->intercepted_by_team_player_id = null;
+//        $this->fumble_recovered_by_team_player_id = null;
 
 
 
