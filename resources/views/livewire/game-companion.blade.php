@@ -593,6 +593,38 @@
             @error('play_type') <div class="text-red-300 text-sm">{{ $message }}</div> @enderror
             @error('play_yards') <div class="text-red-300 text-sm">{{ $message }}</div> @enderror
             @error('play_note') <div class="text-red-300 text-sm">{{ $message }}</div> @enderror
+
+
+                <div class="mb-4">
+                    <div class="gap-8">
+                        <div>
+                            <h3 class="font-bold">Offense</h3>
+                            <div class="flex gap-2">
+{{--                                @dump($offensePlayers)--}}
+                                @foreach ($offensePlayers as $player)
+                                    <div>
+                                    <div>{{ $player['depth_chart_position'] }}</div>
+                                    <div>{{ $player['jersey_number'] ?? 'N/A' }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold">Defense</h3>
+                            <div class="flex gap-2">
+                                @foreach ($defensePlayers as $player)
+                                    <div>
+                                    <div>{{ $player['depth_chart_position'] }}</div>
+                                    <div>{{ $player['jersey_number'] ?? 'N/A' }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
             <div class="mt-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/75">
                 <div class="font-semibold text-white/85 mb-1">Shortcuts</div>
                 <div class="grid grid-cols-2 gap-x-6 gap-y-1">

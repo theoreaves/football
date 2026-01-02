@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Game;
 use App\Models\Play;
+use App\Models\TeamPlayer;
 use App\Services\FootballRulesEngine;
 use App\Services\GameStatService;
 use Livewire\Component;
@@ -52,6 +53,8 @@ class GameCompanion extends Component
     public ?int $intercepted_by_team_player_id = null;
     public ?int $fumble_recovered_by_team_player_id = null;
 
+    public array $offensePlayers = [];
+    public array $defensePlayers = [];
 
     protected $listeners = ['setDownAndDistance'];
 
@@ -65,6 +68,7 @@ class GameCompanion extends Component
             ? \App\Models\Game::with(['homeTeam','awayTeam'])->findOrFail($gameId)
             : \App\Models\Game::create();
 
+        $this->loadPlayers();
 
         $this->kickoff_kicking_team = $this->game->kick_team; // likely null
 
@@ -123,6 +127,37 @@ class GameCompanion extends Component
         $this->kick_yardline = (int) ($this->game->pos_yardline ?? 25);
     }
 
+    protected function loadPlayers(): void
+    {
+        $offenseTeamId = $this->game->possession === 'HOME'
+            ? $this->game->home_team_id
+            : $this->game->away_team_id;
+
+        $defenseTeamId = $this->game->possession === 'HOME'
+            ? $this->game->away_team_id
+            : $this->game->home_team_id;
+
+        $offensePositions = ['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'WR3', 'TE1', 'TE2'];
+        $defensePositions = ['DL1', 'DL2', 'DL3', 'DL4', 'CB1', 'CB2', 'S1', 'S2', 'DB1', 'DB2'];
+
+        $this->offensePlayers = TeamPlayer::where('team_id', $offenseTeamId)
+            ->whereIn('depth_chart_position', $offensePositions)
+            ->orderByRaw('CASE depth_chart_position ' .
+                collect($offensePositions)->map(fn($pos, $i) => "WHEN '{$pos}' THEN {$i}")->implode(' ') .
+                ' ELSE 999 END')
+            ->get()
+            ->toArray();
+
+
+
+        $this->defensePlayers = TeamPlayer::where('team_id', $defenseTeamId)
+            ->whereIn('depth_chart_position', $defensePositions)
+            ->orderByRaw('CASE depth_chart_position ' .
+                collect($defensePositions)->map(fn($pos, $i) => "WHEN '{$pos}' THEN {$i}")->implode(' ') .
+                ' ELSE 999 END')
+            ->get()
+            ->toArray();
+    }
 
     public function setKickoffSpot(FootballRulesEngine $engine): void
     {
@@ -515,6 +550,7 @@ class GameCompanion extends Component
         $this->kick_recorded = false;
         $this->kick_yards = 55;
         $this->return_yards = 0;
+        $this->loadPlayers();
     }
 
     public function startPunt(\App\Services\FootballRulesEngine $engine): void
@@ -633,6 +669,7 @@ class GameCompanion extends Component
         $this->punt_recorded = false;
         $this->punt_yards = 40;
         $this->punt_return_yards = 0;
+        $this->loadPlayers();
     }
 
     public function kickoffNoReturn(\App\Services\FootballRulesEngine $engine): void
@@ -641,6 +678,7 @@ class GameCompanion extends Component
         $this->return_yards = 0;
         $this->kick_recorded = true; // allow return step even if user didn't toggle UI state
         $this->recordKickReturn($engine);
+        $this->loadPlayers();
     }
 
     public function puntNoReturn(\App\Services\FootballRulesEngine $engine): void
@@ -649,6 +687,7 @@ class GameCompanion extends Component
         $this->punt_return_yards = 0;
         $this->punt_recorded = true;
         $this->recordPuntReturn($engine);
+        $this->loadPlayers();
     }
 
     public function kickoffFairCatch(\App\Services\FootballRulesEngine $engine): void
@@ -656,12 +695,14 @@ class GameCompanion extends Component
         $this->kick_recorded = true;
         $this->return_yards = 0;
         $this->recordKickReturnWithReason($engine, 'FAIR_CATCH');
+        $this->loadPlayers();
     }
 
     public function kickoffTouchback(\App\Services\FootballRulesEngine $engine): void
     {
         $this->kick_recorded = true;
         $this->recordKickReturnWithReason($engine, 'TOUCHBACK');
+        $this->loadPlayers();
     }
 
     public function puntFairCatch(\App\Services\FootballRulesEngine $engine): void
@@ -669,6 +710,7 @@ class GameCompanion extends Component
         $this->punt_recorded = true;
         $this->punt_return_yards = 0;
         $this->recordPuntReturnWithReason($engine, 'FAIR_CATCH');
+        $this->loadPlayers();
     }
 
     public function puntDowned(\App\Services\FootballRulesEngine $engine): void
@@ -676,12 +718,14 @@ class GameCompanion extends Component
         $this->punt_recorded = true;
         $this->punt_return_yards = 0;
         $this->recordPuntReturnWithReason($engine, 'DOWNED');
+        $this->loadPlayers();
     }
 
     public function puntTouchback(\App\Services\FootballRulesEngine $engine): void
     {
         $this->punt_recorded = true;
         $this->recordPuntReturnWithReason($engine, 'TOUCHBACK');
+        $this->loadPlayers();
     }
 
 
@@ -737,6 +781,7 @@ class GameCompanion extends Component
         $this->kick_recorded = false;
         $this->kick_yards = 55;
         $this->return_yards = 0;
+        $this->loadPlayers();
     }
 
     public function recordPuntReturnWithReason(\App\Services\FootballRulesEngine $engine, ?string $reason = null): void
@@ -790,6 +835,7 @@ class GameCompanion extends Component
         $this->punt_recorded = false;
         $this->punt_yards = 40;
         $this->punt_return_yards = 0;
+        $this->loadPlayers();
     }
 
     public function startInterception(\App\Services\FootballRulesEngine $engine): void
@@ -857,6 +903,7 @@ class GameCompanion extends Component
 
         $this->int_recorded = false;
         $this->int_return_yards = 0;
+        $this->loadPlayers();
     }
 
     public function startFumble(\App\Services\FootballRulesEngine $engine): void
@@ -929,6 +976,7 @@ class GameCompanion extends Component
 
         $this->fumble_recovered_by = 'OFFENSE';
         $this->fumble_return_yards = 0;
+        $this->loadPlayers();
     }
 
     public function getAbsFromHomeProperty(): int
