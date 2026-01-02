@@ -22,6 +22,7 @@ class GameCardsController extends Controller
                     ['key' => 'card6', 'label' => 'Medium Pass', 'src' => asset('offense-cards/medium_pass.png')],
                     ['key' => 'card7', 'label' => 'Long Pass', 'src' => asset('offense-cards/long_pass.png')],
                     ['key' => 'card8', 'label' => 'Pressure', 'src' => asset('offense-cards/pressure.png')],
+                    ['key' => 'card9', 'label' => 'Hail Mary', 'src' => asset('offense-cards/hail_mary.png')],
                 ];
                 break;
             case 'defense':

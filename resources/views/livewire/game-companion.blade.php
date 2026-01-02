@@ -1174,7 +1174,7 @@
                 height: 700,
                 x: 'center',
                 y: 'center',
-                background: '#111827',
+                // background: '#111827',
 
                 index: 100000,
             });
@@ -1201,7 +1201,7 @@
                 height: 700,
                 x: x,
                 y: y,
-                background: '#111827',
+                // background: '#111827',
 
                 index: 100000,
             });
@@ -1216,7 +1216,7 @@
                 height: 800,
                 x: 'center',
                 y: 'center',
-                background: '#111827',
+                // background: '#111827',
 
                 index: 100000,
             });
