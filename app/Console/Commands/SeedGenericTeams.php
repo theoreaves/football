@@ -370,7 +370,7 @@ class SeedGenericTeams extends Command
             ]),
             'P' => array_merge($base, [
                 'punt_distance' => $r(3, 10),
-                'punt_pooch_yard' => $r(1, 10),
+                'punt_pooch_yard' => $r(45, 55),
                 'punt_pooch' => $r(0, 9),
                 'punt_block' => $r(0, 9),
             ]),

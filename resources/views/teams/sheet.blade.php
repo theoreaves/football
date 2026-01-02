@@ -17,6 +17,11 @@
                 return ((int)($v ?? 0) === 0) ? '-' : (string)$v;
             };
 
+            $plusMinus = function($v) {
+                if ($v === null || (int)$v === 0) return '-';
+                return ((int)$v > 0 ? '+' : '-') . (string)(int)$v;
+            };
+
             // Helper: format "from-to"; if both 0 (or null), show "-"
             $range = function($from, $to) {
                 $from = (int)($from ?? 0);
@@ -171,7 +176,7 @@
                                     <td class="text-center px-3 py-2">{{$val($p->pass_accuracy) }}</td>
                                     <td class="text-center px-3 py-2">{{$val($p->pass_deep) }}</td>
                                     <td class="text-center px-3 py-2">{{$val($p->fumble) }}</td>
-                                    <td class="text-center px-3 py-2">{{$val($p->speed) }}</td>
+                                    <td class="text-center px-3 py-2">{{$plusMinus($val($p->speed)) }}</td>
                                     <td class="text-center px-3 py-2">{{$val($p->pass_control) }}</td>
                                     <td class="text-center px-3 py-2">{{ $range($p->pivot->rush_from, $p->pivot->rush_to) }}</td>
                                 </tr>
@@ -229,7 +234,7 @@
                                     <td class="text-center px-3 py-2">{{$val($p->receive) }}</td>
                                     <td class="text-center px-3 py-2">{{$val($p->receive_deep) }}</td>
                                     <td class="text-center px-3 py-2">{{$val($p->fumble) }}</td>
-                                    <td class="text-center px-3 py-2">{{$val($p->speed) }}</td>
+                                    <td class="text-center px-3 py-2">{{$plusMinus($val($p->speed)) }}</td>
 
                                     <td class="text-center px-3 py-2">{{ $range($p->pivot->catch_from, $p->pivot->catch_to) }}</td>
                                     <td class="text-center px-3 py-2">{{ $range($p->pivot->catch_plus_from, $p->pivot->catch_plus_to) }}</td>
@@ -322,7 +327,6 @@
                 <div class="mt-2 space-y-4">
                     {{-- DL --}}
                     <div class="rounded-lg border border-white/10 overflow-hidden">
-                        <div class="bg-white/5 px-3 py-2 font-semibold text-sm">Defensive Line</div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full text-sm">
                                 <thead class="text-gray-300">
@@ -332,7 +336,10 @@
                                     <th class="text-left px-3 py-2">Player</th>
                                     <th class="text-center px-3 py-2">Tkl</th>
                                     <th class="text-center px-3 py-2">Sack</th>
+                                    <th class="text-center px-3 py-2">Cover</th>
+                                    <th class="text-center px-3 py-2">Int</th>
                                     <th class="text-center px-3 py-2">Strip</th>
+                                    <th class="text-center px-3 py-2">Speed</th>
                                     <th class="text-center px-3 py-2">Sack Rng</th>
                                     <th class="text-center px-3 py-2">Int Rng</th>
                                     <th class="text-center px-3 py-2">Tkl Rng</th>
@@ -351,7 +358,10 @@
 
                                         <td class="text-center px-3 py-2">{{ $val($p->tackle) }}</td>
                                         <td class="text-center px-3 py-2">{{ $val($p->sack) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->cover) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->int) }}</td>
                                         <td class="text-center px-3 py-2">{{ $val($p->strip) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $plusMinus($val($p->speed)) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->sack_from, $p->pivot->sack_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->interception_from, $p->pivot->interception_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->tackle_from ?? null, $p->pivot->tackle_to ?? null) }}</td>
@@ -359,30 +369,6 @@
                                 @empty
                                     <tr><td colspan="8" class="px-3 py-3 text-gray-400">No DL players.</td></tr>
                                 @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {{-- LB --}}
-                    <div class="rounded-lg border border-white/10 overflow-hidden">
-                        <div class="bg-white/5 px-3 py-2 font-semibold text-sm">Linebackers</div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
-                                <thead class="text-gray-300">
-                                <tr class="border-b border-white/10">
-                                    <th class="text-left px-3 py-2">Pos</th>
-                                    <th class="text-left px-3 py-2">#</th>
-                                    <th class="text-left px-3 py-2">Player</th>
-                                    <th class="text-center px-3 py-2">Tkl</th>
-                                    <th class="text-center px-3 py-2">Cov</th>
-                                    <th class="text-center px-3 py-2">Int</th>
-                                    <th class="text-center px-3 py-2">Sack Rng</th>
-                                    <th class="text-center px-3 py-2">Int Rng</th>
-                                    <th class="text-center px-3 py-2">Tkl Rng</th>
-                                </tr>
-                                </thead>
-                                <tbody class="divide-y divide-white/10">
                                 @forelse($lb as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
@@ -393,8 +379,11 @@
                                             </a>
                                         </td>
                                         <td class="text-center px-3 py-2">{{ $val($p->tackle) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->sack) }}</td>
                                         <td class="text-center px-3 py-2">{{ $val($p->cover) }}</td>
-                                        <td class="text-center px-3 py-2">{{ $val($p->interception) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->int) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->strip) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $plusMinus($val($p->speed)) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->sack_from, $p->pivot->sack_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->interception_from, $p->pivot->interception_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->tackle_from ?? null, $p->pivot->tackle_to ?? null) }}</td>
@@ -402,30 +391,6 @@
                                 @empty
                                     <tr><td colspan="8" class="px-3 py-3 text-gray-400">No LB players.</td></tr>
                                 @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {{-- DB --}}
-                    <div class="rounded-lg border border-white/10 overflow-hidden">
-                        <div class="bg-white/5 px-3 py-2 font-semibold text-sm">Defensive Backs</div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
-                                <thead class="text-gray-300">
-                                <tr class="border-b border-white/10">
-                                    <th class="text-left px-3 py-2">Pos</th>
-                                    <th class="text-left px-3 py-2">#</th>
-                                    <th class="text-left px-3 py-2">Player</th>
-                                    <th class="text-center px-3 py-2">Tkl</th>
-                                    <th class="text-center px-3 py-2">Cov</th>
-                                    <th class="text-center px-3 py-2">Int</th>
-                                    <th class="text-center px-3 py-2">Sack Rng</th>
-                                    <th class="text-center px-3 py-2">Int Rng</th>
-                                    <th class="text-center px-3 py-2">Tkl Rng</th>
-                                </tr>
-                                </thead>
-                                <tbody class="divide-y divide-white/10">
                                 @forelse($db as $p)
                                     <tr class="bg-gray-950">
                                         <td class="px-3 py-2 font-semibold">{{ $p->pivot->depth_chart_position }}</td>
@@ -436,8 +401,11 @@
                                             </a>
                                         </td>
                                         <td class="text-center px-3 py-2">{{ $val($p->tackle) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->sack) }}</td>
                                         <td class="text-center px-3 py-2">{{ $val($p->cover) }}</td>
-                                        <td class="text-center px-3 py-2">{{ $val($p->interception) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->int) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $val($p->strip) }}</td>
+                                        <td class="text-center px-3 py-2">{{ $plusMinus($val($p->speed)) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->sack_from, $p->pivot->sack_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->interception_from, $p->pivot->interception_to) }}</td>
                                         <td class="text-center px-3 py-2">{{ $range($p->pivot->tackle_from ?? null, $p->pivot->tackle_to ?? null) }}</td>
@@ -465,16 +433,15 @@
                                 <th class="text-left px-3 py-2">Pos</th>
                                 <th class="text-left px-3 py-2">#</th>
                                 <th class="text-left px-3 py-2">Player</th>
-                                <th class="text-center px-3 py-2">Kick30</th>
-                                <th class="text-center px-3 py-2">Kick39</th>
-                                <th class="text-center px-3 py-2">Kick49</th>
-                                <th class="text-center px-3 py-2">Kick50</th>
-                                <th class="text-center px-3 py-2">PuntDist</th>
-                                <th class="text-center px-3 py-2">PoochYd</th>
+                                <th class="text-center px-3 py-2">Kick < 30</th>
+                                <th class="text-center px-3 py-2">Kick 30 -39</th>
+                                <th class="text-center px-3 py-2">Kick 40 - 49</th>
+                                <th class="text-center px-3 py-2">Kick 50+</th>
+                                <th class="text-center px-3 py-2">Dist</th>
                                 <th class="text-center px-3 py-2">Pooch</th>
                                 <th class="text-center px-3 py-2">Block</th>
-                                <th class="text-center px-3 py-2">Kick Rng</th>
-                                <th class="text-center px-3 py-2">Punt Rng</th>
+{{--                                <th class="text-center px-3 py-2">Kick Rng</th>--}}
+{{--                                <th class="text-center px-3 py-2">Punt Rng</th>--}}
                             </tr>
                             </thead>
                             <tbody class="divide-y divide-white/10">
@@ -488,18 +455,21 @@
                                         </a>
                                     </td>
 
-                                    <td class="text-center px-3 py-2">{{ $p->kick30 }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->kick39 }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->kick49 }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->kick50 }}</td>
+                                    <td class="text-center px-3 py-2">{{ $plusMinus($val($p->kick30)) }}</td>
+                                    <td class="text-center px-3 py-2">{{ $plusMinus($val($p->kick39)) }}</td>
+                                    <td class="text-center px-3 py-2">{{ $plusMinus($val($p->kick49)) }}</td>
+                                    <td class="text-center px-3 py-2">{{ $plusMinus($val($p->kick50)) }}</td>
 
-                                    <td class="text-center px-3 py-2">{{ $p->punt_distance }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->punt_pooch_yard }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->punt_pooch }}</td>
-                                    <td class="text-center px-3 py-2">{{ $p->punt_block }}</td>
+                                    <td class="text-center px-3 py-2">{{ $plusMinus($val($p->punt_distance)) }}</td>
+                                    @if($p->punt_pooch_yard !== 0)
+                                    <td class="text-center px-3 py-2"><={{ $p->punt_pooch_yard }} {{ $p->punt_pooch }}</td>
+                                    @else
+                                    <td class="text-center px-3 py-2">-</td>
+                                    @endif
+                                    <td class="text-center px-3 py-2">{{ $val($p->punt_block) }}</td>
 
-                                    <td class="text-center px-3 py-2">{{ $range($p->pivot->kick_from, $p->pivot->kick_to) }}</td>
-                                    <td class="text-center px-3 py-2">{{ $range($p->pivot->punt_from, $p->pivot->punt_to) }}</td>
+{{--                                    <td class="text-center px-3 py-2">{{ $range($p->pivot->kick_from, $p->pivot->kick_to) }}</td>--}}
+{{--                                    <td class="text-center px-3 py-2">{{ $range($p->pivot->punt_from, $p->pivot->punt_to) }}</td>--}}
                                 </tr>
                             @empty
                                 <tr>
@@ -524,6 +494,7 @@
                                     <tr class="border-b border-white/10">
                                         <th class="text-left px-3 py-2">KR Slot</th>
                                         <th class="text-left px-3 py-2">Player</th>
+                                        <th class="text-center px-3 py-2">Return</th>
                                         <th class="text-center px-3 py-2">Yds</th>
                                         <th class="text-center px-3 py-2">Spd</th>
                                         <th class="text-center px-3 py-2">Fum</th>
@@ -538,8 +509,9 @@
                                                     {{ $p->firstname }} {{ $p->lastname }}
                                                 </a>
                                             </td>
-                                            <td class="text-center px-3 py-2">{{ $p->return_yards }}</td>
-                                            <td class="text-center px-3 py-2">{{ $p->return_speed }}</td>
+                                            <td class="text-center px-3 py-2">{{ $range($p->pivot->kick_from, $p->pivot->kick_to) }}</td>
+                                            <td class="text-center px-3 py-2">{{ $plusMinus($val($p->return_yards)) }}</td>
+                                            <td class="text-center px-3 py-2">{{ $plusMinus($val($p->return_speed)) }}</td>
                                             <td class="text-center px-3 py-2">{{ $p->return_fumble }}</td>
                                         </tr>
                                     @empty
@@ -558,6 +530,7 @@
                                     <tr class="border-b border-white/10">
                                         <th class="text-left px-3 py-2">PR Slot</th>
                                         <th class="text-left px-3 py-2">Player</th>
+                                        <th class="text-center px-3 py-2">Return</th>
                                         <th class="text-center px-3 py-2">Yds</th>
                                         <th class="text-center px-3 py-2">Spd</th>
                                         <th class="text-center px-3 py-2">Fum</th>
@@ -572,8 +545,9 @@
                                                     {{ $p->firstname }} {{ $p->lastname }}
                                                 </a>
                                             </td>
-                                            <td class="text-center px-3 py-2">{{ $p->return_yards }}</td>
-                                            <td class="text-center px-3 py-2">{{ $p->return_speed }}</td>
+                                            <td class="text-center px-3 py-2">{{ $range($p->pivot->punt_from, $p->pivot->punt_to) }}</td>
+                                            <td class="text-center px-3 py-2">{{ $plusMinus($val($p->return_yards)) }}</td>
+                                            <td class="text-center px-3 py-2">{{ $plusMinus($val($p->return_speed)) }}</td>
                                             <td class="text-center px-3 py-2">{{ $p->return_fumble }}</td>
                                         </tr>
                                     @empty
