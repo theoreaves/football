@@ -141,16 +141,18 @@
         {{-- ROW 2: Player + Disrupter on same row --}}
         <div class="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
             <div class="flex items-center justify-between">
-                <div class="text-xl font-semibold">Player &amp; Disrupter Dice</div>
+                <div class="text-xl font-semibold">Player, Disrupter & Tackler Dice</div>
                 <div class="text-sm text-gray-400">
                     Player: <span class="text-gray-100 font-semibold" x-text="green.value ?? '—'"></span>
                     <span class="mx-2">|</span>
                     Disrupter: <span class="text-gray-100 font-semibold" x-text="orange.value ?? '—'"></span>
+                    <span class="mx-2">|</span>
+                    Tackler: <span class="text-gray-100 font-semibold" x-text="purple.value ?? '—'"></span>
                 </div>
             </div>
 
-            <div class="mt-4 grid grid-cols-2 gap-4">
-                {{-- Green d20 (more “poly” feel: clipped hex-like) --}}
+            <div class="mt-4 grid grid-cols-3 gap-4">
+                {{-- Green d20 (Player) --}}
                 <div class="rounded-xl border border-white/10 bg-white/5 p-4">
                     <div class="flex items-center justify-between">
                         <div class="font-semibold text-lg">Player</div>
@@ -174,7 +176,7 @@
                     <div class="mt-3 text-center text-sm text-gray-400">Range: 1–20</div>
                 </div>
 
-                {{-- Orange d20 --}}
+                {{-- Orange d20 (Disrupter) --}}
                 <div class="rounded-xl border border-white/10 bg-white/5 p-4">
                     <div class="flex items-center justify-between">
                         <div class="font-semibold text-lg">Disrupter</div>
@@ -197,6 +199,29 @@
 
                     <div class="mt-3 text-center text-sm text-gray-400">Range: 1–20</div>
                 </div>
+
+                {{-- Purple d10 (Tackler) --}}
+                <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold text-lg">Tackler</div>
+                        <div class="text-sm text-gray-400">1d10</div>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-center">
+                        <div class="relative w-20 h-20 flex items-center justify-center">
+                            <div
+                                class="absolute inset-0 border border-white/10 shadow-inner"
+                                :class="rolling ? 'animate-pulse' : ''"
+                                style="background: rgba(168,85,247,0.95); transform: rotate(45deg); border-radius: 18px;"
+                            ></div>
+                            <div class="relative text-3xl font-black text-white">
+                                <span x-text="display(purple)"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-center text-sm text-gray-400">Range: 1–10</div>
+                </div>
             </div>
         </div>
 
@@ -212,6 +237,8 @@
                     blue:   { sides: 10, value: null, spin: null },
                     green:  { sides: 20, value: null, spin: null },
                     orange: { sides: 20, value: null, spin: null },
+                    // Add purple d10 (Tackler)
+                    purple: { sides: 10, value: null, spin: null },
 
                     init() {
                         // Hotkey: R to roll (ignore if typing in an input/textarea)
@@ -265,13 +292,12 @@
                         // spinning values
                         const spinTimer = setInterval(() => {
                             this.red.spin    = this.rand(1, this.red.sides);
-                            // this.white.spin  = this.rand(1, this.white.sides);
-                            // this.blue.spin   = this.rand(1, this.blue.sides);
                             this.green.spin  = this.rand(1, this.green.sides);
                             this.orange.spin = this.rand(1, this.orange.sides);
                             this.white.spin  = this.rand(0, 9);
                             this.blue.spin   = this.rand(0, 9);
-
+                            // Purple d10
+                            this.purple.spin = this.rand(0, 9);
 
                             if (Date.now() - start >= duration) {
                                 clearInterval(spinTimer);
@@ -281,6 +307,7 @@
                                 this.finalize10Die(this.blue);
                                 this.finalizeDie(this.green);
                                 this.finalizeDie(this.orange);
+                                this.finalize10Die(this.purple);
 
                                 this.playResult = this.computePlayResult();
 
@@ -290,6 +317,7 @@
                                     `B:${this.blue.value}`,
                                     `G:${this.green.value}`,
                                     `O:${this.orange.value}`,
+                                    `P:${this.purple.value}`,
                                 ].join('  ');
 
                                 this.rolling = false;
@@ -299,7 +327,7 @@
 
                     resetAll() {
                         if (this.rolling) return;
-                        [this.red, this.white, this.blue, this.green, this.orange].forEach(d => {
+                        [this.red, this.white, this.blue, this.green, this.orange, this.purple].forEach(d => {
                             d.value = null;
                             d.spin = null;
                         });
