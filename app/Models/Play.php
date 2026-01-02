@@ -178,4 +178,38 @@ class Play extends Model
         return "{$txt}{$note}{$flagTxt}";
     }
 
+    // App\Models\Play.php
+
+
+    public function qbTeamPlayer()
+    {
+        return $this->belongsTo(TeamPlayer::class, 'qb_team_player_id');
+    }
+
+    public function ballcarrierTeamPlayer()
+    {
+        return $this->belongsTo(TeamPlayer::class, 'ballcarrier_team_player_id');
+    }
+
+    public function receiverTeamPlayer()
+    {
+        return $this->belongsTo(TeamPlayer::class, 'receiver_team_player_id');
+    }
+
+    public function tackledByTeamPlayer()
+    {
+        return $this->belongsTo(TeamPlayer::class, 'tackled_by_team_player_id');
+    }
+
+    public function interceptedByTeamPlayer()
+    {
+        return $this->belongsTo(TeamPlayer::class, 'intercepted_by_team_player_id');
+    }
+
+    public function fumbleRecoveredByTeamPlayer()
+    {
+        return $this->belongsTo(TeamPlayer::class, 'fumble_recovered_by_team_player_id');
+    }
+
+
 }

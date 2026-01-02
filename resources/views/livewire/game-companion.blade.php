@@ -963,6 +963,76 @@
             </div>
 
 
+            {{--            stats--}}
+            @php($stats = $this->stats)
+
+            <div class="col-span-3 p-4 rounded bg-gray-800 border border-gray-700 space-y-4">
+                <div class="font-semibold">Game Stats (Quick)</div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="rounded border border-white/10 p-3 bg-black/20">
+                        <div class="font-semibold mb-2">{{ $game->home_label }} (HOME)</div>
+                        <div>Pass: {{ $stats['teams']['HOME']['passing']['cmp'] }}/{{ $stats['teams']['HOME']['passing']['att'] }} ({{ $stats['teams']['HOME']['passing']['yds'] }} yds), INT {{ $stats['teams']['HOME']['passing']['int'] }}</div>
+                        <div>Rush: {{ $stats['teams']['HOME']['rushing']['att'] }} att ({{ $stats['teams']['HOME']['rushing']['yds'] }} yds)</div>
+                        <div>DEF: Tkl {{ $stats['teams']['HOME']['defense']['tkl'] }}, Sacks {{ $stats['teams']['HOME']['defense']['sacks'] }}, INT {{ $stats['teams']['HOME']['defense']['int'] }}</div>
+                    </div>
+
+                    <div class="rounded border border-white/10 p-3 bg-black/20">
+                        <div class="font-semibold mb-2">{{ $game->away_label }} (AWAY)</div>
+                        <div>Pass: {{ $stats['teams']['AWAY']['passing']['cmp'] }}/{{ $stats['teams']['AWAY']['passing']['att'] }} ({{ $stats['teams']['AWAY']['passing']['yds'] }} yds), INT {{ $stats['teams']['AWAY']['passing']['int'] }}</div>
+                        <div>Rush: {{ $stats['teams']['AWAY']['rushing']['att'] }} att ({{ $stats['teams']['AWAY']['rushing']['yds'] }} yds)</div>
+                        <div>DEF: Tkl {{ $stats['teams']['AWAY']['defense']['tkl'] }}, Sacks {{ $stats['teams']['AWAY']['defense']['sacks'] }}, INT {{ $stats['teams']['AWAY']['defense']['int'] }}</div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded border border-white/10">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-white/5 text-gray-300">
+                        <tr>
+                            <th class="text-left px-3 py-2">Side</th>
+                            <th class="text-left px-3 py-2">#</th>
+                            <th class="text-left px-3 py-2">Player</th>
+                            <th class="text-center px-3 py-2">Pass</th>
+                            <th class="text-center px-3 py-2">Rush</th>
+                            <th class="text-center px-3 py-2">Rec</th>
+                            <th class="text-center px-3 py-2">Tkl</th>
+                            <th class="text-center px-3 py-2">Sacks</th>
+                            <th class="text-center px-3 py-2">INT</th>
+                            <th class="text-center px-3 py-2">FumRec</th>
+                        </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/10">
+                        @foreach($stats['players'] as $row)
+                            @php($s = $row['stats'])
+                            <tr class="bg-gray-950">
+                                <td class="px-3 py-2">
+                                    {{ $row['side'] === 'HOME'
+                                        ? $game->homeTeam->name
+                                        : $game->awayTeam->name }}
+                                </td>
+                                <td class="px-3 py-2 font-semibold">{{ $row['jersey'] }}</td>
+                                <td class="px-3 py-2">{{ $row['name'] }} <span class="text-xs text-gray-400">({{ $row['pos'] }})</span></td>
+
+                                <td class="text-center px-3 py-2">
+                                    {{ $s['passing']['cmp'] }}/{{ $s['passing']['att'] }} ({{ $s['passing']['yds'] }}), TD {{ $s['passing']['td'] }} INT {{ $s['passing']['int'] }}
+                                </td>
+                                <td class="text-center px-3 py-2">
+                                    {{ $s['rushing']['att'] }} ({{ $s['rushing']['yds'] }}) {{ $s['rushing']['td'] > 0 ? ', '.$s['rushing']['td'] . ' TD' : '' }}
+                                </td>
+                                <td class="text-center px-3 py-2">
+                                    {{ $s['receiving']['rec'] }} ({{ $s['receiving']['yds'] }}) {{ $s['receiving']['td'] > 0 ? ', '.$s['receiving']['td'] . ' TD' : '' }}
+                                </td>
+                                <td class="text-center px-3 py-2">{{ $s['defense']['tkl'] }}</td>
+                                <td class="text-center px-3 py-2">{{ $s['defense']['sacks'] }}</td>
+                                <td class="text-center px-3 py-2">{{ $s['defense']['int'] }}</td>
+                                <td class="text-center px-3 py-2">{{ $s['defense']['fum_rec'] }}</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
 
 
     </div>

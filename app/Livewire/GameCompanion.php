@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Game;
 use App\Models\Play;
 use App\Services\FootballRulesEngine;
+use App\Services\GameStatService;
 use Livewire\Component;
 
 class GameCompanion extends Component
@@ -1163,6 +1164,11 @@ class GameCompanion extends Component
         // Optional: focus return to result panel later, etc.
     }
 
+
+    public function getStatsProperty(): array
+    {
+        return app(GameStatService::class)->forGame($this->game);
+    }
 
 
     public function render()
