@@ -53,6 +53,10 @@
             <input type="checkbox" name="redzone" value="1" @if(old('redzone', $input['redzone'] ?? false)) checked @endif class="mr-2">
             <label class="font-semibold">Redzone?</label>
         </div>
+        <div class="flex items-center">
+            <input type="checkbox" name="offense_is_home" value="1" @if(old('offense_is_home', $input['offense_is_home'] ?? false)) checked @endif class="mr-2">
+            <label class="font-semibold">Offense is Home Team?</label>
+        </div>
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
     </form>
 
@@ -72,4 +76,3 @@
     @endif
 </div>
 </x-layouts.app>
-

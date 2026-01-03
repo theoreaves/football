@@ -30,6 +30,7 @@ class GamePlayTestController extends Controller
             'tackler_die' => 'nullable|integer',
             'disrupter_die' => 'nullable|integer',
             'redzone' => 'nullable|boolean',
+            'offense_is_home' => 'nullable|boolean',
         ]);
 
         $result = $engine->resolvePlayResult(
@@ -42,7 +43,8 @@ class GamePlayTestController extends Controller
             $data['player_die'] ?? 0,
             $data['tackler_die'] ?? 0,
             $data['disrupter_die'] ?? 0,
-            (bool)($data['redzone'] ?? false)
+            (bool)($data['redzone'] ?? false),
+            (bool)($data['offense_is_home'] ?? false)
         );
 
         $teams = Team::all(['id', 'name']);

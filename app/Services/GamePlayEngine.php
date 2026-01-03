@@ -21,6 +21,7 @@ class GamePlayEngine
      * @param int $tacklerDie
      * @param int $disrupterDie
      * @param bool $redzone
+     * @param bool $offenseIsHome
      * @return array|string
      */
     public function resolvePlayResult(
@@ -33,7 +34,8 @@ class GamePlayEngine
         int $playerDie = 0,
         int $tacklerDie = 0,
         int $disrupterDie = 0,
-        bool $redzone = false
+        bool $redzone = false,
+        bool $offenseIsHome = false
     ): array|string {
         $offensePlay = OffensePlay::with('rolls')->where('code', $offenseCode)->first();
         if (!$offensePlay) {
@@ -82,8 +84,7 @@ class GamePlayEngine
             $ratingKey = strtoupper($offenseRoll->rating);
             if ($ratingKey === 'HOME') {
                 // If offense team is home, pass; else fail
-                $isHome = $offenseTeamId < $defenseTeamId; // You may want to adjust this logic based on your home/away system
-                return $isHome ? $offenseRoll->skill_pass : $offenseRoll->skill_fail;
+                return $offenseIsHome ? $offenseRoll->skill_pass : $offenseRoll->skill_fail;
             }
             if ($ratingKey === 'REDZONE') {
                 return !$redzone ? $offenseRoll->skill_pass : $offenseRoll->skill_fail;
