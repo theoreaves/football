@@ -95,6 +95,39 @@ class GamePlayEngine
         if (!$team) {
             return 'Team not found.';
         }
+
+        // Special handling for OL (offensive line) - must come before player lookup
+        if ($playerType === 'OL') {
+            $olRatingMap = [
+                'RUSH' => 'ol_rush',
+                'POWER' => 'ol_power',
+                'PASS' => 'ol_pass',
+                'PROTECT' => 'ol_protect',
+            ];
+            $ratingKey = strtoupper($offenseRoll->rating);
+            $olField = $olRatingMap[$ratingKey] ?? null;
+            if ($olField && isset($team->$olField)) {
+                $olValue = $team->$olField;
+                $pass = $skillRoll <= $olValue;
+                return [
+                    'team_id' => $team->id,
+                    'team_name' => $team->name,
+                    'ol_rating_field' => $olField,
+                    'ol_rating_value' => $olValue,
+                    'skill_roll' => $skillRoll,
+                    'result' => $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail,
+                ];
+            } else {
+                return [
+                    'team_id' => $team->id,
+                    'team_name' => $team->name,
+                    'ol_rating_field' => $olField,
+                    'message' => 'OL rating not found for rating: ' . $offenseRoll->rating,
+                ];
+            }
+        }
+
+        // Only look up a player if not OL
         $player = $team->players->first(function ($p) use ($offenseRoll) {
             return $p->pivot->depth_chart_position === $offenseRoll->player;
         });
