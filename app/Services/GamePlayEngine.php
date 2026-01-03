@@ -155,6 +155,8 @@ class GamePlayEngine
         if ($playerSkillField && isset($player->$playerSkillField)) {
             $playerSkill = $player->$playerSkillField;
             $pass = $skillRoll <= $playerSkill;
+            $result =  $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail;
+            $yards = YardageParserService::parseYards($result, $skillRoll);
             return [
                 'player_id' => $player->id,
                 'player_name' => $player->firstname . ' ' . $player->lastname,
@@ -165,6 +167,7 @@ class GamePlayEngine
                 'skill_roll' => $skillRoll,
                 'result' => $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail,
                 'roll_label' => $offenseRoll->roll_label,
+                'yards' => $yards,
             ];
         }
         return [
