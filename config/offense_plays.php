@@ -3,12 +3,13 @@
 return [
     'IR' => [
         'name' => 'Inside Run',
+        'play_type' => 'RUN',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
                 'rating' => 'OFF',
                 'skill_pass' => '5',
-                'skill_fail' => 'N/A',
+                'skill_fail' => 'False Start',
             ],
             '11-12' => [
                 'player' => 'QB1',
@@ -134,12 +135,13 @@ return [
     ],
     'OR' => [
         'name' => 'Outside Run',
+        'play_type' => 'RUN',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
                 'rating' => 'OFF',
                 'skill_pass' => '5',
-                'skill_fail' => 'N/A',
+                'skill_fail' => 'False Start',
             ],
             '11-15' => [
                 'player' => 'RB1',
@@ -265,12 +267,13 @@ return [
     ],
     'DP' => [
         'name' => 'Draw Play',
+        'play_type' => 'RUN',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
                 'rating' => 'OFF',
                 'skill_pass' => '5',
-                'skill_fail' => 'N/A',
+                'skill_fail' => 'False Start',
             ],
             '11-17' => [
                 'player' => 'RB1',
@@ -396,12 +399,13 @@ return [
     ],
     'SC' => [
         'name' => 'Screen Play',
+        'play_type' => 'PASS',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
                 'rating' => 'OFF',
                 'skill_pass' => '5',
-                'skill_fail' => 'N/A',
+                'skill_fail' => 'False Start',
             ],
             '11-13' => [
                 'player' => 'RB1',
@@ -527,12 +531,13 @@ return [
     ],
     'SP' => [
         'name' => 'Short Pass',
+        'play_type' => 'PASS',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
                 'rating' => 'OFF',
                 'skill_pass' => '5',
-                'skill_fail' => 'N/A',
+                'skill_fail' => 'False Start',
             ],
             '11' => [
                 'player' => 'RB1',
@@ -658,6 +663,7 @@ return [
     ],
     'MP' => [
         'name' => 'Medium Pass',
+        'play_type' => 'PASS',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
@@ -673,13 +679,13 @@ return [
             ],
             '12-13' => [
                 'player' => 'WR1',
-                'rating' => 'DEEP',
+                'rating' => 'RDEEP',
                 'skill_pass' => '17',
                 'skill_fail' => 'INC',
             ],
             '14-15' => [
                 'player' => 'TE1',
-                'rating' => 'DEEP',
+                'rating' => 'RDEEP',
                 'skill_pass' => '15',
                 'skill_fail' => 'INC',
             ],
@@ -691,7 +697,7 @@ return [
             ],
             '17-19' => [
                 'player' => 'QB1',
-                'rating' => 'DEEP',
+                'rating' => 'PDEEP',
                 'skill_pass' => '18',
                 'skill_fail' => 'INC',
             ],
@@ -789,6 +795,7 @@ return [
     ],
     'LP' => [
         'name' => 'Long Pass',
+        'play_type' => 'PASS',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',
@@ -810,25 +817,25 @@ return [
             ],
             '13' => [
                 'player' => 'WR1',
-                'rating' => 'DEEP',
+                'rating' => 'RDEEP',
                 'skill_pass' => '28',
                 'skill_fail' => 'INC',
             ],
             '14-17' => [
                 'player' => 'WR2',
-                'rating' => 'DEEP',
+                'rating' => 'RDEEP',
                 'skill_pass' => '27',
                 'skill_fail' => 'INC',
             ],
             '18-19' => [
                 'player' => 'WR3',
-                'rating' => 'DEEP',
+                'rating' => 'RDEEP',
                 'skill_pass' => '25',
                 'skill_fail' => 'INC',
             ],
             '20-24' => [
                 'player' => 'QB1',
-                'rating' => 'DEEP',
+                'rating' => 'PDEEP',
                 'skill_pass' => '20 + B!',
                 'skill_fail' => 'INC',
             ],
@@ -920,6 +927,7 @@ return [
     ],
     'PRESSURE' => [
         'name' => 'Pressure',
+        'play_type' => 'PASS',
         'roll' => [
             '10' => [
                 'player' => 'PENALITY',

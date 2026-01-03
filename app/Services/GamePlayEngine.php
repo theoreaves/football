@@ -160,15 +160,16 @@ class GamePlayEngine
                 'player_name' => $player->firstname . ' ' . $player->lastname,
                 'jersey_number' => $player->current_jersey_number,
                 'position' => $offenseRoll->player,
-//                'rating' => $offenseRoll->rating,
+                'rating' => $offenseRoll->rating,
                 'player_skill' => $playerSkill,
-//                'skill_roll' => $skillRoll,
+                'skill_roll' => $skillRoll,
                 'result' => $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail,
-//                'roll_label' => $offenseRoll->roll_label,
+                'roll_label' => $offenseRoll->roll_label,
             ];
         }
         return [
-            'player' => $player->lastname ?? $player->id,
+            'player_id' => $player->id,
+            'player_name' => $player->firstname . ' ' . $player->lastname,
             'position' => $offenseRoll->player,
             'rating' => $offenseRoll->rating,
             'skill_pass' => $offenseRoll->skill_pass,

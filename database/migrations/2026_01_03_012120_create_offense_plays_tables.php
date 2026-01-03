@@ -14,6 +14,8 @@ return new class extends Migration
             // e.g. "IR", "OR"
             $table->string('code', 10)->unique();
 
+            // e.g. "RUN/PASS/RPO"
+            $table->string('play_type', 50);
             // e.g. "Inside Run"
             $table->string('name');
 
