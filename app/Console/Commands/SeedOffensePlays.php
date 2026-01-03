@@ -32,7 +32,8 @@ class SeedOffensePlays extends Command
             foreach ($data as $code => $playDef) {
                 $play = OffensePlay::query()->updateOrCreate(
                     ['code' => (string) $code],
-                    ['name' => (string) ($playDef['name'] ?? $code)]
+                    ['name' => (string) ($playDef['name'] ?? $code),
+                    'play_type' => (string) ($playDef['play_type'] ?? $code)]
                 );
 
                 $rolls = $playDef['roll'] ?? [];

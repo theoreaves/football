@@ -10,6 +10,7 @@ class OffensePlay extends Model
     protected $fillable = [
         'code',
         'name',
+        'play_type'
     ];
 
     public function rolls(): HasMany

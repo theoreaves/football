@@ -13,7 +13,7 @@ Route::get('/football/{gameId}', GameCompanion::class);
 
 use App\Http\Controllers\TeamSheetController;
 
-Route::get('/teams/{team}/sheet/{year?}', [TeamSheetController::class, 'show'])
+Route::get('/teams/show/{team}/sheet/{year?}', [TeamSheetController::class, 'show'])
     ->whereNumber('team')
     ->name('teams.sheet');
 
@@ -68,3 +68,12 @@ use App\Http\Controllers\GamePlayTestController;
 
 Route::get('/gameplay/test', [GamePlayTestController::class, 'showForm'])->name('gameplay.test');
 Route::post('/gameplay/test', [GamePlayTestController::class, 'submitForm']);
+
+use App\Http\Controllers\TeamEditor;
+//Route::resource('teams/editor', TeamEditor::class)->names('teams.editor');
+
+
+Route::resource('teams/editor', TeamEditor::class)
+    ->names('teams.editor')
+    ->parameters(['editor' => 'team']);
+

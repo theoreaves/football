@@ -30,4 +30,12 @@ class Team extends Model
             ->withTimestamps();
     }
 
+    // App\Models\Team.php
+    public function logoUrl(?string $field): ?string
+    {
+        $path = $this->{$field} ?? null;
+        return $path ? \Storage::disk('public')->url($path) : null;
+    }
+
+
 }
