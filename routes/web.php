@@ -64,3 +64,7 @@ use App\Http\Controllers\BoxscoreController;
 Route::get('/games/{game}/boxscore', [BoxscoreController::class, 'show'])
     ->name('games.boxscore');
 
+use App\Http\Controllers\GamePlayTestController;
+
+Route::get('/gameplay/test', [GamePlayTestController::class, 'showForm'])->name('gameplay.test');
+Route::post('/gameplay/test', [GamePlayTestController::class, 'submitForm']);
