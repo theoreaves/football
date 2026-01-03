@@ -78,6 +78,7 @@ class GamePlayEngine
             return 'No matching offense roll.';
         }
         $playerType = strtoupper($offenseRoll->player);
+        $playType = strtoupper($offenseRoll->play->play_type);
         if ($playerType === 'DEF') {
             $defensePlay = DefensePlay::with('rolls')->where('code', $defenseCode)->first();
             if (!$defensePlay) {
@@ -124,10 +125,14 @@ class GamePlayEngine
 //        $teamId = $playerType === 'DEF' ? $defenseTeamId : $offenseTeamId;
         if (in_array($playerType, $this->offensivePlayers)) {
             $teamId = $offenseTeamId;
+            $otherTeamID = $defenseTeamId;
         } else {
             $teamId = $defenseTeamId;
+            $otherTeamID = $offenseTeamId;
         }
         $team = Team::with('players')->find($teamId);
+        $otherTeam = Team::with('players')->find($otherTeamID);
+
         if (!$team) {
             return 'Team not found.';
         }
@@ -192,7 +197,49 @@ class GamePlayEngine
             $pass = $skillRoll <= $playerSkill;
             $result =  $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail;
             $yards = YardageParserService::parseYards($result, $skillRoll);
+
+
+            if (in_array($playerType, $this->defensivePlayers)) {
+                $tackler = $player;
+                $offense_player = null;
+
+                if ($playType === 'PASS') {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $playerDie >= $p->pivot->catch_from && $playerDie <= $p->pivot->catch_to;
+                    });
+                    $quarterback = $otherTeam->players->first(function ($p) {
+                        return $p->pivot->depth_chart_position === 'QB1';
+                    });
+                } elseif ($playType === 'PASS+') {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $playerDie >= $p->pivot->catch_plus_from && $playerDie <= $p->pivot->catch_plus_to;
+                    });
+                } elseif ($playType === 'RUN') {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $playerDie >= $p->pivot->rush_from && $playerDie <= $p->pivot->rush_to;
+                    });
+                } else {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $p->pivot->depth_chart_position === $playerDie;
+                    });
+                }
+            }
+
+            if (in_array($playerType, $this->offensivePlayers)) {
+                $offense_player = $player;
+                $tackler = null;
+
+                $tackler = $otherTeam->players->first(function ($p) use ($playerDie) {
+                    return $playerDie >= $p->pivot->tackle_from && $playerDie <= $p->pivot->tackle_to;
+                });
+                $quarterback = $team->players->first(function ($p) {
+                    return $p->pivot->depth_chart_position === 'QB1';
+                });
+            }
+
+
             return [
+                'play_type' => $playType,
                 'player_id' => $player->id,
                 'player_name' => $player->firstname . ' ' . $player->lastname,
                 'jersey_number' => $player->current_jersey_number,
@@ -203,6 +250,15 @@ class GamePlayEngine
                 'result' => $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail,
                 'roll_label' => $offenseRoll->roll_label,
                 'yards' => $yards,
+                'tackler_id' => isset($tackler) ? $tackler->id : null,
+                'tackler_name' => isset($tackler) ? $tackler->firstname . ' ' . $tackler->lastname : null,
+                'tackler_jersey_number' => isset($tackler) ? $tackler->current_jersey_number : null,
+                'offense_player_id' => isset($offense_player) ? $offense_player->id : null,
+                'offense_player_name' => isset($offense_player) ? $offense_player->firstname . ' ' . $offense_player->lastname : null,
+                'offense_player_jersey_number' => isset($offense_player) ? $offense_player->current_jersey_number : null,
+                'quarterback_id' => isset($quarterback) ? $quarterback->id : null,
+                'quarterback_name' => isset($quarterback) ? $quarterback->firstname . ' ' . $quarterback->lastname : null,
+                'quarterback_jersey_number' => isset($quarterback) ? $quarterback->current_jersey_number : null,
             ];
         }
         return [
