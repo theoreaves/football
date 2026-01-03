@@ -63,6 +63,7 @@
     @if($result !== null)
         <div class="mt-6 p-4 bg-gray-100 rounded">
             <h2 class="font-bold mb-2">Result</h2>
+            <h1>{{ $yards }} Yards</h1>
             @if(is_array($result))
                 <ul class="list-disc pl-6">
                     @foreach($result as $key => $value)
@@ -71,6 +72,15 @@
                 </ul>
             @else
                 <div>{{ $result }}</div>
+            @endif
+            @if(is_array($breakAway))
+                <ul class="list-disc pl-6">
+                    @foreach($breakAway as $key => $value)
+                        <li><strong>{{ ucfirst(str_replace('_', ' ', $key)) }}:</strong> {{ $value }}</li>
+                    @endforeach
+                </ul>
+            @else
+                <div>{{ $breakAway }}</div>
             @endif
         </div>
     @endif

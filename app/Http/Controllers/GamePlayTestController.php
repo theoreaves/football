@@ -47,11 +47,27 @@ class GamePlayTestController extends Controller
             (bool)($data['offense_is_home'] ?? false)
         );
 
+        $yards = $result['yards'] ?? '0';
+        $breakAway = [];
+        if (stripos($yards, 'Breakaway') !== false) {
+            $speed = $result['offense_player_speed'] ?? 0;
+            $red = rand(1,6);
+            $white = rand(1,10);
+            $blue = rand(1,10);
+            $roll = $red + $white + $blue;
+            $breakAway = $engine->breakaway($roll, $blue, $speed);
+            $number = (int)filter_var($yards, FILTER_SANITIZE_NUMBER_INT);
+            $breakAway['number'] = $number;
+            $yards = $breakAway['yards'] + $number;
+        }
+
         $teams = Team::all(['id', 'name']);
         return view('gameplay.test', [
             'teams' => $teams,
             'result' => $result,
             'input' => $data,
+            'yards' => $yards,
+            'breakAway' => $breakAway,
         ]);
     }
 }

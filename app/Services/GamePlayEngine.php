@@ -256,6 +256,7 @@ class GamePlayEngine
                 'offense_player_id' => isset($offense_player) ? $offense_player->id : null,
                 'offense_player_name' => isset($offense_player) ? $offense_player->firstname . ' ' . $offense_player->lastname : null,
                 'offense_player_jersey_number' => isset($offense_player) ? $offense_player->current_jersey_number : null,
+                'offense_player_speed' => isset($offense_player) ? $offense_player->speed : null,
                 'quarterback_id' => isset($quarterback) ? $quarterback->id : null,
                 'quarterback_name' => isset($quarterback) ? $quarterback->firstname . ' ' . $quarterback->lastname : null,
                 'quarterback_jersey_number' => isset($quarterback) ? $quarterback->current_jersey_number : null,
@@ -274,4 +275,80 @@ class GamePlayEngine
             'message' => 'Player skill not found for rating: ' . $offenseRoll->rating
         ];
     }
+    public function breakaway(int $resultRoll, int $blueDie, int $speed): array
+    {
+        $speedRoll = $resultRoll + $speed;
+        if ($speedRoll < 23) {
+            return [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => $resultRoll,
+            ];
+        }
+
+        if ($speedRoll > 30) {
+            return [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 100, //touchdown
+            ];
+        }
+
+        return match ($speedRoll) {
+            23, 24 => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 20 + $blueDie,
+            ],
+            25, 31, => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 100, //touchdown
+            ],
+            26 => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 30 + $blueDie,
+            ],
+            27 => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 40 + $blueDie,
+            ],
+            28 => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 50 + $blueDie,
+            ],
+            29 => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 70 + $blueDie,
+            ],
+            30 => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => 90 + $blueDie,
+            ],
+        };
+    }
+
 }
