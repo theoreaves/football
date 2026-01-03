@@ -8,6 +8,36 @@ use App\Models\Team;
 
 class GamePlayEngine
 {
+
+    public $offensivePlayers = [
+        'QB1',
+        'RB1',
+        'RB2',
+        'RB3',
+        'RB4',
+        'WR1',
+        'WR2',
+        'WR3',
+        'WR4',
+        'TE1',
+        'TE2',
+    ];
+
+    public $defensivePlayers = [
+        'DL1',
+        'DL2',
+        'DL3',
+        'DL4',
+        'LB1',
+        'LB2',
+        'LB3',
+        'CB1',
+        'CB2',
+        'S1',
+        'S2',
+    ];
+
+
     /**
      * Resolve the play result based on play codes, rolls, team IDs, dice, and redzone.
      *
@@ -91,7 +121,12 @@ class GamePlayEngine
             }
             return 'AUTO';
         }
-        $teamId = $playerType === 'DEF' ? $defenseTeamId : $offenseTeamId;
+//        $teamId = $playerType === 'DEF' ? $defenseTeamId : $offenseTeamId;
+        if (in_array($playerType, $this->offensivePlayers)) {
+            $teamId = $offenseTeamId;
+        } else {
+            $teamId = $defenseTeamId;
+        }
         $team = Team::with('players')->find($teamId);
         if (!$team) {
             return 'Team not found.';
