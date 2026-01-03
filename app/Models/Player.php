@@ -13,6 +13,12 @@ class Player extends Model
         return $this->hasOne(TeamPlayer::class);
     }
 
+    public function getCurrentJerseyNumberAttribute()
+    {
+        $teamPlayer = $this->team;
+        return $teamPlayer ? $teamPlayer->jersey_number : null;
+    }
+
     public function teams()
     {
         return $this->belongsToMany(Team::class, 'team_players')

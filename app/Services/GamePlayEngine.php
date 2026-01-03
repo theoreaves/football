@@ -122,7 +122,9 @@ class GamePlayEngine
             $playerSkill = $player->$playerSkillField;
             $pass = $skillRoll <= $playerSkill;
             return [
-                'player' => $player->name ?? $player->id,
+                'player_id' => $player->id,
+                'player_name' => $player->firstname . ' ' . $player->lastname,
+                'jersey_number' => $player->current_jersey_number,
                 'position' => $offenseRoll->player,
 //                'rating' => $offenseRoll->rating,
                 'player_skill' => $playerSkill,
@@ -132,7 +134,7 @@ class GamePlayEngine
             ];
         }
         return [
-            'player' => $player->name ?? $player->id,
+            'player' => $player->lastname ?? $player->id,
             'position' => $offenseRoll->player,
             'rating' => $offenseRoll->rating,
             'skill_pass' => $offenseRoll->skill_pass,
