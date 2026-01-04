@@ -501,4 +501,34 @@ class GamePlayEngine
             'yards' => $kickYards
         ];
     }
+
+    public function field_goal_attempt($yards, $resultRoll): bool
+    {
+        $fgConfig = config('special_teams.field_goals');
+        $requiredRoll = null;
+        foreach ($fgConfig as $range => $value) {
+            if (strpos($range, '-') !== false) {
+                [$min, $max] = explode('-', $range);
+                if ($yards >= (int)$min && $yards <= (int)$max) {
+                    $requiredRoll = (int)$value;
+                    break;
+                }
+            } elseif (strpos($range, '+') !== false) {
+                $min = (int)str_replace('+', '', $range);
+                if ($yards >= $min) {
+                    $requiredRoll = (int)$value;
+                    break;
+                }
+            } else {
+                if ($yards == (int)$range) {
+                    $requiredRoll = (int)$value;
+                    break;
+                }
+            }
+        }
+        if ($requiredRoll === null) {
+            return false; // Out of range, treat as miss
+        }
+        return $resultRoll >= $requiredRoll;
+    }
 }
