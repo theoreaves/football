@@ -52,6 +52,12 @@ class SeedNflTeams extends Command
                 // Always update colors + OL fields (and playcalling if blank-ish)
                 $team->team_color1 = $t['color1'];
                 $team->team_color2 = $t['color2'];
+                $team->jersey_dark_primary = $t['color1'];
+                $team->jersey_dark_outline = $t['color2'];
+                $team->jersey_dark_font = $t['color2'];
+                $team->jersey_white_primary = '#FFFFFF';
+                $team->jersey_white_outline = $t['color2'];
+                $team->jersey_white_font = $t['color1'];
 
                 $team->ol_rush    = random_int(1, 9);
                 $team->ol_power   = random_int(1, 9);

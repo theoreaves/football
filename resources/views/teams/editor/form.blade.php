@@ -104,7 +104,7 @@
                            class="w-full border rounded p-2" required />
                 </div>
             </div>
-
+            {{-- Team colors (unchanged) --}}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block font-medium mb-1">Team Color 1</label>
@@ -133,6 +133,131 @@
                                value="{{ old('team_color2', $team->team_color2) }}"
                                placeholder="#RRGGBB"
                                class="w-full border rounded p-2" />
+                    </div>
+                </div>
+            </div>
+
+            {{-- Wear white at home (boolean) --}}
+            <div class="border rounded p-4">
+                <label class="inline-flex items-center gap-3">
+                    {{-- ensure a value is submitted even when unchecked --}}
+                    <input type="hidden" name="wear_white_at_home" value="0">
+
+                    <input
+                        type="checkbox"
+                        name="wear_white_at_home"
+                        value="1"
+                        {{ old('wear_white_at_home', (int)($team->wear_white_at_home ?? 0)) ? 'checked' : '' }}
+                        class="h-5 w-5"
+                    />
+
+                    <span class="font-medium">Wear white at home</span>
+                </label>
+                <div class="text-xs text-gray-600 mt-1">
+                    If checked, this team’s home uniform is the white set.
+                </div>
+            </div>
+
+            {{-- Jersey colors: Dark (one row) --}}
+            <div class="border rounded p-4">
+                <div class="font-semibold mb-3">Jersey Colors — Dark</div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block font-medium mb-1">Dark Primary</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   value="{{ old('jersey_dark_primary', $team->jersey_dark_primary ?? '#FFFFFF') }}"
+                                   oninput="document.getElementById('jersey_dark_primary').value=this.value"
+                                   class="h-10 w-14 border rounded" />
+                            <input id="jersey_dark_primary"
+                                   name="jersey_dark_primary"
+                                   value="{{ old('jersey_dark_primary', $team->jersey_dark_primary) }}"
+                                   placeholder="#RRGGBB"
+                                   class="w-full border rounded p-2" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium mb-1">Dark Outline</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   value="{{ old('jersey_dark_outline', $team->jersey_dark_outline ?? '#FFFFFF') }}"
+                                   oninput="document.getElementById('jersey_dark_outline').value=this.value"
+                                   class="h-10 w-14 border rounded" />
+                            <input id="jersey_dark_outline"
+                                   name="jersey_dark_outline"
+                                   value="{{ old('jersey_dark_outline', $team->jersey_dark_outline) }}"
+                                   placeholder="#RRGGBB"
+                                   class="w-full border rounded p-2" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium mb-1">Dark Font</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   value="{{ old('jersey_dark_font', $team->jersey_dark_font ?? '#FFFFFF') }}"
+                                   oninput="document.getElementById('jersey_dark_font').value=this.value"
+                                   class="h-10 w-14 border rounded" />
+                            <input id="jersey_dark_font"
+                                   name="jersey_dark_font"
+                                   value="{{ old('jersey_dark_font', $team->jersey_dark_font) }}"
+                                   placeholder="#RRGGBB"
+                                   class="w-full border rounded p-2" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Jersey colors: White (one row) --}}
+            <div class="border rounded p-4">
+                <div class="font-semibold mb-3">Jersey Colors — White</div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block font-medium mb-1">White Primary</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   value="{{ old('jersey_white_primary', $team->jersey_white_primary ?? '#FFFFFF') }}"
+                                   oninput="document.getElementById('jersey_white_primary').value=this.value"
+                                   class="h-10 w-14 border rounded" />
+                            <input id="jersey_white_primary"
+                                   name="jersey_white_primary"
+                                   value="{{ old('jersey_white_primary', $team->jersey_white_primary) }}"
+                                   placeholder="#RRGGBB"
+                                   class="w-full border rounded p-2" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium mb-1">White Outline</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   value="{{ old('jersey_white_outline', $team->jersey_white_outline ?? '#FFFFFF') }}"
+                                   oninput="document.getElementById('jersey_white_outline').value=this.value"
+                                   class="h-10 w-14 border rounded" />
+                            <input id="jersey_white_outline"
+                                   name="jersey_white_outline"
+                                   value="{{ old('jersey_white_outline', $team->jersey_white_outline) }}"
+                                   placeholder="#RRGGBB"
+                                   class="w-full border rounded p-2" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium mb-1">White Font</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   value="{{ old('jersey_white_font', $team->jersey_white_font ?? '#FFFFFF') }}"
+                                   oninput="document.getElementById('jersey_white_font').value=this.value"
+                                   class="h-10 w-14 border rounded" />
+                            <input id="jersey_white_font"
+                                   name="jersey_white_font"
+                                   value="{{ old('jersey_white_font', $team->jersey_white_font) }}"
+                                   placeholder="#RRGGBB"
+                                   class="w-full border rounded p-2" />
+                        </div>
                     </div>
                 </div>
             </div>

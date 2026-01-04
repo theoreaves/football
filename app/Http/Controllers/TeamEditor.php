@@ -92,6 +92,14 @@ class TeamEditor extends Controller
             'team_color1' => $hex,
             'team_color2' => $hex,
 
+            'jersey_dark_primary' => $hex,
+            'jersey_dark_outline' => $hex,
+            'jersey_dark_font' => $hex,
+            'jersey_white_primary' => $hex,
+            'jersey_white_outline' => $hex,
+            'jersey_white_font' => $hex,
+            'wear_white_at_home' => ['required', 'boolean'],
+
             // files validated in handleUploads() so update doesn’t require re-upload
         ]);
     }
