@@ -70,4 +70,33 @@ class GamePlayTestController extends Controller
             'breakAway' => $breakAway,
         ]);
     }
+
+    public function submitKickoffForm(Request $request, GamePlayEngine $engine): \Illuminate\View\View
+    {
+        $data = $request->validate([
+            'kick_returner_id' => 'required|integer|exists:players,id',
+            'red' => 'required|integer|min:1|max:6',
+            'white' => 'required|integer|min:0|max:9',
+            'blue' => 'required|integer|min:0|max:9',
+        ]);
+
+        $kickReturner = \App\Models\Player::findOrFail($data['kick_returner_id']);
+        $result = $engine->kickoff($kickReturner, $data['red'], $data['white'], $data['blue']);
+
+
+        $teams = Team::all(['id', 'name']);
+        return view('gameplay.test', [
+            'teams' => $teams,
+            'result' => $result,
+            'input' => $data,
+            'yards' => '',
+            'breakAway' => []
+        ]);
+
+//        return view('gameplay.test', [
+//            'result' => $result,
+//            'input' => $data,
+//            'kickReturner' => $kickReturner,
+//        ]);
+    }
 }

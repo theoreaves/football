@@ -3,7 +3,7 @@
 return [
     'kickoffs' => [
         '0-24' => [
-            'kick' => 'blue + white',
+            'kick' => 'red + white',
             'return' => '10 + blue',
         ],
         '25-31' => [

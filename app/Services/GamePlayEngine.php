@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\OffensePlay;
 use App\Models\DefensePlay;
+use App\Models\Player;
 use App\Models\Team;
 
 class GamePlayEngine
@@ -348,7 +349,97 @@ class GamePlayEngine
                 'blue_die' => $blueDie,
                 'yards' => 90 + $blueDie,
             ],
+            default => [
+                'speed' => $speed,
+                'result_roll' => $resultRoll,
+                'speed_roll' => $speedRoll,
+                'blue_die' => $blueDie,
+                'yards' => $resultRoll, // fallback to resultRoll as yards
+            ],
         };
     }
 
+    /**
+     * Helper to parse and evaluate kickoff formulas.
+     *
+     * @param string $formula
+     * @param array $vars
+     * @return int|string
+     */
+    protected function parseKickoffFormula(string $formula, array $vars): int|string
+    {
+        $formula = str_replace(['red', 'white', 'blue', 'KR'], [
+            $vars['red'], $vars['white'], $vars['blue'], $vars['KR']
+        ], $formula);
+        $formula = trim($formula);
+
+        // Handle special cases
+        if (in_array($formula, ['B!', 'TB', 'OB', '40YL'])) {
+            return $formula;
+        }
+
+        // If the formula is a valid math expression (only numbers, math operators, parentheses, spaces), evaluate it
+        if (preg_match('/^[\d+\-*\/().\s]+$/', $formula)) {
+//            if (preg_match('/^[\d+\-*/().\s]+$/', $formula)) {
+            try {
+                $result = eval('return ' . $formula . ';');
+                return (int)$result;
+            } catch (\Throwable $e) {
+                return $formula;
+            }
+        }
+
+        // Otherwise, return as-is (contains non-math characters)
+        return $formula;
+    }
+
+    public function kickoff(Player $kickReturner, int $redDie, int $whiteDie, int $blueDie): array
+    {
+        $resultRoll = ((string)$redDie . (string)$whiteDie) * 1;
+        $kickoffConfig = config('special_teams.kickoffs');
+        $kickResult = null;
+        $returnResult = null;
+        foreach ($kickoffConfig as $range => $values) {
+            if (preg_match('/^(\\d+)$/', $range, $m)) {
+                if ($resultRoll == (int)$m[1]) {
+                    $kickResult = $values['kick'];
+                    $returnResult = $values['return'];
+                    break;
+                }
+            } elseif (preg_match('/^(\\d+)-(\\d+)$/', $range, $m)) {
+                $min = (int)$m[1];
+                $max = (int)$m[2];
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    $kickResult = $values['kick'];
+                    $returnResult = $values['return'];
+                    break;
+                }
+            }
+        }
+        if ($kickResult === null || $returnResult === null) {
+            return [
+                'result_roll' => $resultRoll,
+                'kick' => null,
+                'return' => null,
+                'message' => 'No kickoff result found for roll: ' . $resultRoll,
+            ];
+        }
+        $vars = [
+            'red' => $redDie,
+            'white' => $whiteDie,
+            'blue' => $blueDie,
+            'KR' => $kickReturner->return_speed ?? 0,
+        ];
+        $kickYards = $this->parseKickoffFormula($kickResult, $vars);
+        $returnYards = $this->parseKickoffFormula($returnResult, $vars);
+        $isBreakaway = ($kickYards === 'B!' || $returnYards === 'B!');
+        return [
+            'result_roll' => $resultRoll,
+            'kick_formula' => $kickResult,
+            'return_formula' => $returnResult,
+            'kick' => $kickYards,
+            'return' => $returnYards,
+            'breakaway' => $isBreakaway,
+        ];
+    }
 }
