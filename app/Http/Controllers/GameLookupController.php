@@ -15,7 +15,7 @@ class GameLookupController extends Controller
 
         // however you store these on games:
         $teamId = $side === 'AWAY' ? $game->away_team_id : $game->home_team_id;
-        $year   = $game->season_year ?? $game->year ?? '2022'; // adjust to your actual column
+        $year   = $game->season_year ?? $game->year ?? '2025'; // adjust to your actual column
 
         $row = DB::table('team_players')
             ->join('players', 'players.id', '=', 'team_players.player_id')
