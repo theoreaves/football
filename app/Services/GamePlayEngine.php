@@ -581,4 +581,38 @@ class GamePlayEngine
         }
         return $resultRoll >= $requiredRoll;
     }
+
+    /**
+     * Determine if the onside kick is recovered by the kicking team.
+     *
+     * @param int $resultRoll
+     * @return bool
+     */
+    public function onside_kick(int $resultRoll): bool
+    {
+        $onsideConfig = config('special_teams.onside_kicks');
+        $winner = null;
+        foreach ($onsideConfig as $range => $values) {
+            if (preg_match('/^(\d+)-(\d+)$/', $range, $m)) {
+                $min = (int)$m[1];
+                $max = (int)$m[2];
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    $winner = $values['recover'] ?? null;
+                    break;
+                }
+            } elseif (preg_match('/^(\d+)\+$/', $range, $m)) {
+                $min = (int)$m[1];
+                if ($resultRoll >= $min) {
+                    $winner = $values['recover'] ?? null;
+                    break;
+                }
+            } elseif (preg_match('/^(\d+)$/', $range, $m)) {
+                if ($resultRoll == (int)$m[1]) {
+                    $winner = $values['recover'] ?? null;
+                    break;
+                }
+            }
+        }
+        return $winner === 'K';
+    }
 }
