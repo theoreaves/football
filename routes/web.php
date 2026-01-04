@@ -44,8 +44,11 @@ Route::get('/game-cards/{cardType}', [GameCardsController::class, 'index'])
     ->name('games-cards.index');
 
 use App\Http\Controllers\DiceController;
-Route::get('/dice', [DiceController::class, 'index'])
-    ->name('dice.index');
+//Route::get('/dice/{game}', [DiceController::class, 'index'])
+//    ->name('dice.index');
+Route::get('/games/{game}/dice', [DiceController::class, 'index'])->name('dice.index');
+Route::post('/games/{game}/dice/resolve', [DiceController::class, 'resolve'])->name('dice.resolve');
+
 
 // routes/web.php
 

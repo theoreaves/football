@@ -2,10 +2,85 @@
 <x-layouts.app>
     {{-- resources/views/dice/index.blade.php (or wherever you render it) --}}
     <div
-        x-data="diceRoller()"
+        x-data="diceRoller({
+    diceOnly: @js($diceOnly),
+    resolveUrl: @js(route('dice.resolve', $game)),
+    csrf: @js(csrf_token())
+})"
+
         x-init="init()"
         class="p-6 text-gray-100 select-none"
     >
+{{--    <div--}}
+{{--        x-data="diceRoller()"--}}
+{{--        x-init="init()"--}}
+{{--        class="p-6 text-gray-100 select-none"--}}
+{{--    >--}}
+        <div class="flex items-start justify-between gap-6">
+            {{ $game->homeTeam->name }} vs {{ $game->awayTeam->name }}
+            <br>
+            Possession: {{ $possessionTeam->name }}
+        </div>
+        <div class="flex gap-4 mt-2">
+            <div>
+                <label for="offense-play" class="block text-xs text-gray-400 mb-1">Offense Play</label>
+                <select id="offense-play" x-model="offensePlay" class="rounded-lg border border-white/10 bg-gray-800 text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-600">
+                    <option value="" disabled selected>Select Offense Play</option>
+                    @foreach($offensePlays as $play)
+                        <option value="{{ $play->id }}">{{ $play->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label for="defense-play" class="block text-xs text-gray-400 mb-1">Defense Play</label>
+                <select id="defense-play" x-model="defensePlay" class="rounded-lg border border-white/10 bg-gray-800 text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                    <option value="" disabled selected>Select Defense Play</option>
+                    @foreach($defensePlays as $play)
+                        <option value="{{ $play->id }}">{{ $play->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+
+        <div class="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div class="flex items-center justify-between">
+                <div class="text-xl font-semibold">Engine Result</div>
+                <div class="text-sm text-gray-400">
+                    <span x-show="resolving" x-cloak>Resolving…</span>
+                    <span x-show="!diceOnly && !resolving && resolved" x-cloak
+                          class="cursor-pointer"
+                          @click="resolved = false"
+                    >OK</span>
+                </div>
+            </div>
+
+            <template x-if="diceOnly">
+                <div class="mt-3 text-sm text-gray-400">
+                    Dice-only mode enabled.
+                </div>
+            </template>
+
+            <template x-if="resolveError">
+                <pre class="mt-3 whitespace-pre-wrap text-sm text-red-300" x-text="resolveError"></pre>
+            </template>
+
+            <template x-if="resolved">
+        <pre class="mt-3 whitespace-pre-wrap text-sm text-gray-200"
+             x-text="JSON.stringify(resolved.resolved ?? resolved, null, 2)"></pre>
+            </template>
+
+            <template x-if="!diceOnly && !resolved && !resolveError">
+                <div class="mt-3 text-sm text-gray-400">
+                    Roll to resolve a play.
+                </div>
+            </template>
+        </div>
+
+
+
+
+
         <div class="flex items-start justify-between gap-6">
             <div>
                 <div class="text-sm text-gray-400">Game Dice Roller</div>
@@ -225,117 +300,213 @@
             </div>
         </div>
 
-        <script>
-            function diceRoller() {
+
+
+            <script>
+                function diceRoller(opts = {}) {
                 return {
-                    rolling: false,
-                    lastRollLabel: '',
-                    playResult: null,
+                // config
+                diceOnly: !!opts.diceOnly,
+                resolveUrl: opts.resolveUrl || null,
+                csrf: opts.csrf || null,
 
-                    red:    { sides: 6,  value: null, spin: null },
-                    white:  { sides: 10, value: null, spin: null },
-                    blue:   { sides: 10, value: null, spin: null },
-                    green:  { sides: 20, value: null, spin: null },
-                    orange: { sides: 20, value: null, spin: null },
-                    // Add purple d10 (Tackler)
-                    purple: { sides: 10, value: null, spin: null },
+                // ui state
+                rolling: false,
+                resolving: false,
+                lastRollLabel: '',
+                playResult: null,
 
-                    init() {
-                        // Hotkey: R to roll (ignore if typing in an input/textarea)
-                        window.addEventListener('keydown', (e) => {
-                            const key = (e.key || '').toLowerCase();
-                            const tag = (e.target?.tagName || '').toLowerCase();
-                            const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
-                            if (typing) return;
+                resolved: null,
+                resolveError: null,
 
-                            if (key === 'r') {
-                                e.preventDefault();
-                                this.rollAll();
-                            }
-                        });
-                    },
+                red:    { sides: 6,  value: null, spin: null },
+                white:  { sides: 10, value: null, spin: null }, // 0..9 digit
+                blue:   { sides: 10, value: null, spin: null }, // 1..10 skill
+                green:  { sides: 20, value: null, spin: null },
+                orange: { sides: 20, value: null, spin: null },
+                purple: { sides: 10, value: null, spin: null }, // 1..10 tackler
 
-                    display(die) {
-                        // while rolling, show the spin value; otherwise the final
-                        if (this.rolling) return die.spin ?? '—';
-                        return die.value ?? '—';
-                    },
+                offensePlay: '',
+                defensePlay: '',
 
-                    rand(min, max) {
-                        return Math.floor(Math.random() * (max - min + 1)) + min;
-                    },
+                init() {
+                window.addEventListener('keydown', (e) => {
+                const key = (e.key || '').toLowerCase();
+                const tag = (e.target?.tagName || '').toLowerCase();
+                const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+                if (typing) return;
 
-                    finalizeDie(die) {
-                        die.value = this.rand(1, die.sides);
-                        die.spin = null;
-                    },
-
-                    finalize10Die(die) {
-                        die.value = this.rand(0, 9);
-                        die.spin = null;
-                    },
-
-                    computePlayResult() {
-                        // only from first two dice: red + white => "57" style
-                        if (!this.red.value && !this.white.value) return null;
-                        return parseInt(String(this.red.value) + String(this.white.value), 10);
-                    },
-
-                    rollAll() {
-                        if (this.rolling) return;
-
-                        this.rolling = true;
-                        const start = Date.now();
-                        const duration = 2000; // 2 seconds
-                        const tickMs = 90;
-
-                        // spinning values
-                        const spinTimer = setInterval(() => {
-                            this.red.spin    = this.rand(1, this.red.sides);
-                            this.green.spin  = this.rand(1, this.green.sides);
-                            this.orange.spin = this.rand(1, this.orange.sides);
-                            this.white.spin  = this.rand(0, 9);
-                            this.blue.spin   = this.rand(0, 9);
-                            // Purple d10
-                            this.purple.spin = this.rand(0, 9);
-
-                            if (Date.now() - start >= duration) {
-                                clearInterval(spinTimer);
-
-                                this.finalizeDie(this.red);
-                                this.finalize10Die(this.white);
-                                this.finalize10Die(this.blue);
-                                this.finalizeDie(this.green);
-                                this.finalizeDie(this.orange);
-                                this.finalize10Die(this.purple);
-
-                                this.playResult = this.computePlayResult();
-
-                                this.lastRollLabel = [
-                                    `R:${this.red.value}`,
-                                    `W:${this.white.value}`,
-                                    `B:${this.blue.value}`,
-                                    `G:${this.green.value}`,
-                                    `O:${this.orange.value}`,
-                                    `P:${this.purple.value}`,
-                                ].join('  ');
-
-                                this.rolling = false;
-                            }
-                        }, tickMs);
-                    },
-
-                    resetAll() {
-                        if (this.rolling) return;
-                        [this.red, this.white, this.blue, this.green, this.orange, this.purple].forEach(d => {
-                            d.value = null;
-                            d.spin = null;
-                        });
-                        this.playResult = null;
-                        this.lastRollLabel = '';
-                    },
-                };
+                if (key === 'r') {
+                e.preventDefault();
+                this.rollAll();
             }
+            });
+            },
+
+                display(die) {
+                if (this.rolling) return die.spin ?? '—';
+                return die.value ?? '—';
+            },
+
+                rand(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            },
+
+                finalizeDie(die) { // generic 1..sides
+                die.value = this.rand(1, die.sides);
+                die.spin = null;
+            },
+
+                finalize10Digit(die) { // white only: 0..9
+                die.value = this.rand(0, 9);
+                die.spin = null;
+            },
+
+                finalizeD10(die) { // blue/purple: 1..10
+                die.value = this.rand(1, 10);
+                die.spin = null;
+            },
+
+                computePlayResult() {
+                if (this.red.value === null || this.white.value === null) return null;
+                return parseInt(String(this.red.value) + String(this.white.value), 10);
+            },
+
+                async resolvePlay() {
+                this.resolveError = null;
+                this.resolved = null;
+
+                if (this.diceOnly) return;
+                if (!this.resolveUrl) {
+                this.resolveError = 'resolveUrl not set.';
+                return;
+            }
+                if (!this.offensePlay || !this.defensePlay) {
+                this.resolveError = 'Select offense and defense plays first.';
+                return;
+            }
+
+                // Ensure dice are present
+                if ([this.red, this.white, this.blue, this.green, this.orange, this.purple].some(d => d.value === null)) {
+                this.resolveError = 'Dice not finalized.';
+                return;
+            }
+
+                this.resolving = true;
+
+                try {
+                const resp = await fetch(this.resolveUrl, {
+                method: 'POST',
+                headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': this.csrf,
+                'Accept': 'application/json',
+            },
+                body: JSON.stringify({
+                offense_play_id: this.offensePlay,
+                defense_play_id: this.defensePlay,
+
+                red: this.red.value,
+                white: this.white.value,
+                blue: this.blue.value,
+                green: this.green.value,
+                orange: this.orange.value,
+                purple: this.purple.value,
+
+                // optional if you want to pass this from UI later
+                // redzone: false,
+            }),
+            });
+
+                const json = await resp.json().catch(() => null);
+
+                if (!resp.ok) {
+                // Laravel validation errors come back here too
+                this.resolveError = json?.message || 'Resolve failed.';
+                // if validation payload exists:
+                if (json?.errors) this.resolveError = JSON.stringify(json.errors, null, 2);
+                return;
+            }
+
+                this.resolved = json;
+            } catch (e) {
+                this.resolveError = (e && e.message) ? e.message : 'Resolve failed (network).';
+            } finally {
+                this.resolving = false;
+            }
+            },
+
+                rollAll() {
+                if (this.rolling || this.resolving) return;
+
+                this.resolveError = null;
+                this.resolved = null;
+
+                this.rolling = true;
+                const start = Date.now();
+                const duration = 2000;
+                const tickMs = 90;
+
+                const spinTimer = setInterval(async () => {
+                this.red.spin    = this.rand(1, 6);
+                this.white.spin  = this.rand(0, 9);
+
+                this.blue.spin   = this.rand(1, 10);
+                this.purple.spin = this.rand(1, 10);
+
+                this.green.spin  = this.rand(1, 20);
+                this.orange.spin = this.rand(1, 20);
+
+                if (Date.now() - start >= duration) {
+                clearInterval(spinTimer);
+
+                this.finalizeDie(this.red);
+                this.finalize10Digit(this.white);
+
+                this.finalizeD10(this.blue);
+                this.finalizeDie(this.green);
+                this.finalizeDie(this.orange);
+                this.finalizeD10(this.purple);
+
+                this.playResult = this.computePlayResult();
+
+                this.lastRollLabel = [
+                `R:${this.red.value}`,
+                `W:${this.white.value}`,
+                `B:${this.blue.value}`,
+                `G:${this.green.value}`,
+                `O:${this.orange.value}`,
+                `P:${this.purple.value}`,
+                ].join('  ');
+
+                this.rolling = false;
+
+                // Call engine after dice finalize
+                await this.resolvePlay();
+            }
+            }, tickMs);
+            },
+
+                resetAll() {
+                if (this.rolling || this.resolving) return;
+
+                [this.red, this.white, this.blue, this.green, this.orange, this.purple].forEach(d => {
+                d.value = null;
+                d.spin = null;
+            });
+
+                this.playResult = null;
+                this.lastRollLabel = '';
+                this.resolveError = null;
+                this.resolved = null;
+            },
+            };
+            }
+
+
+
+
+
         </script>
     </div>
 

@@ -1349,7 +1349,7 @@
             new WinBox({
                 id: 'dice',
                 title: 'Game Dice',
-                url: `/dice`, // your existing team sheet route
+                url: `/games/{{ $game->id }}/dice`, // your existing team sheet route
                 width: 500,
                 height: 800,
                 x: 'center',
