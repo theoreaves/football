@@ -470,6 +470,56 @@ class GamePlayEngine
         ];
     }
 
+    public function puch_punt(Player $punter, $resultRoll, $skillRoll): array
+    {
+        $poochConfig = config('special_teams.pooch_punts');
+        $result = null;
+        foreach ($poochConfig as $range => $values) {
+            if (preg_match('/^(\d+)-(\d+)$/', $range, $m)) {
+                $min = (int)$m[1];
+                $max = (int)$m[2];
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    $result = $values;
+                    break;
+                }
+            } elseif (preg_match('/^(\d+)\+$/', $range, $m)) {
+                $min = (int)$m[1];
+                if ($resultRoll >= $min) {
+                    $result = $values;
+                    break;
+                }
+            } elseif (preg_match('/^(\d+)$/', $range, $m)) {
+                if ($resultRoll == (int)$m[1]) {
+                    $result = $values;
+                    break;
+                }
+            }
+        }
+        if (!$result) {
+            return [
+                'result_roll' => $resultRoll,
+                'spot' => null,
+                'type' => null,
+                'message' => 'No pooch punt result found for roll: ' . $resultRoll,
+            ];
+        }
+        $key = ($punter->punt_pooch > $skillRoll) ? 'skill_greater' : 'skill_less';
+        $outcome = $result[$key] ?? null;
+        if (!$outcome) {
+            return [
+                'result_roll' => $resultRoll,
+                'spot' => null,
+                'type' => null,
+                'message' => 'No outcome found for key: ' . $key,
+            ];
+        }
+        return [
+            'result_roll' => $resultRoll,
+            'spot' => $outcome['spot'] ?? null,
+            'type' => $outcome['type'] ?? null,
+        ];
+    }
+
     public function punt_return(Player $kickReturner, $resultRoll, $skillRoll): array
     {
         $puntReturnConfig = config('special_teams.punt_returns');
