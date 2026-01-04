@@ -82,7 +82,35 @@
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
     </form>
 
-    @if($result !== null)
+    <form method="POST" action="{{ url('/gameplay/test/punt') }}" class="space-y-4">
+        @csrf
+
+        <div>
+            <label class="block font-semibold">Result</label>
+            <input type="number" name="resultRoll" value="{{ old('resultRoll', $input['resultRoll'] ?? '') }}" class="w-full border rounded px-2 py-1">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
+    </form>
+
+    <form method="POST" action="{{ url('/gameplay/test/punt_return') }}" class="space-y-4">
+        @csrf
+
+        <div>
+            <label class="block font-semibold">Player ID</label>
+            <input type="number" name="kick_returner_id" value="{{ old('kick_returner_id', $input['kick_returner_id'] ?? '') }}" class="w-full border rounded px-2 py-1">
+        </div>
+        <div>
+            <label class="block font-semibold">Result</label>
+            <input type="number" name="resultRoll" value="{{ old('resultRoll', $input['resultRoll'] ?? '') }}" class="w-full border rounded px-2 py-1">
+        </div>
+        <div>
+            <label class="block font-semibold">Skill Roll</label>
+            <input type="number" name="skillRoll" value="{{ old('skillRoll', $input['skillRoll'] ?? '') }}" class="w-full border rounded px-2 py-1">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
+    </form>
+
+@if($result !== null)
         <div class="mt-6 p-4 bg-gray-100 rounded">
             <h2 class="font-bold mb-2">Result</h2>
             <h1>{{ $yards }} Yards</h1>

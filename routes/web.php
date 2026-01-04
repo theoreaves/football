@@ -69,6 +69,8 @@ use App\Http\Controllers\GamePlayTestController;
 Route::get('/gameplay/test', [GamePlayTestController::class, 'showForm'])->name('gameplay.test');
 Route::post('/gameplay/test', [GamePlayTestController::class, 'submitForm']);
 Route::post('/gameplay/test/kickoff', [GamePlayTestController::class, 'submitKickoffForm']);
+Route::post('/gameplay/test/punt', [GamePlayTestController::class, 'submitPuntForm']);
+Route::post('/gameplay/test/punt_return', [GamePlayTestController::class, 'submitPuntReturn']);
 
 use App\Http\Controllers\TeamEditor;
 //Route::resource('teams/editor', TeamEditor::class)->names('teams.editor');

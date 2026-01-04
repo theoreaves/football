@@ -92,11 +92,47 @@ class GamePlayTestController extends Controller
             'yards' => '',
             'breakAway' => []
         ]);
-
-//        return view('gameplay.test', [
-//            'result' => $result,
-//            'input' => $data,
-//            'kickReturner' => $kickReturner,
-//        ]);
     }
+
+
+    public function submitPuntForm(Request $request, GamePlayEngine $engine): \Illuminate\View\View
+    {
+        $data = $request->validate([
+            'resultRoll' => 'required|integer|min:1|max:100',
+        ]);
+
+        $result = $engine->punt($data['resultRoll']);
+
+        $teams = Team::all(['id', 'name']);
+        return view('gameplay.test', [
+            'teams' => $teams,
+            'result' => $result,
+            'input' => $data,
+            'yards' => '',
+            'breakAway' => []
+        ]);
+    }
+
+    public function submitPuntReturn(Request $request, GamePlayEngine $engine): \Illuminate\View\View
+    {
+        $data = $request->validate([
+            'kick_returner_id' => 'required|integer|exists:players,id',
+            'resultRoll' => 'required|integer|min:1|max:100',
+            'skillRoll' => 'required|integer|min:0|max:9',
+        ]);
+
+        $kickReturner = \App\Models\Player::findOrFail($data['kick_returner_id']);
+        $result = $engine->punt_return($kickReturner, $data['resultRoll'], $data['skillRoll']);
+
+
+        $teams = Team::all(['id', 'name']);
+        return view('gameplay.test', [
+            'teams' => $teams,
+            'result' => $result,
+            'input' => $data,
+            'yards' => '',
+            'breakAway' => []
+        ]);
+    }
+
 }

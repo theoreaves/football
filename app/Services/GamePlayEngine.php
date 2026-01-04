@@ -366,7 +366,7 @@ class GamePlayEngine
      * @param array $vars
      * @return int|string
      */
-    protected function parseKickoffFormula(string $formula, array $vars): int|string
+    protected function parseResultFormula(string $formula, array $vars): int|string
     {
         $formula = str_replace(['red', 'white', 'blue', 'KR'], [
             $vars['red'], $vars['white'], $vars['blue'], $vars['KR']
@@ -430,8 +430,8 @@ class GamePlayEngine
             'blue' => $blueDie,
             'KR' => $kickReturner->return_speed ?? 0,
         ];
-        $kickYards = $this->parseKickoffFormula($kickResult, $vars);
-        $returnYards = $this->parseKickoffFormula($returnResult, $vars);
+        $kickYards = $this->parseResultFormula($kickResult, $vars);
+        $returnYards = $this->parseResultFormula($returnResult, $vars);
         $isBreakaway = ($kickYards === 'B!' || $returnYards === 'B!');
         return [
             'result_roll' => $resultRoll,
@@ -440,6 +440,65 @@ class GamePlayEngine
             'kick' => $kickYards,
             'return' => $returnYards,
             'breakaway' => $isBreakaway,
+        ];
+    }
+
+    public function punt($resultRoll): array
+    {
+        $puntConfig = config('special_teams.punts');
+        foreach ($puntConfig as $range => $values) {
+            if (preg_match('/^(\\d+)$/', $range, $m)) {
+                if ($resultRoll == (int)$m[1]) {
+                    $distance = $values['distance'];
+                    $type = $values['type'];
+                    break;
+                }
+            } elseif (preg_match('/^(\\d+)-(\\d+)$/', $range, $m)) {
+                $min = (int)$m[1];
+                $max = (int)$m[2];
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    $distance = $values['distance'];
+                    $type = $values['type'];
+                    break;
+                }
+            }
+        }
+        return [
+            'result_roll' => $resultRoll,
+            'distance' => $distance ?? null,
+            'type' => $type ?? null,
+        ];
+    }
+
+    public function punt_return(Player $kickReturner, $resultRoll, $skillRoll): array
+    {
+        $puntReturnConfig = config('special_teams.punt_returns');
+        foreach ($puntReturnConfig as $range => $values) {
+            if (preg_match('/^(\\d+)$/', $range, $m)) {
+                if ($resultRoll == (int)$m[1]) {
+                    $yards = $values['yards'];
+                    break;
+                }
+            } elseif (preg_match('/^(\\d+)-(\\d+)$/', $range, $m)) {
+                $min = (int)$m[1];
+                $max = (int)$m[2];
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    $yards = $values['yards'];
+                    break;
+                }
+            }
+        }
+        $vars = [
+            'red' => 0,
+            'white' => 0,
+            'blue' => $skillRoll,
+            'KR' => $kickReturner->return_speed ?? 0,
+        ];
+        $kickYards = $this->parseResultFormula($yards, $vars);
+        return [
+            'result_roll' => $resultRoll,
+            'return' => $yards ?? null,
+            'yards' => $kickYards
         ];
     }
 }
