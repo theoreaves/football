@@ -329,7 +329,7 @@ class SeedNflTeams extends Command
 
     private function randomFirstName(): string
     {
-        return Faker::create()->firstName;
+        return Faker::create()->firstNameMale;
     }
 
     private function randomLastName(): string
