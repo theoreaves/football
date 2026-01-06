@@ -32,6 +32,7 @@ class GamePlayEngine
         'LB1',
         'LB2',
         'LB3',
+        'LB4',
         'CB1',
         'CB2',
         'S1',
@@ -151,13 +152,57 @@ class GamePlayEngine
             if ($olField && isset($team->$olField)) {
                 $olValue = $team->$olField;
                 $pass = $skillRoll <= $olValue;
+
+                if ($playType === 'PASS') {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $playerDie >= $p->pivot->catch_from && $playerDie <= $p->pivot->catch_to;
+                    });
+                    $quarterback = $otherTeam->players->first(function ($p) {
+                        return $p->pivot->depth_chart_position === 'QB1';
+                    });
+                } elseif ($playType === 'PASS+') {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $playerDie >= $p->pivot->catch_plus_from && $playerDie <= $p->pivot->catch_plus_to;
+                    });
+                } elseif ($playType === 'RUN') {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $playerDie >= $p->pivot->rush_from && $playerDie <= $p->pivot->rush_to;
+                    });
+                } else {
+                    $offense_player = $otherTeam->players->first(function ($p) use ($playerDie) {
+                        return $p->pivot->depth_chart_position === $playerDie;
+                    });
+                }
+                $tackler = $otherTeam->players->first(function ($p) use ($playerDie) {
+                    return $playerDie >= $p->pivot->tackle_from && $playerDie <= $p->pivot->tackle_to;
+                });
+
+                $result = $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail;
+                $yards = YardageParserService::parseYards($result, $skillRoll);
+
+
+
+
+
                 return [
+                    'play_type' => $playType,
                     'team_id' => $team->id,
                     'team_name' => $team->name,
                     'ol_rating_field' => $olField,
                     'ol_rating_value' => $olValue,
                     'skill_roll' => $skillRoll,
                     'result' => $pass ? $offenseRoll->skill_pass : $offenseRoll->skill_fail,
+                    'yards' => $yards,
+                    'tackler_id' => isset($tackler) ? $tackler->id : null,
+                    'tackler_name' => isset($tackler) ? $tackler->firstname . ' ' . $tackler->lastname : null,
+                    'tackler_jersey_number' => isset($tackler) ? $tackler->current_jersey_number : null,
+                    'offense_player_id' => isset($offense_player) ? $offense_player->id : null,
+                    'offense_player_name' => isset($offense_player) ? $offense_player->firstname . ' ' . $offense_player->lastname : null,
+                    'offense_player_jersey_number' => isset($offense_player) ? $offense_player->current_jersey_number : null,
+                    'offense_player_speed' => isset($offense_player) ? $offense_player->speed : null,
+                    'quarterback_id' => isset($quarterback) ? $quarterback->id : null,
+                    'quarterback_name' => isset($quarterback) ? $quarterback->firstname . ' ' . $quarterback->lastname : null,
+                    'quarterback_jersey_number' => isset($quarterback) ? $quarterback->current_jersey_number : null,
                 ];
             } else {
                 return [

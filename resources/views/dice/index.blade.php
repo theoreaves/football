@@ -50,7 +50,8 @@
                     <span x-show="resolving" x-cloak>Resolving…</span>
                     <span x-show="!diceOnly && !resolving && resolved" x-cloak
                           class="cursor-pointer"
-                          @click="resolved = false"
+{{--                          @click="resolved = false"--}}
+                        @click="location.reload()"
                     >OK</span>
                 </div>
             </div>
@@ -67,7 +68,25 @@
 
             <template x-if="resolved">
         <pre class="mt-3 whitespace-pre-wrap text-sm text-gray-200"
+             x-text="JSON.stringify(resolved.play_results ?? resolved, null, 2)"></pre>
+            </template>
+            <template x-if="resolved">
+                <div x-data="{ show_full_result: false }" class="mt-2">
+                <button type="button" @click="show_full_result = !show_full_result"
+                        class="text-sm text-blue-400 underline">
+                    <span x-show="!show_full_result" x-cloak>Show Full Result</span>
+                    <span x-show="show_full_result" x-cloak>Hide Full Result</span>
+                </button>
+                <div x-show="show_full_result" class="mt-4">
+                    <div class="text-sm text-gray-400 mb-2">
+                        Full Result:
+
+        <pre class="mt-3 whitespace-pre-wrap text-sm text-gray-200"
              x-text="JSON.stringify(resolved.resolved ?? resolved, null, 2)"></pre>
+                    </div>
+                </div>
+                </div>
+
             </template>
 
             <template x-if="!diceOnly && !resolved && !resolveError">

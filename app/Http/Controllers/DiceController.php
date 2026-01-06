@@ -15,7 +15,8 @@ class DiceController extends Controller
         $diceOnly = false;
 
         $possessionTeam = $game->possessionTeam();
-        $offensePlays = OffensePlay::where('code', '!=', 'PRESSURE')->get();
+//        $offensePlays = OffensePlay::where('code', '!=', 'PRESSURE')->get();
+        $offensePlays = OffensePlay::all();
         $defensePlays = DefensePlay::all();
 
         return view('dice.index', [
@@ -80,6 +81,23 @@ class DiceController extends Controller
             offenseIsHome: $offenseIsHome
         );
 
+        try{
+        $playResults = [
+            'Play Type' => $resolved['play_type'],
+            'Yards Gained' => $resolved['yards'],
+            'Result' => $resolved['result'],
+        ];
+        if ($resolved['play_type'] === 'PASS' or $resolved['play_type'] === 'INT' or $resolved['play_type'] === 'SACK') {
+            $playResults['Quarter Back'] = $resolved['quarterback_jersey_number'] . ':' . $resolved['quarterback_name'];
+            $playResults['Receiver'] = $resolved['offense_player_jersey_number'] . ':' . $resolved['offense_player_name'];
+        } else {
+            $playResults['Ball Carrier'] = $resolved['offense_player_jersey_number'] . ':' . $resolved['offense_player_name'];
+        }
+        $playResults['Defense/Tackler'] = $resolved['tackler_jersey_number'] . ':' . $resolved['tackler_name'];
+        } catch (\Throwable $th) {
+            $playResults = $resolved;
+        }
+
         return response()->json([
             'ok' => true,
             'inputs' => [
@@ -90,6 +108,7 @@ class DiceController extends Controller
                 'offense_team_id' => $offenseTeam->id,
                 'defense_team_id' => $defenseTeam->id,
             ],
+            'play_results' => $playResults,
             'resolved' => $resolved,
         ]);
     }
