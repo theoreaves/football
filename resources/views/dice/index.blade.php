@@ -5,22 +5,95 @@
         x-data="diceRoller({
     diceOnly: @js($diceOnly),
     resolveUrl: @js(route('dice.resolve', $game)),
+    phase: @js($game->phase),
     csrf: @js(csrf_token())
 })"
 
         x-init="init()"
         class="p-6 text-gray-100 select-none"
     >
-{{--    <div--}}
-{{--        x-data="diceRoller()"--}}
-{{--        x-init="init()"--}}
-{{--        class="p-6 text-gray-100 select-none"--}}
-{{--    >--}}
+
         <div class="flex items-start justify-between gap-6">
             {{ $game->homeTeam->name }} vs {{ $game->awayTeam->name }}
             <br>
             Possession: {{ $possessionTeam->name }}
+            {{ $game->down }} & {{ $game->to_go }} at {{ $game->pos_side }} {{ $game->pos_yardline }} yard line
+            <BR>
+            {{ $game->phase }}
         </div>
+        <div
+            x-show="!diceOnly"
+            x-data="{
+        playType: 'NORMAL',
+        init() {
+            const phase = @js($game->phase);
+            const allowed = [
+                'NORMAL','KICKOFF','PUNT-START','PUNT','TRY',
+                'FUMBLE-HAPPENED','FUMBLE','INT-HAPPENED','INT','BREAKAWAY'
+            ];
+            this.playType = allowed.includes(phase) ? phase : 'NORMAL';
+        }
+    }"
+            x-init="init()"
+            class="space-y-4"
+        >
+
+            {{-- Top empty div: radio buttons --}}
+            <div class="flex gap-6 text-sm font-semibold">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="NORMAL">
+                    Scrimmage
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="KICKOFF">
+                    Kickoffs
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="PUNT-START">
+                    Punts
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="PUNT">
+                    Punt Returns
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="TRY">
+                    Field Goals & PATs
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="FUMBLE-HAPPENED">
+                    Fumble
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="FUMBLE">
+                    Fumble Returns
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="INT-HAPPENED">
+                    Interception
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="INT">
+                    Interception Returns
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" x-model="playType" value="BREAKAWAY">
+                    Breakaways
+                </label>
+            </div>
+
+            {{-- Second div: only visible for scrimmage --}}
+            <div x-show="playType === 'NORMAL'"
+                 x-transition>
         <div class="flex gap-4 mt-2">
             <div>
                 <label for="offense-play" class="block text-xs text-gray-400 mb-1">Offense Play</label>
@@ -42,8 +115,10 @@
             </div>
         </div>
 
+            </div>
+        </div>
 
-        <div class="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+        <div x-show="!diceOnly" class="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
             <div class="flex items-center justify-between">
                 <div class="text-xl font-semibold">Engine Result</div>
                 <div class="text-sm text-gray-400">
