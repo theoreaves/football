@@ -46,6 +46,7 @@ class DiceController extends Controller
 
             // optional flags if you want to pass them; otherwise derive from game state
             'redzone' => ['sometimes', 'boolean'],
+            'play_type'   => 'required'
         ]);
 
         $offensePlay = OffensePlay::find($data['offense_play_id']);
@@ -97,6 +98,7 @@ class DiceController extends Controller
         } catch (\Throwable $th) {
             $playResults = $resolved;
         }
+        $resolved['data'] = $data; // include input data for debugging
 
         return response()->json([
             'ok' => true,

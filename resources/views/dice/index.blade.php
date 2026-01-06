@@ -3,15 +3,20 @@
     {{-- resources/views/dice/index.blade.php (or wherever you render it) --}}
     <div
         x-data="diceRoller({
-    diceOnly: @js($diceOnly),
-    resolveUrl: @js(route('dice.resolve', $game)),
-    phase: @js($game->phase),
-    csrf: @js(csrf_token())
-})"
-
+        diceOnly: @js($diceOnly),
+        resolveUrl: @js(route('dice.resolve', $game)),
+        phase: @js($game->phase),
+        csrf: @js(csrf_token()),
+        playType: @js($game->phase),
+        allowedPlayTypes: [
+            'NORMAL','KICKOFF','PUNT-START','PUNT','TRY',
+            'FUMBLE-HAPPENED','FUMBLE','INT-HAPPENED','INT','BREAKAWAY'
+        ]
+    })"
         x-init="init()"
         class="p-6 text-gray-100 select-none"
     >
+
 
         <div class="flex items-start justify-between gap-6">
             {{ $game->homeTeam->name }} vs {{ $game->awayTeam->name }}
@@ -21,22 +26,36 @@
             <BR>
             {{ $game->phase }}
         </div>
-        <div
-            x-show="!diceOnly"
-            x-data="{
-        playType: 'NORMAL',
-        init() {
-            const phase = @js($game->phase);
-            const allowed = [
-                'NORMAL','KICKOFF','PUNT-START','PUNT','TRY',
-                'FUMBLE-HAPPENED','FUMBLE','INT-HAPPENED','INT','BREAKAWAY'
-            ];
-            this.playType = allowed.includes(phase) ? phase : 'NORMAL';
-        }
-    }"
-            x-init="init()"
-            class="space-y-4"
-        >
+{{--        <div--}}
+{{--            x-show="!diceOnly"--}}
+{{--            x-data="{--}}
+{{--        playType: 'NORMAL',--}}
+{{--        init() {--}}
+{{--            const phase = @js($game->phase);--}}
+{{--            const allowed = [--}}
+{{--                'NORMAL','KICKOFF','PUNT-START','PUNT','TRY',--}}
+{{--                'FUMBLE-HAPPENED','FUMBLE','INT-HAPPENED','INT','BREAKAWAY'--}}
+{{--            ];--}}
+{{--  this.playType = this.allowedPlayTypes.includes(this.phase) ? this.phase : 'NORMAL';--}}
+
+{{--  window.addEventListener('keydown', (e) => {--}}
+{{--    const key = (e.key || '').toLowerCase();--}}
+{{--    const tag = (e.target?.tagName || '').toLowerCase();--}}
+{{--    const typing = tag === 'input' || tag === 'textarea' || tag === 'select';--}}
+{{--    if (typing) return;--}}
+
+{{--    if (key === 'r') {--}}
+{{--      e.preventDefault();--}}
+{{--      this.rollAll();--}}
+{{--    }--}}
+{{--  });--}}
+{{--        }--}}
+{{--    }"--}}
+{{--            x-init="init()"--}}
+{{--            class="space-y-4"--}}
+{{--        >--}}
+            <div x-show="!diceOnly" class="space-y-4">
+
 
             {{-- Top empty div: radio buttons --}}
             <div class="flex gap-6 text-sm font-semibold">
@@ -404,6 +423,13 @@
                 resolveUrl: opts.resolveUrl || null,
                 csrf: opts.csrf || null,
 
+                    // NEW: phase/playType support
+                    phase: opts.phase || 'NORMAL',
+                    allowedPlayTypes: Array.isArray(opts.allowedPlayTypes)
+                        ? opts.allowedPlayTypes
+                        : ['NORMAL','KICKOFF','PUNT-START','PUNT','TRY','FUMBLE-HAPPENED','FUMBLE','INT-HAPPENED','INT','BREAKAWAY'],
+                    playType: opts.playType || 'NORMAL',
+
                 // ui state
                 rolling: false,
                 resolving: false,
@@ -423,19 +449,22 @@
                 offensePlay: '',
                 defensePlay: '',
 
-                init() {
-                window.addEventListener('keydown', (e) => {
-                const key = (e.key || '').toLowerCase();
-                const tag = (e.target?.tagName || '').toLowerCase();
-                const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
-                if (typing) return;
+                    init() {
+                        // Default playType from phase if valid
+                        this.playType = this.allowedPlayTypes.includes(this.phase) ? this.phase : 'NORMAL';
 
-                if (key === 'r') {
-                e.preventDefault();
-                this.rollAll();
-            }
-            });
-            },
+                        window.addEventListener('keydown', (e) => {
+                            const key = (e.key || '').toLowerCase();
+                            const tag = (e.target?.tagName || '').toLowerCase();
+                            const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+                            if (typing) return;
+
+                            if (key === 'r') {
+                                e.preventDefault();
+                                this.rollAll();
+                            }
+                        });
+                    },
 
                 display(die) {
                 if (this.rolling) return die.spin ?? '—';
@@ -475,10 +504,10 @@
                 this.resolveError = 'resolveUrl not set.';
                 return;
             }
-                if (!this.offensePlay || !this.defensePlay) {
-                this.resolveError = 'Select offense and defense plays first.';
-                return;
-            }
+                // if (!this.offensePlay || !this.defensePlay) {
+                // this.resolveError = 'Select offense and defense plays first.';
+                // return;
+            // }
 
                 // Ensure dice are present
                 if ([this.red, this.white, this.blue, this.green, this.orange, this.purple].some(d => d.value === null)) {
@@ -499,6 +528,8 @@
                 body: JSON.stringify({
                 offense_play_id: this.offensePlay,
                 defense_play_id: this.defensePlay,
+
+                    play_type: this.playType, // <-- add this
 
                 red: this.red.value,
                 white: this.white.value,
