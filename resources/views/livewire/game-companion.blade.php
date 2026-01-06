@@ -85,205 +85,103 @@
 
     </div>
 
-    {{-- NEW Field --}}
+    <div class="flex items-center gap-2 mb-2">
+        @foreach([100, 75, 50, 25] as $s)
+            <button
+                type="button"
+                wire:click="setFieldScale({{ $s }})"
+                class="px-2 py-1 rounded border text-xs
+                   {{ $fieldScale === $s ? 'bg-gray-800 text-white border-gray-600' : 'bg-gray-900/40 text-white/80 border-white/10 hover:bg-gray-800/60' }}">
+                {{ $s }}%
+            </button>
+        @endforeach
+    </div>
+
+    
+
+    {{-- Field (image-native, no stretch; markers aligned to image marks) --}}
     @php
-        // Total visual width = 120 yards (10 EZ + 100 field + 10 EZ)
-        $endZonePct = 10 / 120 * 100;      // 8.3333%
-        $fieldPct   = 100 / 120 * 100;     // 83.3333%
+        // Image is 1024x486 (your uploaded asset)
+        // We set the container aspect ratio to match so the image is never stretched.
+        $fieldBgUrl = $game->field_bg_url ?? asset('fields/default.png');
 
-        // Ball position is 0..100 from HOME goal line, but field of play starts after left end zone
-        $ballLeft = $endZonePct + ($this->absFromHome / 100) * $fieldPct;
+        // Your existing 120-yard positioning values (0..100 field mapped with endzones)
+        // ballLeft120, lineToGainLeft120, seriesLeft120, ballSideMarkerLeft120 are assumed to be 0..100 (% of the 120y canvas)
+        // If any are null, we guard below.
 
-        // Yard labels at 10..90 (we’ll show 10..50..10)
-        $yardMarks = [
-            10 => 10, 20 => 20, 30 => 30, 40 => 40, 50 => 50,
-            60 => 40, 70 => 30, 80 => 20, 90 => 10,
-        ];
+        // The usable field inside the image has an inner border.
+        // Measured from your PNG: ~12px inset on each side of a 1024px-wide image.
+        $imgInsetPct  = (12 / 1024) * 100;        // 1.171875%
+        $imgUsablePct = 100 - ($imgInsetPct * 2); // 97.65625%
+
+        // Map a 0..100% x-position into the inner drawable area of the image
+        $mapToImage = fn($pct) => $imgInsetPct + ($pct * $imgUsablePct / 100);
+
+        $posTeam = $game->possessionTeam();
     @endphp
 
+    @php
+        $fieldScale = $this->fieldScale ?? 100; // 100,75,50,25
+    @endphp
+
+    <div class="w-full mx-auto"
+         style="width: {{ $fieldScale }}%; max-width: 100%;">
+        <div class="relative w-full aspect-[1024/486] rounded-lg overflow-hidden border border-gray-700">
+
+
+
+
     <div class="w-full">
-        <div class="relative w-full h-48 md:h-56 rounded-lg overflow-hidden border border-gray-700">
+        <div class="relative w-full aspect-[1024/486] rounded-lg overflow-hidden border border-gray-700">
 
-            {{-- LEFT END ZONE (10 yards) --}}
-            <div class="absolute inset-y-0 left-0"
-                 style="width: {{ $endZonePct }}%; background: rgba(30,58,138,0.70);">
-            </div>
+            {{-- Render the image without stretching --}}
+            <img
+                src="{{ $fieldBgUrl }}"
+                alt="Field"
+                class="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
+            />
 
-            {{-- RIGHT END ZONE (10 yards) --}}
-            <div class="absolute inset-y-0 right-0"
-                 style="width: {{ $endZonePct }}%; background: rgba(153,27,27,0.70);">
-            </div>
-
-            {{-- FIELD OF PLAY (100 yards) --}}
-            <div class="absolute inset-y-0"
-                 style="left: {{ $endZonePct }}%; width: {{ $fieldPct }}%;
-            background: linear-gradient(to bottom, #14532d, #14532d);">
-            </div>
-
-
-            {{-- 10-yard thick lines across FIELD OF PLAY only --}}
-            @for($i = 0; $i <= 20; $i++)
-                <div class="absolute top-0 bottom-0"
-                     style="
-            left: calc({{ $endZonePct }}% + ({{ $i }} * {{ $fieldPct / 20 }}%));
-            width: {{ $i % 2 === 0 ? '2px' : '2px' }};
-            background: rgba(255,255,255,0.35);
-         ">
-                </div>
-            @endfor
-
-
-            {{-- Middle hash marks (two rows) --}}
-            <div class="absolute"
-                 style="
-                left: {{ $endZonePct }}%;
-                width: {{ $fieldPct }}%;
-                top: 48%;
-                height: 6px;
-                background: repeating-linear-gradient(
-                    to right,
-                    rgba(255,255,255,0.45) 0,
-                    rgba(255,255,255,0.45) 2px,
-                    rgba(0,0,0,0) 2px,
-                    rgba(0,0,0,0) 1%
-                );
-                opacity: 0.9;
-             ">
-            </div>
-
-            <div class="absolute"
-                 style="
-                left: {{ $endZonePct }}%;
-                width: {{ $fieldPct }}%;
-                top: 52%;
-                height: 6px;
-                background: repeating-linear-gradient(
-                    to right,
-                    rgba(255,255,255,0.45) 0,
-                    rgba(255,255,255,0.45) 2px,
-                    rgba(0,0,0,0) 2px,
-                    rgba(0,0,0,0) 1%
-                );
-                opacity: 0.9;
-             ">
-            </div>
-
-
-            {{-- Sideline hash marks (near top) --}}
-            <div class="absolute"
-                 style="
-        left: {{ $this->endZonePct }}%;
-        width: {{ $this->fieldPct }}%;
-        top: 18%;
-        height: 6px;
-        background: repeating-linear-gradient(
-            to right,
-            rgba(255,255,255,0.40) 0,
-            rgba(255,255,255,0.40) 10px,
-            rgba(0,0,0,0) 10px,
-            rgba(0,0,0,0) 24px
-        );
-        opacity: 0.9;
-     ">
-            </div>
-
-            {{-- Sideline hash marks (near bottom) --}}
-            <div class="absolute"
-                 style="
-        left: {{ $this->endZonePct }}%;
-        width: {{ $this->fieldPct }}%;
-        top: 82%;
-        height: 6px;
-        background: repeating-linear-gradient(
-            to right,
-            rgba(255,255,255,0.40) 0,
-            rgba(255,255,255,0.40) 10px,
-            rgba(0,0,0,0) 10px,
-            rgba(0,0,0,0) 24px
-        );
-        opacity: 0.9;
-     ">
-            </div>
-
-            @php
-                $goalLeft  = $this->endZonePct;
-                $goalRight = $this->endZonePct + $this->fieldPct;
-            @endphp
-
-            {{-- Left goal line pylons --}}
-            <div class="absolute w-2 h-2 rounded-sm"
-                 style="left: calc({{ $goalLeft }}% - 4px); top: 6px; background: rgba(255,140,0,0.95);"></div>
-            <div class="absolute w-2 h-2 rounded-sm"
-                 style="left: calc({{ $goalLeft }}% - 4px); bottom: 6px; background: rgba(255,140,0,0.95);"></div>
-
-            {{-- Right goal line pylons --}}
-            <div class="absolute w-2 h-2 rounded-sm"
-                 style="left: calc({{ $goalRight }}% - 4px); top: 6px; background: rgba(255,140,0,0.95);"></div>
-            <div class="absolute w-2 h-2 rounded-sm"
-                 style="left: calc({{ $goalRight }}% - 4px); bottom: 6px; background: rgba(255,140,0,0.95);"></div>
-
-
-
-
-            {{-- Yard numbers that STRADDLE the 10-yard line (digit on each side) --}}
-            @foreach($yardMarks as $yard => $label)
-                @php
-                    // Convert yard (10..90) to % across the 100-yard field-of-play
-                    $x = $endZonePct + ($yard / 100) * $fieldPct;
-                    $digits = str_split((string)$label);
-                    $leftDigit = $digits[0] ?? '';
-                    $rightDigit = $digits[1] ?? '';
-                @endphp
-
-                <div class="absolute top-2 text-white/70 text-xs md:text-sm font-semibold select-none"
-                     style="left: {{ $x }}%; transform: translateX(-50%);">
+            {{-- Football marker --}}
+            @if($this->ballLeft120 !== null)
+                <div class="absolute top-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out z-40"
+                     style="left: calc({{ $mapToImage($this->ballLeft120) }}% - 10px);">
                     <div class="flex items-center gap-2">
-                        <span>{{ $leftDigit }}</span>
-                        <span class="opacity-0">|</span> {{-- spacing only; line is behind --}}
-                        <span>{{ $rightDigit }}</span>
+                        <div class="w-5 h-3 rounded-full border border-white/60" style="background:#8b4513;"></div>
+                        <div class="text-xs text-white/80 font-semibold">
+                            @if($game->possession === 'HOME') → @else ← @endif
+                        </div>
                     </div>
                 </div>
-            @endforeach
+            @endif
 
-            {{-- Football marker (positioned on 120-yard graphic) --}}
-            <div class="absolute top-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out"
-                 style="left: calc({{ $this->ballLeft120 }}% - 10px); z-index: 20;">
-                <div class="flex items-center gap-2">
-                    <div class="w-5 h-3 rounded-full border border-white/60"
-                         style="background:#8b4513;">
-                    </div>
+            {{-- 1st down / series / down marker --}}
+            @if($this->showLineToGain && $this->lineToGainLeft120 !== null)
 
-                    <div class="text-xs text-white/80 font-semibold">
-                        @if($game->possession === 'HOME') → @else ← @endif
-                    </div>
-                </div>
-            </div>
-
-
-            @if($this->showLineToGain)
-                <div class="absolute top-0 bottom-0 pointer-events-none"
+                {{-- Line to gain --}}
+                <div class="absolute top-0 bottom-0 pointer-events-none z-30"
                      style="
-            left: {{ $this->lineToGainLeft120 }}%;
-            width: 3px;
-            background: rgba(255, 215, 0, 0.55);
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.35);
-            z-index: 15;
-         ">
+                    left: {{ $mapToImage($this->lineToGainLeft120) }}%;
+                    width: 3px;
+                    background: rgba(255, 215, 0, 0.55);
+                    box-shadow: 0 0 10px rgba(255, 215, 0, 0.35);
+                 ">
                 </div>
 
-                <div class="absolute pointer-events-none text-[10px] font-semibold px-2 py-0.5 rounded"
+                {{-- 1st label --}}
+                <div class="absolute pointer-events-none z-40 text-[10px] font-semibold px-2 py-0.5 rounded bg-yellow-400 text-white font-bolt"
                      style="
-            left: calc({{ $this->lineToGainLeft120 }}% + 6px);
-            top: 8px;
-            background: rgba(255, 215, 0, 0.35);
-            color: rgba(255,255,255,0.9);
-            z-index: 16;
-         ">
+                    left: calc({{ $mapToImage($this->lineToGainLeft120) }}% + 6px);
+                    top: 8px;
+                    /*background: yellow;*/
+                    /*color: rgba(255,255,255,0.9);*/
+                 ">
                     1st
                 </div>
 
+                {{-- Series start marker --}}
                 @if($this->seriesLeft120 !== null)
-                    <div class="absolute pointer-events-none" style=" left: calc({{ $this->seriesLeft120 }}% - 18px); bottom: 8px; z-index: 16; ">
+                    <div class="absolute pointer-events-none z-40"
+                         style="left: calc({{ $mapToImage($this->seriesLeft120) }}% - 18px); bottom: 8px;">
                         <div class="text-[10px] font-semibold px-2 py-0.5 rounded border border-white/20"
                              style="background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.85);">
                             <div class="mx-auto mb-1" style="width:2px; height:10px; background: rgba(255,255,255,0.45);"></div>
@@ -292,45 +190,32 @@
                     </div>
                 @endif
 
-
-                {{-- Current ball marker with down number (same row as 1st) --}}
-                <div class="absolute pointer-events-none"
-                     style=" left: calc({{ $this->ballSideMarkerLeft120 }}% - 10px); top: 8px; z-index: 17; ">
-                    <div class="text-[10px] font-semibold w-6 text-center py-0.5 rounded border border-white/20"
-                         style="background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.85);">
-{{--                         style="background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.92);">--}}
-                        {{ $this->downLabel }}
-                        <div class="mx-auto mt-1" style="width:2px; height:10px; background: rgba(255,255,255,0.45);"></div>
+                {{-- Current ball marker with down number --}}
+                @if($this->ballSideMarkerLeft120 !== null)
+                    <div class="absolute pointer-events-none z-40"
+                         style="left: calc({{ $mapToImage($this->ballSideMarkerLeft120) }}% - 10px); top: 8px;">
+                        <div class="text-[10px] font-semibold w-6 text-center py-0.5 rounded border border-white/20 bg-gray-900 text-gray-50 font-bold"
+{{--                             style="background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.85);"--}}
+                        >
+                            {{ $this->downLabel }}
+{{--                            <div class="mx-auto mt-1" style="width:2px; height:10px; background: rgba(255,255,255,0.45);"></div>--}}
+                        </div>
                     </div>
-                </div>
-
-
-
-
+                @endif
             @endif
 
-            {{-- Optional spot text --}}
-{{--            <div class="absolute bottom-2 left-2 text-xs text-white/80 bg-black/40 px-2 py-1 rounded">--}}
-{{--                {{ $game->possession }} ball — {{ $game->pos_side }} {{ (int)$game->pos_yardline }}--}}
-{{--                (abs from HOME: {{ $this->absFromHome }})--}}
-{{--            </div>--}}
-
-            @php
-                $posTeam = $game->possessionTeam();
-            @endphp
-
-            <div class="absolute bottom-2 left-2 text-xs text-white/80 bg-black/40 px-2 py-1 rounded">
-                {{ strtoupper($posTeam->name) }} ball
-                — {{ $game->pos_side }} {{ (int)$game->pos_yardline }}
-{{--                (abs from {{ $game->homeTeam->name }}: {{ $this->absFromHome }})--}}
+            {{-- Possession text --}}
+            <div class="absolute bottom-2 left-2 z-50 text-xs text-white/80 bg-black/40 px-2 py-1 rounded">
+                {{ strtoupper($posTeam->name) }} ball — {{ $game->pos_side }} {{ (int)$game->pos_yardline }}
             </div>
-
 
         </div>
     </div>
 
+        </div>
 
-
+        {{-- Optional: prevent layout from collapsing when scaled down (pick one approach below) --}}
+    </div>
 
 
 

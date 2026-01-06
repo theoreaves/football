@@ -56,6 +56,8 @@ class GameCompanion extends Component
     public array $offensePlayers = [];
     public array $defensePlayers = [];
 
+    public int $fieldScale = 100;
+
     protected $listeners = ['setDownAndDistance'];
 
     public function mount(?int $gameId = null): void
@@ -1217,6 +1219,13 @@ class GameCompanion extends Component
     public function getStatsProperty(): array
     {
         return app(GameStatService::class)->forGame($this->game);
+    }
+
+
+    public function setFieldScale(int $scale): void
+    {
+        $allowed = [100, 75, 50, 25];
+        $this->fieldScale = in_array($scale, $allowed, true) ? $scale : 100;
     }
 
 
