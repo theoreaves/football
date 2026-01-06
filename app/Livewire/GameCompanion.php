@@ -56,7 +56,7 @@ class GameCompanion extends Component
     public array $offensePlayers = [];
     public array $defensePlayers = [];
 
-    public int $fieldScale = 100;
+    public int $fieldScale = 75;
 
     protected $listeners = ['setDownAndDistance'];
 

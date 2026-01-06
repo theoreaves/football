@@ -30,7 +30,7 @@
 
 
     <div class="flex gap-6 items-center">
-    <div class="flex flex-wrap gap-4 items-center w-1/2">
+    <div class="flex flex-wrap gap-4 items-center w-full">
         <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
             <div class="text-sm opacity-80">Possession</div>
             <div class="font-semibold">{{ $game->labelForSide($game->possession) }}</div>
@@ -46,42 +46,45 @@
             <div class="font-semibold">{{ $game->down }} &amp; {{ $game->to_go }}</div>
         </div>
 
-        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700">
-            <div class="text-sm opacity-80">Score</div>
-            <div class="font-semibold">{{ $game->away_score }} {{ strtoupper($game->awayTeam->name) }} - {{ strtoupper($game->homeTeam->name) }} {{ $game->home_score }}</div>
+        <div class="px-3 py-2 rounded bg-gray-800 border border-gray-700 w-1/2">
+{{--            <div class="text-sm opacity-80">Score</div>--}}
+            <div class="font-semibold">
+{{--                {{ $game->away_score }} {{ strtoupper($game->awayTeam->name) }} - {{ strtoupper($game->homeTeam->name) }} {{ $game->home_score }}--}}
+                <table class="w-full text-sm text-white/80">
+                    <thead>
+                    <tr class="text-left">
+                        <th class="py-1"></th>
+                        <th class="py-1">Q1</th>
+                        <th class="py-1">Q2</th>
+                        <th class="py-1">Q3</th>
+                        <th class="py-1">Q4</th>
+                        <th class="py-1">OT</th>
+                        <th class="py-1">Total</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @php
+                        $hq = $game->home_q ?? [0,0,0,0,0];
+                        $aq = $game->away_q ?? [0,0,0,0,0];
+                    @endphp
+                    <tr>
+                        <td class="py-1 font-semibold">{{ $game->away_label }}</td>
+                        <td>{{ $aq[0] }}</td><td>{{ $aq[1] }}</td><td>{{ $aq[2] }}</td> <td>{{ $aq[3] }}</td> <td>{{ $aq[4] }}</td>
+                        <td class="font-semibold">{{ array_sum($aq) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 font-semibold">{{ $game->home_label }}</td>
+                        <td>{{ $hq[0] }}</td><td>{{ $hq[1] }}</td><td>{{ $hq[2] }}</td> <td>{{ $hq[3] }}</td> <td>{{ $hq[4] }}</td>
+                        <td class="font-semibold">{{ array_sum($hq) }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
 
-    <table class="w-1/2 mt-3 text-sm text-white/80">
-        <thead>
-        <tr class="text-left">
-            <th class="py-1"></th>
-            <th class="py-1">Q1</th>
-            <th class="py-1">Q2</th>
-            <th class="py-1">Q3</th>
-            <th class="py-1">Q4</th>
-            <th class="py-1">OT</th>
-            <th class="py-1">Total</th>
-        </tr>
-        </thead>
-        <tbody>
-        @php
-            $hq = $game->home_q ?? [0,0,0,0,0];
-            $aq = $game->away_q ?? [0,0,0,0,0];
-        @endphp
-        <tr>
-            <td class="py-1 font-semibold">{{ $game->away_label }}</td>
-            <td>{{ $aq[0] }}</td><td>{{ $aq[1] }}</td><td>{{ $aq[2] }}</td> <td>{{ $aq[3] }}</td> <td>{{ $aq[4] }}</td>
-            <td class="font-semibold">{{ array_sum($aq) }}</td>
-        </tr>
-        <tr>
-            <td class="py-1 font-semibold">{{ $game->home_label }}</td>
-            <td>{{ $hq[0] }}</td><td>{{ $hq[1] }}</td><td>{{ $hq[2] }}</td> <td>{{ $hq[3] }}</td> <td>{{ $hq[4] }}</td>
-            <td class="font-semibold">{{ array_sum($hq) }}</td>
-        </tr>
-        </tbody>
-    </table>
+
 
     </div>
 
@@ -97,7 +100,7 @@
         @endforeach
     </div>
 
-    
+
 
     {{-- Field (image-native, no stretch; markers aligned to image marks) --}}
     @php
