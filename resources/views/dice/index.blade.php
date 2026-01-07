@@ -58,59 +58,159 @@
 
 
             {{-- Top empty div: radio buttons --}}
-            <div class="flex gap-6 text-sm font-semibold">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="NORMAL">
-                    Scrimmage
-                </label>
+                <div class="flex flex-wrap gap-3 text-sm font-semibold">
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="KICKOFF">
-                    Kickoffs
-                </label>
+                    <!-- Scrimmage -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="NORMAL" class="sr-only peer">
+                        <span
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+             peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                            aria-hidden="true"
+                        >
+      <!-- football / scrimmage -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 15c4 4 10 4 14 0s4-10 0-14c-4-4-10-4-14 0S1 11 5 15Z"/>
+        <path d="M9 9h6"/>
+        <path d="M10 7v4"/>
+        <path d="M12 7v4"/>
+        <path d="M14 7v4"/>
+      </svg>
+    </span>
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="PUNT-START">
-                    Punts
-                </label>
+                        <!-- tooltip -->
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Scrimmage
+    </span>
+                    </label>
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="PUNT">
-                    Punt Returns
-                </label>
+                    <!-- Kickoffs -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="KICKOFF" class="sr-only peer">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+                 peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                              aria-hidden="true">
+      <!-- tee + ball -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3c-2 1-3 2.5-3 4s1 3 3 4c2-1 3-2.5 3-4s-1-3-3-4Z"/>
+        <path d="M8 20h8"/>
+        <path d="M10 20v-5h4v5"/>
+        <path d="M12 11v4"/>
+      </svg>
+    </span>
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Kickoffs
+    </span>
+                    </label>
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="TRY">
-                    Field Goals & PATs
-                </label>
+                    <!-- Punts (start) -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="PUNT-START" class="sr-only peer">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+                 peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                              aria-hidden="true">
+      <!-- foot kicking -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 3c1.5 0 2.5 1 2.5 2.5S15.5 8 14 8s-2.5-1-2.5-2.5S12.5 3 14 3Z"/>
+        <path d="M7 21l4-7 4 2 2 5"/>
+        <path d="M9 10l3 2 2-2"/>
+        <path d="M3 14h4"/>
+      </svg>
+    </span>
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Punts
+    </span>
+                    </label>
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="FUMBLE-HAPPENED">
-                    Fumble
-                </label>
+                    <!-- Punt Returns -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="PUNT" class="sr-only peer">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+                 peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                              aria-hidden="true">
+      <!-- return arrow -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6H9a5 5 0 0 0 0 10h10"/>
+        <path d="M14 9l-3-3 3-3"/>
+      </svg>
+    </span>
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Punt Returns
+    </span>
+                    </label>
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="FUMBLE">
-                    Fumble/Interception Returns
-                </label>
+                    <!-- Field Goals & PATs -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="TRY" class="sr-only peer">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+                 peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                              aria-hidden="true">
+      <!-- uprights -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 4v6h12V4"/>
+        <path d="M12 10v10"/>
+        <path d="M8 20h8"/>
+      </svg>
+    </span>
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Field Goals &amp; PATs
+    </span>
+                    </label>
 
-{{--                <label class="flex items-center gap-2 cursor-pointer">--}}
-{{--                    <input type="radio" x-model="playType" value="INT-HAPPENED">--}}
-{{--                    Interception--}}
-{{--                </label>--}}
+                    <!-- Fumble -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="FUMBLE-HAPPENED" class="sr-only peer">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+                 peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                              aria-hidden="true">
+      <!-- broken ball / zigzag -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 16c3 3 7 3 10 0s3-7 0-10S10 3 7 6 4 13 7 16Z"/>
+        <path d="M9 7l2 2-2 2 2 2-2 2"/>
+      </svg>
+    </span>
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Fumble
+    </span>
+                    </label>
 
-{{--                <label class="flex items-center gap-2 cursor-pointer">--}}
-{{--                    <input type="radio" x-model="playType" value="INT">--}}
-{{--                    Interception Returns--}}
-{{--                </label>--}}
+                    <!-- Fumble/Interception Returns -->
+                    <label class="group relative inline-flex items-center cursor-pointer select-none">
+                        <input type="radio" x-model="playType" value="FUMBLE" class="sr-only peer">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/15 bg-white/5
+                 peer-checked:bg-white/15 peer-checked:border-white/30 hover:bg-white/10 transition"
+                              aria-hidden="true">
+      <!-- swap/turnover arrows -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 7h10l-2-2"/>
+        <path d="M17 17H7l2 2"/>
+        <path d="M7 7l-2 2"/>
+        <path d="M17 17l2-2"/>
+      </svg>
+    </span>
+                        <span class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap
+                 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white opacity-0
+                 group-hover:opacity-100 transition">
+      Fumble/Interception Returns
+    </span>
+                    </label>
 
-{{--                <label class="flex items-center gap-2 cursor-pointer">--}}
-{{--                    <input type="radio" x-model="playType" value="BREAKAWAY">--}}
-{{--                    Breakaways--}}
-{{--                </label>--}}
-            </div>
+                </div>
 
-            {{-- Second div: only visible for scrimmage --}}
+
+                {{-- Second div: only visible for scrimmage --}}
             <div x-show="playType === 'NORMAL'"
                  x-transition>
         <div class="flex gap-4 mt-2">
@@ -139,7 +239,7 @@
 
         <div x-show="!diceOnly" class="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
             <div class="flex items-center justify-between">
-                <div class="text-xl font-semibold">Engine Result</div>
+                <div class="text-xl font-semibold">Results</div>
                 <div class="text-sm text-gray-400">
                     <span x-show="resolving" x-cloak>Resolving…</span>
                     <span x-show="!diceOnly && !resolving && resolved" x-cloak
@@ -157,13 +257,30 @@
             </template>
 
             <template x-if="resolveError">
-                <pre class="mt-3 whitespace-pre-wrap text-sm text-red-300" x-text="resolveError"></pre>
+                <ul class="mt-3 text-sm text-red-300 space-y-1">
+                    <template
+                        x-for="msg in (typeof resolveError === 'string'
+                ? [resolveError]
+                : Object.values(resolveError).flat())"
+                        :key="msg"
+                    >
+                        <li x-text="msg"></li>
+                    </template>
+                </ul>
             </template>
 
+
             <template x-if="resolved">
-        <pre class="mt-3 whitespace-pre-wrap text-sm text-gray-200"
-             x-text="JSON.stringify(resolved.play_results ?? resolved, null, 2)"></pre>
+    <pre class="mt-3 whitespace-pre-wrap text-sm text-gray-200"
+         x-text="
+            Object.entries(resolved.play_results ?? resolved)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n')
+         ">
+    </pre>
             </template>
+
+
             <template x-if="resolved">
                 <div x-data="{ show_full_result: false }" class="mt-2">
                 <button type="button" @click="show_full_result = !show_full_result"
@@ -549,8 +666,12 @@
                 // Laravel validation errors come back here too
                 this.resolveError = json?.message || 'Resolve failed.';
                 // if validation payload exists:
-                if (json?.errors) this.resolveError = JSON.stringify(json.errors, null, 2);
-                return;
+                    if (json?.errors) {
+                        // Flatten Laravel validation errors into a simple array of messages
+                        this.resolveError = Object.values(json.errors).flat();
+                        return;
+                    }
+
             }
 
                 this.resolved = json;
