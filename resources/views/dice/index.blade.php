@@ -91,23 +91,23 @@
 
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="radio" x-model="playType" value="FUMBLE">
-                    Fumble Returns
+                    Fumble/Interception Returns
                 </label>
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="INT-HAPPENED">
-                    Interception
-                </label>
+{{--                <label class="flex items-center gap-2 cursor-pointer">--}}
+{{--                    <input type="radio" x-model="playType" value="INT-HAPPENED">--}}
+{{--                    Interception--}}
+{{--                </label>--}}
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="INT">
-                    Interception Returns
-                </label>
+{{--                <label class="flex items-center gap-2 cursor-pointer">--}}
+{{--                    <input type="radio" x-model="playType" value="INT">--}}
+{{--                    Interception Returns--}}
+{{--                </label>--}}
 
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" x-model="playType" value="BREAKAWAY">
-                    Breakaways
-                </label>
+{{--                <label class="flex items-center gap-2 cursor-pointer">--}}
+{{--                    <input type="radio" x-model="playType" value="BREAKAWAY">--}}
+{{--                    Breakaways--}}
+{{--                </label>--}}
             </div>
 
             {{-- Second div: only visible for scrimmage --}}

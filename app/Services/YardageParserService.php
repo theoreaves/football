@@ -18,9 +18,9 @@ class YardageParserService
         if (stripos($result, 'B!') !== false) {
             $number = (int)filter_var($result, FILTER_SANITIZE_NUMBER_INT);
             if ($number === 0) {
-                return 'Breakaway!!!!';
+                return 'B!';
             }
-            return $number . ' AND Breakaway!!!!';
+            return $number . ' B!';
         }
 
         if (stripos($result, 'INC') !== false) {

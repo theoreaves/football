@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DefensePlay;
 use App\Models\Game;
 use App\Models\OffensePlay;
+use App\Models\Player;
 use App\Services\GamePlayEngine;
 use Illuminate\Http\Request;
 use Log;
@@ -87,12 +88,36 @@ class DiceController extends Controller
                     offenseIsHome: $offenseIsHome
                 );
 
+
+
+                $resolvedYards = $resolved['yards'] ?? 0;
+                if (stripos($resolvedYards, 'B!') !== false) {
+                    $speed = Player::find( $resolved['offense_player_id'])->speed ?? 0;
+                    $red = rand(1,6);
+                    $white = rand(1,10);
+                    $blue = rand(1,10);
+                    $roll = $red + $white + $blue;
+                    $breakAway = $engine->breakaway($roll, $blue, $speed);
+                    $number = (int)filter_var($resolvedYards, FILTER_SANITIZE_NUMBER_INT);
+                    $resolved['breakAwayData'] = $breakAway;
+                    $resolved['breakAwayDies'] = [
+                        'red' => $red,
+                        'white' => $white,
+                        'blue' => $blue,
+                        'roll' => $roll
+                    ];
+                    $resolvedYards = $breakAway['yards'] + $number;
+                }
+
                 try{
                     $playResults = [
                         'Play Type' => $resolved['play_type'],
-                        'Yards Gained' => $resolved['yards'],
-                        'Result' => $resolved['result'],
+                        'Yards Gained' => $resolvedYards,
+//                        'Result' => $resolved['result'],
                     ];
+                    if (stripos($resolved['yards'], 'B!') !== false) {
+                        $playResults['Alert!'] = 'It a Break Away!';
+                    }
                     if ($resolved['play_type'] === 'PASS' or $resolved['play_type'] === 'INT' or $resolved['play_type'] === 'SACK') {
                         $playResults['Quarter Back'] = $resolved['quarterback_jersey_number'] . ':' . $resolved['quarterback_name'];
                         $playResults['Receiver'] = $resolved['offense_player_jersey_number'] . ':' . $resolved['offense_player_name'];
@@ -133,14 +158,36 @@ class DiceController extends Controller
                 }
 
                 $kickYards = 100 - 35 + $kickOffset;
+                $returnYards = $resolved['return'];
+
+                if ($resolved['breakaway']){
+                    $speed = Player::find($kickReturner_id)->speed ?? 0;
+                    $red = rand(1,6);
+                    $white = rand(1,10);
+                    $blue = rand(1,10);
+                    $roll = $red + $white + $blue;
+                    $breakAway = $engine->breakaway($roll, $blue, $speed);
+                    $number = (int)filter_var($returnYards, FILTER_SANITIZE_NUMBER_INT);
+                    $resolved['breakAwayData'] = $breakAway;
+                    $resolved['breakAwayDies'] = [
+                        'red' => $red,
+                        'white' => $white,
+                        'blue' => $blue,
+                        'roll' => $roll
+                    ];
+                    $returnYards = $breakAway['yards'] + $number;
+                }
 
                 $playResults = [
                     'Type' => 'KICKOFF',
                     'Kick To' => $resolved['kick'],
                     'Kick Yards' => $kickYards,
-                    'Return Yards' => $resolved['return'],
+                    'Return Yards' => $returnYards,
                     'Kick Returner' => $resolved['kickReturner_jersey_number'] . ':' . $resolved['kickReturner_name']
                 ];
+                if ($resolved['breakaway']){
+                    $playResults['Alert!'] = 'It a Break Away!';
+                }
                 break;
             case "PUNT-START":
                 $resolved = $engine->punt($resultRoll);
@@ -155,13 +202,16 @@ class DiceController extends Controller
                     case 'TB':
                         $description = 'Touchback';
                         break;
+                    case 'OOB':
+                        $description = 'Out of Bounds';
+                        break;
                     default:
                         $description = 'Unknown: ' . $type;
                         break;
                 }
                 $playResults = [
                     'Yards' => $resolved['distance'],
-                    'Returner' => $description
+                    'CAN RETURN' => $description
                 ];
                 break;
             case "PUNT":
@@ -177,10 +227,34 @@ class DiceController extends Controller
                 $resolved['puntReturner_name'] = $puntReturner_name;
                 $resolved['puntReturner_jersey_number'] = $puntReturner_jersey_number;
 
+
+                $resolvedYards = $resolved['yards'] ?? 0;
+                if (stripos($resolvedYards, 'B!') !== false) {
+                    $speed = Player::find( $resolved['puntReturner_id'])->speed ?? 0;
+                    $red = rand(1,6);
+                    $white = rand(1,10);
+                    $blue = rand(1,10);
+                    $roll = $red + $white + $blue;
+                    $breakAway = $engine->breakaway($roll, $blue, $speed);
+                    $number = (int)filter_var($resolvedYards, FILTER_SANITIZE_NUMBER_INT);
+                    $resolved['breakAwayData'] = $breakAway;
+                    $resolved['breakAwayDies'] = [
+                        'red' => $red,
+                        'white' => $white,
+                        'blue' => $blue,
+                        'roll' => $roll
+                    ];
+                    $resolvedYards = $breakAway['yards'] + $number;
+                }
+
                 $playResults = [
-                    'Yards' => $resolved['yards'],
+                    'Yards' => $resolvedYards,
                     'Punt Returner' => $resolved['puntReturner_jersey_number'] . ':' . $resolved['puntReturner_name']
                 ];
+
+                if (stripos($resolved['yards'], 'B!') !== false) {
+                    $playResults['Alert!'] = 'It a Break Away!';
+                }
                 break;
             case 'TRY';
                 $yards = $game->pos_yardline;
@@ -234,7 +308,7 @@ class DiceController extends Controller
 
                 break;
             case 'FUMBLE-HAPPENED':
-                $resolved = $engine->fumble_result( $resultRoll, $offenseTeam->id, $defenseTeam->id);
+                $resolved = $engine->fumble_result( $resultRoll, $data['blue'], $offenseTeam->id, $defenseTeam->id);
                 $result = $resolved['side'];
                 $fumbleResult = 'RECOVERED BY DEFENSE';
                 if ($result === 'O') {
@@ -249,7 +323,43 @@ class DiceController extends Controller
                 $playResults = [
                     'Fumble Result' => $fumbleResult,
                     'Recovered By' => $recoveredBy,
+                    'Returned' => $resolved['return_allowed'] ? 'YES' : 'NO',
                 ];
+                break;
+            case 'FUMBLE':
+                $resolved = $engine->returns($resultRoll, $data['blue']);
+
+
+                $resolvedYards = $resolved['yards'] ?? 0;
+                if (stripos($resolvedYards, 'B!') !== false) {
+                    $speed = 0; // Player::find( $resolved['puntReturner_id'])->speed ?? 0;
+                    $red = rand(1,6);
+                    $white = rand(1,10);
+                    $blue = rand(1,10);
+                    $roll = $red + $white + $blue;
+                    $breakAway = $engine->breakaway($roll, $blue, $speed);
+                    $number = (int)filter_var($resolvedYards, FILTER_SANITIZE_NUMBER_INT);
+                    $resolved['breakAwayData'] = $breakAway;
+                    $resolved['breakAwayDies'] = [
+                        'red' => $red,
+                        'white' => $white,
+                        'blue' => $blue,
+                        'roll' => $roll
+                    ];
+                    $resolvedYards = $breakAway['yards'] + $number;
+                }
+
+                $playResults = ['Yards' => $resolvedYards];
+                if (stripos($resolvedYards = $resolved['yards'] ?? 0, 'B!') !== false) {
+                    $playResults['Alert!'] = 'It a Break Away!';
+                }
+                break;
+            case 'BREAKAWAY':
+                $resolved = $engine->breakaway(
+                    resultRoll: $resultRoll,
+                    blueDie:  $data['blue'],
+                    speed: $data['speed'],
+                );
                 break;
             default:
                 $resolved = ['error' => 'Unknown play type'];

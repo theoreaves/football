@@ -6,6 +6,7 @@ use App\Models\OffensePlay;
 use App\Models\DefensePlay;
 use App\Models\Player;
 use App\Models\Team;
+use Log;
 
 class GamePlayEngine
 {
@@ -477,7 +478,15 @@ class GamePlayEngine
         ];
         $kickYards = $this->parseResultFormula($kickResult, $vars);
         $returnYards = $this->parseResultFormula($returnResult, $vars);
-        $isBreakaway = ($kickYards === 'B!' || $returnYards === 'B!');
+        $isBreakaway = false;
+
+
+        Log::debug('Return yards: ' . $returnYards . 'type: ' .  gettype($returnYards));
+
+        if (stripos($returnYards, 'B!') !== false) {
+            $isBreakaway = true;
+        }
+//        $isBreakaway = ($kickYards === 'B!' || $returnYards === 'B!');
         return [
             'result_roll' => $resultRoll,
             'kick_formula' => $kickResult,
@@ -590,7 +599,7 @@ class GamePlayEngine
             'blue' => $skillRoll,
             'KR' => $kickReturner->return_speed ?? 0,
         ];
-        $kickYards = $this->parseResultFormula($yards, $vars);
+        $kickYards = $this->parseResultFormula(str_replace('PR', 'KR', $yards), $vars);
         return [
             'result_roll' => $resultRoll,
             'return' => $yards ?? null,
@@ -662,9 +671,29 @@ class GamePlayEngine
         return $winner === 'K';
     }
 
-    public function fumble_result($resultRoll, int $offenseTeamId, int $defenseTeamId,): array
+    public function fumble_result($resultRoll, int $blueDie, int $offenseTeamId, int $defenseTeamId,): array
     {
         $fumbleConfig = config('turnover.fumble_recovery');
+
+        $fumbleReturnConfig = config('turnover.fumble_return');
+
+        $returnAllowed = false;
+
+        foreach ($fumbleReturnConfig as $range => $rules) {
+            if (str_contains($range, '-')) {
+                [$min, $max] = array_map('intval', explode('-', $range));
+                if ($blueDie >= $min && $blueDie <= $max) {
+                    $returnAllowed = $rules['offense'];
+                    break;
+                }
+            } else {
+                if ($blueDie === (int) $range) {
+                    $returnAllowed = $rules['offense'];
+                    break;
+                }
+            }
+        }
+
         foreach ($fumbleConfig as $range => $outcome) {
             if (preg_match('/^(\\d+)$/', $range, $m)) {
                 if ($resultRoll == (int)$m[1]) {
@@ -678,6 +707,10 @@ class GamePlayEngine
                         $recoveredBy_id = isset($recoveredBy) ? $recoveredBy->id : null;
                         $recoveredBy_name = isset($recoveredBy) ? $recoveredBy->firstname . ' ' . $recoveredBy->lastname : null;
                         $recoveredBy_jersey_number = isset($recoveredBy) ? $recoveredBy->current_jersey_number : null;
+
+
+
+
                     } else {
                         $side = 'D';
                         $recoveredByTeam = Team::with('players')->find($defenseTeamId);
@@ -700,6 +733,7 @@ class GamePlayEngine
                         'recoveredBy_id' => $recoveredBy_id,
                         'recoveredBy_name' => $recoveredBy_name ?? null,
                         'recoveredBy_jersey_number' => $recoveredBy_jersey_number ?? null,
+                        'return_allowed' => $returnAllowed,
                     ];
                 }
             } elseif (preg_match('/^(\\d+)-(\\d+)$/', $range, $m)) {
@@ -737,10 +771,36 @@ class GamePlayEngine
                         'recoveredBy_id' => $recoveredBy_id,
                         'recoveredBy_name' => $recoveredBy_name ?? null,
                         'recoveredBy_jersey_number' => $recoveredBy_jersey_number ?? null,
+                        'return_allowed' => $returnAllowed,
                     ];
                 }
             }
         }
         return ['error' => 'No fumble result found.'];
+    }
+
+    public function returns($resultRoll, int $blueDie): array
+    {
+
+        $returnsConfig = config('turnover.returns');
+
+        $result = 0;
+
+        foreach ($returnsConfig as $range => $return) {
+            if (str_contains($range, '-')) {
+                [$min, $max] = array_map('intval', explode('-', $range));
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    $result = $return;
+                    break;
+                }
+            } else {
+                if ($resultRoll === (int) $range) {
+                    $result = $return;
+                    break;
+                }
+            }
+        }
+        $yards = YardageParserService::parseYards($result, $blueDie);
+        return ['yards' => $yards];
     }
 }
