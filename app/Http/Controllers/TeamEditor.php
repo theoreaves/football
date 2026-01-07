@@ -113,6 +113,7 @@ class TeamEditor extends Controller
             'midfield_logo',
             'endzone_logo_right',
             'endzone_logo_left',
+            'game_field_image',
         ];
 
         // validate files if present

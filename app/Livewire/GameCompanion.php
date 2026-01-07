@@ -8,6 +8,7 @@ use App\Models\TeamPlayer;
 use App\Services\FootballRulesEngine;
 use App\Services\GameStatService;
 use Livewire\Component;
+use Log;
 
 class GameCompanion extends Component
 {
@@ -57,6 +58,7 @@ class GameCompanion extends Component
     public array $defensePlayers = [];
 
     public int $fieldScale = 75;
+    public bool $dieGivesResult = false;
 
     protected $listeners = ['setDownAndDistance'];
 
@@ -69,6 +71,8 @@ class GameCompanion extends Component
         $this->game = $gameId
             ? \App\Models\Game::with(['homeTeam','awayTeam'])->findOrFail($gameId)
             : \App\Models\Game::create();
+
+        $this->dieGivesResult = $this->game->die_gives_result ?? false;
 
         $this->loadPlayers();
 
@@ -1226,6 +1230,18 @@ class GameCompanion extends Component
     {
         $allowed = [100, 75, 50, 25];
         $this->fieldScale = in_array($scale, $allowed, true) ? $scale : 100;
+    }
+
+    public function updated($name, $value): void
+    {
+        if ($name == 'dieGivesResult'){
+            Log::debug('GameCompanion updated: ' . $name . ' = ' . var_export($value, true));
+            $data = [
+                'die_gives_result' => $this->dieGivesResult,
+            ];
+            Game::find($this->game->id)->update($data);
+            $this->game = Game::find($this->game->id);
+        }
     }
 
 

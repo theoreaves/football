@@ -265,11 +265,12 @@
             @php
                 $uploadFields = [
                     'team_logo' => 'Team Logo',
+                    'midfield_logo' => 'Midfield Logo',
                     'helmet_logo_right' => 'Helmet Logo (Right)',
                     'helmet_logo_left' => 'Helmet Logo (Left)',
-                    'midfield_logo' => 'Midfield Logo',
                     'endzone_logo_right' => 'Endzone Logo (Right)',
                     'endzone_logo_left' => 'Endzone Logo (Left)',
+                    'game_field_image' => 'Game Field Image',
                 ];
             @endphp
 
@@ -278,7 +279,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     @foreach($uploadFields as $field => $label)
-                        <div class="border rounded p-3">
+                        <div class="border rounded p-3 {{ $field == 'game_field_image' ? 'md:col-span-2' : '' }}">
                             <label class="block font-medium mb-2">{{ $label }}</label>
 
                             @if($mode === 'edit' && $team->{$field})

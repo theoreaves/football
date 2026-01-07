@@ -11,6 +11,7 @@ class Game extends Model
     protected $casts = [
         'home_q' => 'array',
         'away_q' => 'array',
+        'die_gives_result' => 'boolean',
     ];
 
 

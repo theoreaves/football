@@ -101,12 +101,17 @@
     </div>
 
 
+    <div class="flex justify-around">
+
+        <div class="w-20">
+        <img src="{{ asset($game->homeTeam->team_logo ?? 'logos/default_home.jpg') }}">
+        </div>
 
     {{-- Field (image-native, no stretch; markers aligned to image marks) --}}
     @php
         // Image is 1024x486 (your uploaded asset)
         // We set the container aspect ratio to match so the image is never stretched.
-        $fieldBgUrl = $game->field_bg_url ?? asset('fields/default.png');
+        $fieldBgUrl = asset($game->field_bg_url ?? 'fields/default.png');
 
         // Your existing 120-yard positioning values (0..100 field mapped with endzones)
         // ballLeft120, lineToGainLeft120, seriesLeft120, ballSideMarkerLeft120 are assumed to be 0..100 (% of the 120y canvas)
@@ -221,6 +226,11 @@
     </div>
 
 
+        <div class="w-20">
+            <img src="{{ asset($game->awayTeam->team_logo ?? 'logos/default_away.jpg') }}">
+        </div>
+
+    </div>
 
     {{-- Controls --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -831,6 +841,9 @@
                             class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500">
                         Set Spot
                     </button>
+
+                    <input type="checkbox" wire:model.live="dieGivesResult" class="ml-4" />
+                    <div class="text-xs text-white/70">Include Results in Dice Roll</div>
                 </div>
 
                 @error('kick_side') <div class="text-red-300 text-sm">{{ $message }}</div> @enderror

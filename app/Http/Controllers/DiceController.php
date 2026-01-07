@@ -14,7 +14,7 @@ class DiceController extends Controller
 {
     public function index(Game $game)
     {
-        $diceOnly = false;
+        $diceOnly = !$game->die_gives_result ?? false;
 
         $possessionTeam = $game->possessionTeam();
 //        $offensePlays = OffensePlay::where('code', '!=', 'PRESSURE')->get();
