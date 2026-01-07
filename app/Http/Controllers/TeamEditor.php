@@ -111,8 +111,8 @@ class TeamEditor extends Controller
             'helmet_logo_right',
             'helmet_logo_left',
             'midfield_logo',
-            'endzone_logo_right',
-            'endzone_logo_left',
+            'jersey_image_dark',
+            'jersey_image_white',
             'game_field_image',
         ];
 

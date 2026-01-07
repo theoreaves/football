@@ -268,8 +268,8 @@
                     'midfield_logo' => 'Midfield Logo',
                     'helmet_logo_right' => 'Helmet Logo (Right)',
                     'helmet_logo_left' => 'Helmet Logo (Left)',
-                    'endzone_logo_right' => 'Endzone Logo (Right)',
-                    'endzone_logo_left' => 'Endzone Logo (Left)',
+                    'jersey_image_dark' => 'Dark Jersey',
+                    'jersey_image_white' => 'White Jersey',
                     'game_field_image' => 'Game Field Image',
                 ];
             @endphp
