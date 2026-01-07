@@ -568,6 +568,7 @@ class GamePlayEngine
     public function punt_return(Player $kickReturner, $resultRoll, $skillRoll): array
     {
         $puntReturnConfig = config('special_teams.punt_returns');
+        $yards = 0;
         foreach ($puntReturnConfig as $range => $values) {
             if (preg_match('/^(\\d+)$/', $range, $m)) {
                 if ($resultRoll == (int)$m[1]) {
@@ -659,5 +660,87 @@ class GamePlayEngine
             }
         }
         return $winner === 'K';
+    }
+
+    public function fumble_result($resultRoll, int $offenseTeamId, int $defenseTeamId,): array
+    {
+        $fumbleConfig = config('turnover.fumble_recovery');
+        foreach ($fumbleConfig as $range => $outcome) {
+            if (preg_match('/^(\\d+)$/', $range, $m)) {
+                if ($resultRoll == (int)$m[1]) {
+
+                    if (in_array($outcome, $this->offensivePlayers)) {
+                        $side = 'O';
+                        $recoveredByTeam = Team::with('players')->find($offenseTeamId);
+                        $recoveredBy = $recoveredByTeam->players->first(function ($p) use ($outcome) {
+                            return $p->pivot->depth_chart_position === $outcome;
+                        });
+                        $recoveredBy_id = isset($recoveredBy) ? $recoveredBy->id : null;
+                        $recoveredBy_name = isset($recoveredBy) ? $recoveredBy->firstname . ' ' . $recoveredBy->lastname : null;
+                        $recoveredBy_jersey_number = isset($recoveredBy) ? $recoveredBy->current_jersey_number : null;
+                    } else {
+                        $side = 'D';
+                        $recoveredByTeam = Team::with('players')->find($defenseTeamId);
+                        $recoveredBy = $recoveredByTeam->players->first(function ($p) use ($outcome) {
+                            return $p->pivot->depth_chart_position === $outcome;
+                        });
+                        $recoveredBy_id = isset($recoveredBy) ? $recoveredBy->id : null;
+                        $recoveredBy_name = isset($recoveredBy) ? $recoveredBy->firstname . ' ' . $recoveredBy->lastname : null;
+                        $recoveredBy_jersey_number = isset($recoveredBy) ? $recoveredBy->current_jersey_number : null;
+                    }
+                    if ($outcome === 'OOB'){
+                        $side = 'OOB';
+                        $recoveredBy_id = null;
+                        $recoveredBy_name = null;
+                        $recoveredBy_jersey_number = null;
+                    }
+                    return [
+                        'result' => $outcome,
+                        'side' => $side,
+                        'recoveredBy_id' => $recoveredBy_id,
+                        'recoveredBy_name' => $recoveredBy_name ?? null,
+                        'recoveredBy_jersey_number' => $recoveredBy_jersey_number ?? null,
+                    ];
+                }
+            } elseif (preg_match('/^(\\d+)-(\\d+)$/', $range, $m)) {
+                $min = (int)$m[1];
+                $max = (int)$m[2];
+                if ($resultRoll >= $min && $resultRoll <= $max) {
+                    if (in_array($outcome, $this->offensivePlayers)) {
+                        $side = 'O';
+                        $recoveredByTeam = Team::with('players')->find($offenseTeamId);
+                        $recoveredBy = $recoveredByTeam->players->first(function ($p) use ($outcome) {
+                            return $p->pivot->depth_chart_position === $outcome;
+                        });
+                        $recoveredBy_id = isset($recoveredBy) ? $recoveredBy->id : null;
+                        $recoveredBy_name = isset($recoveredBy) ? $recoveredBy->firstname . ' ' . $recoveredBy->lastname : null;
+                        $recoveredBy_jersey_number = isset($recoveredBy) ? $recoveredBy->current_jersey_number : null;
+                    } else {
+                        $side = 'D';
+                        $recoveredByTeam = Team::with('players')->find($defenseTeamId);
+                        $recoveredBy = $recoveredByTeam->players->first(function ($p) use ($outcome) {
+                            return $p->pivot->depth_chart_position === $outcome;
+                        });
+                        $recoveredBy_id = isset($recoveredBy) ? $recoveredBy->id : null;
+                        $recoveredBy_name = isset($recoveredBy) ? $recoveredBy->firstname . ' ' . $recoveredBy->lastname : null;
+                        $recoveredBy_jersey_number = isset($recoveredBy) ? $recoveredBy->current_jersey_number : null;
+                    }
+                    if ($outcome === 'OOB'){
+                        $side = 'OOB';
+                        $recoveredBy_id = null;
+                        $recoveredBy_name = null;
+                        $recoveredBy_jersey_number = null;
+                    }
+                    return [
+                        'result' => $outcome,
+                        'side' => $side,
+                        'recoveredBy_id' => $recoveredBy_id,
+                        'recoveredBy_name' => $recoveredBy_name ?? null,
+                        'recoveredBy_jersey_number' => $recoveredBy_jersey_number ?? null,
+                    ];
+                }
+            }
+        }
+        return ['error' => 'No fumble result found.'];
     }
 }
