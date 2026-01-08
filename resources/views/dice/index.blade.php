@@ -19,7 +19,28 @@
 
 
         <div class="flex items-start justify-between gap-6">
-            {{ $game->homeTeam->name }} vs {{ $game->awayTeam->name }}
+            <!-- TOP-LEFT crop -->
+            <div class="w-[173px] h-[117px] overflow-hidden relative">
+                <img
+                    src="{{ asset($game->homeTeam->jersey_image_dark) }}"
+                    alt=""
+                    class="block max-w-none absolute top-0 left-0"
+                >
+            </div>
+
+
+            <!-- TOP-RIGHT crop -->
+            <div class="w-[173px] h-[117px] overflow-hidden relative">
+                <img
+                    src="{{ asset($game->awayTeam->jersey_image_white) }}"
+                    alt=""
+                    class="block max-w-none absolute top-0 right-0"
+                >
+            </div>
+
+        </div>
+
+            <div class="flex items-start justify-between gap-6">
             <br>
             Possession: {{ $possessionTeam->name }}
             {{ $game->down }} & {{ $game->to_go }} at {{ $game->pos_side }} {{ $game->pos_yardline }} yard line

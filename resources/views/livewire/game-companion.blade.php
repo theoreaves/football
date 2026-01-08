@@ -149,18 +149,62 @@
                 class="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             />
 
+
+
+
             {{-- Football marker --}}
+            @php
+                $halfW = 80;   // half width in px (w-10)
+                $jerseyH = 180; // adjust to taste
+            @endphp
+
             @if($this->ballLeft120 !== null)
-                <div class="absolute top-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out z-40"
-                     style="left: calc({{ $mapToImage($this->ballLeft120) }}% - 10px);">
-                    <div class="flex items-center gap-2">
+                <div
+                    class="absolute top-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out z-40"
+                    style="left: {{ $mapToImage($this->ballLeft120) }}%;"
+                >
+                    <div class="flex items-center gap-2 -translate-x-1/2">
+
+                        {{-- HOME jersey: show the half closest to the ball (RIGHT half) --}}
+                        <div
+                            class="shrink-0"
+                            style="
+                    width: {{ $halfW }}px;
+                    height: {{ $jerseyH }}px;
+                    background-image: url('{{ asset($game->homeTeam->jersey_image_dark) }}');
+                    background-repeat: no-repeat;
+                    background-size: 200% 100%;
+                    background-position: 0% 100%; /* RIGHT half */
+                "
+                        ></div>
+
+                        {{-- Ball --}}
                         <div class="w-5 h-3 rounded-full border border-white/60" style="background:#8b4513;"></div>
+
                         <div class="text-xs text-white/80 font-semibold">
                             @if($game->possession === 'HOME') → @else ← @endif
                         </div>
+
+                        {{-- AWAY jersey: show the half closest to the ball (LEFT half) --}}
+                        <div
+                            class="shrink-0"
+                            style="
+                    width: {{ $halfW }}px;
+                    height: {{ $jerseyH }}px;
+                    background-image: url('{{ asset($game->awayTeam->jersey_image_white) }}');
+                    background-repeat: no-repeat;
+                    background-size: 200% 100%;
+                    background-position: 100% 0%; /* LEFT half */
+                "
+                        ></div>
+
                     </div>
                 </div>
             @endif
+
+
+
+
 
             {{-- 1st down / series / down marker --}}
             @if($this->showLineToGain && $this->lineToGainLeft120 !== null)
@@ -1092,11 +1136,11 @@
                     const isTypingNotes = tag === 'input' && (t.type === 'text' || t.type === 'search') || tag === 'textarea';
 
                     // Allow Shift+R everywhere (including yards input).
-                    if (isShift && key === 'r') {
-                        e.preventDefault();
-                        this.setPlay('RUN', 'yards', true);
-                        return;
-                    }
+                    // if (isShift && key === 'r') {
+                    //     e.preventDefault();
+                    //     this.setPlay('RUN', 'yards', true);
+                    //     return;
+                    // }
                     if (isShift && key === 'p') {
                         e.preventDefault();
                         this.setPlay('PASS', 'yards', true);
@@ -1125,10 +1169,10 @@
                     // if (isYardsInput) return;
                     // Hotkeys (plain letters)
                     switch (key) {
-                        case 'r': // Run
-                            e.preventDefault();
-                            this.setPlay('RUN', 'yards', true);
-                            return;
+                        // case 'r': // Run
+                        //     e.preventDefault();
+                        //     this.setPlay('RUN', 'yards', true);
+                        //     return;
 
                         case 'p': // Pass complete
                             e.preventDefault();
