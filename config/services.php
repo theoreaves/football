@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'bg_remove' => [
+        'url' => env('BG_REMOVE_URL', 'http://127.0.0.1:8099'),
+        'token' => env('BG_REMOVE_TOKEN'),
+    ],
+
+
 ];
