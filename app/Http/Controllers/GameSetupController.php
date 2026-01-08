@@ -25,7 +25,10 @@ class GameSetupController extends Controller
         $data = $request->validate([
             'home_team_id' => ['required','exists:teams,id'],
             'away_team_id' => ['required','exists:teams,id','different:home_team_id'],
+            'home_team_white' => 'nullable'
         ]);
+
+        $fieldUrl = Team::find($data['home_team_id'])->game_field_image ?? null;
 
         $game = Game::create([
             'home_team_id' => $data['home_team_id'],
@@ -39,6 +42,8 @@ class GameSetupController extends Controller
             'phase'   => 'KICKOFF',
             'kick_team' => null,
             'first_kick_team' => 'HOME',
+            'field_bg_url' => $fieldUrl,
+            'home_team_white' => $data['home_team_white'] ?? false,
         ]);
 
         return redirect()->route('games.show', $game->id);

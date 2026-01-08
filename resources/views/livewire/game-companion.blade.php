@@ -7,6 +7,8 @@
             <div class="font-semibold cursor-pointer text-sm" onclick="openAdvanced('advanced')" >Advanced Charts</div>
             <div class="font-semibold cursor-pointer text-sm" onclick="openPdfLibrary()" >PDF Library</div>
         </div>
+
+        <div>
         <div class="font-semibold flex gap-2">
             <button
                 class="text-blue-400 hover:underline"
@@ -23,6 +25,8 @@
             >
                 {{ $game->home_label }}
             </button>
+        </div>
+            <div class="cursor-pointer hover:text-blue-500" @click="location.href='{{ route('games.index') }}'">Exit Game</div>
         </div>
 
     </div>

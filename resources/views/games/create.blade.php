@@ -32,6 +32,13 @@
                     </select>
                     @error('home_team_id') <div class="text-red-300 text-sm mt-1">{{ $message }}</div> @enderror
                 </div>
+                <input
+                    type="checkbox"
+                    name="home_team_white"
+                    value="1"
+                    class="h-5 w-5"
+                />
+                <span class="font-medium">Home Team Wears White</span>
 
                 <button class="w-full px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 font-semibold">
                     Create Game
