@@ -74,7 +74,7 @@ class SeedNflTeams extends Command
             }
 
             // 2) Seed rosters for each team
-            $template = $this->chiefsTemplate();
+            $template = []; // $this->chiefsTemplate();
 
             foreach ($teams as $team) {
                 if ($fresh) {

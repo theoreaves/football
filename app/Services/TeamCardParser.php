@@ -381,7 +381,7 @@ class TeamCardParser
             'depth_chart_position' => '',
             'kick_return_depth_chart_position' => '',
             'punt_return_depth_chart_position' => '',
-            'jersey_number' => null,
+//            'jersey_number' => null,
 
             'catch_from' => 0, 'catch_to' => 0, 'catch_plus_from' => 0, 'catch_plus_to' => 0,
             'rush_from' => 0, 'rush_to' => 0,
