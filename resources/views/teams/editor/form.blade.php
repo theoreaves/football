@@ -22,9 +22,19 @@
                 {{ $mode === 'create' ? 'Add Team' : 'Edit Team' }}
             </h1>
             <a href="{{ route('teams.editor.index') }}" class="underline text-gray-700">Back to Teams</a>
+
+            @if($mode === 'edit')
+                <a
+                    href="{{ route('teams.editor.teams.players.index', $team) }}"
+                    class="px-4 py-2 rounded border text-sm"
+                >
+                    Manage Players
+                </a>
+            @endif
         </div>
 
-        <form
+
+            <form
             method="POST"
             enctype="multipart/form-data"
             action="{{ $mode === 'create' ? route('teams.editor.store') : route('teams.editor.update', $team) }}"

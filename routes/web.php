@@ -76,10 +76,24 @@ Route::post('/gameplay/test/punt', [GamePlayTestController::class, 'submitPuntFo
 Route::post('/gameplay/test/punt_return', [GamePlayTestController::class, 'submitPuntReturn']);
 
 use App\Http\Controllers\TeamEditor;
-//Route::resource('teams/editor', TeamEditor::class)->names('teams.editor');
-
+use App\Http\Controllers\TeamRosterController;
 
 Route::resource('teams/editor', TeamEditor::class)
     ->names('teams.editor')
     ->parameters(['editor' => 'team']);
+Route::prefix('teams/editor')->name('teams.editor.')->group(function () {
+    Route::get('teams/{team}/players', [TeamRosterController::class, 'index'])
+        ->name('teams.players.index');
 
+    Route::get('teams/{team}/players/create', [TeamRosterController::class, 'create'])
+        ->name('teams.players.create');
+
+    Route::post('teams/{team}/players', [TeamRosterController::class, 'store'])
+        ->name('teams.players.store');
+
+    Route::get('teams/{team}/players/{player}/edit', [TeamRosterController::class, 'edit'])
+        ->name('teams.players.edit');
+
+    Route::put('teams/{team}/players/{player}', [TeamRosterController::class, 'update'])
+        ->name('teams.players.update');
+});
