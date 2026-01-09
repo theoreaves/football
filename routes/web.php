@@ -97,3 +97,5 @@ Route::prefix('teams/editor')->name('teams.editor.')->group(function () {
     Route::put('teams/{team}/players/{player}', [TeamRosterController::class, 'update'])
         ->name('teams.players.update');
 });
+Route::post('teams/editor/teams/{team}/import-team-card', [TeamEditor::class, 'importTeamCard'])
+    ->name('teams.editor.importTeamCard');

@@ -335,5 +335,61 @@
 {{--                @endif--}}
             </div>
         </form>
-    </div>
+
+
+            @if($mode === 'edit')
+                <div class="border rounded p-4 bg-gray-50">
+                    <div class="font-semibold mb-2">
+                        Import Team Card (PDF)
+                    </div>
+
+                    <div class="text-sm text-gray-600 mb-3">
+                        Upload a SeasonTicket-style team card to automatically create or update
+                        players and roster slots for this team.
+                    </div>
+
+                    <form method="POST"
+                          action="{{ route('teams.editor.importTeamCard', $team) }}"
+                          enctype="multipart/form-data"
+                          class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        @csrf
+
+                        <div class="md:col-span-2">
+                            <label class="block font-medium mb-1">Team Card PDF</label>
+                            <input
+                                type="file"
+                                name="team_card_pdf"
+                                accept="application/pdf"
+                                required
+                                class="w-full"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="block font-medium mb-1">Team Year</label>
+                            <input
+                                name="team_year"
+                                value="{{ old('team_year', '2025') }}"
+                                class="w-full border rounded p-2"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <button
+                                type="submit"
+                                class="w-full px-4 py-2 rounded bg-blue-600 text-white"
+                                onclick="return confirm('Importing will create or update players for this team and year. Continue?')"
+                            >
+                                Import PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            @endif
+
+
+
+
+</div>
     </x-layouts.app>

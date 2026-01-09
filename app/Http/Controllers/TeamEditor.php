@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
 
+use Illuminate\Support\Facades\DB;
+use Smalot\PdfParser\Parser as PdfParser;
+use App\Services\TeamCardParser;
+
 
 class TeamEditor extends Controller
 {
@@ -238,6 +242,72 @@ class TeamEditor extends Controller
         } catch (ConnectionException $e) {
             return null;
         }
+    }
+
+
+    public function importTeamCard(Request $request, \App\Models\Team $team)
+    {
+        $data = $request->validate([
+            'team_year' => ['required', 'string', 'max:10'],
+            'team_card_pdf' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+        ]);
+
+        $year = $data['team_year'];
+        $file = $request->file('team_card_pdf');
+
+        // Store explicitly on local disk
+        $path = 'imports/team-cards/' . uniqid('teamcard_', true) . '.pdf';
+        Storage::disk('local')->put($path, file_get_contents($file->getRealPath()));
+
+        $fullPath = Storage::disk('local')->path($path);
+        abort_unless(is_file($fullPath), 500, "PDF was not written to disk: {$fullPath}");
+
+        // Extract text from the PDF (THIS was commented out)
+        $pdfParser = new PdfParser();
+        $pdf = $pdfParser->parseFile($fullPath);
+        $text = $pdf->getText();
+//        dd($text);
+
+        if (!trim($text)) {
+            return back()->withErrors([
+                'team_card_pdf' => 'This PDF has no extractable text (might be scanned). OCR support would be needed.',
+            ]);
+        }
+
+        // Parse extracted text into rows for DB
+        $rows = app(TeamCardParser::class)->parse($text, $year);
+
+        DB::transaction(function () use ($rows, $team, $year) {
+            foreach ($rows as $row) {
+                $playerData = $row['player'];
+                $pivotData  = $row['pivot'];
+
+                $player = \App\Models\Player::updateOrCreate(
+                    [
+                        'firstname' => $playerData['firstname'],
+                        'lastname'  => $playerData['lastname'],
+                        'position'  => $playerData['position'],
+                    ],
+                    $playerData
+                );
+
+                DB::table('team_players')->updateOrInsert(
+                    [
+                        'team_id'   => $team->id,
+                        'player_id' => $player->id,
+                        'team_year' => $year,
+                    ],
+                    array_merge($pivotData, [
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ])
+                );
+            }
+        });
+
+        return redirect()
+            ->route('teams.editor.edit', $team)
+            ->with('status', "Imported team card for {$year}.");
     }
 
 
