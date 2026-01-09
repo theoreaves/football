@@ -11,10 +11,18 @@
                     </p>
                 </div>
 
-                <a href="{{ route('games.create') }}"
-                   class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 font-semibold">
-                    + New Game
-                </a>
+                <div class="flex gap-3">
+                    <a href="{{ route('teams.index') }}"
+                       class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 font-semibold">
+                        Teams
+                    </a>
+
+                    <a href="{{ route('games.create') }}"
+                       class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 font-semibold">
+                        + New Game
+                    </a>
+                </div>
+
             </div>
 
             <div class="h-px bg-white/10"></div>

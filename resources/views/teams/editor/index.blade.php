@@ -8,6 +8,10 @@
 
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-semibold">Teams</h1>
+            <a href="{{ route('teams.index') }}"
+                class="text-blue-400 hover:text-blue-300 font-semibold">
+                Exit Editor
+            </a>
             <a href="{{ route('teams.editor.create') }}" class="px-4 py-2 rounded bg-blue-600 text-white">
                 Add Team
             </a>

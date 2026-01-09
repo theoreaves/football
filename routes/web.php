@@ -3,9 +3,11 @@
 use App\Livewire\GameCompanion;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+use App\Http\Controllers\GameSetupController;
+//Route::get('/', function () {
+//    return view('welcome');
+//})->name('home');
+Route::get('/', [GameSetupController::class, 'index'])->name('home');
 
 
 Route::get('/football', GameCompanion::class);
@@ -26,7 +28,6 @@ use App\Http\Controllers\PlayerController;
 
 Route::get('/players/{player}', [PlayerController::class, 'show'])->name('players.show');
 
-use App\Http\Controllers\GameSetupController;
 //use App\Livewire\GameCompanion;
 
 Route::get('/games/', [GameSetupController::class, 'index'])->name('games.index');

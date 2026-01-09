@@ -2,10 +2,23 @@
     <div class="min-h-screen bg-gray-950 text-gray-100 p-6">
         <div class="max-w-4xl mx-auto">
 
-            <div class="mb-6">
-                <div class="text-sm text-gray-400">Teams</div>
-                <div class="text-3xl font-bold tracking-tight">League Teams</div>
+            <div class="mb-6 flex items-end justify-between">
+                <div>
+                    <div class="text-sm text-gray-400">Teams</div>
+                    <div class="text-3xl font-bold tracking-tight">League Teams</div>
+                </div>
+
+                <a href="{{ route('games.index') }}"
+                   class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 font-semibold">
+                    Games
+                </a>
+
+                <a href="{{ route('teams.editor.index') }}"
+                   class="text-blue-400 hover:text-blue-300 font-semibold">
+                    Editor
+                </a>
             </div>
+
 
             <div class="rounded-lg border border-white/10 overflow-hidden">
                 <table class="min-w-full text-sm">
