@@ -11,7 +11,7 @@ use Faker\Factory as Faker;
 class SeedGenericTeams extends Command
 {
     protected $signature = 'football:seed-teams
-        {--year=2022 : team_year to set in team_players}
+        {--year=2025 : team_year to set in team_players}
         {--teams=4 : how many teams to seed (starting from lowest id)}
         {--fresh : delete existing team_players rows for that year/team before inserting}
         {--use-real-names : use the Chiefs names for the first team (others random)}

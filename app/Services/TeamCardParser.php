@@ -56,7 +56,7 @@ class TeamCardParser
     private function isNoise(string $line): bool
     {
         return (bool) preg_match(
-            '/^(2022 |Points Scored|Points Allowed|Rush Evade|Rush Power|Tackle Sack|Field Goals|Season Ticket Football|OL ensOffensive Lineens|↓|uU|d )/i',
+            '/^(2025 |Points Scored|Points Allowed|Rush Evade|Rush Power|Tackle Sack|Field Goals|Season Ticket Football|OL ensOffensive Lineens|↓|uU|d )/i',
             $line
         );
     }

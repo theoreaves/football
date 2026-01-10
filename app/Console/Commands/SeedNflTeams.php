@@ -11,7 +11,7 @@ use Faker\Factory as Faker;
 class SeedNflTeams extends Command
 {
     protected $signature = 'football:seed-nfl
-        {--year=2022 : team_year to set in team_players}
+        {--year=2025 : team_year to set in team_players}
         {--fresh : delete existing team_players rows for that year/team before inserting}
         {--reset-teams : delete ALL teams first (and team_players for that year)}
     ';

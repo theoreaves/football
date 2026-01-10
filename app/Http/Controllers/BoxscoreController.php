@@ -148,7 +148,7 @@ class BoxscoreController extends Controller
         $tpRows = DB::table('team_players')
             ->join('players', 'players.id', '=', 'team_players.player_id')
             ->whereIn('team_players.team_id', [$game->home_team_id, $game->away_team_id])
-            ->where('team_players.team_year', $game->season_year ?? $game->year ?? 2022) // adjust if needed
+            ->where('team_players.team_year', $game->season_year ?? $game->year ?? 2025) // adjust if needed
             ->select([
                 'team_players.id as team_player_id',
                 'team_players.team_id',

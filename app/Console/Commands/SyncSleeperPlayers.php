@@ -16,6 +16,7 @@ class SyncSleeperPlayers extends Command
         {--default-age=0 : age to use when Sleeper provides none}
         {--fresh : delete existing team_players rows for this year before syncing}
         {--limit=0 : limit processed players (0 = no limit)}
+        {--refresh-meta : overwrite espn_id/college/high_school even if already set}
     ';
 
     protected $description = 'Sync NFL players from Sleeper into players and team_players tables';
@@ -27,6 +28,7 @@ class SyncSleeperPlayers extends Command
         $defaultAge = (int) $this->option('default-age');
         $fresh = (bool) $this->option('fresh');
         $limit = (int) $this->option('limit');
+        $refreshMeta = (bool) $this->option('refresh-meta');
 
         $teamMap = Team::query()
             ->select(['id', 'abbr'])
@@ -87,6 +89,15 @@ class SyncSleeperPlayers extends Command
             $age = (int) ($p['age'] ?? $defaultAge);
             $jersey = isset($p['number']) ? (int) $p['number'] : null;
 
+            // Sleeper metadata (may be missing/null for some players)
+            $espnId = isset($p['espn_id']) ? trim((string) $p['espn_id']) : null;
+
+            // NOTE: your columns are varchar(30). Truncate to avoid DB errors.
+            $college = isset($p['college']) ? $this->clean30($p['college']) : null;
+
+            // Not commonly present; only set if it exists
+            $highSchool = isset($p['high_school']) ? $this->clean30($p['high_school']) : null;
+
             $teamId = (int) $teamMap->get($teamCode);
 
             DB::beginTransaction();
@@ -100,7 +111,13 @@ class SyncSleeperPlayers extends Command
                     $player->firstname = $first;
                     $player->lastname = $last;
                     $player->position = $pos;
-                    $player->age = $age; // required NOT NULL in your schema
+                    $player->age = $age; // required NOT NULL
+
+                    // new fields
+                    $player->espn_id = $espnId ?: null;
+                    $player->college = $college;
+                    $player->high_school = $highSchool;
+
                     $player->save();
                     $createdPlayers++;
                 } else {
@@ -113,6 +130,19 @@ class SyncSleeperPlayers extends Command
 
                     // prefer non-zero age when available
                     if (((int) $player->age) === 0 && $age > 0) { $player->age = $age; $dirty = true; }
+
+                    // metadata update rules:
+                    // - if --refresh-meta, overwrite with whatever Sleeper has (including nulls only if you want that)
+                    // - otherwise, only fill if empty on our side
+                    if ($refreshMeta) {
+                        if ($espnId !== null && $player->espn_id !== $espnId) { $player->espn_id = $espnId; $dirty = true; }
+                        if ($college !== null && $player->college !== $college) { $player->college = $college; $dirty = true; }
+                        if ($highSchool !== null && $player->high_school !== $highSchool) { $player->high_school = $highSchool; $dirty = true; }
+                    } else {
+                        if (empty($player->espn_id) && $espnId) { $player->espn_id = $espnId; $dirty = true; }
+                        if (empty($player->college) && $college) { $player->college = $college; $dirty = true; }
+                        if (empty($player->high_school) && $highSchool) { $player->high_school = $highSchool; $dirty = true; }
+                    }
 
                     if ($dirty) {
                         $player->save();
@@ -184,5 +214,14 @@ class SyncSleeperPlayers extends Command
         $this->line("Skipped missing team mapping: {$skippedNoTeam}");
 
         return self::SUCCESS;
+    }
+
+    private function clean30(mixed $value): ?string
+    {
+        $s = trim((string) $value);
+        if ($s === '') return null;
+
+        // Keep within your varchar(30)
+        return mb_substr($s, 0, 30);
     }
 }
