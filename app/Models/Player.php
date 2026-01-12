@@ -40,5 +40,11 @@ class Player extends Model
             ->withTimestamps();
     }
 
+    public function seasonStats()
+    {
+        return $this->hasMany(\App\Models\PlayerSeasonStat::class, 'player_id');
+    }
+
+
 
 }

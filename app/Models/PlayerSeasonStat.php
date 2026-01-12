@@ -13,5 +13,11 @@ class PlayerSeasonStat extends Model
         'raw' => 'array',
         'season_year' => 'integer',
     ];
+
+    public function player()
+    {
+        return $this->belongsTo(\App\Models\Player::class);
+    }
+
 }
 
