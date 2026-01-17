@@ -10,8 +10,29 @@ class TeamRosterController extends Controller
 {
     public function index(Team $team, Request $request)
     {
-        $year = (string)($request->get('year') ?? '2025'); // your current default
+        $year = (string)($request->get('year') ?? '2025');
         $q = trim((string) $request->get('q', ''));
+        $position = trim((string) $request->get('position', ''));
+
+        // Get distinct positions for dropdown
+        $positions = $team->players()
+            ->wherePivot('team_year', $year)
+            ->select('team_players.position')
+            ->distinct()
+            ->orderBy('team_players.position')
+            ->pluck('position')
+            ->filter()
+            ->values();
+
+        $positionCounts = $team->players()
+            ->wherePivot('team_year', $year)
+            ->selectRaw('team_players.position as position, COUNT(*) as cnt')
+            ->groupBy('team_players.position')
+            ->orderBy('team_players.position')
+            ->get();
+
+        $totalCount = (int) $positionCounts->sum('cnt');
+
 
         $players = $team->players()
             ->wherePivot('team_year', $year)
@@ -23,14 +44,28 @@ class TeamRosterController extends Controller
                         ->orWhere('team_players.depth_chart_position', 'like', "%{$q}%");
                 });
             })
+            ->when($position !== '', function ($query) use ($position) {
+                $query->where('team_players.position', $position);
+            })
             ->orderBy('team_players.depth_chart_position')
             ->orderBy('lastname')
             ->orderBy('firstname')
             ->paginate(25)
             ->withQueryString();
 
-        return view('teams.players.index', compact('team', 'players', 'year', 'q'));
+        return view('teams.players.index', compact(
+            'team',
+            'players',
+            'year',
+            'q',
+            'position',
+            'positions',
+            'positionCounts',
+            'totalCount'
+        ));
+
     }
+
 
     public function create(Team $team, Request $request)
     {
@@ -183,6 +218,10 @@ class TeamRosterController extends Controller
             'lastname'  => ['required', 'string', 'max:255'],
             'age'       => ['required', 'integer', 'min:0', 'max:99'],
             'position'  => ['required', 'string', 'max:10'],
+            'college'  => ['nullable', 'string'],
+            'high_school'  => ['nullable', 'string'],
+            'sleeper_id'  => ['nullable', 'string'],
+            'espn_id'  => ['nullable', 'string'],
 
             'pass_evade' => ['required','integer','min:0'],
             'pass_accuracy' => ['required','integer','min:0'],
@@ -239,6 +278,7 @@ class TeamRosterController extends Controller
 
         $playerData = collect($data)->only([
             'firstname','lastname','age','position',
+            'college','high_school','sleeper_id','espn_id',
             'pass_evade','pass_accuracy','pass_deep','pass_control',
             'rush','rush_power',
             'receive','receive_deep',

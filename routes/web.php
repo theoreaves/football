@@ -100,3 +100,9 @@ Route::prefix('teams/editor')->name('teams.editor.')->group(function () {
 });
 Route::post('teams/editor/teams/{team}/import-team-card', [TeamEditor::class, 'importTeamCard'])
     ->name('teams.editor.importTeamCard');
+
+Route::post('/teams/{team}/players/{player}/ratings/from-season/{seasonYear}', [
+    \App\Http\Controllers\TeamPlayerRatingsController::class,
+    'fromSeason',
+])->name('teams.editor.teams.players.ratings.fromSeason');
+

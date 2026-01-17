@@ -29,10 +29,13 @@ class SyncEspnSeasonStats extends Command
         $sleepMs = (int) $this->option('sleep');
         $debugOne = $this->option('debug-one');
 
+        $this->info('starting ESPN season stats sync for year ' . $year);
+
         $playersQ = Player::query()
             ->whereNotNull('espn_id')
             ->where('espn_id', '!=', '');
 
+        $this->info('count: ' . $playersQ->count());
         if ($debugOne !== null && $debugOne !== '') {
             $playersQ->where('id', (int) $debugOne);
         }
@@ -54,6 +57,9 @@ class SyncEspnSeasonStats extends Command
         $skippedExisting = 0;
         $failed = 0;
 
+        $this->info('processing ' . count($players) . ' players...');
+        $bar = $this->output->createProgressBar($players->count());
+        $bar->start();
         foreach ($players as $player) {
             $processed++;
 
@@ -125,7 +131,9 @@ class SyncEspnSeasonStats extends Command
             if ($processed % 250 === 0) {
                 $this->line("Processed {$processed}... created={$created} updated={$updated} failed={$failed}");
             }
+            $bar->advance();
         }
+        $bar->finish();
 
         $this->info("Done. processed={$processed} created={$created} updated={$updated} skipped_existing={$skippedExisting} failed={$failed}");
 

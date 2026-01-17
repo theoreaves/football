@@ -291,7 +291,7 @@
                         </thead>
 
                         <tbody class="divide-y divide-white/10">
-                        @forelse($player->seasonStats as $s)
+                        @forelse($player->seasonStats->sortByDesc('season_year') as $s)
                             <tr class="bg-gray-950">
                                 <td class="px-4 py-3 font-semibold">{{ $s->season_year }}</td>
                                 <td class="text-center px-4 py-3">{{ $s->games }}</td>
