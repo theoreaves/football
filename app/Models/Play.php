@@ -7,11 +7,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Play extends Model
 {
+    protected static function booted(): void
+    {
+        static::saving(function ($play) {
+            if (! Game::whereKey($play->game_id)->exists()) {
+                throw new \LogicException('A play must belong to a game in the current world.');
+            }
+            foreach (['qb_team_player_id', 'ballcarrier_team_player_id', 'receiver_team_player_id',
+                'tackled_by_team_player_id', 'intercepted_by_team_player_id', 'fumble_recovered_by_team_player_id'] as $key) {
+                if ($play->getAttribute($key) !== null && ! TeamPlayer::whereKey($play->getAttribute($key))->exists()) {
+                    throw new \LogicException('Play participants must belong to the current world.');
+                }
+            }
+        });
+        static::addGlobalScope('world', function ($query) {
+            $query->whereIn($query->getModel()->qualifyColumn('game_id'), Game::query()->select('id'));
+        });
+    }
+
     protected $guarded = [];
+
     protected $casts = [
         'meta' => 'array',
     ];
-
 
     public function game(): BelongsTo
     {
@@ -52,9 +70,12 @@ class Play extends Model
 
     protected function fmtPlayer(?TeamPlayer $tp): ?string
     {
-        if (! $tp) return null;
+        if (! $tp) {
+            return null;
+        }
 
         $p = $tp->player;
+
         return "#{$tp->jersey_number} {$p->firstname} {$p->lastname}";
     }
 
@@ -72,24 +93,28 @@ class Play extends Model
             : $this->game->awayTeam;
     }
 
-
     public function getSimpleSummaryAttribute(): string
     {
         $yards = $this->yards;
-        $ydTxt = $yards === 0 ? "no gain" : ($yards > 0 ? "+{$yards}" : (string)$yards);
+        $ydTxt = $yards === 0 ? 'no gain' : ($yards > 0 ? "+{$yards}" : (string) $yards);
 
-        $note = $this->note ? " — {$this->note}" : "";
+        $note = $this->note ? " — {$this->note}" : '';
 
         $flags = [];
-        if ($this->first_down) $flags[] = "1st down";
-        if ($this->turnover) $flags[] = "turnover";
-        if ($this->touchdown) $flags[] = "TD";
-        $flagTxt = $flags ? " (" . implode(", ", $flags) . ")" : "";
+        if ($this->first_down) {
+            $flags[] = '1st down';
+        }
+        if ($this->turnover) {
+            $flags[] = 'turnover';
+        }
+        if ($this->touchdown) {
+            $flags[] = 'TD';
+        }
+        $flagTxt = $flags ? ' ('.implode(', ', $flags).')' : '';
 
         if ($this->points > 0) {
             $flagTxt .= " [+{$this->points}]";
         }
-
 
         return "{$this->type} {$ydTxt}{$note}{$flagTxt}";
     }
@@ -98,17 +123,23 @@ class Play extends Model
     {
         $yards = $this->yards;
         $ydTxt = $yards === 0
-            ? "no gain"
-            : ($yards > 0 ? "+{$yards}" : (string)$yards);
+            ? 'no gain'
+            : ($yards > 0 ? "+{$yards}" : (string) $yards);
 
-        $note = $this->note ? " — {$this->note}" : "";
+        $note = $this->note ? " — {$this->note}" : '';
 
         $flags = [];
-        if ($this->first_down) $flags[] = "1st down";
-        if ($this->turnover)  $flags[] = "turnover";
-        if ($this->touchdown) $flags[] = "TD";
+        if ($this->first_down) {
+            $flags[] = '1st down';
+        }
+        if ($this->turnover) {
+            $flags[] = 'turnover';
+        }
+        if ($this->touchdown) {
+            $flags[] = 'TD';
+        }
 
-        $flagTxt = $flags ? " (" . implode(", ", $flags) . ")" : "";
+        $flagTxt = $flags ? ' ('.implode(', ', $flags).')' : '';
 
         if ($this->points > 0) {
             $flagTxt .= " [+{$this->points}]";
@@ -116,58 +147,86 @@ class Play extends Model
 
         // ---- PLAYER CONTEXT ----
 
-        $qb   = $this->fmtPlayer($this->qb);
-        $bc   = $this->fmtPlayer($this->ballcarrier);
-        $wr   = $this->fmtPlayer($this->receiver);
-        $tkl  = $this->fmtPlayer($this->tackler);
-        $int  = $this->fmtPlayer($this->interceptor);
-        $fum  = $this->fmtPlayer($this->fumbleRecoverer);
+        $qb = $this->fmtPlayer($this->qb);
+        $bc = $this->fmtPlayer($this->ballcarrier);
+        $wr = $this->fmtPlayer($this->receiver);
+        $tkl = $this->fmtPlayer($this->tackler);
+        $int = $this->fmtPlayer($this->interceptor);
+        $fum = $this->fmtPlayer($this->fumbleRecoverer);
 
         switch ($this->type) {
 
             case 'PASS':
-                $txt = "PASS";
-                if ($qb) $txt .= " by {$qb}";
-                $txt .= " COMPLETE";
-                if ($wr)  $txt .= " to {$wr}";
-                if ($tkl) $txt .= " TACKLED by {$tkl}";
+                $txt = 'PASS';
+                if ($qb) {
+                    $txt .= " by {$qb}";
+                }
+                $txt .= ' COMPLETE';
+                if ($wr) {
+                    $txt .= " to {$wr}";
+                }
+                if ($tkl) {
+                    $txt .= " TACKLED by {$tkl}";
+                }
                 $txt .= " ({$ydTxt})";
                 break;
 
             case 'INCOMPLETE':
-                $txt = "PASS";
-                if ($qb) $txt .= " by {$qb}";
-                $txt .= " INCOMPLETE";
-                if ($wr) $txt .= " intended for {$wr}";
+                $txt = 'PASS';
+                if ($qb) {
+                    $txt .= " by {$qb}";
+                }
+                $txt .= ' INCOMPLETE';
+                if ($wr) {
+                    $txt .= " intended for {$wr}";
+                }
                 break;
 
             case 'INT':
             case 'INTERCEPTION':
-                $txt = "PASS";
-                if ($qb) $txt .= " by {$qb}";
-                $txt .= " INTERCEPTED";
-                if ($int) $txt .= " by {$int}";
-                if ($yards !== 0) $txt .= " return {$ydTxt}";
+                $txt = 'PASS';
+                if ($qb) {
+                    $txt .= " by {$qb}";
+                }
+                $txt .= ' INTERCEPTED';
+                if ($int) {
+                    $txt .= " by {$int}";
+                }
+                if ($yards !== 0) {
+                    $txt .= " return {$ydTxt}";
+                }
                 break;
 
             case 'RUN':
-                $txt = "RUN";
-                if ($bc) $txt .= " by {$bc}";
-                if ($tkl) $txt .= " TACKLED by {$tkl}";
+                $txt = 'RUN';
+                if ($bc) {
+                    $txt .= " by {$bc}";
+                }
+                if ($tkl) {
+                    $txt .= " TACKLED by {$tkl}";
+                }
                 $txt .= " ({$ydTxt})";
                 break;
 
             case 'SACK':
-                $txt = "SACK";
-                if ($qb)  $txt .= " of {$qb}";
-                if ($tkl) $txt .= " by {$tkl}";
+                $txt = 'SACK';
+                if ($qb) {
+                    $txt .= " of {$qb}";
+                }
+                if ($tkl) {
+                    $txt .= " by {$tkl}";
+                }
                 $txt .= " ({$ydTxt})";
                 break;
 
             case 'FUMBLE':
-                $txt = "FUMBLE";
-                if ($bc) $txt .= " by {$bc}";
-                if ($fum) $txt .= " recovered by {$fum}";
+                $txt = 'FUMBLE';
+                if ($bc) {
+                    $txt .= " by {$bc}";
+                }
+                if ($fum) {
+                    $txt .= " recovered by {$fum}";
+                }
                 break;
 
             default:
@@ -180,7 +239,6 @@ class Play extends Model
     }
 
     // App\Models\Play.php
-
 
     public function qbTeamPlayer()
     {
@@ -211,6 +269,4 @@ class Play extends Model
     {
         return $this->belongsTo(TeamPlayer::class, 'fumble_recovered_by_team_player_id');
     }
-
-
 }

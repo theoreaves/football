@@ -10,7 +10,7 @@ class TeamRosterController extends Controller
 {
     public function index(Team $team, Request $request)
     {
-        $year = (string)($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? '2025');
         $q = trim((string) $request->get('q', ''));
         $position = trim((string) $request->get('position', ''));
 
@@ -32,7 +32,6 @@ class TeamRosterController extends Controller
             ->get();
 
         $totalCount = (int) $positionCounts->sum('cnt');
-
 
         $players = $team->players()
             ->wherePivot('team_year', $year)
@@ -66,11 +65,10 @@ class TeamRosterController extends Controller
 
     }
 
-
     public function create(Team $team, Request $request)
     {
-        $year = (string)($request->get('year') ?? '2025');
-        $player = new Player();
+        $year = (string) ($request->get('year') ?? '2025');
+        $player = new Player;
 
         // sensible defaults for pivot ranges, adjust if you want
         $pivot = [
@@ -116,7 +114,7 @@ class TeamRosterController extends Controller
 
     public function store(Team $team, Request $request)
     {
-        $year = (string)($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? '2025');
 
         [$playerData, $pivotData] = $this->validated($request, $year);
 
@@ -132,7 +130,7 @@ class TeamRosterController extends Controller
 
     public function edit(Team $team, Player $player, Request $request)
     {
-        $year = (string)($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? '2025');
 
         $attached = $team->players()
             ->where('players.id', $player->id)
@@ -185,11 +183,9 @@ class TeamRosterController extends Controller
 
     public function update(Team $team, Player $player, Request $request)
     {
-        $year = (string)($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? '2025');
 
         [$playerData, $pivotData] = $this->validated($request, $year);
-
-        $player->update($playerData);
 
         // Ensure this player is attached for the given team_year
         $exists = $team->players()
@@ -198,6 +194,8 @@ class TeamRosterController extends Controller
             ->exists();
 
         abort_unless($exists, 404);
+
+        $player->update($playerData);
 
         // update pivot
         $team->players()->updateExistingPivot($player->id, $pivotData);
@@ -215,40 +213,40 @@ class TeamRosterController extends Controller
         $data = $request->validate([
             // --- players table ---
             'firstname' => ['required', 'string', 'max:255'],
-            'lastname'  => ['required', 'string', 'max:255'],
-            'age'       => ['required', 'integer', 'min:0', 'max:99'],
-            'position'  => ['required', 'string', 'max:10'],
-            'college'  => ['nullable', 'string'],
-            'high_school'  => ['nullable', 'string'],
-            'sleeper_id'  => ['nullable', 'string'],
-            'espn_id'  => ['nullable', 'string'],
+            'lastname' => ['required', 'string', 'max:255'],
+            'age' => ['required', 'integer', 'min:0', 'max:99'],
+            'position' => ['required', 'string', 'max:10'],
+            'college' => ['nullable', 'string'],
+            'high_school' => ['nullable', 'string'],
+            'sleeper_id' => ['nullable', 'string'],
+            'espn_id' => ['nullable', 'string'],
 
-            'pass_evade' => ['required','integer','min:0'],
-            'pass_accuracy' => ['required','integer','min:0'],
-            'pass_deep' => ['required','integer','min:0'],
-            'pass_control' => ['required','integer','min:0'],
-            'rush' => ['required','integer','min:0'],
-            'rush_power' => ['required','integer','min:0'],
-            'receive' => ['required','integer','min:0'],
-            'receive_deep' => ['required','integer','min:0'],
-            'fumble' => ['required','integer','min:0'],
-            'speed' => ['required','integer','min:0'],
-            'tackle' => ['required','integer','min:0'],
-            'sack' => ['required','integer','min:0'],
-            'cover' => ['required','integer','min:0'],
-            'interception' => ['required','integer','min:0'],
-            'strip' => ['required','integer','min:0'],
-            'kick30' => ['required','integer','min:0'],
-            'kick39' => ['required','integer','min:0'],
-            'kick49' => ['required','integer','min:0'],
-            'kick50' => ['required','integer','min:0'],
-            'punt_distance' => ['required','integer','min:0'],
-            'punt_pooch_yard' => ['required','integer','min:0'],
-            'punt_pooch' => ['required','integer','min:0'],
-            'punt_block' => ['required','integer','min:0'],
-            'return_yards' => ['required','integer','min:0'],
-            'return_speed' => ['required','integer','min:0'],
-            'return_fumble' => ['required','integer','min:0'],
+            'pass_evade' => ['required', 'integer', 'min:0'],
+            'pass_accuracy' => ['required', 'integer', 'min:0'],
+            'pass_deep' => ['required', 'integer', 'min:0'],
+            'pass_control' => ['required', 'integer', 'min:0'],
+            'rush' => ['required', 'integer', 'min:0'],
+            'rush_power' => ['required', 'integer', 'min:0'],
+            'receive' => ['required', 'integer', 'min:0'],
+            'receive_deep' => ['required', 'integer', 'min:0'],
+            'fumble' => ['required', 'integer', 'min:0'],
+            'speed' => ['required', 'integer', 'min:0'],
+            'tackle' => ['required', 'integer', 'min:0'],
+            'sack' => ['required', 'integer', 'min:0'],
+            'cover' => ['required', 'integer', 'min:0'],
+            'interception' => ['required', 'integer', 'min:0'],
+            'strip' => ['required', 'integer', 'min:0'],
+            'kick30' => ['required', 'integer', 'min:0'],
+            'kick39' => ['required', 'integer', 'min:0'],
+            'kick49' => ['required', 'integer', 'min:0'],
+            'kick50' => ['required', 'integer', 'min:0'],
+            'punt_distance' => ['required', 'integer', 'min:0'],
+            'punt_pooch_yard' => ['required', 'integer', 'min:0'],
+            'punt_pooch' => ['required', 'integer', 'min:0'],
+            'punt_block' => ['required', 'integer', 'min:0'],
+            'return_yards' => ['required', 'integer', 'min:0'],
+            'return_speed' => ['required', 'integer', 'min:0'],
+            'return_fumble' => ['required', 'integer', 'min:0'],
 
             // --- team_players pivot ---
             'tp_position' => ['required', 'string', 'max:10'],
@@ -256,50 +254,50 @@ class TeamRosterController extends Controller
             'kick_return_depth_chart_position' => ['required', 'string', 'max:10'],
             'punt_return_depth_chart_position' => ['required', 'string', 'max:10'],
 
-            'catch_from' => ['required','integer'],
-            'catch_to' => ['required','integer'],
-            'catch_plus_from' => ['required','integer'],
-            'catch_plus_to' => ['required','integer'],
-            'rush_from' => ['required','integer'],
-            'rush_to' => ['required','integer'],
-            'sack_from' => ['required','integer'],
-            'sack_to' => ['required','integer'],
-            'interception_from' => ['required','integer'],
-            'interception_to' => ['required','integer'],
-            'tackle_from' => ['required','integer'],
-            'tackle_to' => ['required','integer'],
-            'kick_from' => ['required','integer'],
-            'kick_to' => ['required','integer'],
-            'punt_from' => ['required','integer'],
-            'punt_to' => ['required','integer'],
+            'catch_from' => ['required', 'integer'],
+            'catch_to' => ['required', 'integer'],
+            'catch_plus_from' => ['required', 'integer'],
+            'catch_plus_to' => ['required', 'integer'],
+            'rush_from' => ['required', 'integer'],
+            'rush_to' => ['required', 'integer'],
+            'sack_from' => ['required', 'integer'],
+            'sack_to' => ['required', 'integer'],
+            'interception_from' => ['required', 'integer'],
+            'interception_to' => ['required', 'integer'],
+            'tackle_from' => ['required', 'integer'],
+            'tackle_to' => ['required', 'integer'],
+            'kick_from' => ['required', 'integer'],
+            'kick_to' => ['required', 'integer'],
+            'punt_from' => ['required', 'integer'],
+            'punt_to' => ['required', 'integer'],
 
-            'jersey_number' => ['nullable','integer','min:0','max:99'],
+            'jersey_number' => ['nullable', 'integer', 'min:0', 'max:99'],
         ]);
 
         $playerData = collect($data)->only([
-            'firstname','lastname','age','position',
-            'college','high_school','sleeper_id','espn_id',
-            'pass_evade','pass_accuracy','pass_deep','pass_control',
-            'rush','rush_power',
-            'receive','receive_deep',
-            'fumble','speed',
-            'tackle','sack','cover','interception','strip',
-            'kick30','kick39','kick49','kick50',
-            'punt_distance','punt_pooch_yard','punt_pooch','punt_block',
-            'return_yards','return_speed','return_fumble',
+            'firstname', 'lastname', 'age', 'position',
+            'college', 'high_school', 'sleeper_id', 'espn_id',
+            'pass_evade', 'pass_accuracy', 'pass_deep', 'pass_control',
+            'rush', 'rush_power',
+            'receive', 'receive_deep',
+            'fumble', 'speed',
+            'tackle', 'sack', 'cover', 'interception', 'strip',
+            'kick30', 'kick39', 'kick49', 'kick50',
+            'punt_distance', 'punt_pooch_yard', 'punt_pooch', 'punt_block',
+            'return_yards', 'return_speed', 'return_fumble',
         ])->all();
 
         $pivotData = collect($data)->only([
             'depth_chart_position',
             'kick_return_depth_chart_position',
             'punt_return_depth_chart_position',
-            'catch_from','catch_to','catch_plus_from','catch_plus_to',
-            'rush_from','rush_to',
-            'sack_from','sack_to',
-            'interception_from','interception_to',
-            'tackle_from','tackle_to',
-            'kick_from','kick_to',
-            'punt_from','punt_to',
+            'catch_from', 'catch_to', 'catch_plus_from', 'catch_plus_to',
+            'rush_from', 'rush_to',
+            'sack_from', 'sack_to',
+            'interception_from', 'interception_to',
+            'tackle_from', 'tackle_to',
+            'kick_from', 'kick_to',
+            'punt_from', 'punt_to',
             'jersey_number',
         ])->all();
 

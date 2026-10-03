@@ -11,7 +11,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(\App\Support\CurrentWorld::class);
     }
 
     /**
@@ -19,6 +19,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        \Livewire\Livewire::addPersistentMiddleware([
+            \App\Http\Middleware\RequireWorld::class,
+        ]);
+        // Legacy import commands use unscoped SQL. Disable them until they are world-aware.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Console\Events\CommandStarting::class, function ($event) {
+            if (! $event->command || $event->command === 'world:adopt-legacy') {
+                return;
+            }
+            $command = \Illuminate\Support\Facades\Artisan::all()[$event->command] ?? null;
+            if ($command && str_starts_with(get_class($command), 'App\\Console\\Commands\\')) {
+                throw new \LogicException('Legacy football commands are disabled until their SQL is world-scoped.');
+            }
+        });
     }
 }

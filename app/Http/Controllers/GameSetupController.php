@@ -1,6 +1,7 @@
 <?php
 
 // app/Http/Controllers/GameSetupController.php
+
 namespace App\Http\Controllers;
 
 use App\Models\Game;
@@ -12,20 +13,23 @@ class GameSetupController extends Controller
     public function index()
     {
         $games = Game::all();
+
         return view('games.index', compact('games'));
     }
+
     public function create()
     {
         $teams = Team::orderBy('city')->orderBy('name')->get();
+
         return view('games.create', compact('teams'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'home_team_id' => ['required','exists:teams,id'],
-            'away_team_id' => ['required','exists:teams,id','different:home_team_id'],
-            'home_team_white' => 'nullable'
+            'home_team_id' => ['required', \Illuminate\Validation\Rule::exists('teams', 'id')->where('world_id', app(\App\Support\CurrentWorld::class)->id)],
+            'away_team_id' => ['required', \Illuminate\Validation\Rule::exists('teams', 'id')->where('world_id', app(\App\Support\CurrentWorld::class)->id), 'different:home_team_id'],
+            'home_team_white' => 'nullable',
         ]);
 
         $fieldUrl = Team::find($data['home_team_id'])->game_field_image ?? null;
@@ -36,10 +40,10 @@ class GameSetupController extends Controller
 
             // safe defaults (keeps your kickoff-selection flow)
             'quarter' => 1,
-            'clock'   => 15 * 60,
-            'home_q'  => [0,0,0,0,0],
-            'away_q'  => [0,0,0,0,0],
-            'phase'   => 'KICKOFF',
+            'clock' => 15 * 60,
+            'home_q' => [0, 0, 0, 0, 0],
+            'away_q' => [0, 0, 0, 0, 0],
+            'phase' => 'KICKOFF',
             'kick_team' => null,
             'first_kick_team' => 'HOME',
             'field_bg_url' => $fieldUrl,

@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Services\GamePlayEngine;
 use App\Models\Team;
+use App\Services\GamePlayEngine;
+use Illuminate\Http\Request;
 
 class GamePlayTestController extends Controller
 {
     public function showForm(): \Illuminate\View\View
     {
         $teams = Team::all(['id', 'name']);
+
         return view('gameplay.test', [
             'teams' => $teams,
             'result' => null,
@@ -24,8 +25,8 @@ class GamePlayTestController extends Controller
             'defense_code' => 'required|string',
             'result_roll' => 'required|integer',
             'skill_roll' => 'required|integer',
-            'offense_team_id' => 'required|integer|exists:teams,id',
-            'defense_team_id' => 'required|integer|exists:teams,id',
+            'offense_team_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('teams', 'id')->where('world_id', app(\App\Support\CurrentWorld::class)->id)],
+            'defense_team_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('teams', 'id')->where('world_id', app(\App\Support\CurrentWorld::class)->id)],
             'player_die' => 'nullable|integer',
             'tackler_die' => 'nullable|integer',
             'disrupter_die' => 'nullable|integer',
@@ -43,25 +44,26 @@ class GamePlayTestController extends Controller
             $data['player_die'] ?? 0,
             $data['tackler_die'] ?? 0,
             $data['disrupter_die'] ?? 0,
-            (bool)($data['redzone'] ?? false),
-            (bool)($data['offense_is_home'] ?? false)
+            (bool) ($data['redzone'] ?? false),
+            (bool) ($data['offense_is_home'] ?? false)
         );
 
         $yards = $result['yards'] ?? '0';
         $breakAway = [];
         if (stripos($yards, 'Breakaway') !== false) {
             $speed = $result['offense_player_speed'] ?? 0;
-            $red = rand(1,6);
-            $white = rand(1,10);
-            $blue = rand(1,10);
+            $red = rand(1, 6);
+            $white = rand(1, 10);
+            $blue = rand(1, 10);
             $roll = $red + $white + $blue;
             $breakAway = $engine->breakaway($roll, $blue, $speed);
-            $number = (int)filter_var($yards, FILTER_SANITIZE_NUMBER_INT);
+            $number = (int) filter_var($yards, FILTER_SANITIZE_NUMBER_INT);
             $breakAway['number'] = $number;
             $yards = $breakAway['yards'] + $number;
         }
 
         $teams = Team::all(['id', 'name']);
+
         return view('gameplay.test', [
             'teams' => $teams,
             'result' => $result,
@@ -74,7 +76,7 @@ class GamePlayTestController extends Controller
     public function submitKickoffForm(Request $request, GamePlayEngine $engine): \Illuminate\View\View
     {
         $data = $request->validate([
-            'kick_returner_id' => 'required|integer|exists:players,id',
+            'kick_returner_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('players', 'id')->where('world_id', app(\App\Support\CurrentWorld::class)->id)],
             'red' => 'required|integer|min:1|max:6',
             'white' => 'required|integer|min:0|max:9',
             'blue' => 'required|integer|min:0|max:9',
@@ -83,17 +85,16 @@ class GamePlayTestController extends Controller
         $kickReturner = \App\Models\Player::findOrFail($data['kick_returner_id']);
         $result = $engine->kickoff($kickReturner, $data['red'], $data['white'], $data['blue']);
 
-
         $teams = Team::all(['id', 'name']);
+
         return view('gameplay.test', [
             'teams' => $teams,
             'result' => $result,
             'input' => $data,
             'yards' => '',
-            'breakAway' => []
+            'breakAway' => [],
         ]);
     }
-
 
     public function submitPuntForm(Request $request, GamePlayEngine $engine): \Illuminate\View\View
     {
@@ -104,19 +105,20 @@ class GamePlayTestController extends Controller
         $result = $engine->punt($data['resultRoll']);
 
         $teams = Team::all(['id', 'name']);
+
         return view('gameplay.test', [
             'teams' => $teams,
             'result' => $result,
             'input' => $data,
             'yards' => '',
-            'breakAway' => []
+            'breakAway' => [],
         ]);
     }
 
     public function submitPuntReturn(Request $request, GamePlayEngine $engine): \Illuminate\View\View
     {
         $data = $request->validate([
-            'kick_returner_id' => 'required|integer|exists:players,id',
+            'kick_returner_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('players', 'id')->where('world_id', app(\App\Support\CurrentWorld::class)->id)],
             'resultRoll' => 'required|integer|min:1|max:100',
             'skillRoll' => 'required|integer|min:0|max:9',
         ]);
@@ -124,15 +126,14 @@ class GamePlayTestController extends Controller
         $kickReturner = \App\Models\Player::findOrFail($data['kick_returner_id']);
         $result = $engine->punt_return($kickReturner, $data['resultRoll'], $data['skillRoll']);
 
-
         $teams = Team::all(['id', 'name']);
+
         return view('gameplay.test', [
             'teams' => $teams,
             'result' => $result,
             'input' => $data,
             'yards' => '',
-            'breakAway' => []
+            'breakAway' => [],
         ]);
     }
-
 }

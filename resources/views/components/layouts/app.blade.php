@@ -15,6 +15,13 @@
 
 </head>
 <body class="bg-gray-900">
+@auth
+<nav class="flex gap-4 p-3 text-white bg-gray-800">
+    <a href="{{ route('home') }}">Games</a><a href="{{ route('teams.editor.index') }}">Teams</a>
+    <a href="{{ route('worlds.index') }}">{{ auth()->user()->currentWorld?->name ?? 'Choose world' }}</a>
+    <form method="POST" action="{{ route('logout') }}">@csrf<button>Log out</button></form>
+</nav>
+@endauth
 {{ $slot }}
 
 @livewireScripts

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Player extends Model
 {
+    use \App\Models\Concerns\BelongsToWorld;
+
     protected $guarded = [];
 
     public function team()
@@ -16,6 +18,7 @@ class Player extends Model
     public function getCurrentJerseyNumberAttribute()
     {
         $teamPlayer = $this->team;
+
         return $teamPlayer ? $teamPlayer->jersey_number : null;
     }
 
@@ -29,13 +32,13 @@ class Player extends Model
                 'depth_chart_position',
                 'kick_return_depth_chart_position',
                 'punt_return_depth_chart_position',
-                'catch_from','catch_to',
-                'catch_plus_from','catch_plus_to',
-                'rush_from','rush_to',
-                'sack_from','sack_to',
-                'interception_from','interception_to',
-                'kick_from','kick_to',
-                'punt_from','punt_to',
+                'catch_from', 'catch_to',
+                'catch_plus_from', 'catch_plus_to',
+                'rush_from', 'rush_to',
+                'sack_from', 'sack_to',
+                'interception_from', 'interception_to',
+                'kick_from', 'kick_to',
+                'punt_from', 'punt_to',
             ])
             ->withTimestamps();
     }
@@ -44,7 +47,4 @@ class Player extends Model
     {
         return $this->hasMany(\App\Models\PlayerSeasonStat::class, 'player_id');
     }
-
-
-
 }

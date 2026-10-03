@@ -1,7 +1,5 @@
 <?php
 
-test('returns a successful response', function () {
-    $response = $this->get('/');
-
-    $response->assertStatus(200);
+test('home redirects guests to login', function () {
+    $this->get('/')->assertRedirect(route('login'));
 });

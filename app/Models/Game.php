@@ -7,13 +7,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Game extends Model
 {
+    use \App\Models\Concerns\BelongsToWorld;
+
     protected $guarded = [];
+
     protected $casts = [
         'home_q' => 'array',
         'away_q' => 'array',
         'die_gives_result' => 'boolean',
     ];
 
+    public function season()
+    {
+        return $this->belongsTo(Season::class);
+    }
 
     public function plays(): HasMany
     {
@@ -24,6 +31,7 @@ class Game extends Model
     {
         // yards from offense goal line toward opponent goal line
         $yardline = (int) $this->pos_yardline;
+
         return $this->pos_side === 'OWN' ? $yardline : (100 - $yardline);
     }
 
@@ -37,11 +45,25 @@ class Game extends Model
         return "{$this->pos_side} {$this->pos_yardline}";
     }
 
-    public function homeTeam() { return $this->belongsTo(Team::class, 'home_team_id'); }
-    public function awayTeam() { return $this->belongsTo(Team::class, 'away_team_id'); }
+    public function homeTeam()
+    {
+        return $this->belongsTo(Team::class, 'home_team_id');
+    }
 
-    public function getHomeLabelAttribute() { return $this->homeTeam?->city.' '.$this->homeTeam?->name ?? 'HOME'; }
-    public function getAwayLabelAttribute() { return $this->awayTeam?->city.' '.$this->awayTeam?->name ?? 'AWAY'; }
+    public function awayTeam()
+    {
+        return $this->belongsTo(Team::class, 'away_team_id');
+    }
+
+    public function getHomeLabelAttribute()
+    {
+        return $this->homeTeam?->city.' '.$this->homeTeam?->name ?? 'HOME';
+    }
+
+    public function getAwayLabelAttribute()
+    {
+        return $this->awayTeam?->city.' '.$this->awayTeam?->name ?? 'AWAY';
+    }
 
     public function labelForSide(string $side): string
     {
@@ -55,6 +77,4 @@ class Game extends Model
             ? $this->homeTeam
             : $this->awayTeam;
     }
-
-
 }
