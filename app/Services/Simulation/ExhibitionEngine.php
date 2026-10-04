@@ -124,10 +124,25 @@ class ExhibitionEngine
             $state['stats'][$side]['yards'] += $gain;
         }
         $deadSpot = $before['spot'] + $gain;
+        $name = fn ($player) => $player['name'].(isset($player['number']) ? ' (#'.$player['number'].')' : '');
+        $qb = $name($off['QB']);
+        $runner = $name($off[$carrier]);
+        $receiver = $name($off['WR1']);
+        $tackler = $name($def[$carrier === 'WR1' ? 'CB1' : 'LB2']);
+        $interceptor = $name($def['CB1']);
+        $yardage = $gain < 0 ? 'a loss of '.abs($gain).' yards' : "{$gain} yards";
+        $completed = "{$qb} completes to {$receiver} for {$yardage}";
+        $run = "{$qb} hands off to {$runner} for {$yardage}";
+        $tackle = $deadSpot >= 100 ? '' : "; tackled by {$tackler}";
         $summary = str_replace('_', ' ', $call).': '.match ($outcome) {
-            'incomplete' => 'incomplete pass', 'interception' => "intercepted {$gain} yards downfield", 'fumble' => "fumble recovered by defense after {$gain} yards",
-            'sack' => 'sack for '.abs($gain).' yards lost', 'punt' => "punt {$gain} yards", 'field_goal_good' => "{$distance}-yard field goal good",
-            'field_goal_missed' => "{$distance}-yard field goal missed", default => "{$gain} yards",
+            'incomplete' => "{$qb}'s pass intended for {$receiver} is incomplete",
+            'interception' => "{$qb}'s pass intended for {$receiver} is intercepted by {$interceptor} {$gain} yards downfield",
+            'fumble' => ($carrier === 'WR1' ? $completed : ($carrier === 'QB' ? "{$runner} is sacked by {$tackler} for {$yardage}" : $run))."; {$runner} fumbles, recovered by {$tackler}",
+            'sack' => "{$qb} is sacked by {$tackler} for {$yardage}",
+            'punt' => $name($off['P'])." punts {$gain} yards",
+            'field_goal_good' => $name($off['K'])." makes a {$distance}-yard field goal",
+            'field_goal_missed' => $name($off['K'])." misses a {$distance}-yard field goal",
+            default => ($carrier === 'WR1' ? $completed : $run).$tackle,
         };
         if ($outcome === 'field_goal_good') {
             $this->possession($state, $other, 25);
