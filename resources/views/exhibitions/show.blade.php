@@ -5,22 +5,34 @@
     $shown = $watching ? $last['before'] : $state;
     $teamNames = ['home' => $exhibition->homeTeam->name, 'away' => $exhibition->awayTeam->name];
 @endphp
-<div data-practice data-exhibition data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ $state['possession'] === 'home' ? 10 + $state['spot'] : 110 - $state['spot'] }}" data-next-possession="{{ $state['possession'] }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' ? 'true' : 'false' }}" class="max-w-7xl mx-auto p-6 text-white space-y-4">
+<div data-practice data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ $state['possession'] === 'home' ? 10 + $state['spot'] : 110 - $state['spot'] }}" data-next-possession="{{ $state['possession'] }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' ? 'true' : 'false' }}" class="max-w-7xl mx-auto p-6 text-white space-y-4">
     <div class="flex flex-wrap justify-between gap-4 items-center">
         <div><a href="{{ route('exhibitions.index') }}" class="text-blue-300 text-sm">Exhibitions</a><h1 data-scoreboard class="text-2xl font-semibold">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1></div>
         <p data-clock class="text-xl">{{ $shown['status'] === 'final' ? 'FINAL' : 'Q'.$shown['quarter'].' · '.gmdate('i:s', $shown['clock']) }}</p>
     </div>
     <p data-situation class="text-gray-300">{{ $teamNames[$shown['possession']] }} · {{ match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point', default => 'Down '.$shown['down'].' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opponent '.(100-$shown['spot'])).' yard line' } }}</p>
+    <p class="text-sm text-gray-400">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
     @if($state['status'] === 'playing')
     <form data-call-form @if($watching) hidden @endif method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="flex flex-wrap gap-4 items-end bg-gray-800 rounded-xl p-4">
         @csrf<input type="hidden" name="version" value="{{ $state['version'] }}">
+        @unless($cpuOffense)
         <label>Offense formation<select data-formation name="offense_formation" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach(\App\Services\Simulation\ExhibitionEngine::OFFENSE_FORMATIONS as $value => $label)<option value="{{ $value }}" @selected(($last['offense_formation'] ?? 'shotgun') === $value)>{{ $label }}</option>@endforeach</select></label>
         <label>Offense play<select name="call" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($calls as $call)<option value="{{ $call }}" @selected($last && $last['call'] === $call)>{{ ucwords(str_replace('_', ' ', $call)) }}</option>@endforeach</select></label>
+        @else
+        <p class="text-sm">{{ $teamNames[$offenseSide] }} offense: CPU @if(in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)) · {{ ucwords(str_replace('_', ' ', $cpuPlan['call'])) }}@endif</p>
+        @endunless
+        @unless($cpuDefense)
         <label>Defense formation<select data-formation name="defense_formation" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach(\App\Services\Simulation\ExhibitionEngine::DEFENSE_FORMATIONS as $value => $label)<option value="{{ $value }}" @selected(($last['defense_formation'] ?? 'base_4_3') === $value)>{{ $label }}</option>@endforeach</select></label>
-        <label>Defense call<select name="defense" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach(\App\Services\Simulation\ExhibitionEngine::defensesForCall($calls[0]) as $call)<option value="{{ $call }}" @selected($last && $last['defense'] === $call)>{{ ucwords(str_replace('_', ' ', $call)) }}</option>@endforeach</select></label>
-        <button data-snap class="bg-blue-700 rounded px-6 py-2">Call play &amp; watch</button><p class="text-xs text-gray-400">You call both teams. Results save at the snap; replaying changes no stats.</p>
+        <label>Defense call<select name="defense" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($humanDefenseOptions as $call)<option value="{{ $call }}" @selected($last && $last['defense'] === $call)>{{ ucwords(str_replace('_', ' ', $call)) }}</option>@endforeach</select></label>
+        @else
+        <p class="text-sm">{{ $teamNames[$defenseSide] }} defense: CPU</p>
+        @endunless
+        <button data-snap class="bg-blue-700 rounded px-6 py-2">{{ $cpuOffense && $cpuDefense ? 'Next CPU play' : 'Call play & watch' }}</button><p class="text-xs text-gray-400">{{ $cpuOffense || $cpuDefense ? 'CPU calls are chosen automatically.' : 'You call both teams.' }} Results save at the snap; replaying changes no stats.</p>
     </form>
+    @endif
+    @if($cpuOffense && $cpuDefense && $state['status'] === 'playing')
+    <button type="button" data-cpu-toggle class="border border-blue-400 rounded px-5 py-2">Start CPU game</button><span data-cpu-status class="ml-3 text-sm text-gray-400">Paused between plays</span>
     @endif
     @if($last)
     <div data-result-popup hidden role="status" class="fixed z-50 bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white border border-blue-400 rounded-xl shadow-xl p-5 w-full max-w-lg text-center">

@@ -142,3 +142,12 @@ test('jersey text uses the selected uniform number and outline colors with legac
     addJerseyNumbers(new THREE.Group(), { number: 12 }, document);
     assert.deepEqual(rendered.slice(-2), ['#111111', '#ffffff']);
 });
+
+test('CPU autoplay waits for the huddle and stops for pauses quarter notices hidden tabs and final games', async () => {
+    const { canAdvanceCpu } = await import('../../resources/js/practice/cpu-flow.js');
+    const ready = { enabled: true, visible: true, ready: true, submitting: false, dialogOpen: false, final: false };
+    assert.equal(canAdvanceCpu(ready), true);
+    for (const blocked of [{ enabled: false }, { visible: false }, { ready: false }, { submitting: true }, { dialogOpen: true }, { final: true }]) {
+        assert.equal(canAdvanceCpu({ ...ready, ...blocked }), false);
+    }
+});

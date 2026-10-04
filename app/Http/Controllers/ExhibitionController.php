@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Exhibition;
 use App\Models\Team;
+use App\Services\Simulation\CpuCoach;
 use App\Services\Simulation\ExhibitionEngine;
 use App\Services\Simulation\RosterBuilder;
 use Illuminate\Http\Request;
@@ -19,12 +20,12 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])]]);
+        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])]]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $game = DB::transaction(fn () => Exhibition::create([
             'home_team_id' => $home->id, 'away_team_id' => $away->id,
-            'state' => $engine->initial((int) $data['quarter_length']),
+            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
             'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
         ]));
 
@@ -44,21 +45,56 @@ class ExhibitionController extends Controller
         $calls = ExhibitionEngine::callsForState($exhibition->state);
         $defenseOptions = array_combine(ExhibitionEngine::OFFENSE, array_map(ExhibitionEngine::defensesForCall(...), ExhibitionEngine::OFFENSE));
 
-        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions'));
+        $coach = app(CpuCoach::class);
+        $controls = $coach->controls($exhibition->state);
+        $offenseSide = $exhibition->state['possession'];
+        $defenseSide = $offenseSide === 'home' ? 'away' : 'home';
+        $cpuOffense = $controls[$offenseSide] === 'cpu';
+        $cpuDefense = $controls[$defenseSide] === 'cpu';
+        $cpuPlan = $cpuOffense ? $coach->offense($exhibition->state, $exhibition->rosters) : null;
+        $plannedCall = $cpuPlan['call'] ?? $calls[0];
+        $humanDefenseOptions = ExhibitionEngine::defensesForCall($plannedCall);
+
+        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions'));
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
     {
-        $data = $request->validate(['call' => ['required', Rule::in(ExhibitionEngine::OFFENSE)],
-            'defense' => ['required', Rule::in(ExhibitionEngine::DEFENSE)],
-            'offense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))],
-            'defense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))], 'version' => ['required', 'integer', 'min:0']]);
-        DB::transaction(function () use ($exhibition, $engine, $data) {
+        $controls = app(CpuCoach::class)->controls($exhibition->state);
+        $side = $exhibition->state['possession'];
+        $rules = ['version' => ['required', 'integer', 'min:0']];
+        if ($controls[$side] === 'human') {
+            $rules['call'] = ['required', Rule::in(ExhibitionEngine::OFFENSE)];
+            $rules['offense_formation'] = ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))];
+        }
+        if ($controls[$side === 'home' ? 'away' : 'home'] === 'human') {
+            $rules['defense'] = ['required', Rule::in(ExhibitionEngine::DEFENSE)];
+            $rules['defense_formation'] = ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))];
+        }
+        $data = $request->validate($rules);
+        DB::transaction(function () use ($exhibition, $engine, $data, $request) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
             abort_if($game->state['status'] !== 'playing', 409, 'This game is final.');
-            validator($data, ['call' => [Rule::in(ExhibitionEngine::callsForState($game->state))], 'defense' => [Rule::in(ExhibitionEngine::defensesForCall($data['call']))]])->validate();
-            $result = $engine->resolve($game->state, $game->rosters, $data['call'], $data['defense'], $data['offense_formation'] ?? 'shotgun', $data['defense_formation'] ?? 'base_4_3');
+            $coach = app(CpuCoach::class);
+            $controls = $coach->controls($game->state);
+            $side = $game->state['possession'];
+            $other = $side === 'home' ? 'away' : 'home';
+            if ($controls[$side] === 'cpu') {
+                $offense = $coach->offense($game->state, $game->rosters);
+            } else {
+                $human = $request->validate(['call' => ['required', Rule::in(ExhibitionEngine::callsForState($game->state))],
+                    'offense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))]]);
+                $offense = ['call' => $human['call'], 'formation' => $human['offense_formation'] ?? 'shotgun'];
+            }
+            if ($controls[$other] === 'cpu') {
+                $defense = $coach->defense($game->state, $offense['call']);
+            } else {
+                $human = $request->validate(['defense' => ['required', Rule::in(ExhibitionEngine::defensesForCall($offense['call']))],
+                    'defense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))]]);
+                $defense = ['call' => $human['defense'], 'formation' => $human['defense_formation'] ?? 'base_4_3'];
+            }
+            $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation']);
             $history = $game->history;
             $history[] = $result['play'];
             $game->update(['state' => $result['state'], 'history' => $history]);

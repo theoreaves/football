@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera, cameraPreset } from './camera-state.js';
+import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { addJerseyNumbers } from './jersey-numbers.js';
 import { scoreboardText } from './scoreboard.js';
@@ -262,25 +263,29 @@ export function mountPractice(root) {
     playButton.addEventListener('click', () => {
         if (phase !== 'play' && phase !== 'liningup' && phase !== 'set') replayView();
         if (elapsed >= duration) elapsed = 0;
+        setCpuAuto(false);
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
-    root.querySelector('[data-reset]').addEventListener('click', () => { replayView(); elapsed = 0; running = false; playButton.textContent = 'Play'; });
+    root.querySelector('[data-reset]').addEventListener('click', () => { setCpuAuto(false); replayView(); elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
-    slider.addEventListener('input', () => { replayView(); elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
+    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';
     const callForm = root.querySelector('[data-call-form]');
     if (callForm && root.dataset.defenseOptions) {
         const options = JSON.parse(root.dataset.defenseOptions), call = callForm.querySelector('[name="call"]'), defense = callForm.querySelector('[name="defense"]');
         const refreshCalls = () => {
-            const selected = defense.value;
-            defense.replaceChildren(...options[call.value].map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
-            if (options[call.value].includes(selected)) defense.value = selected;
-            callForm.querySelectorAll('[data-formation]').forEach(select => select.parentElement.hidden = ['punt','field_goal','kickoff','extra_point'].includes(call.value));
+            if (call && defense) {
+                const selected = defense.value;
+                defense.replaceChildren(...options[call.value].map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
+                if (options[call.value].includes(selected)) defense.value = selected;
+            }
+            const special = call ? ['punt','field_goal','kickoff','extra_point'].includes(call.value) : root.dataset.cpuSpecial === 'true';
+            callForm.querySelectorAll('[data-formation]').forEach(select => select.parentElement.hidden = special);
         };
-        call.addEventListener('change', refreshCalls); refreshCalls();
+        call?.addEventListener('change', refreshCalls); refreshCalls();
     }
     callForm?.addEventListener('submit', () => {
         saveCamera();
@@ -298,6 +303,19 @@ export function mountPractice(root) {
         try { sessionStorage.setItem(quarterKey, 'shown'); } catch { /* Optional persistence. */ }
     };
     const snapButton = callForm?.querySelector('[data-snap]');
+    const cpuToggle = root.querySelector('[data-cpu-toggle]'), cpuStatus = root.querySelector('[data-cpu-status]');
+    const cpuKey = `${cameraKey}:cpu-autoplay`;
+    let cpuAuto = false;
+    try { cpuAuto = root.dataset.cpuOnly === 'true' && sessionStorage.getItem(cpuKey) === 'true'; } catch { /* Autoplay starts paused if storage is unavailable. */ }
+    const setCpuAuto = enabled => {
+        cpuAuto = enabled;
+        if (cpuToggle) cpuToggle.textContent = enabled ? 'Pause CPU game' : 'Start CPU game';
+        if (cpuStatus) cpuStatus.textContent = enabled ? 'CPU game running · pauses at quarter breaks' : 'Autoplay off · current play finishes';
+        try { sessionStorage.setItem(cpuKey, String(enabled)); } catch { /* Optional persistence. */ }
+    };
+    if (cpuAuto) setCpuAuto(true);
+    cpuToggle?.addEventListener('click', () => setCpuAuto(!cpuAuto));
+
     if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; });
     if (quarterDialog && root.dataset.autoplay !== 'true') showQuarter();
@@ -325,6 +343,11 @@ export function mountPractice(root) {
             if (huddleProgress === 1) showQuarter();
         }
         renderState(); controls.update(); renderer.render(scene, camera);
+        if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
+            ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
+            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open), final: afterState?.status === 'final' })) {
+            callForm.requestSubmit();
+        }
         frameId = requestAnimationFrame(animate);
     };
     frameId = requestAnimationFrame(animate);
