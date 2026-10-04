@@ -69,15 +69,8 @@ test('middle earth rosters reproduce names ratings and starters independently of
     }
     $skill = fn ($entry) => array_sum(array_intersect_key($entry['player']['simulation_ratings'], array_flip(['throwing', 'awareness', 'ball_security'])));
     expect($skill($quarterbacks[0]))->toBeGreaterThanOrEqual($skill($quarterbacks[1]));
-    foreach (['catch', 'catch_plus', 'rush', 'sack', 'interception', 'tackle', 'kick', 'punt'] as $prefix) {
-        $covered = [];
-        foreach ($roster as $entry) {
-            if ($entry['roster'][$prefix.'_from'] > 0) {
-                $covered = array_merge($covered, range($entry['roster'][$prefix.'_from'], $entry['roster'][$prefix.'_to']));
-            }
-        }
-        sort($covered);
-        expect($covered)->toBe(range(1, 20));
+    foreach ($roster as $entry) {
+        expect(array_keys($entry['roster']))->toBe(['position', 'depth_chart_position', 'jersey_number']);
     }
 });
 
@@ -106,12 +99,11 @@ test('middle earth seed failures roll back the entire league and restore world c
     $this->assertDatabaseCount('leagues', 0);
 });
 
-test('console dispatcher allows the scoped middle earth seeder and still blocks legacy imports', function () {
+test('console dispatcher allows the scoped middle earth seeder without registering legacy imports', function () {
     \Illuminate\Support\Facades\Artisan::all();
     \Illuminate\Support\Facades\Event::dispatch(new \Illuminate\Console\Events\CommandStarting('football:seed-middle-earth', new \Symfony\Component\Console\Input\ArrayInput([]), new \Symfony\Component\Console\Output\BufferedOutput));
     expect(\Illuminate\Support\Facades\Artisan::call('football:seed-middle-earth', ['--seed' => 42]))->toBe(0);
     $this->assertDatabaseCount('teams', 16);
     $this->assertDatabaseCount('players', 848);
-    expect(fn () => \Illuminate\Support\Facades\Event::dispatch(new \Illuminate\Console\Events\CommandStarting('football:seed-nfl', new \Symfony\Component\Console\Input\ArrayInput([]), new \Symfony\Component\Console\Output\BufferedOutput)))
-        ->toThrow(LogicException::class, 'Legacy football commands are disabled');
+    expect(array_key_exists('football:seed-nfl', \Illuminate\Support\Facades\Artisan::all()))->toBeFalse();
 });

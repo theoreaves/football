@@ -50,7 +50,7 @@ test('all four control combinations persist and only show selectors for human te
     $teams = Team::all();
     $this->get(route('exhibitions.index'))->assertOk()->assertSee('name="home_control"', false)->assertSee('name="away_control"', false);
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'home_control' => $homeControl, 'away_control' => $awayControl])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     expect($game->state['controls'])->toBe(['home' => $homeControl, 'away' => $awayControl]);
     $page = $this->get(route('exhibitions.show', $game))->assertOk();
     if ($awayControl === 'human') {
@@ -80,7 +80,7 @@ test('CPU versus CPU can finish a saved game without human calls and retains rat
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'home_control' => 'cpu', 'away_control' => 'cpu'])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $rosters = $game->rosters;
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Start CPU game');
     for ($i = 0; $i < 300 && $game->state['status'] === 'playing'; $i++) {

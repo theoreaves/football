@@ -205,7 +205,7 @@ test('human timeout requests are version checked scoped and cannot control the C
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 900, 'away_control' => 'cpu', 'penalties' => 0])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $state = array_merge($game->state, ['possession' => 'home', 'phase' => 'scrimmage', 'clock_running' => true, 'quarter' => 2, 'clock' => 90]);
     $game->state = $state;
     app(CurrentWorld::class)->id = $world->id;
@@ -228,7 +228,7 @@ test('human penalty choices commit the selected outcome once and block interveni
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 900])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $engine = app(ExhibitionEngine::class);
     for ($seed = 1; $seed < 500; $seed++) {
         $result = $engine->resolve($engine->initial(900, $seed, false), $game->rosters, 'inside_run', 'man_to_man');

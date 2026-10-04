@@ -3,14 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Team;
-use App\Services\TeamCardParser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Smalot\PdfParser\Parser as PdfParser;
 
 class TeamEditor extends Controller
 {
@@ -65,18 +62,6 @@ class TeamEditor extends Controller
             ->with('status', 'Team updated.');
     }
 
-    public function destroy(Team $team)
-    {
-        // optional: delete team images folder
-        //        Storage::disk('public')->deleteDirectory("teams/{$team->id}");
-
-        //        $team->delete();
-
-        return redirect()
-            ->route('teams.editor.index')
-            ->with('status', 'Team deleted.');
-    }
-
     private function validated(Request $request): array
     {
         $hex = ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'];
@@ -101,27 +86,12 @@ class TeamEditor extends Controller
             'city' => ['required', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
 
-            'playcalling_behind' => ['required', 'integer', 'min:-10'],
-            'playcalling_tied' => ['required', 'integer', 'min:-10'],
-            'playcalling_ahead' => ['required', 'integer', 'min:-10'],
-
-            'ol_rush' => ['required', 'integer', 'min:0'],
-            'ol_power' => ['required', 'integer', 'min:0'],
-            'ol_pass' => ['required', 'integer', 'min:0'],
-            'ol_protect' => ['required', 'integer', 'min:0'],
-
+            'abbr' => ['nullable', 'string', 'max:8'],
+            'conference' => ['nullable', 'string', 'max:80'],
+            'division' => ['nullable', 'string', 'max:80'],
             'team_color1' => $hex,
             'team_color2' => $hex,
 
-            'jersey_dark_primary' => $hex,
-            'jersey_dark_outline' => $hex,
-            'jersey_dark_font' => $hex,
-            'jersey_white_primary' => $hex,
-            'jersey_white_outline' => $hex,
-            'jersey_white_font' => $hex,
-            'wear_white_at_home' => ['required', 'boolean'],
-
-            // files validated in handleUploads() so update doesn’t require re-upload
         ]));
     }
 
@@ -134,9 +104,6 @@ class TeamEditor extends Controller
             'midfield_logo',
             'endzone_logo_left',
             'endzone_logo_right',
-            'jersey_image_dark',
-            'jersey_image_white',
-            'game_field_image',
         ];
 
         $request->validate(array_fill_keys($fields, ['nullable', 'image', 'max:5120']));
@@ -167,16 +134,11 @@ class TeamEditor extends Controller
                 'midfield_logo',
                 'endzone_logo_left',
                 'endzone_logo_right',
-                'jersey_image_dark',
-                'jersey_image_white',
             ], true);
 
             if ($shouldWand && config('services.bg_remove.url')) {
                 // You can tune these tolerances per asset type
-                $tol = match ($field) {
-                    'jersey_image_dark', 'jersey_image_white' => 35,
-                    default => 25,
-                };
+                $tol = 25;
 
                 $pngBytes = $this->removeBackgroundToPngBytesWand($file, $tol);
 
@@ -190,44 +152,6 @@ class TeamEditor extends Controller
                 // fall through to store original if wand fails
             }
 
-            $storedPath = $file->storeAs(
-                "teams/{$team->id}",
-                "{$field}.".$file->getClientOriginalExtension(),
-                'public'
-            );
-
-            $team->update([$field => $storedPath]);
-        }
-    }
-
-    private function old_handleUploads(Request $request, Team $team): void
-    {
-        $fields = [
-            'team_logo',
-            'helmet_logo_right',
-            'helmet_logo_left',
-            'midfield_logo',
-            'endzone_logo_left',
-            'endzone_logo_right',
-            'jersey_image_dark',
-            'jersey_image_white',
-            'game_field_image',
-        ];
-
-        // validate files if present
-        $request->validate(array_fill_keys($fields, ['nullable', 'image', 'max:5120'])); // 5MB
-
-        foreach ($fields as $field) {
-            if (! $request->hasFile($field)) {
-                continue;
-            }
-
-            // delete old
-            if ($team->{$field}) {
-                Storage::disk('public')->delete($team->{$field});
-            }
-
-            $file = $request->file($field);
             $storedPath = $file->storeAs(
                 "teams/{$team->id}",
                 "{$field}.".$file->getClientOriginalExtension(),
@@ -266,70 +190,5 @@ class TeamEditor extends Controller
         } catch (ConnectionException $e) {
             return null;
         }
-    }
-
-    public function importTeamCard(Request $request, \App\Models\Team $team)
-    {
-        $data = $request->validate([
-            'team_year' => ['required', 'string', 'max:10'],
-            'team_card_pdf' => ['required', 'file', 'mimes:pdf', 'max:20480'],
-        ]);
-
-        $year = $data['team_year'];
-        $file = $request->file('team_card_pdf');
-
-        // Store explicitly on local disk
-        $path = 'imports/team-cards/'.uniqid('teamcard_', true).'.pdf';
-        Storage::disk('local')->put($path, file_get_contents($file->getRealPath()));
-
-        $fullPath = Storage::disk('local')->path($path);
-        abort_unless(is_file($fullPath), 500, "PDF was not written to disk: {$fullPath}");
-
-        // Extract text from the PDF (THIS was commented out)
-        $pdfParser = new PdfParser;
-        $pdf = $pdfParser->parseFile($fullPath);
-        $text = $pdf->getText();
-        //        dd($text);
-
-        if (! trim($text)) {
-            return back()->withErrors([
-                'team_card_pdf' => 'This PDF has no extractable text (might be scanned). OCR support would be needed.',
-            ]);
-        }
-
-        // Parse extracted text into rows for DB
-        $rows = app(TeamCardParser::class)->parse($text, $year);
-
-        DB::transaction(function () use ($rows, $team, $year) {
-            foreach ($rows as $row) {
-                $playerData = $row['player'];
-                $pivotData = $row['pivot'];
-
-                $player = \App\Models\Player::updateOrCreate(
-                    [
-                        'firstname' => $playerData['firstname'],
-                        'lastname' => $playerData['lastname'],
-                        'position' => $playerData['position'],
-                    ],
-                    $playerData
-                );
-
-                DB::table('team_players')->updateOrInsert(
-                    [
-                        'team_id' => $team->id,
-                        'player_id' => $player->id,
-                        'team_year' => $year,
-                    ],
-                    array_merge($pivotData, [
-                        'updated_at' => now(),
-                        'created_at' => now(),
-                    ])
-                );
-            }
-        });
-
-        return redirect()
-            ->route('teams.editor.edit', $team)
-            ->with('status', "Imported team card for {$year}.");
     }
 }

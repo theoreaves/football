@@ -19,7 +19,7 @@ beforeEach(function () {
 test('exhibition starts from real rosters and duplicate snaps do not advance twice', function () {
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     expect($game->rosters['home']['players'])->toHaveCount(27);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Call play')->assertSee('data-animation', false);
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
@@ -39,7 +39,7 @@ test('ratings edits are validated persisted and do not change games already star
     $this->put(route('simulation-ratings.update', $teams[0]), ['ratings' => [$player->id => $ratings]])->assertRedirect();
     expect(Player::withoutGlobalScopes()->findOrFail($player->id)->simulation_ratings)->toBe($ratings);
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $snapshot = $game->rosters;
     $this->put(route('simulation-ratings.update', $teams[0]), ['ratings' => [$player->id => array_fill_keys(PlayerRatings::FIELDS, 99)]])->assertRedirect();
     expect($game->fresh()->rosters)->toBe($snapshot);
@@ -54,7 +54,7 @@ test('exhibitions reject same team incomplete rosters and records from other sav
     $empty = Team::create(['city' => 'Empty', 'name' => 'Team']);
     $this->post(route('exhibitions.store'), ['home' => $empty->id, 'away' => $teams[0]->id, 'quarter_length' => 180])->assertSessionHasErrors('teams');
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $other = World::create(['name' => 'Other']);
     LocalSetting::find(1)->update(['current_world_id' => $other->id]);
     $this->get(route('exhibitions.show', $game))->assertNotFound();
@@ -65,7 +65,7 @@ test('exhibitions reject same team incomplete rosters and records from other sav
 test('formation choices persist and quarter halftime and final notices are rendered', function () {
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     foreach ([1 => 'End of quarter 1', 2 => 'Halftime', 4 => 'Final whistle'] as $quarter => $heading) {
         app(CurrentWorld::class)->id = $game->world_id;
         $state = $game->state;
@@ -88,7 +88,7 @@ test('formation choices persist and quarter halftime and final notices are rende
 test('watch page renders the pre-play display and hides the new result until revealed', function () {
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
-    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'man_to_man', 'version' => 0])->assertSessionHasErrors('call');
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'zone', 'version' => 0])->assertSessionHasErrors('defense');
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();

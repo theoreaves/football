@@ -15,9 +15,4 @@ class Season extends Model
     {
         return $this->belongsTo(League::class);
     }
-
-    public function games(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(Game::class);
-    }
 }

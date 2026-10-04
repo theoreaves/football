@@ -1,7 +1,3 @@
-import WinBox from 'winbox/src/js/winbox.js';
-import 'winbox/dist/css/winbox.min.css';
-window.WinBox = WinBox;
-
 function initializePractice() {
     const root = document.querySelector('[data-practice]');
     if (root) import('./practice/field.js').then(module => module.mountPractice(root)).catch(() => {

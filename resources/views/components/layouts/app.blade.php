@@ -17,8 +17,7 @@
 @unless($immersive)
 <nav class="flex flex-wrap items-center gap-5 p-4 text-gray-200 bg-gray-950 border-b border-gray-700">
     <a class="font-semibold text-white" href="{{ route('worlds.index') }}">Football</a>
-    <a href="{{ route('home') }}">Games</a><a href="{{ route('teams.editor.index') }}">Teams</a>
-    <a href="{{ route('exhibitions.index') }}">Play exhibition</a>
+    <a href="{{ route('home') }}">Exhibitions</a><a href="{{ route('teams.editor.index') }}">Teams</a>
     <a href="{{ route('practice') }}">Practice field</a>
     <a class="ml-auto" href="{{ route('worlds.index') }}">Saved games</a>
     @if (app(\App\Support\CurrentWorld::class)->id)

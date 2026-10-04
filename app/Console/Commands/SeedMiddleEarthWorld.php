@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Game;
+use App\Models\Exhibition;
 use App\Models\Player;
 use App\Models\Team;
 use App\Models\TeamPlayer;
@@ -48,7 +48,7 @@ class SeedMiddleEarthWorld extends Command
                     throw new LogicException('That saved game does not exist. Omit the ID to create a new Middle Earth saved game.');
                 }
                 $context->id = $world->id;
-                if (Team::exists() || Player::exists() || Game::exists()) {
+                if (Team::exists() || Player::exists() || Exhibition::exists()) {
                     throw new LogicException('This saved game already has football data. Omit the ID to create a new Middle Earth saved game; nothing was changed.');
                 }
                 $league = $world->leagues()->first() ?? $world->leagues()->create(['name' => 'Middle Earth Football League']);
@@ -57,8 +57,6 @@ class SeedMiddleEarthWorld extends Command
                     $team = Team::create([
                         'city' => $city, 'name' => $name, 'abbr' => $abbr, 'conference' => $conference, 'division' => $division,
                         'team_color1' => $primary, 'team_color2' => $secondary,
-                        'playcalling_behind' => 2, 'playcalling_tied' => 1, 'playcalling_ahead' => -1,
-                        'ol_rush' => 6, 'ol_power' => 6, 'ol_pass' => 6, 'ol_protect' => 6,
                         'uniform_home_helmet' => $primary, 'uniform_home_shirt' => $primary,
                         'uniform_home_pants' => $secondary, 'uniform_home_socks' => $accent,
                         'uniform_home_number' => $secondary, 'uniform_home_number_outline' => $accent,

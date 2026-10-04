@@ -52,55 +52,10 @@ class MiddleEarthRosterGenerator
             usort($players, fn ($a, $b) => array_sum(array_intersect_key($b['simulation_ratings'], array_flip(self::SPECIALTIES[$position]))) <=> array_sum(array_intersect_key($a['simulation_ratings'], array_flip(self::SPECIALTIES[$position]))));
             foreach ($players as $i => $player) {
                 $slot = $position.($i + 1);
-                $roster[] = ['player' => array_merge($player, $this->legacyRatings($player['simulation_ratings'])), 'roster' => array_merge([
-                    'position' => $position, 'depth_chart_position' => $slot, 'jersey_number' => $jersey++,
-                    'kick_return_depth_chart_position' => '', 'punt_return_depth_chart_position' => '',
-                ], $this->ranges($slot))];
+                $roster[] = ['player' => $player, 'roster' => ['position' => $position, 'depth_chart_position' => $slot, 'jersey_number' => $jersey++]];
             }
         }
 
         return $roster;
-    }
-
-    private function legacyRatings(array $ratings): array
-    {
-        $mapping = [
-            'speed' => 'speed', 'pass_evade' => 'acceleration', 'pass_accuracy' => 'throwing', 'pass_deep' => 'throwing', 'pass_control' => 'awareness',
-            'rush' => 'acceleration', 'rush_power' => 'strength', 'receive' => 'catching', 'receive_deep' => 'catching',
-            'tackle' => 'tackling', 'sack' => 'strength', 'cover' => 'coverage', 'interception' => 'coverage', 'strip' => 'tackling',
-            'kick30' => 'kicking', 'kick39' => 'kicking', 'kick49' => 'kicking', 'kick50' => 'kicking',
-            'punt_distance' => 'kicking', 'punt_pooch' => 'kicking', 'punt_block' => 'awareness', 'return_yards' => 'speed', 'return_speed' => 'acceleration',
-        ];
-        $legacy = [];
-        foreach ($mapping as $field => $rating) {
-            $legacy[$field] = max(1, min(9, (int) round($ratings[$rating] / 11)));
-        }
-        $legacy['fumble'] = $legacy['return_fumble'] = max(1, min(9, (int) round((100 - $ratings['ball_security']) / 11)));
-        $legacy['punt_pooch_yard'] = 50;
-
-        return $legacy;
-    }
-
-    private function ranges(string $slot): array
-    {
-        $groups = [
-            'catch' => ['RB1', 'RB2', 'TE1', 'TE2', 'WR1', 'WR2', 'WR3', 'WR4'],
-            'catch_plus' => ['TE1', 'TE2', 'WR1', 'WR2', 'WR3', 'WR4'], 'rush' => ['QB1', 'RB1', 'RB2', 'RB3', 'RB4'],
-            'sack' => ['DL1', 'DL2', 'DL3', 'DL4', 'LB1', 'LB2', 'LB3', 'LB4'],
-            'interception' => ['LB1', 'LB2', 'LB3', 'LB4', 'CB1', 'CB2', 'S1', 'S2'],
-            'tackle' => ['DL1', 'DL2', 'DL3', 'DL4', 'LB1', 'LB2', 'LB3', 'LB4', 'CB1', 'CB2', 'S1', 'S2'],
-            'kick' => ['WR1', 'WR2', 'RB2'], 'punt' => ['WR1', 'WR2', 'RB2'],
-        ];
-        $ranges = [];
-        foreach ($groups as $prefix => $slots) {
-            $index = array_search($slot, $slots, true);
-            $ranges[$prefix.'_from'] = $index === false ? 0 : intdiv($index * 20, count($slots)) + 1;
-            $ranges[$prefix.'_to'] = $index === false ? 0 : intdiv(($index + 1) * 20, count($slots));
-            if ($index !== false && in_array($prefix, ['kick', 'punt'], true)) {
-                $ranges[$prefix === 'kick' ? 'kick_return_depth_chart_position' : 'punt_return_depth_chart_position'] = ($prefix === 'kick' ? 'KR' : 'PR').($index + 1);
-            }
-        }
-
-        return $ranges;
     }
 }

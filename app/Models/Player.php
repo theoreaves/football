@@ -27,26 +27,7 @@ class Player extends Model
     public function teams()
     {
         return $this->belongsToMany(Team::class, 'team_players')
-            ->withPivot([
-                'team_year',
-                'position',
-                'jersey_number',
-                'depth_chart_position',
-                'kick_return_depth_chart_position',
-                'punt_return_depth_chart_position',
-                'catch_from', 'catch_to',
-                'catch_plus_from', 'catch_plus_to',
-                'rush_from', 'rush_to',
-                'sack_from', 'sack_to',
-                'interception_from', 'interception_to',
-                'kick_from', 'kick_to',
-                'punt_from', 'punt_to',
-            ])
+            ->withPivot(['id', 'team_year', 'position', 'depth_chart_position', 'jersey_number'])
             ->withTimestamps();
-    }
-
-    public function seasonStats()
-    {
-        return $this->hasMany(\App\Models\PlayerSeasonStat::class, 'player_id');
     }
 }

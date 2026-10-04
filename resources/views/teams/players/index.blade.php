@@ -1,5 +1,5 @@
 <x-layouts.app>
-    <div class="max-w-5xl mx-auto p-6 bg-white">
+    <div class="max-w-5xl mx-auto p-6 bg-white text-gray-900">
         @if(session('status'))
             <div class="mb-4 p-3 border rounded bg-green-50">
                 {{ session('status') }}

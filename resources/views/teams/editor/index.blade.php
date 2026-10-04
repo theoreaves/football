@@ -1,5 +1,5 @@
     <x-layouts.app>
-<div class="max-w-6xl mx-auto p-6 bg-white">
+<div class="max-w-6xl mx-auto p-6 bg-white text-gray-900">
         @if(session('status'))
             <div class="mb-4 p-3 border rounded bg-green-50">
                 {{ session('status') }}
@@ -8,10 +8,6 @@
 
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-semibold">Teams</h1>
-            <a href="{{ route('teams.index') }}"
-                class="text-blue-400 hover:text-blue-300 font-semibold">
-                Exit Editor
-            </a>
             <a href="{{ route('teams.editor.create') }}" class="px-4 py-2 rounded bg-blue-600 text-white">
                 Add Team
             </a>
@@ -47,7 +43,7 @@
                             {{ optional($team->updated_at)->format('m/d/Y H:i') }}
                         </td>
                         <td class="p-3 text-right">
-                            <a class="text-blue-600 underline" href="{{ route('teams.editor.edit', $team) }}">Edit</a>
+                            <a class="text-blue-600 underline" href="{{ route('teams.editor.edit', $team) }}">Edit team</a> <a class="text-blue-600 underline ml-3" href="{{ route('teams.editor.teams.players.index', $team) }}">Roster</a>
                         </td>
                     </tr>
                 @endforeach
