@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
-import { captureCamera, restoreCamera } from './camera-state.js';
+import { captureCamera, restoreCamera, cameraPreset } from './camera-state.js';
+import { addJerseyNumbers } from './jersey-numbers.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
@@ -44,23 +45,25 @@ export function mountPractice(root) {
     controls.maxPolarAngle = Math.PI / 2.1;
     controls.minDistance = 16;
     controls.maxDistance = 180;
-    const focus = [animation?.line ?? 60, 0, 26.7];
+    const focus = [animation?.line ?? 40, 0, 26.7];
     const cameraKey = root.dataset.cameraKey || 'football-practice-camera';
     const cameraSelect = root.querySelector('[data-camera]');
     let cameraMode = 'broadcast';
+    let cameraDirection = offenseSide === 'home' ? 1 : -1;
     const saveCamera = () => {
-        try { localStorage.setItem(cameraKey, JSON.stringify(captureCamera(cameraMode, camera.position.toArray(), controls.target.toArray(), focus))); } catch { /* Storage may be unavailable. */ }
+        try { localStorage.setItem(cameraKey, JSON.stringify(captureCamera(cameraMode, camera.position.toArray(), controls.target.toArray(), focus, cameraDirection))); } catch { /* Storage may be unavailable. */ }
     };
     const setCamera = mode => {
         cameraMode = mode;
         cameraSelect.value = mode;
-        controls.target.set(...focus);
-        camera.position.set(focus[0], mode === 'overhead' ? 85 : 48, focus[2] + (mode === 'overhead' ? .01 : 65));
+        const preset = cameraPreset(mode, focus, cameraDirection);
+        controls.target.set(...preset.target);
+        camera.position.set(...preset.position);
         controls.update();
         saveCamera();
     };
     let savedCamera;
-    try { savedCamera = restoreCamera(JSON.parse(localStorage.getItem(cameraKey)), focus); } catch { /* Use the default view. */ }
+    try { savedCamera = restoreCamera(JSON.parse(localStorage.getItem(cameraKey)), focus, cameraDirection); } catch { /* Use the default view. */ }
     if (savedCamera) {
         cameraMode = savedCamera.mode; cameraSelect.value = cameraMode;
         controls.target.set(...savedCamera.target); camera.position.set(...savedCamera.position); controls.update();
@@ -138,14 +141,8 @@ export function mountPractice(root) {
             const sock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), material(kit.socks || '#ffffff'));
             sock.position.y = -0.3; leg.add(sock);
         }
-        if (player.number != null) {
-            const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
-            const ctx = canvas.getContext('2d'); ctx.textAlign = 'center'; ctx.font = 'bold 48px sans-serif';
-            ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#111111'; ctx.lineWidth = 5;
-            ctx.strokeText(String(player.number), 32, 50); ctx.fillText(String(player.number), 32, 50);
-            const number = new THREE.Mesh(new THREE.PlaneGeometry(.5, .5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true }));
-            number.position.set(0, 1.25, .43); group.add(number);
-        }
+        addJerseyNumbers(group, player, document);
+        group.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
         scene.add(group);
         return group;
     });
@@ -202,6 +199,7 @@ export function mountPractice(root) {
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
+            else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
             mesh.children[2].rotation.x = moving ? Math.sin(motionTime * 16) * 0.5 : 0;
             mesh.children[3].rotation.x = -mesh.children[2].rotation.x;
         });
@@ -218,7 +216,14 @@ export function mountPractice(root) {
         camera.aspect = width / height; camera.updateProjectionMatrix();
     };
     const observer = new ResizeObserver(resize); observer.observe(host); resize();
-    const moveFocus = line => {
+    const moveFocus = (line, direction = cameraDirection) => {
+        if (cameraMode === 'quarterback' && direction !== cameraDirection) {
+            camera.position.x = 2 * focus[0] - camera.position.x;
+            camera.position.z = 2 * focus[2] - camera.position.z;
+            controls.target.x = 2 * focus[0] - controls.target.x;
+            controls.target.z = 2 * focus[2] - controls.target.z;
+        }
+        cameraDirection = direction;
         const delta = line - focus[0]; focus[0] = line;
         camera.position.x += delta; controls.target.x += delta; controls.update(); saveCamera();
     };
@@ -226,12 +231,12 @@ export function mountPractice(root) {
         showState(false);
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
-        moveFocus(animation?.line ?? 60);
+        moveFocus(animation?.line ?? 40, offenseSide === 'home' ? 1 : -1);
         scrimmageLine.position.x = animation?.line ?? 40;
         firstDownLine.position.x = animation?.firstDown ?? 50;
     };
     const huddleView = () => {
-        moveFocus(nextLine);
+        moveFocus(nextLine, root.dataset.nextPossession === 'home' ? 1 : -1);
         scrimmageLine.position.x = nextLine;
         firstDownLine.position.x = Math.max(10, Math.min(110, nextLine + (root.dataset.nextPossession === 'home' ? 1 : -1) * Number(root.dataset.nextDistance || 10)));
     };

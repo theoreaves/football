@@ -73,3 +73,37 @@ test('scoreboard uses the selected state without exposing the saved result', asy
     assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).score,'Tigers 0 — Hawks 6');
     assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).situation,'Hawks · Extra point');
 });
+
+test('behind QB camera looks downfield and preserves zoom and pan when possession changes', async () => {
+    const { cameraPreset, captureCamera, restoreCamera } = await import('../../resources/js/practice/camera-state.js');
+    const focus = [40, 0, 26.7];
+    assert.deepEqual(cameraPreset('quarterback', focus, 1).position, [18, 10, 26.7]);
+    assert.deepEqual(cameraPreset('quarterback', focus, -1).position, [62, 10, 26.7]);
+    const saved = captureCamera('quarterback', [12, 14, 33.7], [42, 1, 29.7], focus, 1);
+    assert.deepEqual(restoreCamera(saved, [70, 0, 26.7], 1).position, [42, 14, 33.7]);
+    const reversed = restoreCamera(saved, [70, 0, 26.7], -1);
+    assert.equal(reversed.mode, 'quarterback');
+    assert.deepEqual(reversed.target, [68, 1, 23.7]);
+    [98, 14, 19.7].forEach((value, i) => assert.ok(Math.abs(reversed.position[i] - value) < 1e-9));
+});
+
+test('jersey numbers render the roster number on both outward-facing shirt surfaces', async () => {
+    const THREE = await import('three');
+    const { addJerseyNumbers } = await import('../../resources/js/practice/jersey-numbers.js');
+    const drawn = [];
+    const document = { createElement: () => ({ getContext: () => ({ strokeText: text => drawn.push(text), fillText: text => drawn.push(text) }) }) };
+    for (const value of [0, 8, 99]) {
+        const jersey = new THREE.Group();
+        addJerseyNumbers(jersey, { number: value }, document);
+        assert.equal(jersey.children.length, 2);
+        for (const mesh of jersey.children) {
+            assert.ok(mesh.position.z * new THREE.Vector3(0, 0, 1).applyQuaternion(mesh.quaternion).z > 0);
+            assert.equal(mesh.material.map.colorSpace, THREE.SRGBColorSpace);
+        }
+        assert.equal(jersey.children[0].material, jersey.children[1].material);
+        assert.deepEqual(drawn.slice(-2), [String(value), String(value)]);
+    }
+    const unnumbered = new THREE.Group();
+    addJerseyNumbers(unnumbered, {}, document);
+    assert.equal(unnumbered.children.length, 0);
+});
