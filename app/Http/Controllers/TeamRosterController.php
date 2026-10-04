@@ -10,7 +10,7 @@ class TeamRosterController extends Controller
 {
     public function index(Team $team, Request $request)
     {
-        $year = (string) ($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? '2025');
         $q = trim((string) $request->get('q', ''));
         $position = trim((string) $request->get('position', ''));
 
@@ -67,7 +67,7 @@ class TeamRosterController extends Controller
 
     public function create(Team $team, Request $request)
     {
-        $year = (string) ($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? '2025');
         $player = new Player;
 
         // sensible defaults for pivot ranges, adjust if you want
@@ -114,7 +114,7 @@ class TeamRosterController extends Controller
 
     public function store(Team $team, Request $request)
     {
-        $year = (string) ($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? '2025');
 
         [$playerData, $pivotData] = $this->validated($request, $year);
 
@@ -130,7 +130,7 @@ class TeamRosterController extends Controller
 
     public function edit(Team $team, Player $player, Request $request)
     {
-        $year = (string) ($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? '2025');
 
         $attached = $team->players()
             ->where('players.id', $player->id)
@@ -183,7 +183,7 @@ class TeamRosterController extends Controller
 
     public function update(Team $team, Player $player, Request $request)
     {
-        $year = (string) ($request->get('year') ?? '2025');
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? '2025');
 
         [$playerData, $pivotData] = $this->validated($request, $year);
 
