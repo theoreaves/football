@@ -51,15 +51,16 @@
                 @foreach(['home' => 'Home uniform', 'away' => 'Away uniform'] as $venue => $label)
                     <h3 class="font-semibold">{{ $label }}</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        @foreach(['helmet', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part)
+                        @foreach(['helmet', 'facemask', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part)
                             @php
                                 $field = "uniform_{$venue}_{$part}";
                                 $default = $part === 'shirt' ? ($venue === 'home' ? ($team->team_color1 ?? '#3997ff') : '#ffffff') : '#e2e8f0';
                                 if ($part === 'number' || $part === 'number_outline') {
                                     $default = $part === 'number' ? '#ffffff' : '#111111';
                                 }
+                                if ($part === 'facemask') { $default = '#17202b'; }
                             @endphp
-                            <label>{{ $part === 'number' ? 'Number color' : ($part === 'number_outline' ? 'Number outline' : ucfirst($part)) }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?? $default) }}" class="block w-full h-10 border rounded mt-1"></label>
+                            <label>{{ $part === 'number' ? 'Number color' : ($part === 'number_outline' ? 'Number outline' : ($part === 'facemask' ? 'Face mask' : ucfirst($part))) }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?? $default) }}" class="block w-full h-10 border rounded mt-1"></label>
                         @endforeach
                     </div>
                     <div class="grid grid-cols-3 gap-4 mt-3">

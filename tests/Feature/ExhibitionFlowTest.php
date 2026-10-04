@@ -26,7 +26,7 @@ test('exhibition starts from real rosters and duplicate snaps do not advance twi
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertStatus(409);
     $game->refresh();
     expect($game->state['version'])->toBe(1)->and($game->history)->toHaveCount(1);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Last play:');
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Last play:')->assertSee('QB kneel');
     $this->post(route('exhibitions.play', $game), ['call' => 'made_up', 'defense' => 'zone', 'version' => 1])->assertSessionHasErrors('call');
 });
 

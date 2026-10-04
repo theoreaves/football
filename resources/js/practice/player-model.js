@@ -35,8 +35,27 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     box(group, [.43, .38, .35], [0, 1.97, .08], skin);
     const helmet = new THREE.Mesh(new THREE.SphereGeometry(.37, 12, 8, 0, Math.PI * 2, 0, 2.05), helmetPaint);
     helmet.position.set(0, 2.03, 0); helmet.castShadow = true; group.add(helmet);
-    for (const y of [1.86, 1.99]) box(group, [.56, .035, .04], [0, y, .43], black);
-    for (const x of [-.26, .26]) box(group, [.035, .28, .04], [x, 1.96, .43], black);
+    const faceMask = new THREE.Group(); faceMask.name = 'facemask'; group.add(faceMask);
+    const maskPaint = mat(kit.facemask || '#17202b'); maskPaint.roughness = .4;
+    const rail = points => {
+        const curve = new THREE.CatmullRomCurve3(points.map(point => new THREE.Vector3(...point)));
+        const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, .019, 6, false), maskPaint);
+        mesh.castShadow = true; faceMask.add(mesh); return curve;
+    };
+    const bars = [[1.97, 1.99], [1.82, 1.94]].map(([y, mountY]) => rail([
+        [-.31, mountY, .17], [-.34, y, .34], [-.24, y, .48], [0, y, .53],
+        [.24, y, .48], [.34, y, .34], [.31, mountY, .17],
+    ]));
+    // Uprights join the curved bars exactly, with both side rails anchored in the shell.
+    for (const t of [.38, .62]) {
+        const upper = bars[0].getPoint(t), lower = bars[1].getPoint(t);
+        rail([lower.toArray(), upper.toArray()]);
+    }
+    for (const sign of [-1, 1]) {
+        const mount = new THREE.Mesh(new THREE.SphereGeometry(.032, 8, 6), maskPaint);
+        mount.position.set(sign * .31, 1.965, .17); faceMask.add(mount);
+    }
+    group.userData.faceMask = faceMask;
     if (kit.helmet_stripe_enabled) {
         const stripe = new THREE.Mesh(new THREE.TorusGeometry(.374, .027, 4, 20, Math.PI), mat(kit.helmet_stripe || '#ffffff'));
         stripe.rotation.y = Math.PI / 2; stripe.position.y = 2.03; group.add(stripe);

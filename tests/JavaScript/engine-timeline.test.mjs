@@ -212,3 +212,21 @@ test('quarterback cocks his elbow releases and returns to a neutral pose', async
     assert.equal(qb.userData.arms[1].rotation.x,0);
     assert.equal(qb.userData.elbows[1].rotation.x,0);
 });
+
+test('face mask uses the uniform color and curved rails attach to both helmet sides', async () => {
+    const { buildFootballPlayer } = await import('../../resources/js/practice/player-model.js');
+    const document = { createElement: () => ({ getContext: () => ({ strokeText() {}, fillText() {} }) }) };
+    const player = buildFootballPlayer({number:12}, {facemask:'#ffaa33'}, document);
+    const mask = player.userData.faceMask;
+    assert.equal(mask.children.length,6);
+    mask.children.forEach(mesh => assert.equal(mesh.material.color.getHexString(),'ffaa33'));
+    for (const rail of mask.children.slice(0,2)) {
+        assert.equal(rail.geometry.type,'TubeGeometry');
+        for (const t of [0,1]) {
+            const point = rail.geometry.parameters.path.getPoint(t);
+            assert.ok(Math.hypot(point.x,point.y-2.03,point.z) <= .37);
+        }
+    }
+    const plain = buildFootballPlayer({number:12}, {}, document);
+    assert.equal(plain.userData.faceMask.children[0].material.color.getHexString(),'17202b');
+});

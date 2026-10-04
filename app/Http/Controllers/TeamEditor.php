@@ -92,7 +92,7 @@ class TeamEditor extends Controller
                 $appearance["uniform_{$venue}_{$part}_stripe"] = $hex;
                 $appearance["uniform_{$venue}_{$part}_stripe_enabled"] = ['sometimes', 'boolean'];
             }
-            foreach (['helmet', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
+            foreach (['helmet', 'facemask', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
                 $appearance["uniform_{$venue}_{$part}"] = $hex;
             }
         }

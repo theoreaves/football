@@ -35,10 +35,13 @@ class PracticeController extends Controller
         }
         $art = fn ($asset) => $team->{$asset} ? route('teams.art', ['team' => $team, 'asset' => $asset]) : null;
         $uniform = [];
-        foreach (['helmet', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
+        foreach (['helmet', 'facemask', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
             $fallback = $part === 'shirt' ? ($venue === 'home' ? ($team->team_color1 ?: '#3997ff') : '#ffffff') : '#e2e8f0';
             if ($part === 'number' || $part === 'number_outline') {
                 $fallback = $part === 'number' ? '#ffffff' : '#111111';
+            }
+            if ($part === 'facemask') {
+                $fallback = '#17202b';
             }
             $uniform[$part] = $team->{"uniform_{$venue}_{$part}"} ?: $fallback;
         }
