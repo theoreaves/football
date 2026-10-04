@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
+import { captureCamera, restoreCamera } from './camera-state.js';
+import { sampleHuddle } from './huddle.js';
 
 export function mountPractice(root) {
     if (root.dataset.mounted) return;
@@ -41,12 +43,28 @@ export function mountPractice(root) {
     controls.maxPolarAngle = Math.PI / 2.1;
     controls.minDistance = 16;
     controls.maxDistance = 180;
-    const setCamera = mode => {
-        camera.position.set(...(mode === 'overhead' ? [60, 112, 26.7] : [60, 65, 112]));
-        controls.target.set(60, 0, 26.7);
-        controls.update();
+    const focus = [animation?.line ?? 60, 0, 26.7];
+    const cameraKey = root.dataset.cameraKey || 'football-practice-camera';
+    const cameraSelect = root.querySelector('[data-camera]');
+    let cameraMode = 'broadcast';
+    const saveCamera = () => {
+        try { localStorage.setItem(cameraKey, JSON.stringify(captureCamera(cameraMode, camera.position.toArray(), controls.target.toArray(), focus))); } catch { /* Storage may be unavailable. */ }
     };
-    setCamera('broadcast');
+    const setCamera = mode => {
+        cameraMode = mode;
+        cameraSelect.value = mode;
+        controls.target.set(...focus);
+        camera.position.set(focus[0], mode === 'overhead' ? 85 : 48, focus[2] + (mode === 'overhead' ? .01 : 65));
+        controls.update();
+        saveCamera();
+    };
+    let savedCamera;
+    try { savedCamera = restoreCamera(JSON.parse(localStorage.getItem(cameraKey)), focus); } catch { /* Use the default view. */ }
+    if (savedCamera) {
+        cameraMode = savedCamera.mode; cameraSelect.value = cameraMode;
+        controls.target.set(...savedCamera.target); camera.position.set(...savedCamera.position); controls.update();
+    } else setCamera('broadcast');
+    controls.addEventListener('end', saveCamera);
     scene.add(new THREE.HemisphereLight(0xbad7ff, 0x314b27, 2.2));
     const light = new THREE.DirectionalLight(0xfff5dc, 3);
     light.position.set(45, 70, 15);
@@ -94,8 +112,8 @@ export function mountPractice(root) {
         }
     }
     for (let x = 11; x < 110; x++) for (const z of [0.6, 23.6, 29.7, 52.7]) addBox(0.1, 0.03, 0.55, 0xddddcb, x, 0.06, z);
-    addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
-    addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
+    const scrimmageLine = addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
+    const firstDownLine = addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
     for (const z of [-10, 64]) {
         for (let tier = 0; tier < 4; tier++) addBox(132, 2, 3, 0x293649, 60, tier * 2, z + (z < 0 ? -tier * 3 : tier * 3));
     }
@@ -131,17 +149,24 @@ export function mountPractice(root) {
     });
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), material(0x9d5829));
     ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; scene.add(ball);
-    let elapsed = 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
+    const resultPopup = root.querySelector('[data-result-popup]');
+    const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
+    let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : 'play';
+    let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
+    let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     const renderState = () => {
-        const frame = sample(type, elapsed);
-        const future = sample(type, Math.min(duration, elapsed + 0.03));
+        const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
+        const frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress) : sample(type, elapsed);
+        const future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02)) : sample(type, Math.min(duration, elapsed + 0.03));
+        const motionTime = phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             const next = future.players[i];
             const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
-            mesh.position.set(player.x, moving ? Math.sin(elapsed * 18 + i) * 0.06 : 0, player.z);
-            if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
-            mesh.children[2].rotation.x = moving ? Math.sin(elapsed * 16) * 0.5 : 0;
+            mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
+            if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
+            else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
+            mesh.children[2].rotation.x = moving ? Math.sin(motionTime * 16) * 0.5 : 0;
             mesh.children[3].rotation.x = -mesh.children[2].rotation.x;
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
@@ -157,25 +182,72 @@ export function mountPractice(root) {
         camera.aspect = width / height; camera.updateProjectionMatrix();
     };
     const observer = new ResizeObserver(resize); observer.observe(host); resize();
+    const moveFocus = line => {
+        const delta = line - focus[0]; focus[0] = line;
+        camera.position.x += delta; controls.target.x += delta; controls.update(); saveCamera();
+    };
+    const replayView = () => {
+        phase = 'play'; postElapsed = 0; huddleProgress = 0;
+        if (resultPopup) resultPopup.hidden = true;
+        moveFocus(animation?.line ?? 60);
+        scrimmageLine.position.x = animation?.line ?? 40;
+        firstDownLine.position.x = animation?.firstDown ?? 50;
+    };
+    const huddleView = () => {
+        moveFocus(nextLine);
+        scrimmageLine.position.x = nextLine;
+        firstDownLine.position.x = Math.max(10, Math.min(110, nextLine + (root.dataset.nextPossession === 'home' ? 1 : -1) * Number(root.dataset.nextDistance || 10)));
+    };
+    if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
+        if (phase !== 'play') replayView();
         if (elapsed >= duration) elapsed = 0;
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
-    root.querySelector('[data-reset]').addEventListener('click', () => { elapsed = 0; running = false; playButton.textContent = 'Play'; });
+    root.querySelector('[data-reset]').addEventListener('click', () => { replayView(); elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
-    slider.addEventListener('input', () => { elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
+    slider.addEventListener('input', () => { replayView(); elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';
     const callForm = root.querySelector('[data-call-form]');
     callForm?.addEventListener('submit', () => {
+        saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
     });
+    const quarterDialog = root.querySelector('[data-quarter-dialog]');
+    const quarterKey = `${cameraKey}:quarter:${root.dataset.playNumber}`;
+    let quarterShown = false;
+    try { quarterShown = sessionStorage.getItem(quarterKey) === 'shown'; } catch { /* Show it once per page. */ }
+    const showQuarter = () => {
+        if (!quarterDialog || quarterShown) return;
+        quarterShown = true;
+        quarterDialog.showModal();
+        quarterDialog.querySelector('button')?.focus();
+        try { sessionStorage.setItem(quarterKey, 'shown'); } catch { /* Optional persistence. */ }
+    };
+    const snapButton = callForm?.querySelector('[data-snap]');
+    if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
+    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; });
+    if (quarterDialog && root.dataset.autoplay !== 'true') showQuarter();
     const animate = now => {
-        if (lastTime !== null && running && !document.hidden) elapsed = Math.min(duration, elapsed + Math.min((now - lastTime) / 1000, 0.1) * speed);
+        const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
+        if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         lastTime = now;
-        if (elapsed >= duration) { running = false; playButton.textContent = 'Replay'; }
+        if (elapsed >= duration && phase === 'play') {
+            running = false; playButton.textContent = 'Replay';
+            if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }
+            else showQuarter();
+        } else if (phase === 'result') {
+            postElapsed += delta;
+            if (postElapsed >= 3) {
+                resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
+            }
+        } else if (phase === 'huddle' && huddleProgress < 1) {
+            postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
+            if (huddleProgress === 1) showQuarter();
+        }
         renderState(); controls.update(); renderer.render(scene, camera);
         frameId = requestAnimationFrame(animate);
     };
@@ -184,6 +256,8 @@ export function mountPractice(root) {
     const cleanup = () => {
         if (disposed) return;
         disposed = true;
+        saveCamera();
+        controls.removeEventListener('end', saveCamera);
         document.removeEventListener('livewire:navigating', cleanup);
         window.removeEventListener('pagehide', cleanup);
         cancelAnimationFrame(frameId); observer.disconnect(); controls.dispose();

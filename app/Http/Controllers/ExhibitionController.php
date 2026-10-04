@@ -47,12 +47,14 @@ class ExhibitionController extends Controller
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
     {
         $data = $request->validate(['call' => ['required', Rule::in(ExhibitionEngine::OFFENSE)],
-            'defense' => ['required', Rule::in(ExhibitionEngine::DEFENSE)], 'version' => ['required', 'integer', 'min:0']]);
+            'defense' => ['required', Rule::in(ExhibitionEngine::DEFENSE)],
+            'offense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))],
+            'defense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))], 'version' => ['required', 'integer', 'min:0']]);
         DB::transaction(function () use ($exhibition, $engine, $data) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
             abort_if($game->state['status'] !== 'playing', 409, 'This game is final.');
-            $result = $engine->resolve($game->state, $game->rosters, $data['call'], $data['defense']);
+            $result = $engine->resolve($game->state, $game->rosters, $data['call'], $data['defense'], $data['offense_formation'] ?? 'shotgun', $data['defense_formation'] ?? 'base_4_3');
             $history = $game->history;
             $history[] = $result['play'];
             $game->update(['state' => $result['state'], 'history' => $history]);

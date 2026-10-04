@@ -137,3 +137,29 @@ test('the ball and tackler finish at the engine dead-ball spot for both directio
         }
     }
 });
+
+test('pass depths and formation alignments differ and formations affect matchups', function () {
+    $engine = app(ExhibitionEngine::class);
+    foreach (['short_pass' => [2, 7], 'medium_pass' => [10, 20], 'deep_pass' => [18, 35]] as $call => [$min, $max]) {
+        $seen = false;
+        for ($seed = 1; $seed < 30; $seed++) {
+            $play = $engine->resolve($engine->initial(180, $seed), engineRosters(), $call, 'balanced', 'spread', 'two_high')['play'];
+            if ($play['carrier'] !== 'WR1') {
+                continue;
+            }
+            $seen = true;
+            expect($play['target'])->toBeGreaterThanOrEqual($min)->toBeLessThanOrEqual($max);
+            $qb = collect($play['animation']['players'])->firstWhere('role', 'QB');
+            $wr = collect($play['animation']['players'])->firstWhere('role', 'WR1');
+            $safety = collect($play['animation']['players'])->firstWhere('role', 'S1');
+            expect($qb['path'][0][1])->toBe(30)->and($wr['path'][0][3])->toBe(4)->and($safety['path'][0][3])->toBe(16);
+        }
+        expect($seen)->toBeTrue();
+    }
+    $state = $engine->initial(180, 99);
+    $singleback = $engine->resolve($state, engineRosters(), 'inside_run', 'balanced', 'singleback', 'single_high')['play'];
+    $spread = $engine->resolve($state, engineRosters(), 'inside_run', 'balanced', 'spread', 'single_high')['play'];
+    expect($singleback['gain'])->toBeGreaterThan($spread['gain']);
+    expect(collect($singleback['animation']['players'])->firstWhere('role', 'QB')['path'][0][1])->toBe(33);
+    expect(fn () => $engine->resolve($state, engineRosters(), 'short_pass', 'balanced', 'invalid'))->toThrow(LogicException::class);
+});

@@ -61,3 +61,24 @@ test('exhibitions reject same team incomplete rosters and records from other sav
     $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'balanced', 'version' => 0])->assertNotFound();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertNotFound();
 });
+
+test('formation choices persist and quarter halftime and final notices are rendered', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    foreach ([1 => 'End of quarter 1', 2 => 'Halftime', 4 => 'Final whistle'] as $quarter => $heading) {
+        app(CurrentWorld::class)->id = $game->world_id;
+        $state = $game->state;
+        $state['quarter'] = $quarter;
+        $state['clock'] = 1;
+        $state['status'] = 'playing';
+        $game->update(['state' => $state]);
+        $this->post(route('exhibitions.play', $game), ['call' => 'medium_pass', 'defense' => 'coverage', 'version' => $state['version'],
+            'offense_formation' => 'spread', 'defense_formation' => 'two_high'])->assertRedirect();
+        $game->refresh();
+        $this->get(route('exhibitions.show', $game))->assertOk()->assertSee($heading)->assertSee('data-quarter-dialog', false);
+        $play = collect($game->history)->last();
+        expect($play['offense_formation'])->toBe('spread')->and($play['defense_formation'])->toBe('two_high');
+    }
+    $this->post(route('exhibitions.play', $game), ['call' => 'short_pass', 'defense' => 'coverage', 'version' => $game->state['version'], 'offense_formation' => 'not-real'])->assertSessionHasErrors('offense_formation');
+});

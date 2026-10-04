@@ -13,9 +13,32 @@ class PlayTimeline
         $point = fn ($t, $x, $z, $y = 0) => [$t, max(0, min(120, $line + $direction * $x)), $y, max(0, min(53.33, $z))];
         $offense = ['QB' => [-5, 26.7], 'C' => [-1, 26.7], 'LG' => [-1, 24.5], 'RG' => [-1, 28.9], 'LT' => [-1, 22.3], 'RT' => [-1, 31.1], 'RB' => [-7, 29], 'TE' => [-1, 34], 'WR1' => [-1, 9], 'WR2' => [-1, 43], 'WR3' => [-3, 16]];
         $defense = ['DE1' => [1, 22], 'DT1' => [1, 25], 'DT2' => [1, 28], 'DE2' => [1, 31], 'LB1' => [5, 22], 'LB2' => [5, 27], 'LB3' => [5, 33], 'CB1' => [3, 9], 'CB2' => [3, 43], 'S1' => [11, 20], 'S2' => [12, 34]];
-        $pass = in_array($play['call'], ['slant', 'deep_pass'], true) && $play['outcome'] !== 'sack';
+        $offenseFormation = $play['offense_formation'] ?? 'shotgun';
+        if ($offenseFormation === 'singleback') {
+            $offense['QB'][0] = -2;
+            $offense['RB'] = [-7, 26.7];
+        }
+        if ($offenseFormation === 'spread') {
+            $offense['WR1'][1] = 4;
+            $offense['WR2'][1] = 49;
+            $offense['TE'][1] = 39;
+        }
+        if (($play['defense_formation'] ?? '') === 'two_high') {
+            $defense['S1'] = [14, 16];
+            $defense['S2'] = [14, 38];
+        }
+        if (($play['defense_formation'] ?? '') === 'single_high') {
+            $defense['S1'] = [14, 26.7];
+            $defense['S2'] = [4, 34];
+        }
+        $qbStart = $offense['QB'][0];
+        $qbSet = $qbStart - 2;
+        $handoff = $qbStart - 1;
+        $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true) && $play['carrier'] !== 'QB';
         $special = in_array($play['call'], ['punt', 'field_goal'], true);
-        $endZ = $pass ? ($play['call'] === 'deep_pass' ? 9 : 20) : ($play['call'] === 'outside_run' ? 42 : 27);
+        $endZ = $pass ? match ($play['call']) {
+            'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
+        } : ($play['call'] === 'outside_run' ? 42 : 27);
         if (($play['defense'] ?? '') === 'blitz') {
             $defense['LB2'][0] = 2;
         }
@@ -31,17 +54,17 @@ class PlayTimeline
         foreach ($offense as $role => [$x, $z]) {
             $path = [$point(0, $x, $z), $point(1, $x + ($role === 'QB' ? -2 : 1), $z), $point(6, $x + 2, $z)];
             if ($role === 'QB') {
-                $path = [$point(0, -5, 26.7), $point(.6, -6, 26.7), $point(2.2, -7, 26.7), $point(6, -7, 26.7)];
+                $path = [$point(0, $qbStart, 26.7), $point(.6, $handoff, 26.7), $point(2.2, $qbSet, 26.7), $point(6, $qbSet, 26.7)];
             }
             if ($role === 'WR1' && $pass) {
                 $end = $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'];
                 $path = [$point(0, $x, $z), $point(2.2, $play['target'] * .45, $z), $point(3.8, $play['target'], $endZ), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
             }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
-                $path = [$point(0, -7, 29), $point(1, -6, 27), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+                $path = [$point(0, $x, $z), $point(1, $handoff, 27), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
             }
             if ($role === 'QB' && $play['carrier'] === 'QB') {
-                $path = [$point(0, -5, 26.7), $point(2, -7, 26.7), $point(5.3, $play['gain'], 26.7), $point(6, $play['gain'], 26.7)];
+                $path = [$point(0, $qbStart, 26.7), $point(2, $qbSet, 26.7), $point(5.3, $play['gain'], 26.7), $point(6, $play['gain'], 26.7)];
                 $endZ = 26.7;
             }
             if (in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
@@ -62,20 +85,20 @@ class PlayTimeline
             }
             $tracks[] = array_merge(array_intersect_key($rosters[$other]['players'][$role], array_flip(['id', 'name', 'number'])), ['role' => $role, 'team' => 'defense', 'side' => $other, 'path' => $path]);
         }
-        $ball = [$point(0, -1, 26.7, 1), $point(.35, -5 - .35 / .6, 26.7, 1), $point(.6, -6, 26.7, 1)];
+        $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35 / .6, 26.7, 1), $point(.6, $handoff, 26.7, 1)];
         if ($special) {
             $landing = $play['call'] === 'punt' ? $play['gain'] : 110 - $play['before']['spot'];
             $landingZ = $play['outcome'] === 'field_goal_missed' ? 39 : 26.7;
-            $ball = array_merge($ball, [$point(1.2, -7, 26.7, 1), $point(3, $landing / 2, $landingZ, 14), $point(5.3, $landing, $landingZ, $play['outcome'] === 'field_goal_good' ? 5 : 0), $point(6, $landing, $landingZ, $play['outcome'] === 'field_goal_good' ? 5 : 0)]);
+            $ball = array_merge($ball, [$point(1.2, $qbSet, 26.7, 1), $point(3, $landing / 2, $landingZ, 14), $point(5.3, $landing, $landingZ, $play['outcome'] === 'field_goal_good' ? 5 : 0), $point(6, $landing, $landingZ, $play['outcome'] === 'field_goal_good' ? 5 : 0)]);
         } elseif ($pass) {
-            $ball = array_merge($ball, [$point(2.2, -7, 26.7, 1), $point(3, ($play['target'] - 7) / 2, (26.7 + $endZ) / 2, 7),
+            $ball = array_merge($ball, [$point(2.2, $qbSet, 26.7, 1), $point(3, ($play['target'] + $qbSet) / 2, (26.7 + $endZ) / 2, 7),
                 $point(3.8, $play['target'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1),
                 $point(5.3, $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1),
                 $point(6, $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1)]);
         } else {
-            $ball = array_merge($ball, [$point(1, -6, 27, 1), $point(5.3, $play['gain'], $endZ, 1), $point(6, $play['gain'], $endZ, 1)]);
+            $ball = array_merge($ball, [$point(1, $handoff, 27, 1), $point(5.3, $play['gain'], $endZ, 1), $point(6, $play['gain'], $endZ, 1)]);
             if ($play['carrier'] === 'QB') {
-                $ball = [$point(0, -1, 26.7, 1), $point(.35, -5.35, 26.7, 1), $point(2, -7, 26.7, 1), $point(5.3, $play['gain'], 26.7, 1), $point(6, $play['gain'], 26.7, 1)];
+                $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35, 26.7, 1), $point(2, $qbSet, 26.7, 1), $point(5.3, $play['gain'], 26.7, 1), $point(6, $play['gain'], 26.7, 1)];
             }
         }
         $events = [[0, 'Snap'], [.6, $special ? 'Kick setup' : ($pass || $play['carrier'] === 'QB' ? 'Dropback' : 'Handoff')], [2.2, $special ? 'Kick in flight' : ($pass ? 'Pass in flight' : 'Run')], [3.8, $pass ? match ($play['outcome']) {

@@ -22,3 +22,29 @@ test('saved engine animation replays without mutating it and preserves team iden
     assert.deepEqual(sampleEnginePlay(animation, 3), sampleEnginePlay(animation, 3));
     assert.equal(JSON.stringify(animation), snapshot);
 });
+
+test('camera follows the snap point while retaining orbit zoom pan and camera mode', async () => {
+    const { captureCamera, restoreCamera } = await import('../../resources/js/practice/camera-state.js');
+    const saved = captureCamera('overhead', [35, 70, 29.7], [35, 0, 29.7], [35, 0, 26.7]);
+    const next = restoreCamera(saved, [63, 0, 26.7]);
+    assert.equal(next.mode, 'overhead');
+    assert.deepEqual(next.target, [63, 0, 29.7]);
+    assert.deepEqual(next.position, [63, 70, 29.7]);
+    assert.equal(restoreCamera({mode: 'bogus', offset: [1, 2, 3], pan: [0, 0, 0]}, [60, 0, 26.7]), null);
+    assert.equal(restoreCamera({mode: 'broadcast', offset: [NaN, 2, 3], pan: [0, 0, 0]}, [60, 0, 26.7]), null);
+});
+
+test('both teams move smoothly into separate huddles without changing the saved play', async () => {
+    const { sampleHuddle } = await import('../../resources/js/practice/huddle.js');
+    const frame = { players: Array.from({length:22},(_,i)=>({id:i,side:i<11?'home':'away',x:40+i/2,z:12+i})), ball:{x:52,y:1,z:27},event:'Tackle' };
+    const snapshot=JSON.stringify(frame);
+    const start=sampleHuddle(frame,65,'away',0), end=sampleHuddle(frame,65,'away',1);
+    assert.equal(start.players[0].x,frame.players[0].x);
+    assert.equal(end.players.length,22);
+    assert.equal(new Set(end.players.map(player=>`${player.x},${player.z}`)).size,22);
+    assert.ok(end.players.slice(0,11).every(player=>player.x<65));
+    assert.ok(end.players.slice(11).every(player=>player.x>65));
+    assert.equal(end.ball.x,66); assert.equal(end.ball.y,.25);
+    assert.ok(end.huddle); assert.equal(JSON.stringify(frame),snapshot);
+    for(const line of [10,110]) assert.ok(sampleHuddle(frame,line,'home',1).players.every(player=>player.x>0&&player.x<120));
+});

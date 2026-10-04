@@ -6,7 +6,11 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'slant', 'deep_pass', 'punt', 'field_goal'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal'];
+
+    public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread'];
+
+    public const DEFENSE_FORMATIONS = ['base_4_3' => 'Base 4–3', 'two_high' => '4–3 · two high safeties', 'single_high' => '4–3 · single high safety'];
 
     public const DEFENSE = ['balanced', 'run_commit', 'coverage', 'blitz'];
 
@@ -18,9 +22,9 @@ class ExhibitionEngine
             'stats' => ['home' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0], 'away' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0]]];
     }
 
-    public function resolve(array $state, array $rosters, string $call, string $defense): array
+    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation = 'shotgun', string $defenseFormation = 'base_4_3'): array
     {
-        if ($state['status'] !== 'playing' || ! in_array($call, self::OFFENSE, true) || ! in_array($defense, self::DEFENSE, true)) {
+        if ($state['status'] !== 'playing' || ! in_array($call, self::OFFENSE, true) || ! in_array($defense, self::DEFENSE, true) || ! array_key_exists($offenseFormation, self::OFFENSE_FORMATIONS) || ! array_key_exists($defenseFormation, self::DEFENSE_FORMATIONS)) {
             throw new LogicException('This game cannot accept that play.');
         }
         $before = $state;
@@ -37,6 +41,9 @@ class ExhibitionEngine
         $block = $mean($off, ['C', 'LG', 'RG', 'LT', 'RT'], 'blocking');
         $front = $mean($def, ['DE1', 'DT1', 'DT2', 'DE2', 'LB1', 'LB2', 'LB3'], 'tackling');
         $coverage = $mean($def, ['CB1', 'CB2', 'S1', 'S2'], 'coverage');
+        $front += match ($defenseFormation) {
+            'single_high' => 3, 'two_high' => -2, default => 0
+        };
         $gain = 0;
         $outcome = 'tackle';
         $target = 0;
@@ -56,18 +63,29 @@ class ExhibitionEngine
             if ($good) {
                 $state[$side.'_score'] += 3;
             }
-        } elseif (in_array($call, ['slant', 'deep_pass'], true)) {
+        } elseif (in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)) {
             $carrier = 'WR1';
-            $sackChance = max(.01, min(.35, .08 + ($front - $block) * .003 + ($defense === 'blitz' ? .12 : 0)));
+            $sackChance = max(.01, min(.35, .08 + ($front - $block) * .003 + ($defense === 'blitz' ? .12 : 0) + ($offenseFormation === 'singleback' ? .02 : -.01)));
             if ($roll() < $sackChance) {
                 $gain = -$yards($roll(), 3, 9);
                 $outcome = 'sack';
                 $carrier = 'QB';
             } else {
-                $target = $call === 'slant' ? $yards($roll(), 5, 12) : $yards($roll(), 18, 35);
+                $target = match ($call) {
+                    'short_pass' => $yards($roll(), 2, 7),
+                    'slant' => $yards($roll(), 5, 12),
+                    'medium_pass' => $yards($roll(), 10, 20),
+                    default => $yards($roll(), 18, 35),
+                };
                 $target = min($target, 100 - $state['spot']);
                 $complete = max(.15, min(.93, .64 + ($off['QB']['ratings']['throwing'] + $off['WR1']['ratings']['catching'] - 2 * $coverage) * .004
-                    - ($call === 'deep_pass' ? .2 : 0) - ($defense === 'coverage' ? .1 : 0) + ($defense === 'run_commit' ? .12 : 0)));
+                    - match ($call) {
+                        'deep_pass' => .2, 'medium_pass' => .1, 'short_pass' => -.06, default => 0
+                    }
+                    + ($offenseFormation === 'spread' ? .035 : 0)
+                    + ($call === 'deep_pass' ? match ($defenseFormation) {
+                        'two_high' => -.07, 'single_high' => .04, default => 0
+                    } : 0) - ($defense === 'coverage' ? .1 : 0) + ($defense === 'run_commit' ? .12 : 0)));
                 if ($roll() < max(.005, min(.12, .025 + ($coverage - $off['QB']['ratings']['awareness']) * .001 + ($call === 'deep_pass' ? .02 : 0)))) {
                     $outcome = 'interception';
                     $gain = $target;
@@ -84,6 +102,9 @@ class ExhibitionEngine
             if ($call === 'outside_run') {
                 $matchup += ($runner['speed'] + $runner['acceleration'] - $def['LB1']['ratings']['speed'] - $def['LB1']['ratings']['acceleration']) * .06;
             }
+            $matchup += match ($offenseFormation) {
+                'singleback' => 1, 'spread' => -1.5, default => 0
+            };
             $matchup += match ($defense) {
                 'run_commit' => -3, 'coverage' => 2, 'blitz' => -1, default => 0
             };
@@ -164,7 +185,8 @@ class ExhibitionEngine
             }
         }
         $state['version']++;
-        $play = ['number' => $state['version'], 'call' => $call, 'defense' => $defense, 'outcome' => $outcome,
+        $play = ['number' => $state['version'], 'call' => $call, 'defense' => $defense,
+            'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation, 'outcome' => $outcome,
             'gain' => $gain, 'target' => $target, 'carrier' => $carrier, 'summary' => ucfirst($summary), 'before' => $before,
             'after' => $state, 'duration' => 6];
         $play['animation'] = app(PlayTimeline::class)->build($play, $rosters);
