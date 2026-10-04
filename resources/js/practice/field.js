@@ -154,6 +154,8 @@ export function mountPractice(root) {
     let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? 'liningup' : 'play');
     const lineupDuration = 3;
     let lineupProgress = 0;
+    const setDuration = 4;
+    let setElapsed = 0;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
     let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     const renderState = () => {
@@ -164,6 +166,10 @@ export function mountPractice(root) {
             const formation = sample(type, 0);
             frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress);
             future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02));
+        }
+        if (phase === 'set') {
+            frame = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
+            future = frame;
         }
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
         frame.players.forEach((player, i) => {
@@ -181,7 +187,7 @@ export function mountPractice(root) {
         const message = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
         if (status.textContent !== message) status.textContent = message;
         slider.value = elapsed;
-        root.querySelector('[data-time]').textContent = phase === 'liningup' ? `Forming up · ${(lineupProgress * lineupDuration).toFixed(1)} / ${lineupDuration.toFixed(1)}s` : `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
+        root.querySelector('[data-time]').textContent = phase === 'liningup' ? `Forming up · ${(lineupProgress * lineupDuration).toFixed(1)} / ${lineupDuration.toFixed(1)}s` : phase === 'set' ? `Ready · ${(setDuration - setElapsed).toFixed(1)}s` : `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
     };
     const resize = () => {
         const width = host.clientWidth, height = Math.max(400, host.clientHeight);
@@ -194,7 +200,7 @@ export function mountPractice(root) {
         camera.position.x += delta; controls.target.x += delta; controls.update(); saveCamera();
     };
     const replayView = () => {
-        phase = 'play'; lineupProgress = 0; postElapsed = 0; huddleProgress = 0;
+        phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
         moveFocus(animation?.line ?? 60);
         scrimmageLine.position.x = animation?.line ?? 40;
@@ -207,7 +213,7 @@ export function mountPractice(root) {
     };
     if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
-        if (phase !== 'play' && phase !== 'liningup') replayView();
+        if (phase !== 'play' && phase !== 'liningup' && phase !== 'set') replayView();
         if (elapsed >= duration) elapsed = 0;
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
@@ -242,7 +248,10 @@ export function mountPractice(root) {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
         if (running && phase === 'liningup') {
             lineupProgress = Math.min(1, lineupProgress + Math.min(delta, .1) * speed / lineupDuration);
-            if (lineupProgress === 1) { phase = 'play'; elapsed = 0; }
+            if (lineupProgress === 1) { phase = 'set'; setElapsed = 0; elapsed = 0; }
+        } else if (running && phase === 'set') {
+            setElapsed = Math.min(setDuration, setElapsed + delta);
+            if (setElapsed === setDuration) { phase = 'play'; elapsed = 0; }
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         lastTime = now;
         if (elapsed >= duration && phase === 'play') {
