@@ -130,3 +130,15 @@ test('older saved replays identify holders without highlighting high or loose ba
     assert.equal(ballCarrier({ ...frame, ball: { ...frame.ball, y: .25 } }), null);
     assert.equal(ballCarrier({ ...frame, ballHolder: null }), null);
 });
+
+test('jersey text uses the selected uniform number and outline colors with legacy defaults', async () => {
+    const THREE = await import('three');
+    const { addJerseyNumbers } = await import('../../resources/js/practice/jersey-numbers.js');
+    const rendered = [];
+    const context = { strokeText() { rendered.push(this.strokeStyle); }, fillText() { rendered.push(this.fillStyle); } };
+    const document = { createElement: () => ({ getContext: () => context }) };
+    addJerseyNumbers(new THREE.Group(), { number: 12 }, document, { number: '#ffcc00', number_outline: '#223344' });
+    assert.deepEqual(rendered, ['#223344', '#ffcc00']);
+    addJerseyNumbers(new THREE.Group(), { number: 12 }, document);
+    assert.deepEqual(rendered.slice(-2), ['#111111', '#ffffff']);
+});

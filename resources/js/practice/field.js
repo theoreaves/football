@@ -142,7 +142,7 @@ export function mountPractice(root) {
             const sock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), material(kit.socks || '#ffffff'));
             sock.position.y = -0.3; leg.add(sock);
         }
-        addJerseyNumbers(group, player, document);
+        addJerseyNumbers(group, player, document, kit);
         group.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
         scene.add(group);
         return group;

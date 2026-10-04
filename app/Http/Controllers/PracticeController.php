@@ -24,8 +24,11 @@ class PracticeController extends Controller
             return [];
         }
         $uniform = [];
-        foreach (['helmet', 'shirt', 'pants', 'socks'] as $part) {
+        foreach (['helmet', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
             $fallback = $part === 'shirt' ? ($venue === 'home' ? ($team->team_color1 ?: '#3997ff') : '#ffffff') : '#e2e8f0';
+            if ($part === 'number' || $part === 'number_outline') {
+                $fallback = $part === 'number' ? '#ffffff' : '#111111';
+            }
             $uniform[$part] = $team->{"uniform_{$venue}_{$part}"} ?: $fallback;
         }
 
