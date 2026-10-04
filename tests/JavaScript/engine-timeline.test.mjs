@@ -48,3 +48,18 @@ test('both teams move smoothly into separate huddles without changing the saved 
     assert.ok(end.huddle); assert.equal(JSON.stringify(frame),snapshot);
     for(const line of [10,110]) assert.ok(sampleHuddle(frame,line,'home',1).players.every(player=>player.x>0&&player.x<120));
 });
+
+test('players break huddle into the selected formation before the snap', async () => {
+    const { sampleHuddle, sampleBreakHuddle } = await import('../../resources/js/practice/huddle.js');
+    const formation = { players: Array.from({length:22},(_,i)=>({id:i,side:i<11?'home':'away',x:40+i/2,z:12+i})), ball:{x:39,y:1,z:26.7},event:'Snap' };
+    const snapshot=JSON.stringify(formation);
+    const huddle=sampleHuddle(formation,40,'home',1);
+    const start=sampleBreakHuddle(formation,40,'home',0);
+    const end=sampleBreakHuddle(formation,40,'home',1);
+    assert.deepEqual(start.players,huddle.players.map(({facingX,facingZ,...player})=>player));
+    for(let i=0;i<22;i++) { assert.equal(end.players[i].x,formation.players[i].x);assert.equal(end.players[i].z,formation.players[i].z); }
+    assert.deepEqual(end.ball,formation.ball);
+    assert.equal(start.event,'Breaking huddle · Moving into formation');
+    assert.equal(end.event,'Set · Ready for the snap');
+    assert.equal(JSON.stringify(formation),snapshot);
+});

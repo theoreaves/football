@@ -14,3 +14,14 @@ export function sampleHuddle(finalFrame, nextLine, possession, progress) {
         y: finalFrame.ball.y + (.25 - finalFrame.ball.y) * blend, z: finalFrame.ball.z + (26.7 - finalFrame.ball.z) * blend },
         event: fraction < 1 ? 'Teams returning to their huddles' : 'Between plays · Choose formations and a play', huddle: fraction === 1 };
 }
+
+export function sampleBreakHuddle(formation, line, possession, progress) {
+    const fraction = Math.max(0, Math.min(1, progress));
+    const blend = fraction * fraction * (3 - 2 * fraction);
+    const huddle = sampleHuddle(formation, line, possession, 1);
+    return { ...formation, players: formation.players.map((player, i) => ({ ...player,
+        x: huddle.players[i].x + (player.x - huddle.players[i].x) * blend,
+        z: huddle.players[i].z + (player.z - huddle.players[i].z) * blend })),
+        ball: { ...formation.ball, y: .25 + (formation.ball.y - .25) * blend },
+        event: fraction < 1 ? 'Breaking huddle · Moving into formation' : 'Set · Ready for the snap' };
+}

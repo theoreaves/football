@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera } from './camera-state.js';
-import { sampleHuddle } from './huddle.js';
+import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
 export function mountPractice(root) {
     if (root.dataset.mounted) return;
@@ -151,14 +151,21 @@ export function mountPractice(root) {
     ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; scene.add(ball);
     const resultPopup = root.querySelector('[data-result-popup]');
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
-    let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : 'play';
+    let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? 'liningup' : 'play');
+    const lineupDuration = 3;
+    let lineupProgress = 0;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
     let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
-        const frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress) : sample(type, elapsed);
-        const future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02)) : sample(type, Math.min(duration, elapsed + 0.03));
-        const motionTime = phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
+        let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress) : sample(type, elapsed);
+        let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02)) : sample(type, Math.min(duration, elapsed + 0.03));
+        if (phase === 'liningup') {
+            const formation = sample(type, 0);
+            frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress);
+            future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02));
+        }
+        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             const next = future.players[i];
@@ -174,7 +181,7 @@ export function mountPractice(root) {
         const message = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
         if (status.textContent !== message) status.textContent = message;
         slider.value = elapsed;
-        root.querySelector('[data-time]').textContent = `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
+        root.querySelector('[data-time]').textContent = phase === 'liningup' ? `Forming up · ${(lineupProgress * lineupDuration).toFixed(1)} / ${lineupDuration.toFixed(1)}s` : `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
     };
     const resize = () => {
         const width = host.clientWidth, height = Math.max(400, host.clientHeight);
@@ -187,7 +194,7 @@ export function mountPractice(root) {
         camera.position.x += delta; controls.target.x += delta; controls.update(); saveCamera();
     };
     const replayView = () => {
-        phase = 'play'; postElapsed = 0; huddleProgress = 0;
+        phase = 'play'; lineupProgress = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
         moveFocus(animation?.line ?? 60);
         scrimmageLine.position.x = animation?.line ?? 40;
@@ -200,7 +207,7 @@ export function mountPractice(root) {
     };
     if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
-        if (phase !== 'play') replayView();
+        if (phase !== 'play' && phase !== 'liningup') replayView();
         if (elapsed >= duration) elapsed = 0;
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
@@ -233,7 +240,10 @@ export function mountPractice(root) {
     if (quarterDialog && root.dataset.autoplay !== 'true') showQuarter();
     const animate = now => {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
-        if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
+        if (running && phase === 'liningup') {
+            lineupProgress = Math.min(1, lineupProgress + Math.min(delta, .1) * speed / lineupDuration);
+            if (lineupProgress === 1) { phase = 'play'; elapsed = 0; }
+        } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         lastTime = now;
         if (elapsed >= duration && phase === 'play') {
             running = false; playButton.textContent = 'Replay';
