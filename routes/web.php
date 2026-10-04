@@ -23,6 +23,13 @@ Route::get('/practice', \App\Http\Controllers\PracticeController::class)->name('
 
 Route::middleware([\App\Http\Middleware\RequireWorld::class])->group(function () {
 
+    Route::get('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'index'])->name('exhibitions.index');
+    Route::post('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'store'])->name('exhibitions.store');
+    Route::get('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'show'])->name('exhibitions.show');
+    Route::post('/exhibitions/{exhibition}/play', [\App\Http\Controllers\ExhibitionController::class, 'play'])->name('exhibitions.play');
+    Route::get('/teams/{team}/simulation-ratings', [\App\Http\Controllers\SimulationRatingsController::class, 'edit'])->name('simulation-ratings.edit');
+    Route::put('/teams/{team}/simulation-ratings', [\App\Http\Controllers\SimulationRatingsController::class, 'update'])->name('simulation-ratings.update');
+
     Route::get('/', [GameSetupController::class, 'index'])->name('home');
 
     Route::get('/football', GameCompanion::class);

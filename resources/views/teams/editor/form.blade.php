@@ -24,6 +24,7 @@
             <a href="{{ route('teams.editor.index') }}" class="underline text-gray-700">Back to Teams</a>
 
             @if($mode === 'edit')
+                <a href="{{ route('simulation-ratings.edit', $team) }}" class="text-blue-700 underline">Engine ratings</a>
                 <a
                     href="{{ route('teams.editor.teams.players.index', $team) }}"
                     class="px-4 py-2 rounded border text-sm"

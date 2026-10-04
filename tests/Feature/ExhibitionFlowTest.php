@@ -1,0 +1,63 @@
+<?php
+
+use App\Models\Exhibition;
+use App\Models\LocalSetting;
+use App\Models\Player;
+use App\Models\Team;
+use App\Models\World;
+use App\Services\Simulation\PlayerRatings;
+use App\Support\CurrentWorld;
+
+beforeEach(function () {
+    $this->withoutVite();
+    $save = World::create(['name' => 'Engine']);
+    LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $save->id]);
+    app(CurrentWorld::class)->id = $save->id;
+    $this->artisan('world:seed-demo', ['world' => $save->id, '--teams' => 2])->assertSuccessful();
+});
+
+test('exhibition starts from real rosters and duplicate snaps do not advance twice', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    expect($game->rosters['home']['players'])->toHaveCount(24);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Call play')->assertSee('data-animation', false);
+    $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'coverage', 'version' => 0])->assertRedirect();
+    $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'coverage', 'version' => 0])->assertStatus(409);
+    $game->refresh();
+    expect($game->state['version'])->toBe(1)->and($game->history)->toHaveCount(1);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Last play:');
+    $this->post(route('exhibitions.play', $game), ['call' => 'made_up', 'defense' => 'coverage', 'version' => 1])->assertSessionHasErrors('call');
+});
+
+test('ratings edits are validated persisted and do not change games already started', function () {
+    $teams = Team::all();
+    $player = $teams[0]->players()->first();
+    $foreign = $teams[1]->players()->first();
+    $this->get(route('simulation-ratings.edit', $teams[0]))->assertOk()->assertSee('Engine ratings');
+    $ratings = array_fill_keys(PlayerRatings::FIELDS, 90);
+    $this->put(route('simulation-ratings.update', $teams[0]), ['ratings' => [$player->id => $ratings]])->assertRedirect();
+    expect(Player::withoutGlobalScopes()->findOrFail($player->id)->simulation_ratings)->toBe($ratings);
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $snapshot = $game->rosters;
+    $this->put(route('simulation-ratings.update', $teams[0]), ['ratings' => [$player->id => array_fill_keys(PlayerRatings::FIELDS, 99)]])->assertRedirect();
+    expect($game->fresh()->rosters)->toBe($snapshot);
+    $this->put(route('simulation-ratings.update', $teams[0]), ['ratings' => [$player->id => array_merge($ratings, ['speed' => 100])]])->assertSessionHasErrors('ratings.'.$player->id.'.speed');
+    $this->put(route('simulation-ratings.update', $teams[0]), ['ratings' => [$foreign->id => $ratings]])->assertNotFound();
+});
+
+test('exhibitions reject same team incomplete rosters and records from other saves', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[0]->id, 'quarter_length' => 180])->assertSessionHasErrors('away');
+    app(CurrentWorld::class)->id = LocalSetting::find(1)->current_world_id;
+    $empty = Team::create(['city' => 'Empty', 'name' => 'Team']);
+    $this->post(route('exhibitions.store'), ['home' => $empty->id, 'away' => $teams[0]->id, 'quarter_length' => 180])->assertSessionHasErrors('teams');
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $other = World::create(['name' => 'Other']);
+    LocalSetting::find(1)->update(['current_world_id' => $other->id]);
+    $this->get(route('exhibitions.show', $game))->assertNotFound();
+    $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'balanced', 'version' => 0])->assertNotFound();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertNotFound();
+});

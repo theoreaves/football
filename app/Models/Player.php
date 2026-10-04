@@ -10,6 +10,8 @@ class Player extends Model
 
     protected $guarded = [];
 
+    protected $casts = ['simulation_ratings' => 'array'];
+
     public function team()
     {
         return $this->hasOne(TeamPlayer::class);

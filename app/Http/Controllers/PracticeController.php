@@ -18,7 +18,7 @@ class PracticeController extends Controller
         return view('practice.index', compact('teams', 'home', 'away', 'appearance'));
     }
 
-    private function appearance(?Team $team, string $venue): array
+    public function appearance(?Team $team, string $venue): array
     {
         if (! $team) {
             return [];

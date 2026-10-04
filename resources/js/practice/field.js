@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
+import { sampleEnginePlay } from './engine-timeline.js';
 
 export function mountPractice(root) {
     if (root.dataset.mounted) return;
@@ -28,6 +29,10 @@ export function mountPractice(root) {
     renderer.domElement.setAttribute('aria-label', 'Three-dimensional practice football field');
     const appearance = JSON.parse(root.dataset.appearance || '{}');
     const home = appearance.home || {}, away = appearance.away || {};
+    const animation = root.dataset.animation ? JSON.parse(root.dataset.animation) : null;
+    const sample = (type, time) => animation ? sampleEnginePlay(animation, time) : samplePlay(type, time);
+    const duration = animation?.duration || DURATION;
+    const offenseSide = animation?.possession || 'home';
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x101a2b, 160, 280);
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 350);
@@ -89,14 +94,20 @@ export function mountPractice(root) {
         }
     }
     for (let x = 11; x < 110; x++) for (const z of [0.6, 23.6, 29.7, 52.7]) addBox(0.1, 0.03, 0.55, 0xddddcb, x, 0.06, z);
-    addBox(0.2, 0.04, 53.33, 0x379aff, 40, 0.08, 26.665);
-    addBox(0.2, 0.04, 53.33, 0xffc441, 50, 0.08, 26.665);
+    addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
+    addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
     for (const z of [-10, 64]) {
         for (let tier = 0; tier < 4; tier++) addBox(132, 2, 3, 0x293649, 60, tier * 2, z + (z < 0 ? -tier * 3 : tier * 3));
     }
-    const players = samplePlay('pass', 0).players.map(player => {
+    for (const x of [0, 120]) {
+        addBox(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
+        addBox(.18, .18, 6.2, 0xffcc33, x, 3.5, 26.7);
+        for (const z of [23.6, 29.8]) addBox(.18, 5, .18, 0xffcc33, x, 6, z);
+    }
+    const players = sample('pass', 0).players.map(player => {
         const group = new THREE.Group();
-        const kit = player.team === 'offense' ? home.uniform || {} : away.uniform || {};
+        const side = player.team === 'offense' ? offenseSide : (offenseSide === 'home' ? 'away' : 'home');
+        const kit = (side === 'home' ? home : away).uniform || {};
         const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.65, 4, 8), material(kit.shirt || (player.team === 'offense' ? 0x3997ff : 0xea535b)));
         body.position.y = 1.2; body.castShadow = true; group.add(body);
         const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), material(kit.helmet || (player.team === 'offense' ? 0xe9f2ff : 0xdddddd)));
@@ -107,15 +118,23 @@ export function mountPractice(root) {
             const sock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), material(kit.socks || '#ffffff'));
             sock.position.y = -0.3; leg.add(sock);
         }
+        if (player.number != null) {
+            const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d'); ctx.textAlign = 'center'; ctx.font = 'bold 48px sans-serif';
+            ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#111111'; ctx.lineWidth = 5;
+            ctx.strokeText(String(player.number), 32, 50); ctx.fillText(String(player.number), 32, 50);
+            const number = new THREE.Mesh(new THREE.PlaneGeometry(.5, .5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true }));
+            number.position.set(0, 1.25, .43); group.add(number);
+        }
         scene.add(group);
         return group;
     });
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), material(0x9d5829));
     ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; scene.add(ball);
-    let elapsed = 0, running = false, type = 'pass', speed = 1, lastTime = null, frameId;
+    let elapsed = 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     const renderState = () => {
-        const frame = samplePlay(type, elapsed);
-        const future = samplePlay(type, Math.min(DURATION, elapsed + 0.03));
+        const frame = sample(type, elapsed);
+        const future = sample(type, Math.min(duration, elapsed + 0.03));
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             const next = future.players[i];
@@ -127,10 +146,10 @@ export function mountPractice(root) {
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         ball.rotation.z = elapsed * 6;
-        const message = `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
+        const message = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
         if (status.textContent !== message) status.textContent = message;
         slider.value = elapsed;
-        root.querySelector('[data-time]').textContent = `${elapsed.toFixed(1)} / ${DURATION.toFixed(1)}s`;
+        root.querySelector('[data-time]').textContent = `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
     };
     const resize = () => {
         const width = host.clientWidth, height = Math.max(400, host.clientHeight);
@@ -139,19 +158,24 @@ export function mountPractice(root) {
     };
     const observer = new ResizeObserver(resize); observer.observe(host); resize();
     playButton.addEventListener('click', () => {
-        if (elapsed >= DURATION) elapsed = 0;
+        if (elapsed >= duration) elapsed = 0;
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
     root.querySelector('[data-reset]').addEventListener('click', () => { elapsed = 0; running = false; playButton.textContent = 'Play'; });
-    root.querySelector('[data-play-type]').addEventListener('change', event => { type = event.target.value; elapsed = 0; running = false; playButton.textContent = 'Play'; });
+    root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
     slider.addEventListener('input', () => { elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
+    if (running) playButton.textContent = 'Pause';
+    const callForm = root.querySelector('[data-call-form]');
+    callForm?.addEventListener('submit', () => {
+        const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
+    });
     const animate = now => {
-        if (lastTime !== null && running && !document.hidden) elapsed = Math.min(DURATION, elapsed + Math.min((now - lastTime) / 1000, 0.1) * speed);
+        if (lastTime !== null && running && !document.hidden) elapsed = Math.min(duration, elapsed + Math.min((now - lastTime) / 1000, 0.1) * speed);
         lastTime = now;
-        if (elapsed >= DURATION) { running = false; playButton.textContent = 'Replay'; }
+        if (elapsed >= duration) { running = false; playButton.textContent = 'Replay'; }
         renderState(); controls.update(); renderer.render(scene, camera);
         frameId = requestAnimationFrame(animate);
     };
