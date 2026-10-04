@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera } from './camera-state.js';
+import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
 export function mountPractice(root) {
@@ -122,6 +123,7 @@ export function mountPractice(root) {
         addBox(.18, .18, 6.2, 0xffcc33, x, 3.5, 26.7);
         for (const z of [23.6, 29.8]) addBox(.18, 5, .18, 0xffcc33, x, 6, z);
     }
+    if (animation?.firstDown === null) firstDownLine.visible = false;
     const players = sample('pass', 0).players.map(player => {
         const group = new THREE.Group();
         const side = player.team === 'offense' ? offenseSide : (offenseSide === 'home' ? 'away' : 'home');
@@ -150,6 +152,26 @@ export function mountPractice(root) {
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), material(0x9d5829));
     ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; scene.add(ball);
     const resultPopup = root.querySelector('[data-result-popup]');
+    const beforeState = root.dataset.beforeState ? JSON.parse(root.dataset.beforeState) : null;
+    const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
+    const teamNames = root.dataset.teamNames ? JSON.parse(root.dataset.teamNames) : null;
+    let revealed = root.dataset.autoplay !== 'true';
+    const showState = committed => {
+        if (!beforeState) return;
+        revealed = committed;
+        const state = committed ? afterState : beforeState, labels = scoreboardText(state, teamNames);
+        root.querySelector('[data-scoreboard]').textContent = labels.score;
+        root.querySelector('[data-clock]').textContent = labels.clock;
+        root.querySelector('[data-situation]').textContent = labels.situation;
+        root.querySelectorAll('[data-hidden-result]').forEach(el => el.hidden = !committed);
+        root.querySelectorAll('[data-stats]').forEach(el => {
+            const side = el.dataset.stats, stats = state.stats[side];
+            el.textContent = `${teamNames[side]}: ${stats.plays} plays · ${stats.yards} yards · ${stats.turnovers} turnovers`;
+        });
+        const count = root.querySelector('[data-log-count]');
+        if (count) count.textContent = committed ? afterState.version : beforeState.version;
+        const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
+    };
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
     let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? 'liningup' : 'play');
     const lineupDuration = 3;
@@ -171,6 +193,7 @@ export function mountPractice(root) {
             frame = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
             future = frame;
         }
+        if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= 5.3) showState(true);
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
@@ -200,6 +223,7 @@ export function mountPractice(root) {
         camera.position.x += delta; controls.target.x += delta; controls.update(); saveCamera();
     };
     const replayView = () => {
+        showState(false);
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
         moveFocus(animation?.line ?? 60);
@@ -225,6 +249,16 @@ export function mountPractice(root) {
     slider.addEventListener('input', () => { replayView(); elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';
     const callForm = root.querySelector('[data-call-form]');
+    if (callForm && root.dataset.defenseOptions) {
+        const options = JSON.parse(root.dataset.defenseOptions), call = callForm.querySelector('[name="call"]'), defense = callForm.querySelector('[name="defense"]');
+        const refreshCalls = () => {
+            const selected = defense.value;
+            defense.replaceChildren(...options[call.value].map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
+            if (options[call.value].includes(selected)) defense.value = selected;
+            callForm.querySelectorAll('[data-formation]').forEach(select => select.parentElement.hidden = ['punt','field_goal','kickoff','extra_point'].includes(call.value));
+        };
+        call.addEventListener('change', refreshCalls); refreshCalls();
+    }
     callForm?.addEventListener('submit', () => {
         saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';

@@ -6,18 +6,18 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point'];
 
     public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread'];
 
     public const DEFENSE_FORMATIONS = ['base_4_3' => 'Base 4–3', 'two_high' => '4–3 · two high safeties', 'single_high' => '4–3 · single high safety'];
 
-    public const DEFENSE = ['balanced', 'run_commit', 'coverage', 'blitz'];
+    public const DEFENSE = ['balanced', 'run_commit', 'coverage', 'blitz', 'punt_return', 'field_goal_block', 'kickoff_return'];
 
-    public function initial(int $quarterLength = 180, ?int $seed = null): array
+    public function initial(int $quarterLength = 180, ?int $seed = null, bool $openingKickoff = true): array
     {
-        return ['quarter' => 1, 'clock' => $quarterLength, 'quarter_length' => $quarterLength, 'possession' => 'home',
-            'spot' => 25, 'down' => 1, 'distance' => 10, 'home_score' => 0, 'away_score' => 0,
+        return ['quarter' => 1, 'clock' => $quarterLength, 'quarter_length' => $quarterLength, 'possession' => $openingKickoff ? 'away' : 'home', 'phase' => $openingKickoff ? 'kickoff' : 'scrimmage',
+            'spot' => $openingKickoff ? 35 : 25, 'down' => 1, 'distance' => 10, 'home_score' => 0, 'away_score' => 0,
             'status' => 'playing', 'version' => 0, 'seed' => $seed ?? random_int(1, 2147483647),
             'stats' => ['home' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0], 'away' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0]]];
     }
@@ -27,6 +27,13 @@ class ExhibitionEngine
         if ($state['status'] !== 'playing' || ! in_array($call, self::OFFENSE, true) || ! in_array($defense, self::DEFENSE, true) || ! array_key_exists($offenseFormation, self::OFFENSE_FORMATIONS) || ! array_key_exists($defenseFormation, self::DEFENSE_FORMATIONS)) {
             throw new LogicException('This game cannot accept that play.');
         }
+        if (! in_array($call, self::callsForState($state), true) || ! in_array($defense, self::defensesForCall($call), true)) {
+            throw new LogicException('Choose a call for the current phase.');
+        }
+        if (in_array($call, ['punt', 'field_goal', 'kickoff', 'extra_point'], true)) {
+            return app(SpecialTeams::class)->resolve($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
+        }
+        $state['phase'] = 'scrimmage';
         $before = $state;
         $side = $state['possession'];
         $other = $side === 'home' ? 'away' : 'home';
@@ -49,21 +56,7 @@ class ExhibitionEngine
         $target = 0;
         $carrier = 'RB';
         $flip = false;
-        if ($call === 'punt') {
-            $gain = min(100 - $state['spot'], (int) round(28 + $off['P']['ratings']['kicking'] * .2 + $roll() * 12));
-            $outcome = 'punt';
-            $flip = true;
-            $carrier = 'P';
-        } elseif ($call === 'field_goal') {
-            $distance = 117 - $state['spot'];
-            $good = $distance <= 65 && $roll() < max(.02, min(.98, 1.15 - max(0, $distance - 20) * .019 + ($off['K']['ratings']['kicking'] - 60) * .006));
-            $outcome = $good ? 'field_goal_good' : 'field_goal_missed';
-            $flip = true;
-            $carrier = 'K';
-            if ($good) {
-                $state[$side.'_score'] += 3;
-            }
-        } elseif (in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)) {
+        if (in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)) {
             $carrier = 'WR1';
             $sackChance = max(.01, min(.35, .08 + ($front - $block) * .003 + ($defense === 'blitz' ? .12 : 0) + ($offenseFormation === 'singleback' ? .02 : -.01)));
             if ($roll() < $sackChance) {
@@ -139,36 +132,30 @@ class ExhibitionEngine
             'interception' => "{$qb}'s pass intended for {$receiver} is intercepted by {$interceptor} {$gain} yards downfield",
             'fumble' => ($carrier === 'WR1' ? $completed : ($carrier === 'QB' ? "{$runner} is sacked by {$tackler} for {$yardage}" : $run))."; {$runner} fumbles, recovered by {$tackler}",
             'sack' => "{$qb} is sacked by {$tackler} for {$yardage}",
-            'punt' => $name($off['P'])." punts {$gain} yards",
-            'field_goal_good' => $name($off['K'])." makes a {$distance}-yard field goal",
-            'field_goal_missed' => $name($off['K'])." misses a {$distance}-yard field goal",
             default => ($carrier === 'WR1' ? $completed : $run).$tackle,
         };
-        if ($outcome === 'field_goal_good') {
-            $this->possession($state, $other, 25);
-        } elseif ($outcome === 'field_goal_missed') {
-            $this->possession($state, $other, min(99, max(20, 100 - ($before['spot'] - 7))));
-        } elseif ($outcome === 'punt') {
-            $this->possession($state, $other, $deadSpot >= 100 ? 20 : 100 - $deadSpot);
-        } elseif ($flip) {
+        if ($flip) {
             $state['stats'][$side]['turnovers']++;
             if ($deadSpot <= 0) {
-                $state[$other.'_score'] += 7;
-                $summary .= ' · defensive touchdown (+ automatic extra point)';
-                $this->possession($state, $side, 25);
+                $state[$other.'_score'] += 6;
+                $summary .= ' · defensive touchdown';
+                $this->possession($state, $other, 85);
+                $state['phase'] = 'extra_point';
             } else {
                 $this->possession($state, $other, $deadSpot >= 100 ? 20 : 100 - $deadSpot);
             }
         } elseif ($outcome !== 'incomplete' && $deadSpot >= 100) {
             $outcome = 'touchdown';
-            $summary .= ' · TOUCHDOWN (+ automatic extra point)';
-            $state[$side.'_score'] += 7;
-            $this->possession($state, $other, 25);
+            $summary .= ' · TOUCHDOWN';
+            $state[$side.'_score'] += 6;
+            $this->possession($state, $side, 85);
+            $state['phase'] = 'extra_point';
         } elseif ($outcome !== 'incomplete' && $deadSpot <= 0) {
             $outcome = 'safety';
             $summary .= ' · SAFETY';
             $state[$other.'_score'] += 2;
-            $this->possession($state, $other, 35);
+            $this->possession($state, $side, 20);
+            $state['phase'] = 'kickoff';
         } else {
             $state['spot'] = $deadSpot;
             if ($gain >= $before['distance']) {
@@ -185,26 +172,51 @@ class ExhibitionEngine
             }
         }
         $seconds = in_array($outcome, ['incomplete', 'interception', 'punt', 'field_goal_good', 'field_goal_missed'], true) ? $yards($roll(), 6, 12) : $yards($roll(), 28, 42);
+
+        return $this->finish($state, $before, [
+            'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
+            'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier, 'summary' => $summary,
+        ], $rosters, $seconds);
+    }
+
+    public static function callsForState(array $state): array
+    {
+        return match ($state['phase'] ?? 'scrimmage') {
+            'kickoff' => ['kickoff'], 'extra_point' => ['extra_point'], default => array_values(array_diff(self::OFFENSE, ['kickoff', 'extra_point'])),
+        };
+    }
+
+    public static function defensesForCall(string $call): array
+    {
+        return match ($call) {
+            'kickoff' => ['kickoff_return'], 'extra_point' => ['field_goal_block'],
+            'punt' => ['punt_return', 'balanced', 'blitz'], 'field_goal' => ['field_goal_block', 'balanced', 'blitz'],
+            default => ['balanced', 'run_commit', 'coverage', 'blitz'],
+        };
+    }
+
+    public function finish(array $state, array $before, array $play, array $rosters, int $seconds): array
+    {
         $state['clock'] = max(0, $state['clock'] - $seconds);
-        if ($state['clock'] === 0) {
+        if ($state['clock'] === 0 && ($state['phase'] ?? '') !== 'extra_point') {
             if ($state['quarter'] === 4) {
                 $state['status'] = 'final';
-                $summary .= ' · FINAL';
+                $play['summary'] .= ' · FINAL';
             } else {
                 $state['quarter']++;
                 $state['clock'] = $state['quarter_length'];
                 if ($state['quarter'] === 3) {
-                    $this->possession($state, 'away', 25);
-                    $summary .= ' · halftime, away receives';
+                    $this->possession($state, 'home', 35);
+                    $state['phase'] = 'kickoff';
+                    $play['summary'] .= ' · halftime, away receives';
                 }
             }
         }
         $state['version']++;
-        $play = ['number' => $state['version'], 'call' => $call, 'defense' => $defense,
-            'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation, 'outcome' => $outcome,
-            'gain' => $gain, 'target' => $target, 'carrier' => $carrier, 'summary' => ucfirst($summary), 'before' => $before,
-            'after' => $state, 'duration' => 6];
-        $play['animation'] = app(PlayTimeline::class)->build($play, $rosters);
+        $play += ['number' => $state['version'], 'before' => $before, 'after' => $state, 'duration' => 6];
+        $play['summary'] = ucfirst($play['summary']);
+        $play['animation'] = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
+            ? app(SpecialTeamsTimeline::class)->build($play, $rosters) : app(PlayTimeline::class)->build($play, $rosters);
 
         return ['state' => $state, 'play' => $play];
     }

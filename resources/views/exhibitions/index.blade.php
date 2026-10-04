@@ -13,7 +13,7 @@
         <label>Quarter length<select name="quarter_length" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="180">Quick game · 3 minutes</option><option value="900">Full game · 15 minutes</option></select></label>
         <button class="bg-blue-700 rounded px-5 py-2" @disabled($teams->count() < 2)>Start game</button>
     </form>
-    <p class="text-sm text-gray-400">First version: automatic touchbacks and extra points, simplified clock, no penalties, injuries, substitutions, or overtime. Ties stand.</p>
+    <p class="text-sm text-gray-400">First version: kickoffs, extra-point attempts, and a simplified clock, no penalties, injuries, substitutions, or overtime. Ties stand.</p>
     <div class="space-y-3">
         @forelse($games as $game)
             <a href="{{ route('exhibitions.show', $game) }}" class="block bg-gray-800 rounded p-4 hover:bg-gray-700">{{ $game->awayTeam->name }} {{ $game->state['away_score'] }} at {{ $game->homeTeam->name }} {{ $game->state['home_score'] }} <span class="text-gray-400 ml-4">{{ $game->state['status'] === 'final' ? 'Final' : 'Resume · Q'.$game->state['quarter'] }}</span></a>

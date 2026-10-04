@@ -63,3 +63,13 @@ test('players break huddle into the selected formation before the snap', async (
     assert.equal(end.event,'Set · Ready for the snap');
     assert.equal(JSON.stringify(formation),snapshot);
 });
+
+test('scoreboard uses the selected state without exposing the saved result', async () => {
+    const {scoreboardText}=await import('../../resources/js/practice/scoreboard.js');
+    const before={clock:32,quarter:1,status:'playing',possession:'home',phase:'scrimmage',down:2,distance:4,spot:99,home_score:0,away_score:0};
+    const after={...before,clock:0,phase:'extra_point',home_score:6};
+    assert.equal(scoreboardText(before,{home:'Hawks',away:'Tigers'}).score,'Tigers 0 — Hawks 0');
+    assert.equal(scoreboardText(before,{home:'Hawks',away:'Tigers'}).clock,'Q1 · 00:32');
+    assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).score,'Tigers 0 — Hawks 6');
+    assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).situation,'Hawks · Extra point');
+});

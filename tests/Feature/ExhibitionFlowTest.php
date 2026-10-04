@@ -22,8 +22,8 @@ test('exhibition starts from real rosters and duplicate snaps do not advance twi
     $game = Exhibition::withoutGlobalScopes()->firstOrFail();
     expect($game->rosters['home']['players'])->toHaveCount(24);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Call play')->assertSee('data-animation', false);
-    $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'coverage', 'version' => 0])->assertRedirect();
-    $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'coverage', 'version' => 0])->assertStatus(409);
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertStatus(409);
     $game->refresh();
     expect($game->state['version'])->toBe(1)->and($game->history)->toHaveCount(1);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Last play:');
@@ -72,6 +72,7 @@ test('formation choices persist and quarter halftime and final notices are rende
         $state['quarter'] = $quarter;
         $state['clock'] = 1;
         $state['status'] = 'playing';
+        $state['phase'] = 'scrimmage';
         $game->update(['state' => $state]);
         $this->post(route('exhibitions.play', $game), ['call' => 'medium_pass', 'defense' => 'coverage', 'version' => $state['version'],
             'offense_formation' => 'spread', 'defense_formation' => 'two_high'])->assertRedirect();
@@ -81,4 +82,16 @@ test('formation choices persist and quarter halftime and final notices are rende
         expect($play['offense_formation'])->toBe('spread')->and($play['defense_formation'])->toBe('two_high');
     }
     $this->post(route('exhibitions.play', $game), ['call' => 'short_pass', 'defense' => 'coverage', 'version' => $game->state['version'], 'offense_formation' => 'not-real'])->assertSessionHasErrors('offense_formation');
+});
+
+test('watch page renders the pre-play display and hides the new result until revealed', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'balanced', 'version' => 0])->assertSessionHasErrors('call');
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'coverage', 'version' => 0])->assertSessionHasErrors('defense');
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
+    $response = $this->get(route('exhibitions.show', ['exhibition' => $game, 'watch' => 1]))->assertOk();
+    $html = $response->getContent();
+    expect($html)->toMatch('/data-situation[^>]*>[^<]*Kickoff<\/p>/')->toContain('data-hidden-result  hidden');
 });

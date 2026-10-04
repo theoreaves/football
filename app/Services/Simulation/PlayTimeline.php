@@ -35,7 +35,7 @@ class PlayTimeline
         $qbSet = $qbStart - 2;
         $handoff = $qbStart - 1;
         $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true) && $play['carrier'] !== 'QB';
-        $special = in_array($play['call'], ['punt', 'field_goal'], true);
+        $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true);
         $endZ = $pass ? match ($play['call']) {
             'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
         } : ($play['call'] === 'outside_run' ? 42 : 27);

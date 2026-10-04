@@ -41,7 +41,10 @@ class ExhibitionController extends Controller
         $preview = $last ?? ['before' => $exhibition->state, 'call' => 'inside_run', 'outcome' => 'tackle', 'carrier' => 'RB', 'gain' => 0, 'target' => 0, 'summary' => 'Ready for the snap'];
         $animation = $last['animation'] ?? app(\App\Services\Simulation\PlayTimeline::class)->build($preview, $exhibition->rosters);
 
-        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last'));
+        $calls = ExhibitionEngine::callsForState($exhibition->state);
+        $defenseOptions = array_combine(ExhibitionEngine::OFFENSE, array_map(ExhibitionEngine::defensesForCall(...), ExhibitionEngine::OFFENSE));
+
+        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions'));
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
@@ -54,6 +57,7 @@ class ExhibitionController extends Controller
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
             abort_if($game->state['status'] !== 'playing', 409, 'This game is final.');
+            validator($data, ['call' => [Rule::in(ExhibitionEngine::callsForState($game->state))], 'defense' => [Rule::in(ExhibitionEngine::defensesForCall($data['call']))]])->validate();
             $result = $engine->resolve($game->state, $game->rosters, $data['call'], $data['defense'], $data['offense_formation'] ?? 'shotgun', $data['defense_formation'] ?? 'base_4_3');
             $history = $game->history;
             $history[] = $result['play'];
