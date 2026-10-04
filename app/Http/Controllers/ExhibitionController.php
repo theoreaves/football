@@ -21,12 +21,12 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean']]);
+        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $game = DB::transaction(fn () => Exhibition::create([
             'home_team_id' => $home->id, 'away_team_id' => $away->id,
-            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['rules' => ['penalties' => (bool) ($data['penalties'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
+            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
             'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
         ]));
 
@@ -53,13 +53,14 @@ class ExhibitionController extends Controller
         $defenseSide = $offenseSide === 'home' ? 'away' : 'home';
         $cpuOffense = $controls[$offenseSide] === 'cpu';
         $cpuDefense = $controls[$defenseSide] === 'cpu';
-        $cpuPlan = $cpuOffense ? $coach->offense($exhibition->state, $exhibition->rosters) : null;
+        $personnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state);
+        $cpuPlan = $cpuOffense ? $coach->offense($exhibition->state, $personnel) : null;
         $plannedCall = $cpuPlan['call'] ?? $calls[0];
         $humanDefenseOptions = ExhibitionEngine::defensesForCall($plannedCall);
 
         $boxScore = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition);
 
-        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore'));
+        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel'));
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
@@ -119,7 +120,7 @@ class ExhibitionController extends Controller
                 $result = $engine->timeout($game->state, $game->rosters, $timeoutTeam);
             } else {
                 if ($controls[$side] === 'cpu') {
-                    $offense = $coach->offense($game->state, $game->rosters);
+                    $offense = $coach->offense($game->state, app(\App\Services\Simulation\GamePersonnel::class)->active($game->rosters, $game->state));
                 } else {
                     $human = $request->validate(['call' => ['required', Rule::in(ExhibitionEngine::callsForState($game->state))],
                         'offense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))]]);

@@ -12,6 +12,7 @@
             @endforeach
             <label>Skin tone<input type="color" name="skin_tone" value="{{ old('skin_tone', $player->skin_tone ?? '#c78e61') }}" class="block w-full h-10"></label>
             <label>Jersey number<input type="number" name="jersey_number" min="0" max="99" value="{{ old('jersey_number', $pivot['jersey_number']) }}" class="block w-full border rounded p-2"></label>
+            <p class="text-sm text-gray-600">Depth order: QB1 starts before QB2; WR1–WR3 fill receiver slots. Stamina controls fatigue and recovery; durability controls injury risk. Higher ratings are better. Changes apply to new games.</p>
             <label>Roster depth<input name="depth_chart_position" value="{{ old('depth_chart_position', $pivot['depth_chart_position']) }}" placeholder="QB1, WR2, LB3…" class="block w-full border rounded p-2"></label>
         </div>
         <h2 class="font-semibold">Engine ratings (1–99)</h2>

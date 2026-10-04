@@ -34,6 +34,7 @@ class ExhibitionEngine
         if (! in_array($tempo, ['normal', 'hurry', 'drain'], true) || ! in_array($clockStrategy, ['normal', 'sideline'], true)) {
             throw new LogicException('Choose a valid tempo and clock strategy.');
         }
+        $rosters = app(GamePersonnel::class)->active($rosters, $state);
         if (in_array($call, ['two_point_run', 'two_point_pass'], true)) {
             return $this->twoPoint($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
         }
@@ -286,6 +287,14 @@ class ExhibitionEngine
         $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
             ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
 
+        $personnel = app(GamePersonnel::class)->afterPlay($state, $before, $play, $rosters);
+        $state = $personnel['state'];
+        $play['personnel_notices'] = $personnel['notices'];
+        $play['after'] = $state;
+        if ($personnel['notices']) {
+            $play['summary'] .= ' · '.implode(' · ', $personnel['notices']);
+        }
+
         if ($decisionOptions) {
             $play['penalty_options'] = $decisionOptions;
             $state['penalty_pending'] = true;
@@ -299,6 +308,7 @@ class ExhibitionEngine
 
     public function timeout(array $state, array $rosters, string $side): array
     {
+        $rosters = app(GamePersonnel::class)->active($rosters, $state);
         $state = app(GameClock::class)->normalize($state);
         if ($state['status'] !== 'playing' || ! in_array($side, ['home', 'away'], true) || $state['timeouts'][$side] <= 0 || ! $state['clock_running']) {
             throw new LogicException('A timeout needs a running clock and an available timeout.');
@@ -346,7 +356,7 @@ class ExhibitionEngine
         $before['spot'] = 98 + ($state['try_adjustment'] ?? 0);
         $before['distance'] = 100 - $before['spot'];
         $before['clock_running'] = false;
-        $simulation = array_merge($before, ['phase' => 'scrimmage', 'clock' => 180, 'quarter' => 1, 'untimed_down' => false]);
+        $simulation = array_merge($before, ['phase' => 'scrimmage', 'clock' => 180, 'quarter' => 1, 'untimed_down' => false, '_personnel_simulation' => true]);
         $resolved = $this->resolve($simulation, $rosters, $call === 'two_point_pass' ? 'short_pass' : 'inside_run', $defense, $offenseFormation, $defenseFormation);
 
         return $this->finishTry($state, $before, $resolved, $rosters, $call);

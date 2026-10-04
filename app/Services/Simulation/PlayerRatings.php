@@ -6,7 +6,7 @@ use App\Models\Player;
 
 class PlayerRatings
 {
-    public const FIELDS = ['speed', 'acceleration', 'strength', 'awareness', 'throwing', 'catching', 'blocking', 'coverage', 'tackling', 'ball_security', 'kicking'];
+    public const FIELDS = ['speed', 'acceleration', 'strength', 'awareness', 'throwing', 'catching', 'blocking', 'coverage', 'tackling', 'ball_security', 'kicking', 'stamina', 'durability'];
 
     public function generate(Player $player): array
     {

@@ -333,6 +333,12 @@ export function mountPractice(root) {
     root.querySelector('[data-fullscreen]')?.addEventListener('click', async () => {
         try { if (document.fullscreenElement) await document.exitFullscreen(); else await root.requestFullscreen(); } catch { /* The full-window field remains available. */ }
     });
+    const personnelDialog = root.querySelector('[data-personnel-dialog]');
+    root.querySelector('[data-open-personnel]')?.addEventListener('click', () => personnelDialog?.showModal());
+    const injuryDialog = root.querySelector('[data-injury-dialog]');
+    const injuryKey = `${cameraKey}:injury:${root.dataset.playNumber}`;
+    let injuryShown = false;
+    try { injuryShown = sessionStorage.getItem(injuryKey) === 'shown'; } catch { /* Optional persistence. */ }
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
     let penaltyShown = false;
@@ -349,6 +355,12 @@ export function mountPractice(root) {
             return;
         }
         if (penaltyDialog?.open) return;
+        if (injuryDialog && !injuryShown) {
+            injuryShown = true; injuryDialog.showModal();
+            try { sessionStorage.setItem(injuryKey, 'shown'); } catch { /* Optional persistence. */ }
+            return;
+        }
+        if (injuryDialog?.open) return;
         if (!quarterDialog || quarterShown) return;
         quarterShown = true;
         quarterDialog.showModal();
@@ -372,7 +384,8 @@ export function mountPractice(root) {
     if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
     penaltyDialog?.addEventListener('close', showQuarter);
-    if ((quarterDialog || penaltyDialog) && root.dataset.autoplay !== 'true') showQuarter();
+    injuryDialog?.addEventListener('close', showQuarter);
+    if ((quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const silenceHidden = () => { if (document.hidden) audio.setActive(false); };
     document.addEventListener('visibilitychange', silenceHidden);
     const animate = now => {
@@ -408,7 +421,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open || penaltyDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

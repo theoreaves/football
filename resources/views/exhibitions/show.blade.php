@@ -54,6 +54,31 @@
         <p class="mt-2 text-sm text-gray-400">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
     </div>
     @endif
+    @if($last && !empty($last['personnel_notices']))
+    <dialog data-injury-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-orange-400 p-6 max-w-xl backdrop:bg-black/70">
+        <h2 class="text-2xl font-semibold text-orange-300">Player availability</h2>
+        @foreach($last['personnel_notices'] as $notice)<p class="mt-3">{{ $notice }}</p>@endforeach
+        <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">OK</button></form>
+    </dialog>
+    @endif
+    <button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel class="fixed bottom-4 right-4 z-30 bg-gray-800 border border-gray-600 rounded px-4 py-2">Depth / injuries</button>
+    <dialog data-personnel-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto backdrop:bg-black/70">
+        <div class="flex justify-between items-center gap-4"><h2 class="text-xl font-semibold">Depth chart and availability</h2><form method="dialog"><button class="border rounded px-3 py-2">Close</button></form></div>
+        <p class="text-sm text-gray-300 mt-3">Lowest depth number starts. Tired players rotate with a rested backup; injuries force replacements. Fatigue lowers performance by up to 25%. Edit player stamina, durability and depth in Teams before starting a new exhibition.</p>
+        @foreach($personnel as $side => $roster)
+            <h3 class="font-semibold text-lg mt-5">{{ $teamNames[$side] }}</h3>
+            @if(!isset($roster['pool']))<p class="text-orange-300">Start a new exhibition to capture backups and enable injuries.</p>@endif
+            <table class="w-full text-sm mt-3"><thead><tr class="text-left"><th class="p-2">Role</th><th class="p-2">Player</th><th class="p-2">Fatigue</th><th class="p-2">Status</th></tr></thead><tbody>
+            @foreach($roster['pool'] ?? $roster['players'] as $player)
+                @php
+                    $roles = array_keys(array_filter($roster['players'], fn ($active) => $active['id'] === $player['id']));
+                    $injury = $state['injuries'][$side][$player['id']] ?? null;
+                @endphp
+                <tr class="border-t border-gray-700"><td class="p-2">{{ $player['depth'] ?? implode(', ', $roles) }}</td><td class="p-2">#{{ $player['number'] }} {{ $player['name'] }}</td><td class="p-2">{{ round($state['fatigue'][$side][$player['id']] ?? 0) }}%</td><td class="p-2">{{ $injury ? ($injury['return_snap'] === null ? 'Out for game' : 'Out · '.max(0, $injury['return_snap'] - ($state['personnel_snaps'] ?? 0)).' snaps') : ($roles ? 'Active · '.implode(', ', $roles) : 'Backup') }}</td></tr>
+            @endforeach
+            </tbody></table>
+        @endforeach
+    </dialog>
     @if($last && isset($last['penalty']) && !($last['penalty']['decided'] ?? false))
     <dialog data-penalty-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-yellow-400 p-6 max-w-xl backdrop:bg-black/70">
         <h2 class="text-2xl font-semibold text-yellow-300">Flag: {{ ucwords(str_replace('_', ' ', $last['penalty']['type'])) }}</h2>
