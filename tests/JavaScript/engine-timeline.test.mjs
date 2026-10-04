@@ -107,3 +107,26 @@ test('jersey numbers render the roster number on both outward-facing shirt surfa
     addJerseyNumbers(unnumbered, {}, document);
     assert.equal(unnumbered.children.length, 0);
 });
+
+test('carrier indicator follows explicit possession rather than nearby tacklers and hides during transitions', async () => {
+    const { ballCarrier, carrierLabel } = await import('../../resources/js/practice/ball-carrier.js');
+    const players = [{ team: 'offense', role: 'WR1', name: 'Receiver', number: 8, x: 50, z: 20 }, { team: 'defense', role: 'CB1', name: 'Corner', number: 21, x: 50, z: 20 }];
+    const animation = { duration: 6, players: players.map(player => ({ ...player, path: [[0, 50, 0, 20], [6, 50, 0, 20]] })), ball: [[0, 50, 1, 20], [6, 50, 1, 20]], events: [[0, 'Pass']], ballHolders: [[0, 'offense', 'WR1'], [2.2, null, null], [3.8, 'defense', 'CB1']] };
+    assert.equal(ballCarrier(sampleEnginePlay(animation, 1)).name, 'Receiver');
+    assert.equal(ballCarrier(sampleEnginePlay(animation, 3)), null);
+    const caught = sampleEnginePlay(animation, 4);
+    assert.equal(ballCarrier(caught).name, 'Corner');
+    assert.equal(carrierLabel(ballCarrier(caught)), 'Ball: #21 Corner');
+    assert.equal(ballCarrier(caught, 'huddle'), null);
+    assert.equal(ballCarrier(caught, 'liningup'), null);
+    assert.equal(ballCarrier(sampleEnginePlay(animation, 0)).name, 'Receiver');
+});
+
+test('older saved replays identify holders without highlighting high or loose balls', async () => {
+    const { ballCarrier } = await import('../../resources/js/practice/ball-carrier.js');
+    const frame = { players: [{ team: 'offense', role: 'QB', x: 35, z: 26 }], ball: { x: 35, y: 1, z: 26 } };
+    assert.equal(ballCarrier(frame).role, 'QB');
+    assert.equal(ballCarrier({ ...frame, ball: { ...frame.ball, y: 7 } }), null);
+    assert.equal(ballCarrier({ ...frame, ball: { ...frame.ball, y: .25 } }), null);
+    assert.equal(ballCarrier({ ...frame, ballHolder: null }), null);
+});

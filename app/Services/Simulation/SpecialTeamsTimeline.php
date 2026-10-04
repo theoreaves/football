@@ -49,6 +49,10 @@ class SpecialTeamsTimeline
             $point(3.5, $landing, $height, $endZ), $point(5.3, $end, $height, $endZ), $point(6, $end, $height, $endZ)];
         $base['events'] = [[0, $kickoff ? 'Kickoff setup' : 'Snap'], [1.2, 'Kick'], [2.4, $blocked ? 'Kick blocked' : 'Kick in flight'],
             [3.5, $goalKick ? 'Kick reaches the goal' : ($return ? 'Return' : 'Kick lands')], [5.3, $play['summary']]];
+        $base['ballHolders'] = $kickoff || $goalKick ? [[0, null, null]] : [[0, 'offense', 'C'], [.01, null, null], [.35, 'offense', 'QB'], [1.2, null, null]];
+        if (! $goalKick && ! str_ends_with($play['outcome'], '_touchback')) {
+            $base['ballHolders'][] = [3.5, 'defense', 'CB1'];
+        }
         $base['firstDown'] = null;
 
         return $base;

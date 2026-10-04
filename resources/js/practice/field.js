@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera, cameraPreset } from './camera-state.js';
+import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { addJerseyNumbers } from './jersey-numbers.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
@@ -148,6 +149,14 @@ export function mountPractice(root) {
     });
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), material(0x9d5829));
     ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; scene.add(ball);
+    const carrierArrow = new THREE.Mesh(new THREE.ConeGeometry(.5, .9, 4), new THREE.MeshBasicMaterial({ color: 0xffdf00 }));
+    carrierArrow.rotation.z = Math.PI;
+    scene.add(carrierArrow);
+    const carrierRing = new THREE.Mesh(new THREE.RingGeometry(.7, .9, 32), new THREE.MeshBasicMaterial({ color: 0xffdf00, side: THREE.DoubleSide }));
+    carrierRing.rotation.x = -Math.PI / 2;
+    scene.add(carrierRing);
+    const ballGlow = new THREE.Mesh(new THREE.SphereGeometry(.5, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffdf00, transparent: true, opacity: .28, depthWrite: false }));
+    scene.add(ballGlow);
     const resultPopup = root.querySelector('[data-result-popup]');
     const beforeState = root.dataset.beforeState ? JSON.parse(root.dataset.beforeState) : null;
     const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
@@ -205,7 +214,16 @@ export function mountPractice(root) {
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         ball.rotation.z = elapsed * 6;
-        const message = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
+        const holder = ballCarrier(frame, phase);
+        carrierArrow.visible = carrierRing.visible = Boolean(holder);
+        if (holder) {
+            carrierArrow.position.set(holder.x, 3.2, holder.z);
+            carrierRing.position.set(holder.x, .12, holder.z);
+        }
+        ballGlow.visible = !holder && ['play', 'result'].includes(phase);
+        ballGlow.position.copy(ball.position);
+        const eventMessage = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
+        const message = holder ? `${eventMessage} · ${carrierLabel(holder)}` : eventMessage;
         if (status.textContent !== message) status.textContent = message;
         slider.value = elapsed;
         root.querySelector('[data-time]').textContent = phase === 'liningup' ? `Forming up · ${(lineupProgress * lineupDuration).toFixed(1)} / ${lineupDuration.toFixed(1)}s` : phase === 'set' ? `Ready · ${(setDuration - setElapsed).toFixed(1)}s` : `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;

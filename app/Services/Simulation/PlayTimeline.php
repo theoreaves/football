@@ -105,7 +105,21 @@ class PlayTimeline
             'incomplete' => 'Incomplete pass', 'interception' => 'Intercepted', default => 'Catch'
         } : 'Pursuit'], [5.3, $play['summary']]];
 
-        return ['duration' => 6, 'players' => $tracks, 'ball' => $ball, 'events' => $events, 'line' => $line,
+        $holders = [[0, 'offense', 'C'], [.01, null, null], [.35, 'offense', 'QB']];
+        if ($special) {
+            $holders[] = [1.2, null, null];
+        } elseif ($pass) {
+            $holders[] = [2.2, null, null];
+            $holders[] = [3.8, $play['outcome'] === 'incomplete' ? null : ($play['outcome'] === 'interception' ? 'defense' : 'offense'), $play['outcome'] === 'interception' ? 'CB1' : 'WR1'];
+        } elseif ($play['carrier'] === 'RB') {
+            $holders[] = [.6, null, null];
+            $holders[] = [1, 'offense', 'RB'];
+        }
+        if ($play['outcome'] === 'fumble') {
+            $holders[] = [5.3, 'defense', $play['carrier'] === 'WR1' ? 'CB1' : 'LB2'];
+        }
+
+        return ['duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])), 'possession' => $side];
     }
 }

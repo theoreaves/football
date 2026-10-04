@@ -207,3 +207,27 @@ test('punt returns and kick blocks have bounded tracks and phase-appropriate pos
     }
     expect($seen)->toHaveKeys(['punt_return', 'field_goal_blocked', 'extra_point_good', 'extra_point_missed', 'kickoff_touchback']);
 });
+
+test('animation possession tracks distinguish passes turnovers and handoffs', function () {
+    $timeline = app(\App\Services\Simulation\PlayTimeline::class);
+    $base = ['before' => ['possession' => 'home', 'spot' => 25, 'distance' => 10], 'gain' => 8, 'target' => 8, 'summary' => 'Result'];
+    foreach (['complete', 'incomplete', 'interception', 'fumble'] as $outcome) {
+        $animation = $timeline->build($base + ['call' => 'short_pass', 'carrier' => 'WR1', 'outcome' => $outcome], engineRosters());
+        expect($animation['ballHolders'][3])->toBe([2.2, null, null]);
+        expect($animation['ballHolders'][4][1])->toBe($outcome === 'incomplete' ? null : ($outcome === 'interception' ? 'defense' : 'offense'));
+        if ($outcome === 'fumble') {
+            expect($animation['ballHolders'][5])->toBe([5.3, 'defense', 'CB1']);
+        }
+    }
+    $run = $timeline->build($base + ['call' => 'inside_run', 'carrier' => 'RB', 'outcome' => 'tackle'], engineRosters());
+    expect($run['ballHolders'])->toBe([[0, 'offense', 'C'], [.01, null, null], [.35, 'offense', 'QB'], [.6, null, null], [1, 'offense', 'RB']]);
+    $special = app(\App\Services\Simulation\SpecialTeamsTimeline::class);
+    foreach (['kickoff_return', 'kickoff_touchback'] as $outcome) {
+        $kick = $special->build($base + ['call' => 'kickoff', 'carrier' => 'K', 'outcome' => $outcome, 'landing' => 80, 'return_yards' => $outcome === 'kickoff_return' ? 10 : 0], engineRosters());
+        expect($kick['ballHolders'][0])->toBe([0, null, null]);
+        expect(count($kick['ballHolders']))->toBe($outcome === 'kickoff_return' ? 2 : 1);
+        if ($outcome === 'kickoff_return') {
+            expect($kick['ballHolders'][1])->toBe([3.5, 'defense', 'CB1']);
+        }
+    }
+});

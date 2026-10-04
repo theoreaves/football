@@ -16,6 +16,10 @@ export function sampleEnginePlay(animation, elapsed) {
     return {
         time,
         players: animation.players.map(player => ({ ...player, ...sampleTrack(player.path, time) })),
+        ballHolder: animation.ballHolders ? (() => {
+            const holder = animation.ballHolders.filter(entry => entry[0] <= time).at(-1);
+            return holder?.[1] ? { team: holder[1], role: holder[2] } : null;
+        })() : undefined,
         ball: sampleTrack(animation.ball, time),
         event: animation.events.filter(event => event[0] <= time).at(-1)?.[1] || 'Ready',
     };

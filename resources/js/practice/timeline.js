@@ -70,5 +70,5 @@ export function samplePlay(type, elapsed) {
     const event = time < 0.35 ? 'Snap' : time >= 5.3 ? 'Tackle · play complete'
         : pass ? (time < 2.2 ? 'Dropback' : time < 3.8 ? 'Pass in flight' : 'Catch · run after catch')
             : time < 1 ? 'Handoff' : 'Run through the right-side gap';
-    return { time, ball, players: [...offensePlayers, ...defensePlayers], event, carrier };
+    return { time, ball, players: [...offensePlayers, ...defensePlayers], event, carrier, ballHolder: time === 0 ? { team: 'offense', role: 'C' } : time < .35 || (pass && time >= 2.2 && time < 3.8) || (!pass && time >= .6 && time < 1) ? null : { team: 'offense', role: time < (pass ? 3.8 : 1) ? 'QB' : carrier } };
 }
