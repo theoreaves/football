@@ -21,8 +21,13 @@ export function mountPractice(root) {
     renderer.setClearColor(0x101a2b);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
     host.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('aria-label', 'Three-dimensional practice football field');
+    const appearance = JSON.parse(root.dataset.appearance || '{}');
+    const home = appearance.home || {}, away = appearance.away || {};
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x101a2b, 160, 280);
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 350);
@@ -32,8 +37,8 @@ export function mountPractice(root) {
     controls.minDistance = 16;
     controls.maxDistance = 180;
     const setCamera = mode => {
-        camera.position.set(...(mode === 'overhead' ? [60, 112, 26.7] : [22, 55, 98]));
-        controls.target.set(55, 0, 26.7);
+        camera.position.set(...(mode === 'overhead' ? [60, 112, 26.7] : [60, 65, 112]));
+        controls.target.set(60, 0, 26.7);
         controls.update();
     };
     setCamera('broadcast');
@@ -55,8 +60,20 @@ export function mountPractice(root) {
     addBox(144, 0.3, 78, 0x18392a, 60, -0.4, 26.7);
     addBox(120, 0.15, 53.33, 0x285d38, 60, -0.1, 26.665);
     for (let x = 10; x < 110; x += 10) addBox(10, 0.02, 53.33, x % 20 ? 0x31723f : 0x296638, x + 5, 0, 26.665);
-    addBox(10, 0.03, 53.33, 0x174880, 5, 0.02, 26.665);
-    addBox(10, 0.03, 53.33, 0x7a252c, 115, 0.02, 26.665);
+    addBox(10, 0.03, 53.33, home.endzone_background || 0x174880, 5, 0.02, 26.665);
+    addBox(10, 0.03, 53.33, home.endzone_background || 0x7a252c, 115, 0.02, 26.665);
+    for (const x of [5, 115]) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024; canvas.height = 160;
+        const context = canvas.getContext('2d');
+        context.fillStyle = home.endzone_text_color || '#ffffff';
+        context.textAlign = 'center'; context.textBaseline = 'middle';
+        context.font = 'bold 100px sans-serif';
+        context.fillText(home.endzone_text || home.name || 'FOOTBALL', 512, 80, 960);
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(44, 7), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }));
+        sign.rotation.set(-Math.PI / 2, 0, x === 5 ? Math.PI / 2 : -Math.PI / 2);
+        sign.position.set(x, 0.08, 26.665); scene.add(sign);
+    }
     for (const z of [0, 53.33]) addBox(120, 0.03, 0.18, 0xf3f1d9, 60, 0.05, z);
     for (let x = 10; x <= 110; x += 5) {
         addBox(0.13, 0.03, 53.33, 0xf3f1d9, x, 0.05, 26.665);
@@ -79,13 +96,16 @@ export function mountPractice(root) {
     }
     const players = samplePlay('pass', 0).players.map(player => {
         const group = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.65, 4, 8), material(player.team === 'offense' ? 0x3997ff : 0xea535b));
-        body.position.y = 1; body.castShadow = true; group.add(body);
-        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), material(player.team === 'offense' ? 0xe9f2ff : 0xdddddd));
-        helmet.position.y = 1.85; helmet.castShadow = true; group.add(helmet);
-        for (const offset of [-0.18, 0.18]) {
-            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.6, 0.22), material(0xe2e8f0));
-            leg.position.set(offset, 0.3, 0); group.add(leg);
+        const kit = player.team === 'offense' ? home.uniform || {} : away.uniform || {};
+        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.65, 4, 8), material(kit.shirt || (player.team === 'offense' ? 0x3997ff : 0xea535b)));
+        body.position.y = 1.2; body.castShadow = true; group.add(body);
+        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), material(kit.helmet || (player.team === 'offense' ? 0xe9f2ff : 0xdddddd)));
+        helmet.position.y = 2.05; helmet.castShadow = true; group.add(helmet);
+        for (const offset of [-0.29, 0.29]) {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.6, 0.22), material(kit.pants || 0xe2e8f0));
+            leg.position.set(offset, 0.5, 0); group.add(leg);
+            const sock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), material(kit.socks || '#ffffff'));
+            sock.position.y = -0.3; leg.add(sock);
         }
         scene.add(group);
         return group;
@@ -125,6 +145,7 @@ export function mountPractice(root) {
     root.querySelector('[data-reset]').addEventListener('click', () => { elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-play-type]').addEventListener('change', event => { type = event.target.value; elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
+    root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
     slider.addEventListener('input', () => { elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
     const animate = now => {

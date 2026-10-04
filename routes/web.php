@@ -19,7 +19,7 @@ Route::get('/worlds', [\App\Http\Controllers\WorldController::class, 'index'])->
 Route::post('/worlds', [\App\Http\Controllers\WorldController::class, 'store'])->name('worlds.store');
 Route::post('/worlds/{world}/select', [\App\Http\Controllers\WorldController::class, 'select'])->whereNumber('world')->name('worlds.select');
 Route::post('/worlds/close', [\App\Http\Controllers\WorldController::class, 'close'])->name('worlds.close');
-Route::view('/practice', 'practice.index')->name('practice');
+Route::get('/practice', \App\Http\Controllers\PracticeController::class)->name('practice');
 
 Route::middleware([\App\Http\Middleware\RequireWorld::class])->group(function () {
 

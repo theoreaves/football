@@ -1,5 +1,5 @@
     <x-layouts.app>
-<div class="max-w-5xl mx-auto p-6 bg-white">
+<div class="max-w-5xl mx-auto p-6 bg-white text-gray-900">
         @if(session('status'))
             <div class="mb-4 p-3 border rounded bg-green-50">
                 {{ session('status') }}
@@ -44,6 +44,28 @@
             @if($mode === 'edit')
                 @method('PUT')
             @endif
+
+            <section class="border rounded p-4 space-y-4">
+                <h2 class="text-xl font-semibold">3D uniforms and home field</h2>
+                @foreach(['home' => 'Home uniform', 'away' => 'Away uniform'] as $venue => $label)
+                    <h3 class="font-semibold">{{ $label }}</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        @foreach(['helmet', 'shirt', 'pants', 'socks'] as $part)
+                            @php
+                                $field = "uniform_{$venue}_{$part}";
+                                $default = $part === 'shirt' ? ($venue === 'home' ? ($team->team_color1 ?? '#3997ff') : '#ffffff') : '#e2e8f0';
+                            @endphp
+                            <label>{{ ucfirst($part) }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?? $default) }}" class="block w-full h-10 border rounded mt-1"></label>
+                        @endforeach
+                    </div>
+                @endforeach
+                <label class="block">End zone text<input name="endzone_text" maxlength="40" value="{{ old('endzone_text', $team->endzone_text ?? $team->name) }}" class="block w-full border rounded p-2"></label>
+                <div class="grid grid-cols-2 gap-4">
+                    <label>End zone background<input type="color" name="endzone_background" value="{{ old('endzone_background', $team->endzone_background ?? $team->team_color1 ?? '#174880') }}" class="block w-full h-10 border rounded"></label>
+                    <label>End zone lettering<input type="color" name="endzone_text_color" value="{{ old('endzone_text_color', $team->endzone_text_color ?? '#ffffff') }}" class="block w-full h-10 border rounded"></label>
+                </div>
+                <p class="text-sm text-gray-600">Preview these settings on the practice field. Both end zones use the home team's design.</p>
+            </section>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

@@ -3,18 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Team;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
-
-use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\UploadedFile;
-
-use Illuminate\Support\Facades\DB;
-use Smalot\PdfParser\Parser as PdfParser;
 use App\Services\TeamCardParser;
-
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Smalot\PdfParser\Parser as PdfParser;
 
 class TeamEditor extends Controller
 {
@@ -27,7 +23,7 @@ class TeamEditor extends Controller
 
     public function create()
     {
-        $team = new Team();
+        $team = new Team;
 
         return view('teams.editor.form', [
             'team' => $team,
@@ -44,7 +40,7 @@ class TeamEditor extends Controller
         $this->handleUploads($request, $team);
 
         return redirect()
-            ->route('teams.edit', $team)
+            ->route('teams.editor.edit', $team)
             ->with('status', 'Team created.');
     }
 
@@ -72,9 +68,9 @@ class TeamEditor extends Controller
     public function destroy(Team $team)
     {
         // optional: delete team images folder
-//        Storage::disk('public')->deleteDirectory("teams/{$team->id}");
+        //        Storage::disk('public')->deleteDirectory("teams/{$team->id}");
 
-//        $team->delete();
+        //        $team->delete();
 
         return redirect()
             ->route('teams.editor.index')
@@ -85,7 +81,18 @@ class TeamEditor extends Controller
     {
         $hex = ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'];
 
-        return $request->validate([
+        $appearance = [
+            'endzone_text' => ['nullable', 'string', 'max:40'],
+            'endzone_background' => $hex,
+            'endzone_text_color' => $hex,
+        ];
+        foreach (['home', 'away'] as $venue) {
+            foreach (['helmet', 'shirt', 'pants', 'socks'] as $part) {
+                $appearance["uniform_{$venue}_{$part}"] = $hex;
+            }
+        }
+
+        return $request->validate(array_merge($appearance, [
             'city' => ['required', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
 
@@ -110,7 +117,7 @@ class TeamEditor extends Controller
             'wear_white_at_home' => ['required', 'boolean'],
 
             // files validated in handleUploads() so update doesn’t require re-upload
-        ]);
+        ]));
     }
 
     private function handleUploads(Request $request, Team $team): void
@@ -162,6 +169,7 @@ class TeamEditor extends Controller
                     $storedPath = "teams/{$team->id}/{$field}.png";
                     Storage::disk('public')->put($storedPath, $pngBytes);
                     $team->update([$field => $storedPath]);
+
                     continue;
                 }
                 // fall through to store original if wand fails
@@ -169,14 +177,13 @@ class TeamEditor extends Controller
 
             $storedPath = $file->storeAs(
                 "teams/{$team->id}",
-                "{$field}." . $file->getClientOriginalExtension(),
+                "{$field}.".$file->getClientOriginalExtension(),
                 'public'
             );
 
             $team->update([$field => $storedPath]);
         }
     }
-
 
     private function old_handleUploads(Request $request, Team $team): void
     {
@@ -206,7 +213,7 @@ class TeamEditor extends Controller
             $file = $request->file($field);
             $storedPath = $file->storeAs(
                 "teams/{$team->id}",
-                "{$field}." . $file->getClientOriginalExtension(),
+                "{$field}.".$file->getClientOriginalExtension(),
                 'public'
             );
 
@@ -217,7 +224,7 @@ class TeamEditor extends Controller
     private function removeBackgroundToPngBytesWand(UploadedFile $file, int $tol = 25): ?string
     {
         $base = rtrim(config('services.bg_remove.url'), '/');
-        $url  = $base . '/remove-wand?tol=' . $tol;
+        $url = $base.'/remove-wand?tol='.$tol;
 
         $token = config('services.bg_remove.token');
 
@@ -244,7 +251,6 @@ class TeamEditor extends Controller
         }
     }
 
-
     public function importTeamCard(Request $request, \App\Models\Team $team)
     {
         $data = $request->validate([
@@ -256,19 +262,19 @@ class TeamEditor extends Controller
         $file = $request->file('team_card_pdf');
 
         // Store explicitly on local disk
-        $path = 'imports/team-cards/' . uniqid('teamcard_', true) . '.pdf';
+        $path = 'imports/team-cards/'.uniqid('teamcard_', true).'.pdf';
         Storage::disk('local')->put($path, file_get_contents($file->getRealPath()));
 
         $fullPath = Storage::disk('local')->path($path);
         abort_unless(is_file($fullPath), 500, "PDF was not written to disk: {$fullPath}");
 
         // Extract text from the PDF (THIS was commented out)
-        $pdfParser = new PdfParser();
+        $pdfParser = new PdfParser;
         $pdf = $pdfParser->parseFile($fullPath);
         $text = $pdf->getText();
-//        dd($text);
+        //        dd($text);
 
-        if (!trim($text)) {
+        if (! trim($text)) {
             return back()->withErrors([
                 'team_card_pdf' => 'This PDF has no extractable text (might be scanned). OCR support would be needed.',
             ]);
@@ -280,20 +286,20 @@ class TeamEditor extends Controller
         DB::transaction(function () use ($rows, $team, $year) {
             foreach ($rows as $row) {
                 $playerData = $row['player'];
-                $pivotData  = $row['pivot'];
+                $pivotData = $row['pivot'];
 
                 $player = \App\Models\Player::updateOrCreate(
                     [
                         'firstname' => $playerData['firstname'],
-                        'lastname'  => $playerData['lastname'],
-                        'position'  => $playerData['position'],
+                        'lastname' => $playerData['lastname'],
+                        'position' => $playerData['position'],
                     ],
                     $playerData
                 );
 
                 DB::table('team_players')->updateOrInsert(
                     [
-                        'team_id'   => $team->id,
+                        'team_id' => $team->id,
                         'player_id' => $player->id,
                         'team_year' => $year,
                     ],
@@ -309,7 +315,4 @@ class TeamEditor extends Controller
             ->route('teams.editor.edit', $team)
             ->with('status', "Imported team card for {$year}.");
     }
-
-
-
 }

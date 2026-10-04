@@ -140,10 +140,11 @@ test('livewire updates reject a snapshot from a previously selected save', funct
 
 test('local migration rolls back and reapplies without losing existing saves', function () {
     $save = footballSave();
-    $this->artisan('migrate:rollback', ['--step' => 1, '--force' => true])->assertSuccessful();
+    $migration = require database_path('migrations/2026_10_04_000001_enable_local_saved_games.php');
+    $migration->down();
     expect(Illuminate\Support\Facades\Schema::hasTable('local_settings'))->toBeFalse();
     $this->assertDatabaseHas('worlds', ['id' => $save->id]);
-    $this->artisan('migrate', ['--force' => true])->assertSuccessful();
+    $migration->up();
     expect(Illuminate\Support\Facades\Schema::hasTable('local_settings'))->toBeTrue();
 });
 
