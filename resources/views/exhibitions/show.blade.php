@@ -94,6 +94,13 @@
         <span class="text-xs text-gray-400">Drag to orbit · Scroll to zoom</span>
     </div>
     <div data-field class="game-field"></div>
+    <details class="game-audio absolute right-4 top-36 z-20 bg-gray-900/90 border border-gray-600 rounded p-3 text-sm">
+        <summary class="cursor-pointer">Stadium sound</summary>
+        <button type="button" data-sound-toggle class="border border-gray-500 rounded px-3 py-1 mt-2" aria-pressed="true">Sound on</button>
+        @foreach(['master' => 'Master volume', 'crowd' => 'Crowd volume', 'effects' => 'Effects and stadium cues'] as $channel => $label)
+        <label class="block mt-2">{{ $label }}<input data-sound-volume="{{ $channel }}" type="range" min="0" max="100" step="1" class="block w-48 accent-blue-400"></label>
+        @endforeach
+    </details>
     <div class="game-timeline flex items-center gap-4"><label class="sr-only" for="play-timeline">Replay timeline</label><input id="play-timeline" data-timeline type="range" min="0" max="6" step="0.01" value="0" class="flex-1 accent-blue-400"><span data-time class="text-gray-400 text-sm">0.0 / 6.0s</span></div>
     <p data-status aria-live="polite" class="game-status text-blue-300">Loading field…</p>
     @if($last)<p data-hidden-result @if($watching) hidden @endif class="game-last-result">Last play: {{ $last['summary'] }}</p>@endif

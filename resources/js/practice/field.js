@@ -1,3 +1,5 @@
+import { stadiumAudio } from './stadium-audio.js';
+import { soundCues, crossedCues } from './sound-cues.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -202,6 +204,9 @@ export function mountPractice(root) {
         if (count) count.textContent = committed ? afterState.version : beforeState.version;
         const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
     };
+    const audio = stadiumAudio(root);
+    const cues = soundCues(animation, beforeState, afterState);
+    let audioTime = -2;
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
     let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
     const lineupDuration = 3;
@@ -271,6 +276,7 @@ export function mountPractice(root) {
         moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
+        audioTime = -2;
         showState(false);
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
@@ -286,16 +292,16 @@ export function mountPractice(root) {
     if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
         if (phase !== 'play' && phase !== 'liningup' && phase !== 'set') replayView();
-        if (elapsed >= duration) elapsed = 0;
+        if (elapsed >= duration) { elapsed = 0; audioTime = -2; }
         setCpuAuto(false);
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
     root.querySelector('[data-reset]').addEventListener('click', () => { setCpuAuto(false); replayView(); elapsed = 0; running = false; playButton.textContent = 'Play'; });
-    root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; running = false; playButton.textContent = 'Play'; });
+    root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; audioTime = -2; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
-    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); running = false; playButton.textContent = 'Play'; });
+    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); audioTime = elapsed; running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';
     const callForm = root.querySelector('[data-call-form]');
     if (callForm && root.dataset.defenseOptions) {
@@ -367,6 +373,8 @@ export function mountPractice(root) {
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
     penaltyDialog?.addEventListener('close', showQuarter);
     if ((quarterDialog || penaltyDialog) && root.dataset.autoplay !== 'true') showQuarter();
+    const silenceHidden = () => { if (document.hidden) audio.setActive(false); };
+    document.addEventListener('visibilitychange', silenceHidden);
     const animate = now => {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
         if (running && phase === 'liningup') {
@@ -390,6 +398,13 @@ export function mountPractice(root) {
             postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
+        const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !boxDialog?.open && (running || phase === 'result' || (phase === 'huddle' && huddleProgress < 1));
+        audio.setActive(audible);
+        const soundTime = phase === 'liningup' || phase === 'set' ? -1 : phase === 'result' ? duration + postElapsed : elapsed;
+        if (audible) {
+            if (running || phase === 'result') crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
+            audioTime = soundTime;
+        } else if (running || phase === 'result') audioTime = soundTime;
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
@@ -403,6 +418,8 @@ export function mountPractice(root) {
     const cleanup = () => {
         if (disposed) return;
         disposed = true;
+        document.removeEventListener('visibilitychange', silenceHidden);
+        audio.dispose();
         saveCamera();
         controls.removeEventListener('end', saveCamera);
         document.removeEventListener('livewire:navigating', cleanup);
