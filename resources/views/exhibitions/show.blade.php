@@ -14,7 +14,7 @@
     <p class="text-sm text-gray-400">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
     <p data-clock-management class="text-sm text-gray-300">Timeouts: {{ $teamNames['home'] }} {{ $shown['timeouts']['home'] ?? 3 }} · {{ $teamNames['away'] }} {{ $shown['timeouts']['away'] ?? 3 }} · {{ ($shown['clock_running'] ?? false) ? 'Clock running' : 'Clock stopped' }}@if($shown['untimed_down'] ?? false) · Untimed down @endif</p>
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
-    @if($state['status'] === 'playing')
+    @if($state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
     <form data-call-form @if($watching) hidden @endif method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="flex flex-wrap gap-4 items-end bg-gray-800 rounded-xl p-4">
         @csrf<input type="hidden" name="version" value="{{ $state['version'] }}">
         @unless($cpuOffense)
@@ -34,7 +34,7 @@
         <button data-snap class="bg-blue-700 rounded px-6 py-2">{{ $cpuOffense && $cpuDefense ? 'Next CPU play' : 'Call play & watch' }}</button><p class="text-xs text-gray-400">{{ $cpuOffense || $cpuDefense ? 'CPU calls are chosen automatically.' : 'You call both teams.' }} Results save at the snap; replaying changes no stats.</p>
     </form>
     @endif
-    @if($state['status'] === 'playing' && $state['clock_running'])
+    @if($state['status'] === 'playing' && $state['clock_running'] && !($state['penalty_pending'] ?? false))
     <div data-hidden-result @if($watching) hidden @endif class="flex flex-wrap gap-3">
     @foreach(['home', 'away'] as $timeoutSide)
         @if($controls[$timeoutSide] === 'human' && $state['timeouts'][$timeoutSide] > 0)
@@ -52,6 +52,31 @@
         <p class="mt-2">{{ $last['summary'] }}</p>
         <p class="mt-2 text-sm text-gray-400">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
     </div>
+    @endif
+    @if($last && isset($last['penalty']) && !($last['penalty']['decided'] ?? false))
+    <dialog data-penalty-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-yellow-400 p-6 max-w-xl backdrop:bg-black/70">
+        <h2 class="text-2xl font-semibold text-yellow-300">Flag: {{ ucwords(str_replace('_', ' ', $last['penalty']['type'])) }}</h2>
+        <p class="mt-3">On {{ $teamNames[$last['penalty']['team']] }}.</p>
+        <p class="mt-3 text-gray-300">{{ $last['penalty']['explanation'] }}</p>
+        @if(!($last['no_snap'] ?? false) && isset($last['penalty']['play_result']))<p class="mt-3 text-gray-300">Play result: {{ $last['penalty']['play_result'] }}</p>@endif
+        <p class="mt-3 text-sm text-gray-400">Yardage is reduced to half the distance to the goal when needed.</p>
+        @if($state['penalty_pending'] ?? false)
+            <p class="mt-3">{{ $teamNames[$last['penalty']['beneficiary']] }} chooses:</p>
+            <div class="grid gap-3 mt-4">
+            @foreach(['accept' => 'Accept', 'decline' => 'Decline'] as $decision => $label)
+                @php($option = $last['penalty_options'][$decision]['state'])
+                <form data-penalty-form method="POST" action="{{ route('exhibitions.play', $exhibition) }}">@csrf
+                    <input type="hidden" name="version" value="{{ $state['version'] }}"><input type="hidden" name="action" value="penalty"><input type="hidden" name="decision" value="{{ $decision }}">
+                    <button class="bg-blue-700 rounded px-5 py-2">{{ $label }}</button>
+                    <span class="ml-2 text-sm">{{ $teamNames[$option['possession']] }} · Down {{ $option['down'] }} & {{ $option['distance'] }} · {{ $option['spot'] <= 50 ? 'Own '.$option['spot'] : 'Opponent '.(100-$option['spot']) }} · Score {{ $option['away_score'] }}–{{ $option['home_score'] }}</span>
+                </form>
+            @endforeach
+            </div>
+        @else
+            <p class="mt-3">{{ $teamNames[$last['penalty']['beneficiary']] }} CPU {{ $last['penalty']['accepted'] ? 'accepted' : 'declined' }} the penalty.</p>
+            <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">OK</button></form>
+        @endif
+    </dialog>
     @endif
     @if($last && (($last['two_minute_warning'] ?? false) || $last['before']['quarter'] !== $last['after']['quarter'] || $last['after']['status'] === 'final'))
     <dialog data-quarter-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-md backdrop:bg-black/70">

@@ -77,9 +77,9 @@ test('special teams safety halftime and final boundaries are handled', function 
     expect($miss['state']['home_score'])->toBe(0)->and($miss['state']['spot'])->toBe(77);
     $safety = engineOutcome('slant', 'safety', ['spot' => 1]);
     expect($safety['state']['away_score'])->toBe(2)->and($safety['state']['phase'])->toBe('kickoff');
-    $half = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 2, 'clock' => 1]), engineRosters(), 'inside_run', 'balanced');
+    $half = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 2, 'clock' => 1, 'rules' => ['penalties' => false]]), engineRosters(), 'inside_run', 'balanced');
     expect($half['state']['quarter'])->toBe(3)->and($half['state']['clock'])->toBe(180)->and($half['state']['possession'])->toBe('home')->and($half['state']['spot'])->toBe(35);
-    $final = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 4, 'clock' => 1]), engineRosters(), 'inside_run', 'balanced');
+    $final = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 4, 'clock' => 1, 'rules' => ['penalties' => false]]), engineRosters(), 'inside_run', 'balanced');
     expect($final['state']['status'])->toBe('final');
     expect(fn () => $engine->resolve($final['state'], engineRosters(), 'slant', 'balanced'))->toThrow(LogicException::class);
 });

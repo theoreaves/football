@@ -151,3 +151,25 @@ test('CPU autoplay waits for the huddle and stops for pauses quarter notices hid
         assert.equal(canAdvanceCpu({ ...ready, ...blocked }), false);
     }
 });
+
+test('camera anchor follows ball flight without changing zoom orbit or manual pan', async () => {
+    const { cameraPreset, translateCameraAnchor, captureCamera, restoreCamera } = await import('../../resources/js/practice/camera-state.js');
+    for (const mode of ['broadcast', 'overhead', 'quarterback']) {
+        const start = [35, 0, 26.7];
+        let {position, target} = cameraPreset(mode, start);
+        position = position.map((value, i) => value + [2, 0, 3][i]);
+        target = target.map((value, i) => value + [2, 0, 3][i]);
+        const offset = position.map((value, i) => value - target[i]);
+        let anchor = start;
+        for (const ball of [[30, 1, 26.7], [50, 12, 18], [75, 1, 5]]) {
+            ({position, target} = translateCameraAnchor(position, target, anchor, ball));
+            anchor = ball;
+            position.forEach((value, i) => assert.ok(Math.abs(value - target[i] - offset[i]) < 1e-10));
+            target.forEach((value, i) => assert.ok(Math.abs(value - ball[i] - [2, 0, 3][i]) < 1e-10));
+        }
+        const saved = captureCamera(mode, position, target, anchor);
+        const next = restoreCamera(saved, [80, 0, 26.7]);
+        assert.deepEqual(next.target, [82, 0, 29.7]);
+        next.position.forEach((value, i) => assert.ok(Math.abs(value - next.target[i] - offset[i]) < 1e-10));
+    }
+});

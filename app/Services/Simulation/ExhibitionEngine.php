@@ -54,7 +54,15 @@ class ExhibitionEngine
         if ($prePenalty) {
             $result = app(PenaltyRules::class)->enforce($state, $state, $this->stoppage('No snap', 'penalty'), $prePenalty);
 
-            return $this->finish($result['state'], $state, $result['play'], $rosters, 0);
+            $finished = $this->finish($result['state'], $state, $result['play'], $rosters, 0);
+            if (app(CpuCoach::class)->controls($state)[$result['play']['penalty']['beneficiary']] === 'human') {
+                $declined = app(PenaltyRules::class)->enforce($state, $state, $this->stoppage('No snap', 'penalty'), $prePenalty, false);
+                $finished['play']['penalty_options'] = ['accept' => $finished, 'decline' => $this->finish($declined['state'], $state, $declined['play'], $rosters, 0)];
+                $finished['state']['penalty_pending'] = true;
+                $finished['play']['after'] = $finished['state'];
+            }
+
+            return $finished;
         }
         if (in_array($call, ['spike', 'kneel'], true)) {
             return $this->clockPlay($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
@@ -243,8 +251,16 @@ class ExhibitionEngine
         $historyBefore = $context['before'] ?? $snapBefore;
         $play += ['runoff_seconds' => $context['runoff'] ?? 0, 'tempo' => $context['tempo'] ?? 'normal', 'clock_strategy' => $context['strategy'] ?? 'normal', 'snap_clock' => $snapBefore['clock']];
         $penalty = app(PenaltyRules::class)->live($snapBefore, $play);
+        $decisionOptions = null;
         if ($penalty) {
             $result = app(PenaltyRules::class)->enforce($snapBefore, $state, $play, $penalty);
+            $beneficiary = $result['play']['penalty']['beneficiary'];
+            if (app(CpuCoach::class)->controls($state)[$beneficiary] === 'human') {
+                foreach (['accept' => true, 'decline' => false] as $decision => $choice) {
+                    $option = app(PenaltyRules::class)->enforce($snapBefore, $state, $play, $penalty, $choice);
+                    $decisionOptions[$decision] = $this->finish($option['state'], $before, $option['play'], $rosters, $seconds);
+                }
+            }
             $state = $result['state'];
             $play = $result['play'];
         }
@@ -257,6 +273,14 @@ class ExhibitionEngine
         $animationPlay = array_merge($play, ['outcome' => $play['live_outcome'] ?? $play['outcome']]);
         $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
             ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
+
+        if ($decisionOptions) {
+            $play['penalty_options'] = $decisionOptions;
+            $state['penalty_pending'] = true;
+            $play['after'] = $state;
+            $play['summary'] = 'FLAG: '.ucwords(str_replace('_', ' ', $play['penalty']['type'])).' · awaiting '.$play['penalty']['beneficiary'].' decision';
+            $play['animation']['events'][count($play['animation']['events']) - 1][1] = $play['summary'];
+        }
 
         return ['state' => $state, 'play' => $play];
     }

@@ -66,24 +66,42 @@ class ExhibitionController extends Controller
         $side = $exhibition->state['possession'];
         $rules = ['version' => ['required', 'integer', 'min:0']];
         $action = $request->input('action', 'play');
-        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout'])];
+        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty'])];
         if ($action === 'timeout') {
             $rules['timeout_team'] = ['required', Rule::in(['home', 'away'])];
         }
-        if ($action !== 'timeout' && $controls[$side] === 'human') {
+        if ($action === 'play' && $controls[$side] === 'human') {
             $rules['call'] = ['required', Rule::in(ExhibitionEngine::OFFENSE)];
             $rules['tempo'] = ['sometimes', Rule::in(['normal', 'hurry', 'drain'])];
             $rules['clock_strategy'] = ['sometimes', Rule::in(['normal', 'sideline'])];
             $rules['offense_formation'] = ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))];
         }
-        if ($action !== 'timeout' && $controls[$side === 'home' ? 'away' : 'home'] === 'human') {
+        if ($action === 'play' && $controls[$side === 'home' ? 'away' : 'home'] === 'human') {
             $rules['defense'] = ['required', Rule::in(ExhibitionEngine::DEFENSE)];
             $rules['defense_formation'] = ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))];
+        }
+        if ($action === 'penalty') {
+            $rules['decision'] = ['required', Rule::in(['accept', 'decline'])];
         }
         $data = $request->validate($rules);
         DB::transaction(function () use ($exhibition, $engine, $data, $request) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
+            if ($request->input('action') === 'penalty') {
+                $history = $game->history;
+                $index = count($history) - 1;
+                $last = $history[$index] ?? [];
+                abort_unless($game->state['penalty_pending'] ?? false, 409, 'This penalty was already decided.');
+                $beneficiary = $last['penalty']['beneficiary'];
+                abort_unless(app(CpuCoach::class)->controls($game->state)[$beneficiary] === 'human', 422, 'The CPU decides this penalty.');
+                $option = $last['penalty_options'][$data['decision']];
+                $option['play']['penalty']['decided'] = true;
+                $history[$index] = $option['play'];
+                $game->update(['state' => $option['state'], 'history' => $history]);
+
+                return;
+            }
+            abort_if($game->state['penalty_pending'] ?? false, 409, 'Accept or decline the penalty before continuing.');
             abort_if($game->state['status'] !== 'playing', 409, 'This game is final.');
             $coach = app(CpuCoach::class);
             $controls = $coach->controls($game->state);
@@ -120,6 +138,6 @@ class ExhibitionController extends Controller
             $game->update(['state' => $result['state'], 'history' => $history]);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => 1]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => $action === 'penalty' ? 0 : 1]);
     }
 }

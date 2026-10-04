@@ -17,3 +17,8 @@ export function cameraPreset(mode, focus, direction = 1) {
     const offset = mode === 'quarterback' ? [-22 * direction, 10, 0] : mode === 'overhead' ? [0, 85, .01] : [0, 48, 65];
     return { target: [...focus], position: focus.map((value, i) => value + offset[i]) };
 }
+
+export function translateCameraAnchor(position, target, previousAnchor, nextAnchor) {
+    const shift = nextAnchor.map((value, i) => value - previousAnchor[i]);
+    return { position: position.map((value, i) => value + shift[i]), target: target.map((value, i) => value + shift[i]) };
+}

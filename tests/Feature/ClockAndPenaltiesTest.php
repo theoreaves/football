@@ -219,3 +219,75 @@ test('human timeout requests are version checked scoped and cannot control the C
     $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'timeout', 'timeout_team' => 'home'])->assertStatus(422);
     $this->get(route('exhibitions.show', [$game, 'watch' => 1]))->assertOk();
 });
+
+test('human penalty choices commit the selected outcome once and block intervening plays', function (string $decision) {
+    $this->withoutVite();
+    $world = World::create(['name' => 'Flags']);
+    LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    $this->artisan('world:seed-demo', ['world' => $world->id, '--teams' => 2])->assertSuccessful();
+    app(CurrentWorld::class)->id = $world->id;
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 900])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->firstOrFail();
+    $engine = app(ExhibitionEngine::class);
+    for ($seed = 1; $seed < 500; $seed++) {
+        $result = $engine->resolve($engine->initial(900, $seed, false), $game->rosters, 'inside_run', 'balanced');
+        if (($result['play']['penalty']['type'] ?? '') === 'holding') {
+            break;
+        }
+    }
+    expect($result['state']['penalty_pending'])->toBeTrue();
+    $expected = $result['play']['penalty_options'][$decision];
+    app(CurrentWorld::class)->id = $world->id;
+    $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-penalty-dialog', false)->assertSee('Accept')->assertSee('Decline')->assertSee('illegally held');
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'call' => 'inside_run', 'defense' => 'balanced'])->assertStatus(409);
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'penalty', 'decision' => $decision])->assertStatus(409);
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertRedirect(route('exhibitions.show', [$game, 'watch' => 0]));
+    $game->refresh();
+    expect($game->state)->toBe($expected['state'])->and($game->history)->toHaveCount(1);
+    expect($game->history[0]['penalty']['accepted'])->toBe($decision === 'accept');
+    expect($game->history[0]['penalty']['decided'])->toBeTrue();
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertDontSee('data-penalty-dialog', false);
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertStatus(409);
+})->with(['accept', 'decline']);
+
+test('dead ball fouls offer unchanged down on decline and CPU penalties need only acknowledgment', function () {
+    $engine = app(ExhibitionEngine::class);
+    for ($seed = 1; $seed < 500; $seed++) {
+        $result = $engine->resolve($engine->initial(900, $seed, false), clockRosters(), 'inside_run', 'balanced');
+        if (($result['play']['penalty']['type'] ?? '') === 'false_start') {
+            break;
+        }
+    }
+    expect($result['play']['animation']['no_snap'])->toBeTrue();
+    expect($result['play']['penalty_options']['accept']['state']['spot'])->toBe(20);
+    expect($result['play']['penalty_options']['decline']['state']['spot'])->toBe(25);
+    expect($result['play']['penalty_options']['decline']['state']['down'])->toBe(1);
+    $state = $engine->initial(900, $seed, false);
+    $state['controls'] = ['home' => 'cpu', 'away' => 'cpu'];
+    $cpu = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced');
+    expect($cpu['state']['penalty_pending'] ?? false)->toBeFalse();
+    expect($cpu['play'])->not->toHaveKey('penalty_options');
+    expect($cpu['play']['penalty']['beneficiary'])->toBe('away');
+    expect($cpu['play']['penalty']['explanation'])->toContain('before the snap');
+});
+
+test('human defensive penalty choices preserve an untimed down or allow the final whistle', function () {
+    $engine = app(ExhibitionEngine::class);
+    for ($seed = 1; $seed < 500; $seed++) {
+        $state = $engine->initial(900, $seed, false);
+        $state['quarter'] = 4;
+        $state['clock'] = 1;
+        $result = $engine->resolve($state, clockRosters(), 'short_pass', 'balanced');
+        if (($result['play']['penalty']['type'] ?? '') === 'defensive_pass_interference') {
+            break;
+        }
+    }
+    $accepted = $result['play']['penalty_options']['accept']['state'];
+    $declined = $result['play']['penalty_options']['decline']['state'];
+    expect($accepted['untimed_down'])->toBeTrue()->and($accepted['status'])->toBe('playing')->and($accepted['clock'])->toBe(0);
+    expect($declined['untimed_down'])->toBeFalse()->and($declined['status'])->toBe('final');
+    expect($accepted['stats']['away']['penalties'])->toBe(1);
+    expect($declined['stats']['away']['penalties'])->toBe(0);
+});

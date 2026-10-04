@@ -73,6 +73,7 @@ test('formation choices persist and quarter halftime and final notices are rende
         $state['clock'] = 1;
         $state['status'] = 'playing';
         $state['phase'] = 'scrimmage';
+        $state['rules']['penalties'] = false;
         $game->update(['state' => $state]);
         $this->post(route('exhibitions.play', $game), ['call' => 'medium_pass', 'defense' => 'coverage', 'version' => $state['version'],
             'offense_formation' => 'spread', 'defense_formation' => 'two_high'])->assertRedirect();

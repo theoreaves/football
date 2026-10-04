@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
-import { captureCamera, restoreCamera, cameraPreset } from './camera-state.js';
+import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor } from './camera-state.js';
 import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { addJerseyNumbers } from './jersey-numbers.js';
@@ -49,6 +49,12 @@ export function mountPractice(root) {
     controls.minDistance = 16;
     controls.maxDistance = 180;
     const focus = [animation?.line ?? 40, 0, 26.7];
+    const moveAnchor = anchor => {
+        const moved = translateCameraAnchor(camera.position.toArray(), controls.target.toArray(), focus, anchor);
+        camera.position.set(...moved.position);
+        controls.target.set(...moved.target);
+        focus.splice(0, 3, ...anchor);
+    };
     const cameraKey = root.dataset.cameraKey || 'football-practice-camera';
     const cameraSelect = root.querySelector('[data-camera]');
     let cameraMode = 'broadcast';
@@ -217,6 +223,7 @@ export function mountPractice(root) {
             mesh.children[3].rotation.x = -mesh.children[2].rotation.x;
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
+        if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);
         ball.rotation.z = elapsed * 6;
         const holder = ballCarrier(frame, phase);
         carrierArrow.visible = carrierRing.visible = Boolean(holder);
@@ -247,8 +254,7 @@ export function mountPractice(root) {
             controls.target.z = 2 * focus[2] - controls.target.z;
         }
         cameraDirection = direction;
-        const delta = line - focus[0]; focus[0] = line;
-        camera.position.x += delta; controls.target.x += delta; controls.update(); saveCamera();
+        moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
         showState(false);
@@ -297,10 +303,21 @@ export function mountPractice(root) {
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
     });
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
+    const penaltyDialog = root.querySelector('[data-penalty-dialog]');
+    let penaltyShown = false;
+    penaltyDialog?.addEventListener('cancel', event => event.preventDefault());
+    root.querySelectorAll('[data-penalty-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); }));
     const quarterKey = `${cameraKey}:quarter:${root.dataset.playNumber}`;
     let quarterShown = false;
     try { quarterShown = sessionStorage.getItem(quarterKey) === 'shown'; } catch { /* Show it once per page. */ }
     const showQuarter = () => {
+        if (penaltyDialog && !penaltyShown) {
+            penaltyShown = true;
+            penaltyDialog.showModal();
+            penaltyDialog.querySelector('button')?.focus();
+            return;
+        }
+        if (penaltyDialog?.open) return;
         if (!quarterDialog || quarterShown) return;
         quarterShown = true;
         quarterDialog.showModal();
@@ -323,7 +340,8 @@ export function mountPractice(root) {
 
     if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; });
-    if (quarterDialog && root.dataset.autoplay !== 'true') showQuarter();
+    penaltyDialog?.addEventListener('close', showQuarter);
+    if ((quarterDialog || penaltyDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const animate = now => {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
         if (running && phase === 'liningup') {
@@ -340,7 +358,7 @@ export function mountPractice(root) {
             else showQuarter();
         } else if (phase === 'result') {
             postElapsed += delta;
-            if (postElapsed >= 3) {
+            if (postElapsed >= 10) {
                 resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
             }
         } else if (phase === 'huddle' && huddleProgress < 1) {
@@ -350,7 +368,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open || penaltyDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);
