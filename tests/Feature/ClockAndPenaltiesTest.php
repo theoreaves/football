@@ -31,13 +31,13 @@ function clockState(array $changes = []): array
 test('tempo changes pre-snap runoff without changing the underlying play and cannot snap after expiry', function () {
     $engine = app(ExhibitionEngine::class);
     $state = clockState(['quarter' => 4, 'clock' => 90, 'clock_running' => true]);
-    $hurry = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced', 'shotgun', 'base_4_3', 'hurry');
-    $drain = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced', 'shotgun', 'base_4_3', 'drain');
+    $hurry = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man', 'shotgun', 'base_4_3', 'hurry');
+    $drain = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man', 'shotgun', 'base_4_3', 'drain');
     expect($hurry['play']['gain'])->toBe($drain['play']['gain']);
     expect($hurry['state']['clock'] - $drain['state']['clock'])->toBe(35);
     expect($hurry['play']['runoff_seconds'])->toBe(3)->and($drain['play']['runoff_seconds'])->toBe(38);
     expect($drain['play']['before']['clock'])->toBe(90)->and($drain['play']['snap_clock'])->toBe(52);
-    $expired = $engine->resolve(clockState(['quarter' => 4, 'clock' => 20, 'clock_running' => true]), clockRosters(), 'deep_pass', 'balanced', 'shotgun', 'base_4_3', 'drain');
+    $expired = $engine->resolve(clockState(['quarter' => 4, 'clock' => 20, 'clock_running' => true]), clockRosters(), 'deep_pass', 'man_to_man', 'shotgun', 'base_4_3', 'drain');
     expect($expired['state']['status'])->toBe('final')->and($expired['play']['no_snap'])->toBeTrue();
     expect($expired['state']['stats']['home']['plays'])->toBe(0);
     expect($expired['play']['animation']['no_snap'])->toBeTrue();
@@ -47,12 +47,12 @@ test('two minute warning interrupts runoff once per half and also stops a play c
     $engine = app(ExhibitionEngine::class);
     foreach ([2, 4] as $quarter) {
         $state = clockState(['quarter' => $quarter, 'clock' => 130, 'clock_running' => true]);
-        $warning = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced');
+        $warning = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man');
         expect($warning['state']['clock'])->toBe(120)->and($warning['state']['warnings'][$quarter])->toBeTrue();
         expect($warning['play']['two_minute_warning'])->toBeTrue()->and($warning['state']['clock_running'])->toBeFalse();
-        $next = $engine->resolve($warning['state'], clockRosters(), 'inside_run', 'balanced');
+        $next = $engine->resolve($warning['state'], clockRosters(), 'inside_run', 'man_to_man');
         expect($next['play']['two_minute_warning'] ?? false)->toBeFalse();
-        $crossing = $engine->resolve(clockState(['quarter' => $quarter, 'clock' => 121]), clockRosters(), 'inside_run', 'balanced');
+        $crossing = $engine->resolve(clockState(['quarter' => $quarter, 'clock' => 121]), clockRosters(), 'inside_run', 'man_to_man');
         expect($crossing['state']['clock'])->toBeLessThan(120)->and($crossing['play']['two_minute_warning'])->toBeTrue();
         expect($crossing['state']['clock_running'])->toBeFalse();
     }
@@ -73,23 +73,23 @@ test('timeouts stop the clock without a snap and reset at halftime only', functi
     expect(fn () => $engine->timeout(clockState(), clockRosters(), 'home'))->toThrow(LogicException::class);
     $state['quarter'] = 1;
     $state['clock'] = 1;
-    $quarter = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced');
+    $quarter = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man');
     expect($quarter['state']['quarter'])->toBe(2)->and($quarter['state']['timeouts']['away'])->toBe(0);
     $state['quarter'] = 2;
-    $half = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced');
+    $half = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man');
     expect($half['state']['quarter'])->toBe(3)->and($half['state']['timeouts'])->toBe(['home' => 3, 'away' => 3]);
 });
 
 test('spikes consume a down and stop the clock while kneels keep it running', function () {
     $engine = app(ExhibitionEngine::class);
     $state = clockState(['quarter' => 4, 'clock' => 90]);
-    $spike = $engine->resolve($state, clockRosters(), 'spike', 'balanced', 'shotgun', 'base_4_3', 'hurry');
+    $spike = $engine->resolve($state, clockRosters(), 'spike', 'man_to_man', 'shotgun', 'base_4_3', 'hurry');
     expect($spike['state']['down'])->toBe(2)->and($spike['state']['clock'])->toBe(89)->and($spike['state']['clock_running'])->toBeFalse();
-    $kneel = $engine->resolve($state, clockRosters(), 'kneel', 'balanced');
+    $kneel = $engine->resolve($state, clockRosters(), 'kneel', 'man_to_man');
     expect($kneel['state']['spot'])->toBe(24)->and($kneel['state']['distance'])->toBe(11)->and($kneel['state']['clock_running'])->toBeTrue();
-    $fourth = $engine->resolve(array_merge($state, ['down' => 4]), clockRosters(), 'spike', 'balanced');
+    $fourth = $engine->resolve(array_merge($state, ['down' => 4]), clockRosters(), 'spike', 'man_to_man');
     expect($fourth['state']['possession'])->toBe('away')->and($fourth['state']['clock_running'])->toBeFalse();
-    $safety = $engine->resolve(array_merge($state, ['spot' => 1]), clockRosters(), 'kneel', 'balanced');
+    $safety = $engine->resolve(array_merge($state, ['spot' => 1]), clockRosters(), 'kneel', 'man_to_man');
     expect($safety['state']['away_score'])->toBe(2)->and($safety['state']['phase'])->toBe('kickoff');
 });
 
@@ -98,7 +98,7 @@ test('sideline strategy can sacrifice yardage to stop the clock in the last two 
     $found = false;
     foreach (range(1, 200) as $seed) {
         $state = clockState(['quarter' => 2, 'clock' => 90, 'seed' => $seed]);
-        $result = $engine->resolve($state, clockRosters(), 'outside_run', 'balanced', 'singleback', 'base_4_3', 'hurry', 'sideline');
+        $result = $engine->resolve($state, clockRosters(), 'outside_run', 'man_to_man', 'singleback', 'base_4_3', 'hurry', 'sideline');
         if ($result['play']['out_of_bounds']) {
             expect($result['state']['clock_running'])->toBeFalse();
             expect($result['play']['summary'])->toContain('out of bounds');
@@ -109,7 +109,7 @@ test('sideline strategy can sacrifice yardage to stop the clock in the last two 
         }
     }
     expect($found)->toBeTrue();
-    $early = $engine->resolve(clockState(), clockRosters(), 'outside_run', 'balanced', 'singleback', 'base_4_3', 'normal', 'sideline');
+    $early = $engine->resolve(clockState(), clockRosters(), 'outside_run', 'man_to_man', 'singleback', 'base_4_3', 'normal', 'sideline');
     expect($early['play']['out_of_bounds'])->toBeFalse();
 });
 
@@ -117,7 +117,7 @@ test('penalties enforce repeat downs half distance automatic first downs and dec
     $rules = app(PenaltyRules::class);
     $before = clockState(['spot' => 8, 'down' => 2, 'distance' => 6]);
     $after = array_merge($before, ['spot' => 20, 'down' => 1, 'distance' => 10]);
-    $play = ['call' => 'short_pass', 'defense' => 'balanced', 'carrier' => 'WR1', 'outcome' => 'tackle', 'gain' => 12, 'target' => 8, 'summary' => 'Completed'];
+    $play = ['call' => 'short_pass', 'defense' => 'man_to_man', 'carrier' => 'WR1', 'outcome' => 'tackle', 'gain' => 12, 'target' => 8, 'summary' => 'Completed'];
     $holding = $rules->enforce($before, $after, $play, 'holding');
     expect($holding['state']['spot'])->toBe(4)->and($holding['state']['down'])->toBe(2)->and($holding['state']['distance'])->toBe(10);
     expect($holding['state']['stats']['home']['penalty_yards'])->toBe(4);
@@ -137,11 +137,11 @@ test('penalties enforce repeat downs half distance automatic first downs and dec
 test('accepted defensive fouls extend an expired period with an untimed down', function () {
     $engine = app(ExhibitionEngine::class);
     $before = clockState(['quarter' => 4, 'clock' => 1, 'spot' => 60]);
-    $play = ['call' => 'short_pass', 'defense' => 'balanced', 'offense_formation' => 'shotgun', 'defense_formation' => 'base_4_3', 'carrier' => 'WR1', 'outcome' => 'incomplete', 'gain' => 0, 'target' => 10, 'summary' => 'Incomplete'];
+    $play = ['call' => 'short_pass', 'defense' => 'man_to_man', 'offense_formation' => 'shotgun', 'defense_formation' => 'base_4_3', 'carrier' => 'WR1', 'outcome' => 'incomplete', 'gain' => 0, 'target' => 10, 'summary' => 'Incomplete'];
     $enforced = app(PenaltyRules::class)->enforce($before, $before, $play, 'defensive_pass_interference');
     $extended = $engine->finish($enforced['state'], $before, $enforced['play'], clockRosters(), 5);
     expect($extended['state']['clock'])->toBe(0)->and($extended['state']['untimed_down'])->toBeTrue()->and($extended['state']['status'])->toBe('playing');
-    $final = $engine->resolve($extended['state'], clockRosters(), 'spike', 'balanced');
+    $final = $engine->resolve($extended['state'], clockRosters(), 'spike', 'man_to_man');
     expect($final['state']['status'])->toBe('final');
 });
 
@@ -231,7 +231,7 @@ test('human penalty choices commit the selected outcome once and block interveni
     $game = Exhibition::withoutGlobalScopes()->firstOrFail();
     $engine = app(ExhibitionEngine::class);
     for ($seed = 1; $seed < 500; $seed++) {
-        $result = $engine->resolve($engine->initial(900, $seed, false), $game->rosters, 'inside_run', 'balanced');
+        $result = $engine->resolve($engine->initial(900, $seed, false), $game->rosters, 'inside_run', 'man_to_man');
         if (($result['play']['penalty']['type'] ?? '') === 'holding') {
             break;
         }
@@ -241,7 +241,7 @@ test('human penalty choices commit the selected outcome once and block interveni
     app(CurrentWorld::class)->id = $world->id;
     $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-penalty-dialog', false)->assertSee('Accept')->assertSee('Decline')->assertSee('illegally held');
-    $this->post(route('exhibitions.play', $game), ['version' => 1, 'call' => 'inside_run', 'defense' => 'balanced'])->assertStatus(409);
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'call' => 'inside_run', 'defense' => 'man_to_man'])->assertStatus(409);
     $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'penalty', 'decision' => $decision])->assertStatus(409);
     $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertRedirect(route('exhibitions.show', [$game, 'watch' => 0]));
     $game->refresh();
@@ -255,7 +255,7 @@ test('human penalty choices commit the selected outcome once and block interveni
 test('dead ball fouls offer unchanged down on decline and CPU penalties need only acknowledgment', function () {
     $engine = app(ExhibitionEngine::class);
     for ($seed = 1; $seed < 500; $seed++) {
-        $result = $engine->resolve($engine->initial(900, $seed, false), clockRosters(), 'inside_run', 'balanced');
+        $result = $engine->resolve($engine->initial(900, $seed, false), clockRosters(), 'inside_run', 'man_to_man');
         if (($result['play']['penalty']['type'] ?? '') === 'false_start') {
             break;
         }
@@ -266,7 +266,7 @@ test('dead ball fouls offer unchanged down on decline and CPU penalties need onl
     expect($result['play']['penalty_options']['decline']['state']['down'])->toBe(1);
     $state = $engine->initial(900, $seed, false);
     $state['controls'] = ['home' => 'cpu', 'away' => 'cpu'];
-    $cpu = $engine->resolve($state, clockRosters(), 'inside_run', 'balanced');
+    $cpu = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man');
     expect($cpu['state']['penalty_pending'] ?? false)->toBeFalse();
     expect($cpu['play'])->not->toHaveKey('penalty_options');
     expect($cpu['play']['penalty']['beneficiary'])->toBe('away');
@@ -279,7 +279,7 @@ test('human defensive penalty choices preserve an untimed down or allow the fina
         $state = $engine->initial(900, $seed, false);
         $state['quarter'] = 4;
         $state['clock'] = 1;
-        $result = $engine->resolve($state, clockRosters(), 'short_pass', 'balanced');
+        $result = $engine->resolve($state, clockRosters(), 'short_pass', 'man_to_man');
         if (($result['play']['penalty']['type'] ?? '') === 'defensive_pass_interference') {
             break;
         }

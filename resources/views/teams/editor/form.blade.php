@@ -73,7 +73,8 @@
                     </div>
                 @endforeach
                 <input type="hidden" name="endzone_transparent" value="0">
-                <label class="block"><input type="checkbox" name="endzone_transparent" value="1" @checked(old('endzone_transparent', $team->endzone_transparent))> Grass end zones (transparent background; colored lettering only)</label>
+                <label class="block"><input type="checkbox" name="endzone_transparent" value="1" @checked(old('endzone_transparent', $team->endzone_transparent))> Grass end zones (transparent background)</label>
+                <p class="text-sm">End zone art: transparent PNG, recommended 1600 × 300 pixels. Any aspect ratio fits without stretching. An uploaded logo replaces lettering on that end. Helmet uploads are independent: leave either side empty for no logo; images are not automatically mirrored.</p>
                 <label class="block">End zone text<input name="endzone_text" maxlength="40" value="{{ old('endzone_text', $team->endzone_text ?? $team->name) }}" class="block w-full border rounded p-2"></label>
                 <div class="grid grid-cols-2 gap-4">
                     <label>End zone background<input type="color" name="endzone_background" value="{{ old('endzone_background', $team->endzone_background ?? $team->team_color1 ?? '#174880') }}" class="block w-full h-10 border rounded"></label>
@@ -313,6 +314,8 @@
                 $uploadFields = [
                     'team_logo' => 'Team Logo',
                     'midfield_logo' => 'Midfield Logo',
+                    'endzone_logo_left' => 'End zone logo (left)',
+                    'endzone_logo_right' => 'End zone logo (right)',
                     'helmet_logo_right' => 'Helmet Logo (Right)',
                     'helmet_logo_left' => 'Helmet Logo (Left)',
                     'jersey_image_dark' => 'Dark Jersey',
@@ -328,11 +331,12 @@
                     @foreach($uploadFields as $field => $label)
                         <div class="border rounded p-3 {{ $field == 'game_field_image' ? 'md:col-span-2' : '' }}">
                             <label class="block font-medium mb-2">{{ $label }}</label>
+                            @if($team->{$field})<label class="block text-sm"><input type="checkbox" name="clear_{{ $field }}" value="1"> Remove this image</label>@endif
 
                             @if($mode === 'edit' && $team->{$field})
                                 <div class="mb-2">
                                     <img
-                                        src="{{ in_array($field, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo']) ? route('teams.art', [$team, $field]) : Storage::disk('public')->url($team->{$field}) }}"
+                                        src="{{ in_array($field, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right']) ? route('teams.art', [$team, $field]) : Storage::disk('public')->url($team->{$field}) }}"
                                         alt="{{ $label }}"
                                         class="max-h-28 border rounded"
                                     />

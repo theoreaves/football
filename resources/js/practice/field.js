@@ -1,3 +1,4 @@
+import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
@@ -110,6 +111,18 @@ export function mountPractice(root) {
         logo.rotation.x = -Math.PI / 2; logo.position.set(60, .045, 26.665); scene.add(logo);
     }
     for (const x of [5, 115]) {
+        const url = x === 5 ? home.endzone_logo_left : home.endzone_logo_right;
+        if (url) {
+            const logo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({transparent: true, depthWrite: false}));
+            new THREE.TextureLoader().load(url, texture => {
+                texture.colorSpace = THREE.SRGBColorSpace;
+                const size = fitLogo(texture.image.width, texture.image.height, 44, 7);
+                logo.scale.set(size.width, size.height, 1);
+                logo.material.map = texture; logo.material.needsUpdate = true;
+            });
+            logo.rotation.set(-Math.PI / 2, 0, x === 5 ? Math.PI / 2 : -Math.PI / 2);
+            logo.position.set(x, .08, 26.665); scene.add(logo); continue;
+        }
         const canvas = document.createElement('canvas');
         canvas.width = 1024; canvas.height = 160;
         const context = canvas.getContext('2d');
@@ -218,9 +231,10 @@ export function mountPractice(root) {
             const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
+            else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play') mesh.rotation.y = (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
-            animateFootballPlayer(mesh, moving, motionTime, i);
+            animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);

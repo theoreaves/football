@@ -17,12 +17,15 @@ class RosterBuilder
             'C' => ['C', 'OL'], 'LG' => ['LG', 'G', 'OL'], 'RG' => ['RG', 'G', 'OL'], 'LT' => ['LT', 'T', 'OL'], 'RT' => ['RT', 'T', 'OL'],
             'DE1' => ['DE', 'DL'], 'DT1' => ['DT', 'NT', 'DL'], 'DT2' => ['DT', 'NT', 'DL'], 'DE2' => ['DE', 'DL'],
             'LB1' => ['LB', 'OLB', 'ILB', 'MLB'], 'LB2' => ['LB', 'ILB', 'MLB', 'OLB'], 'LB3' => ['LB', 'OLB', 'ILB', 'MLB'],
-            'CB1' => ['CB', 'DB'], 'CB2' => ['CB', 'DB'], 'S1' => ['S', 'FS', 'SS', 'DB'], 'S2' => ['S', 'SS', 'FS', 'DB'], 'K' => ['K'], 'P' => ['P'],
+            'CB1' => ['CB', 'DB'], 'CB2' => ['CB', 'DB'], 'S1' => ['S', 'FS', 'SS', 'DB'], 'S2' => ['S', 'SS', 'FS', 'DB'], 'K' => ['K'], 'P' => ['P'], 'LB4' => ['LB', 'OLB', 'ILB', 'MLB'], 'LB5' => ['LB', 'OLB', 'ILB', 'MLB'], 'CB3' => ['CB', 'DB'],
         ];
         $used = [];
         $roster = [];
         foreach ($groups as $role => $positions) {
             $player = $players->first(fn ($p) => ! in_array($p->id, $used, true) && in_array(strtoupper($p->pivot->position ?: $p->position), $positions, true));
+            if (! $player && in_array($role, ['LB4', 'LB5', 'CB3'], true)) {
+                continue;
+            }
             if (! $player) {
                 throw ValidationException::withMessages(['teams' => "{$team->city} {$team->name} needs a {$role} in its latest roster ({$year}). Add players in Teams before starting."]);
             }

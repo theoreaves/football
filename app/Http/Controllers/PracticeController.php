@@ -20,7 +20,7 @@ class PracticeController extends Controller
 
     public function art(Team $team, string $asset)
     {
-        abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo'], true), 404);
+        abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right'], true), 404);
         $path = $team->{$asset};
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
         abort_unless($path && $disk->exists($path), 404);
@@ -49,9 +49,11 @@ class PracticeController extends Controller
         }
 
         return [
-            'helmet_logo_left' => $art('helmet_logo_left') ?: $art('team_logo'),
-            'helmet_logo_right' => $art('helmet_logo_right') ?: $art('team_logo'),
+            'helmet_logo_left' => $art('helmet_logo_left'),
+            'helmet_logo_right' => $art('helmet_logo_right'),
             'midfield_logo' => $art('midfield_logo') ?: $art('team_logo'),
+            'endzone_logo_left' => $art('endzone_logo_left'),
+            'endzone_logo_right' => $art('endzone_logo_right'),
             'endzone_transparent' => (bool) $team->endzone_transparent,
             'name' => $team->name,
             'uniform' => $uniform,

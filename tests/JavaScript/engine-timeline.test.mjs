@@ -71,7 +71,7 @@ test('scoreboard uses the selected state without exposing the saved result', asy
     assert.equal(scoreboardText(before,{home:'Hawks',away:'Tigers'}).score,'Tigers 0 — Hawks 0');
     assert.equal(scoreboardText(before,{home:'Hawks',away:'Tigers'}).clock,'Q1 · 00:32');
     assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).score,'Tigers 0 — Hawks 6');
-    assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).situation,'Hawks · Extra point');
+    assert.equal(scoreboardText(after,{home:'Hawks',away:'Tigers'}).situation,'Hawks · Try · 1-point kick or 2-point play');
 });
 
 test('behind QB camera looks downfield and preserves zoom and pan when possession changes', async () => {
@@ -188,4 +188,27 @@ test('football player meshes use body data short sleeves exposed skin and option
     assert.notEqual(small.userData.arms[0].rotation.x,0);
     animateFootballPlayer(small,false,.1,0);
     assert.equal(small.userData.legs[0].rotation.x,0);
+});
+
+test('logos retain aspect ratio inside wide end zones and helmet panels', async () => {
+    const { fitLogo } = await import('../../resources/js/practice/logo-fit.js');
+    for (const [width,height] of [[1600,300],[512,512],[200,1000]]) {
+        const size = fitLogo(width,height,44,7);
+        assert.ok(size.width <= 44 && size.height <= 7);
+        assert.ok(Math.abs(size.width / size.height - width / height) < .000001);
+    }
+});
+
+test('quarterback cocks his elbow releases and returns to a neutral pose', async () => {
+    const { buildFootballPlayer, animateFootballPlayer } = await import('../../resources/js/practice/player-model.js');
+    const document = { createElement: () => ({ getContext: () => ({ strokeText() {}, fillText() {} }) }) };
+    const qb = buildFootballPlayer({number:12}, {}, document);
+    animateFootballPlayer(qb,false,2.1,0,2.1);
+    assert.ok(qb.userData.elbows[1].rotation.x < -1);
+    const cocked = qb.userData.arms[1].rotation.x;
+    animateFootballPlayer(qb,false,2.5,0,2.5);
+    assert.notEqual(qb.userData.arms[1].rotation.x,cocked);
+    animateFootballPlayer(qb,false,3,0,null);
+    assert.equal(qb.userData.arms[1].rotation.x,0);
+    assert.equal(qb.userData.elbows[1].rotation.x,0);
 });

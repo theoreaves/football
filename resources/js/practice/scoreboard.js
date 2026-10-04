@@ -1,7 +1,7 @@
 export function scoreboardText(state, names) {
     const minutes = String(Math.floor(state.clock / 60)).padStart(2, '0');
     const seconds = String(state.clock % 60).padStart(2, '0');
-    const situation = state.phase === 'kickoff' ? 'Kickoff' : state.phase === 'extra_point' ? 'Extra point'
+    const situation = state.phase === 'kickoff' ? 'Kickoff' : state.phase === 'extra_point' ? 'Try · 1-point kick or 2-point play'
         : `Down ${state.down} & ${state.distance} · ${state.spot <= 50 ? 'Own '+state.spot : 'Opponent '+(100-state.spot)} yard line`;
     return { score: `${names.away} ${state.away_score} — ${names.home} ${state.home_score}`,
         clock: state.status === 'final' ? 'FINAL' : `Q${state.quarter} · ${minutes}:${seconds}`,

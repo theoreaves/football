@@ -21,7 +21,12 @@ class SpecialTeams
         $return = 0;
         $landing = $before['spot'];
         $blocked = false;
-        $state['stats'][$side]['plays']++;
+        if ($call !== 'extra_point') {
+            $state['stats'][$side]['plays']++;
+        }
+        if ($call === 'extra_point') {
+            unset($state['try_adjustment']);
+        }
         $set = function ($team, $spot, $phase = 'scrimmage') use (&$state) {
             $state['possession'] = $team;
             $state['spot'] = $spot;
@@ -30,7 +35,7 @@ class SpecialTeams
             $state['distance'] = min(10, 100 - $spot);
         };
         if (in_array($call, ['field_goal', 'extra_point'], true)) {
-            $distance = $call === 'extra_point' ? 33 : 117 - $before['spot'];
+            $distance = $call === 'extra_point' ? 33 - ($before['try_adjustment'] ?? 0) : 117 - $before['spot'];
             $blocked = $defense === 'field_goal_block' && $roll() < max(.005, .025 + ($def['DE1']['ratings']['strength'] - $off['C']['ratings']['blocking']) * .001);
             $chance = $call === 'extra_point' ? min(.99, .85 + $off['K']['ratings']['kicking'] * .0015) : max(.02, min(.98, 1.15 - max(0, $distance - 20) * .019 + ($off['K']['ratings']['kicking'] - 60) * .006));
             $good = ! $blocked && $distance <= 65 && $roll() < $chance;

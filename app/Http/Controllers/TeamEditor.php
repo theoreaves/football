@@ -132,6 +132,8 @@ class TeamEditor extends Controller
             'helmet_logo_right',
             'helmet_logo_left',
             'midfield_logo',
+            'endzone_logo_left',
+            'endzone_logo_right',
             'jersey_image_dark',
             'jersey_image_white',
             'game_field_image',
@@ -140,6 +142,12 @@ class TeamEditor extends Controller
         $request->validate(array_fill_keys($fields, ['nullable', 'image', 'max:5120']));
 
         foreach ($fields as $field) {
+            if ($request->boolean('clear_'.$field)) {
+                if ($team->{$field}) {
+                    Storage::disk('public')->delete($team->{$field});
+                }
+                $team->update([$field => null]);
+            }
             if (! $request->hasFile($field)) {
                 continue;
             }
@@ -157,6 +165,8 @@ class TeamEditor extends Controller
                 'helmet_logo_right',
                 'helmet_logo_left',
                 'midfield_logo',
+                'endzone_logo_left',
+                'endzone_logo_right',
                 'jersey_image_dark',
                 'jersey_image_white',
             ], true);
@@ -197,6 +207,8 @@ class TeamEditor extends Controller
             'helmet_logo_right',
             'helmet_logo_left',
             'midfield_logo',
+            'endzone_logo_left',
+            'endzone_logo_right',
             'jersey_image_dark',
             'jersey_image_white',
             'game_field_image',

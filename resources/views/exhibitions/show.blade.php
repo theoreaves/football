@@ -10,7 +10,7 @@
         <div><a href="{{ route('exhibitions.index') }}" class="text-blue-300 text-sm">Exhibitions</a><h1 data-scoreboard class="text-2xl font-semibold">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1></div>
         <p data-clock class="text-xl">{{ $shown['status'] === 'final' ? 'FINAL' : 'Q'.$shown['quarter'].' · '.gmdate('i:s', $shown['clock']) }}</p>
     </div>
-    <p data-situation class="game-situation">{{ $teamNames[$shown['possession']] }} · {{ match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point', default => 'Down '.$shown['down'].' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opponent '.(100-$shown['spot'])).' yard line' } }}</p>
+    <p data-situation class="game-situation">{{ $teamNames[$shown['possession']] }} · {{ match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Try · 1-point kick or 2-point play', default => 'Down '.$shown['down'].' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opponent '.(100-$shown['spot'])).' yard line' } }}</p>
     <p class="game-coaches">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
     <p data-clock-management class="game-clock-management">Timeouts: {{ $teamNames['home'] }} {{ $shown['timeouts']['home'] ?? 3 }} · {{ $teamNames['away'] }} {{ $shown['timeouts']['away'] ?? 3 }} · {{ ($shown['clock_running'] ?? false) ? 'Clock running' : 'Clock stopped' }}@if($shown['untimed_down'] ?? false) · Untimed down @endif</p>
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
@@ -21,13 +21,13 @@
         <label>Tempo<select name="tempo" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="normal">Normal</option><option value="hurry">Hurry-up</option><option value="drain">Run the clock</option></select></label>
         <label>Clock strategy<select name="clock_strategy" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="normal">Normal finish</option>@if(app(\App\Services\Simulation\GameClock::class)->lateHalf($state))<option value="sideline">Try to get out of bounds</option>@endif</select></label>
         <label>Offense formation<select data-formation name="offense_formation" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach(\App\Services\Simulation\ExhibitionEngine::OFFENSE_FORMATIONS as $value => $label)<option value="{{ $value }}" @selected(($last['offense_formation'] ?? 'shotgun') === $value)>{{ $label }}</option>@endforeach</select></label>
-        <label>Offense play<select name="call" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($calls as $call)<option value="{{ $call }}" @selected($last && $last['call'] === $call)>{{ ucwords(str_replace('_', ' ', $call)) }}</option>@endforeach</select></label>
+        <label>Offense play<select name="call" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($calls as $call)<option value="{{ $call }}" @selected($last && $last['call'] === $call)>{{ match($call) { 'extra_point' => '1-point kick', 'two_point_run' => '2-point run', 'two_point_pass' => '2-point pass', default => ucwords(str_replace('_', ' ', $call)) } }}</option>@endforeach</select></label>
         @else
         <p class="text-sm">{{ $teamNames[$offenseSide] }} offense: CPU @if(in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)) · {{ ucwords(str_replace('_', ' ', $cpuPlan['call'])) }}@endif</p>
         @endunless
         @unless($cpuDefense)
         <label>Defense formation<select data-formation name="defense_formation" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach(\App\Services\Simulation\ExhibitionEngine::DEFENSE_FORMATIONS as $value => $label)<option value="{{ $value }}" @selected(($last['defense_formation'] ?? 'base_4_3') === $value)>{{ $label }}</option>@endforeach</select></label>
-        <label>Defense call<select name="defense" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($humanDefenseOptions as $call)<option value="{{ $call }}" @selected($last && $last['defense'] === $call)>{{ ucwords(str_replace('_', ' ', $call)) }}</option>@endforeach</select></label>
+        <label>Defense call<select name="defense" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($humanDefenseOptions as $call)<option value="{{ $call }}" @selected($last && $last['defense'] === $call)>{{ match($call) { 'extra_point' => '1-point kick', 'two_point_run' => '2-point run', 'two_point_pass' => '2-point pass', default => ucwords(str_replace('_', ' ', $call)) } }}</option>@endforeach</select></label>
         @else
         <p class="text-sm">{{ $teamNames[$defenseSide] }} defense: CPU</p>
         @endunless

@@ -46,6 +46,9 @@ class ExhibitionBoxScore
             if (($play['no_snap'] ?? false) || $play['outcome'] === 'penalty') {
                 continue;
             }
+            if ($play['conversion'] ?? false) {
+                continue;
+            }
             $call = $play['call'];
             $outcome = $play['outcome'];
             $gain = $play['gain'];

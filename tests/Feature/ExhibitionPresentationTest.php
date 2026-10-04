@@ -78,3 +78,27 @@ test('box score reconciles scores and offensive player totals from a complete CP
     expect(array_sum(array_column($score['teams'], 'possession_seconds')))->toBe(720);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('game-field')->assertSee('data-open-box', false)->assertSee('Scoring summary')->assertSee('data-log-dialog', false)->assertSee('OK · Continue')->assertSee('Box score');
 });
+
+test('helmet sides are independent and end zone artwork is save scoped', function () {
+    Storage::fake('public');
+    $team = Team::firstOrFail();
+    Storage::disk('public')->put('teams/left.png', 'test');
+    $team->update(['helmet_logo_left' => 'teams/left.png', 'helmet_logo_right' => null, 'team_logo' => 'teams/left.png', 'endzone_logo_left' => 'teams/left.png']);
+    $this->get(route('practice', ['home' => $team->id]))->assertOk()->assertViewHas('appearance', fn ($a) => $a['home']['helmet_logo_left'] === route('teams.art', [$team, 'helmet_logo_left']) && $a['home']['helmet_logo_right'] === null && $a['home']['endzone_logo_left'] === route('teams.art', [$team, 'endzone_logo_left']) && $a['home']['endzone_logo_right'] === null);
+    $this->get(route('teams.art', [$team, 'endzone_logo_left']))->assertOk();
+});
+
+test('new snapshots field genuine linebacker and nickel personnel', function () {
+    $team = Team::firstOrFail();
+    $roster = app(RosterBuilder::class)->build($team);
+    $engine = app(ExhibitionEngine::class);
+    foreach (['base_3_5' => ['LB4', 'LB5'], 'nickel' => ['CB3']] as $formation => $roles) {
+        $result = $engine->resolve($engine->initial(180, 42, false), ['home' => $roster, 'away' => $roster], 'inside_run', 'man_to_man', 'shotgun', $formation);
+        $players = collect($result['play']['animation']['players'])->where('team', 'defense');
+        expect($players)->toHaveCount(11);
+        foreach ($roles as $role) {
+            expect($players->firstWhere('role', $role)['id'])->toBe($roster['players'][$role]['id']);
+        }
+        expect($players->pluck('id')->unique())->toHaveCount(11);
+    }
+});

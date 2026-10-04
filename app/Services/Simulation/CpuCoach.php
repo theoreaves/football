@@ -12,6 +12,13 @@ class CpuCoach
     public function offense(array $state, array $rosters): array
     {
         $phase = $state['phase'] ?? 'scrimmage';
+        if ($phase === 'extra_point' && $state['quarter'] === 4) {
+            $side = $state['possession'];
+            $margin = $state[$side.'_score'] - $state[($side === 'home' ? 'away' : 'home').'_score'];
+            if (in_array($margin, [-2, -5, 1], true)) {
+                return ['call' => 'two_point_pass', 'formation' => 'shotgun'];
+            }
+        }
         if ($phase !== 'scrimmage') {
             return ['call' => $phase === 'kickoff' ? 'kickoff' : 'extra_point', 'formation' => 'singleback'];
         }
@@ -77,11 +84,11 @@ class CpuCoach
             return ['call' => $special, 'formation' => 'base_4_3'];
         }
         $roll = $this->roll($state, 'defense');
-        $call = $state['distance'] <= 2 ? ($roll < 70 ? 'run_commit' : 'balanced')
-            : ($state['distance'] >= 10 && $state['down'] >= 2 ? ($roll < 70 ? 'coverage' : ($roll < 85 ? 'blitz' : 'balanced'))
-                : ($roll < 50 ? 'balanced' : ($roll < 75 ? 'coverage' : ($roll < 90 ? 'blitz' : 'run_commit'))));
+        $call = ($state['phase'] === 'extra_point' || $state['distance'] <= 2) ? ($roll < 70 ? 'run_stop' : 'man_to_man')
+            : ($state['distance'] >= 10 && $state['down'] >= 2 ? ($roll < 70 ? 'zone' : ($roll < 85 ? 'blitz' : 'man_to_man'))
+                : ($roll < 50 ? 'man_to_man' : ($roll < 75 ? 'zone' : ($roll < 90 ? 'blitz' : 'run_stop'))));
 
-        return ['call' => $call, 'formation' => $call === 'coverage' && $state['spot'] < 80 ? 'two_high' : ($call === 'blitz' ? 'single_high' : 'base_4_3')];
+        return ['call' => $call, 'formation' => $call === 'zone' && $state['spot'] < 80 ? 'nickel' : ($call === 'blitz' ? 'single_high' : ($call === 'run_stop' ? 'base_3_5' : 'base_4_3'))];
     }
 
     public function management(array $state): array

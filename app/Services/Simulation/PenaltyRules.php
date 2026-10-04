@@ -16,6 +16,10 @@ class PenaltyRules
 
     public function live(array $before, array $play): ?string
     {
+        if (($before['phase'] ?? '') === 'extra_point') {
+            return null;
+        }
+
         if (! ($before['rules']['penalties'] ?? false) || isset($play['penalty']) || ($play['no_snap'] ?? false) || in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'spike', 'kneel'], true)) {
             return null;
         }

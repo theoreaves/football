@@ -7,6 +7,9 @@ class GameClock
     public function normalize(array $state): array
     {
         $state += ['timeouts' => ['home' => 3, 'away' => 3], 'clock_running' => false, 'warnings' => ['2' => false, '4' => false], 'untimed_down' => false, 'rules' => ['penalties' => true]];
+        if (($state['phase'] ?? '') === 'extra_point') {
+            $state['clock_running'] = false;
+        }
         foreach (['home', 'away'] as $side) {
             $state['stats'][$side] += ['penalties' => 0, 'penalty_yards' => 0];
         }
@@ -39,6 +42,10 @@ class GameClock
     public function advance(array $state, array $before, array &$play, int $seconds): array
     {
         $state = $this->normalize($state);
+        if (($before['phase'] ?? '') === 'extra_point') {
+            $seconds = 0;
+            $play['runoff_seconds'] = 0;
+        }
         $warning = $this->warningDue($before, $seconds);
         $state['clock'] = max(0, $state['clock'] - $seconds);
         $state['clock_running'] = ! ($play['no_snap'] ?? false) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
@@ -51,6 +58,9 @@ class GameClock
             $play['summary'] .= ' · TWO-MINUTE WARNING';
         }
         $state['untimed_down'] = $state['clock'] === 0 && ((($before['untimed_down'] ?? false) && ($play['no_snap'] ?? false)) || (($play['penalty']['accepted'] ?? false) && ($play['penalty']['team'] ?? '') !== $before['possession'] && ! ($play['no_snap'] ?? false)));
+        if ($state['clock'] === 0 && $state['quarter'] === 4 && ($state['phase'] ?? '') === 'extra_point' && ($before['phase'] ?? '') !== 'extra_point' && abs($state['home_score'] - $state['away_score']) > 2) {
+            $state['phase'] = 'kickoff';
+        }
         if ($state['clock'] === 0 && ($state['phase'] ?? '') !== 'extra_point' && ! $state['untimed_down']) {
             $state['clock_running'] = false;
             if ($state['quarter'] === 4) {

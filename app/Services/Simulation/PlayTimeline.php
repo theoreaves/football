@@ -31,10 +31,32 @@ class PlayTimeline
             $defense['S1'] = [14, 26.7];
             $defense['S2'] = [4, 34];
         }
+        if (($play['defense_formation'] ?? '') === 'base_3_5') {
+            $defense['DE1'] = [1, 21];
+            $defense['DT1'] = [1, 27];
+            $defense['DE2'] = [1, 33];
+            $defense['DT2'] = [4, 16];
+            $defense['S2'] = [4, 38];
+        }
+        if (($play['defense_formation'] ?? '') === 'nickel') {
+            $defense['LB3'] = [5, 16];
+        }
+        if (($play['defense_formation'] ?? '') === 'base_3_5') {
+            foreach (['DT2' => 'LB4', 'S2' => 'LB5'] as $old => $new) {
+                if (isset($rosters[$other]['players'][$new])) {
+                    $defense[$new] = $defense[$old];
+                    unset($defense[$old]);
+                }
+            }
+        }
+        if (($play['defense_formation'] ?? '') === 'nickel' && isset($rosters[$other]['players']['CB3'])) {
+            $defense['CB3'] = $defense['LB3'];
+            unset($defense['LB3']);
+        }
         $qbStart = $offense['QB'][0];
         $qbSet = $qbStart - 2;
         $handoff = $qbStart - 1;
-        $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true) && $play['carrier'] !== 'QB';
+        $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true) && $play['carrier'] !== 'QB';
         $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true);
         $endZ = $pass ? match ($play['call']) {
             'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
@@ -45,11 +67,14 @@ class PlayTimeline
         if (($play['defense'] ?? '') === 'blitz') {
             $defense['LB2'][0] = 2;
         }
-        if (($play['defense'] ?? '') === 'run_commit') {
-            $defense['LB1'][0] = 3;
-            $defense['LB3'][0] = 3;
+        if (($play['defense'] ?? '') === 'run_stop') {
+            foreach (array_keys($defense) as $role) {
+                if (str_starts_with($role, 'LB') || $role === 'S2') {
+                    $defense[$role][0] = 1.5;
+                }
+            }
         }
-        if (($play['defense'] ?? '') === 'coverage') {
+        if (($play['defense'] ?? '') === 'zone') {
             $defense['CB1'][0] = 6;
             $defense['CB2'][0] = 6;
         }
@@ -94,7 +119,7 @@ class PlayTimeline
             $landingZ = $play['outcome'] === 'field_goal_missed' ? 39 : 26.7;
             $ball = array_merge($ball, [$point(1.2, $qbSet, 26.7, 1), $point(3, $landing / 2, $landingZ, 14), $point(5.3, $landing, $landingZ, $play['outcome'] === 'field_goal_good' ? 5 : 0), $point(6, $landing, $landingZ, $play['outcome'] === 'field_goal_good' ? 5 : 0)]);
         } elseif ($pass) {
-            $ball = array_merge($ball, [$point(2.2, $qbSet, 26.7, 1), $point(3, ($play['target'] + $qbSet) / 2, (26.7 + $endZ) / 2, 7),
+            $ball = array_merge($ball, [$point(1.8, $qbSet, 26.7, 1.8), $point(2.2, $qbSet + .5, 26.7, 2), $point(3, ($play['target'] + $qbSet) / 2, (26.7 + $endZ) / 2, 7),
                 $point(3.8, $play['target'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1),
                 $point(5.3, $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1),
                 $point(6, $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1)]);
@@ -130,7 +155,24 @@ class PlayTimeline
             $events = [[0, 'Snap'], [2, 'Quarterback takes a knee'], [5.3, $play['summary']]];
         }
 
-        return ['call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        if ($play['defensive_return'] ?? false) {
+            $returner = $pass ? 'CB1' : 'LB2';
+            $goal = $side === 'home' ? 10 : 110;
+            foreach ($tracks as &$track) {
+                if ($track['team'] === 'defense' && $track['role'] === $returner) {
+                    $track['path'] = [$track['path'][0], $point(3.8, $pass ? $play['target'] : $play['gain'], $endZ), [5.3, $goal, 0, $endZ], [6, $goal, 0, $endZ]];
+                }
+            }
+            unset($track);
+            $ball = array_values(array_filter($ball, fn ($p) => $p[0] < 3.8));
+            $ball[] = $point(3.8, $pass ? $play['target'] : $play['gain'], $endZ, 1);
+            $ball[] = [5.3, $goal, 1, $endZ];
+            $ball[] = [6, $goal, 1, $endZ];
+            $holders = array_values(array_filter($holders, fn ($p) => $p[0] < 3.8));
+            $holders[] = [3.8, 'defense', $returner];
+        }
+
+        return ['dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass, 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])), 'possession' => $side];
     }
 }

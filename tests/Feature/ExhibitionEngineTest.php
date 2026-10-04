@@ -22,7 +22,7 @@ function engineOutcome(string $call, string $outcome, array $changes = []): arra
     $engine = app(ExhibitionEngine::class);
     for ($seed = 1; $seed < 5000; $seed++) {
         $state = array_merge($engine->initial(180, $seed, false), $changes);
-        $result = $engine->resolve($state, engineRosters(), $call, 'balanced');
+        $result = $engine->resolve($state, engineRosters(), $call, 'man_to_man');
         if ($result['play']['outcome'] === $outcome) {
             return $result;
         }
@@ -32,7 +32,7 @@ function engineOutcome(string $call, string $outcome, array $changes = []): arra
 
 test('each offensive call has deterministic results and valid animation tracks', function () {
     $engine = app(ExhibitionEngine::class);
-    foreach (array_diff(ExhibitionEngine::OFFENSE, ['kickoff', 'extra_point']) as $call) {
+    foreach (ExhibitionEngine::callsForState(['phase' => 'scrimmage']) as $call) {
         foreach (['home', 'away'] as $side) {
             $state = array_merge($engine->initial(180, 42, false), ['possession' => $side]);
             $result = $engine->resolve($state, engineRosters(), $call, 'blitz');
@@ -69,7 +69,7 @@ test('touchdowns first downs sacks incompletions and turnovers advance correctly
 
 test('special teams safety halftime and final boundaries are handled', function () {
     $engine = app(ExhibitionEngine::class);
-    $punt = $engine->resolve(array_merge($engine->initial(180, 4, false), ['spot' => 90]), engineRosters(), 'punt', 'balanced');
+    $punt = $engine->resolve(array_merge($engine->initial(180, 4, false), ['spot' => 90]), engineRosters(), 'punt', 'man_to_man');
     expect($punt['state']['possession'])->toBe('away')->and($punt['state']['spot'])->toBe(20);
     $good = engineOutcome('field_goal', 'field_goal_good', ['spot' => 80]);
     expect($good['state']['home_score'])->toBe(3)->and($good['state']['spot'])->toBe(35);
@@ -77,11 +77,11 @@ test('special teams safety halftime and final boundaries are handled', function 
     expect($miss['state']['home_score'])->toBe(0)->and($miss['state']['spot'])->toBe(77);
     $safety = engineOutcome('slant', 'safety', ['spot' => 1]);
     expect($safety['state']['away_score'])->toBe(2)->and($safety['state']['phase'])->toBe('kickoff');
-    $half = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 2, 'clock' => 1, 'rules' => ['penalties' => false]]), engineRosters(), 'inside_run', 'balanced');
+    $half = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 2, 'clock' => 1, 'rules' => ['penalties' => false]]), engineRosters(), 'inside_run', 'man_to_man');
     expect($half['state']['quarter'])->toBe(3)->and($half['state']['clock'])->toBe(180)->and($half['state']['possession'])->toBe('home')->and($half['state']['spot'])->toBe(35);
-    $final = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 4, 'clock' => 1, 'rules' => ['penalties' => false]]), engineRosters(), 'inside_run', 'balanced');
+    $final = $engine->resolve(array_merge($engine->initial(180, 42, false), ['quarter' => 4, 'clock' => 1, 'rules' => ['penalties' => false]]), engineRosters(), 'inside_run', 'man_to_man');
     expect($final['state']['status'])->toBe('final');
-    expect(fn () => $engine->resolve($final['state'], engineRosters(), 'slant', 'balanced'))->toThrow(LogicException::class);
+    expect(fn () => $engine->resolve($final['state'], engineRosters(), 'slant', 'man_to_man'))->toThrow(LogicException::class);
 });
 
 test('complete games reach final and stronger matchups improve run production', function () {
@@ -110,8 +110,8 @@ test('complete games reach final and stronger matchups improve run production', 
     $worse = 0;
     for ($seed = 1; $seed <= 100; $seed++) {
         $state = $engine->initial(180, $seed, false);
-        $better += $engine->resolve($state, $strong, 'outside_run', 'balanced')['play']['gain'];
-        $worse += $engine->resolve($state, $weak, 'outside_run', 'balanced')['play']['gain'];
+        $better += $engine->resolve($state, $strong, 'outside_run', 'man_to_man')['play']['gain'];
+        $worse += $engine->resolve($state, $weak, 'outside_run', 'man_to_man')['play']['gain'];
     }
     expect($better)->toBeGreaterThan($worse + 500);
 });
@@ -123,7 +123,7 @@ test('the ball and tackler finish at the engine dead-ball spot for both directio
             for ($seed = 1; $seed <= 60; $seed++) {
                 $state = array_merge($engine->initial(180, $seed, false), ['possession' => $side]);
                 $state['rules']['penalties'] = false;
-                $play = $engine->resolve($state, engineRosters(), $call, 'balanced')['play'];
+                $play = $engine->resolve($state, engineRosters(), $call, 'man_to_man')['play'];
                 $animation = $play['animation'];
                 $ball = end($animation['ball']);
                 $spot = $state['spot'] + ($play['outcome'] === 'incomplete' ? $play['target'] : $play['gain']);
@@ -147,7 +147,7 @@ test('pass depths and formation alignments differ and formations affect matchups
     foreach (['short_pass' => [2, 7], 'medium_pass' => [10, 20], 'deep_pass' => [18, 35]] as $call => [$min, $max]) {
         $seen = false;
         for ($seed = 1; $seed < 30; $seed++) {
-            $play = $engine->resolve($engine->initial(180, $seed, false), engineRosters(), $call, 'balanced', 'spread', 'two_high')['play'];
+            $play = $engine->resolve($engine->initial(180, $seed, false), engineRosters(), $call, 'man_to_man', 'spread', 'two_high')['play'];
             if ($play['carrier'] !== 'WR1') {
                 continue;
             }
@@ -161,11 +161,11 @@ test('pass depths and formation alignments differ and formations affect matchups
         expect($seen)->toBeTrue();
     }
     $state = $engine->initial(180, 99, false);
-    $singleback = $engine->resolve($state, engineRosters(), 'inside_run', 'balanced', 'singleback', 'single_high')['play'];
-    $spread = $engine->resolve($state, engineRosters(), 'inside_run', 'balanced', 'spread', 'single_high')['play'];
+    $singleback = $engine->resolve($state, engineRosters(), 'inside_run', 'man_to_man', 'singleback', 'single_high')['play'];
+    $spread = $engine->resolve($state, engineRosters(), 'inside_run', 'man_to_man', 'spread', 'single_high')['play'];
     expect($singleback['gain'])->toBeGreaterThan($spread['gain']);
     expect(collect($singleback['animation']['players'])->firstWhere('role', 'QB')['path'][0][1])->toBe(33);
-    expect(fn () => $engine->resolve($state, engineRosters(), 'short_pass', 'balanced', 'invalid'))->toThrow(LogicException::class);
+    expect(fn () => $engine->resolve($state, engineRosters(), 'short_pass', 'man_to_man', 'invalid'))->toThrow(LogicException::class);
 });
 
 test('kickoff extra point and return phases score separately including an untimed final try', function () {
@@ -174,8 +174,8 @@ test('kickoff extra point and return phases score separately including an untime
     expect($state['phase'])->toBe('kickoff')->and($state['possession'])->toBe('away');
     $kickoff = $engine->resolve($state, engineRosters(), 'kickoff', 'kickoff_return');
     expect($kickoff['state']['possession'])->toBe('home')->and($kickoff['state']['phase'])->toBe('scrimmage');
-    expect(fn () => $engine->resolve($state, engineRosters(), 'slant', 'balanced'))->toThrow(LogicException::class);
-    $td = engineOutcome('inside_run', 'touchdown', ['spot' => 99, 'distance' => 1, 'quarter' => 4, 'clock' => 1]);
+    expect(fn () => $engine->resolve($state, engineRosters(), 'slant', 'man_to_man'))->toThrow(LogicException::class);
+    $td = engineOutcome('inside_run', 'touchdown', ['spot' => 99, 'distance' => 1, 'quarter' => 4, 'clock' => 1, 'away_score' => 7]);
     expect($td['state']['home_score'])->toBe(6)->and($td['state']['status'])->toBe('playing')->and($td['state']['clock'])->toBe(0);
     $try = $engine->resolve($td['state'], engineRosters(), 'extra_point', 'field_goal_block');
     expect($try['state']['home_score'])->toBeIn([6, 7])->and($try['state']['status'])->toBe('final')->and($try['state']['version'])->toBe(2);
@@ -231,4 +231,93 @@ test('animation possession tracks distinguish passes turnovers and handoffs', fu
             expect($kick['ballHolders'][1])->toBe([3.5, 'defense', 'CB1']);
         }
     }
+});
+
+test('two point tries start at the two and consume no time or regular statistics', function () {
+    $engine = app(ExhibitionEngine::class);
+    foreach (['two_point_run', 'two_point_pass'] as $call) {
+        foreach (['home', 'away'] as $side) {
+            foreach ([0, 1, 121] as $clock) {
+                $state = array_merge($engine->initial(180, 42, false), ['phase' => 'extra_point', 'possession' => $side, 'spot' => 85, 'clock' => $clock, 'quarter' => 4, 'clock_running' => true, 'rules' => ['penalties' => false]]);
+                $result = $engine->resolve($state, engineRosters(), $call, 'run_stop');
+                expect($result['play']['before']['spot'])->toBe(98)->and($result['play']['clock_seconds'])->toBe(0)
+                    ->and($result['state']['clock'])->toBe($clock)->and($result['state']['clock_running'])->toBeFalse()
+                    ->and($result['state']['phase'])->toBe('kickoff')->and($result['state']['possession'])->toBe($side)
+                    ->and($result['state']['stats'][$side]['plays'])->toBe(0)
+                    ->and($result['state'][$side.'_score'])->toBe(in_array($result['play']['outcome'], ['touchdown'], true) ? 2 : 0)
+                    ->and($result['state']['status'])->toBe($clock === 0 ? 'final' : 'playing');
+            }
+        }
+    }
+});
+
+test('kick tries never use a running game clock', function () {
+    $engine = app(ExhibitionEngine::class);
+    $state = array_merge($engine->initial(180, 42, false), ['phase' => 'extra_point', 'spot' => 85, 'clock' => 121, 'quarter' => 2, 'clock_running' => true]);
+    $result = $engine->resolve($state, engineRosters(), 'extra_point', 'field_goal_block');
+    expect($result['state']['clock'])->toBe(121)->and($result['play']['clock_seconds'])->toBe(0)->and($result['state']['clock_running'])->toBeFalse();
+});
+
+test('new defensive fronts have eleven defenders and run stop crowds the line', function () {
+    $engine = app(ExhibitionEngine::class);
+    foreach (['base_3_5', 'nickel'] as $formation) {
+        $state = $engine->initial(180, 42, false);
+        $result = $engine->resolve($state, engineRosters(), 'inside_run', 'run_stop', 'singleback', $formation);
+        $defenders = array_filter($result['play']['animation']['players'], fn ($p) => $p['team'] === 'defense');
+        expect($defenders)->toHaveCount(11);
+        foreach ($defenders as $p) {
+            if (str_starts_with($p['role'], 'LB')) {
+                expect(abs($p['path'][0][1] - $result['play']['animation']['line']))->toBeLessThanOrEqual(2);
+            }
+        }
+    }
+});
+
+test('a human can accept or decline a try penalty and an accepted try stays untimed', function () {
+    $engine = app(ExhibitionEngine::class);
+    $found = null;
+    for ($seed = 1; $seed < 200; $seed++) {
+        $state = array_merge($engine->initial(180, $seed, false), ['phase' => 'extra_point', 'spot' => 85, 'quarter' => 4, 'clock' => 0]);
+        $result = $engine->resolve($state, engineRosters(), 'two_point_pass', 'zone');
+        if (isset($result['play']['penalty_options']) && $result['play']['penalty']['type'] === 'holding') {
+            $found = $result;
+            break;
+        }
+    }
+    expect($found)->not->toBeNull()->and($found['state']['penalty_pending'])->toBeTrue();
+    $accepted = $found['play']['penalty_options']['accept'];
+    expect($accepted['state']['phase'])->toBe('extra_point')->and($accepted['state']['status'])->toBe('playing')
+        ->and($accepted['state']['clock'])->toBe(0)->and($accepted['play']['clock_seconds'])->toBe(0)
+        ->and($accepted['state']['stats']['home']['plays'])->toBe(0)->and($accepted['state']['spot'])->toBe(88);
+    $retryState = $accepted['state'];
+    $retryState['rules']['penalties'] = false;
+    $retry = $engine->resolve($retryState, engineRosters(), 'two_point_run', 'run_stop');
+    expect($retry['play']['before']['spot'])->toBe(88)->and($retry['play']['clock_seconds'])->toBe(0);
+    $declined = $found['play']['penalty_options']['decline'];
+    expect($declined['state']['phase'])->toBe('kickoff')->and($declined['state']['status'])->toBe('final');
+});
+
+test('a last second touchdown skips a try when it cannot change the winner', function () {
+    $td = engineOutcome('inside_run', 'touchdown', ['spot' => 99, 'distance' => 1, 'quarter' => 4, 'clock' => 1]);
+    expect($td['state']['home_score'])->toBe(6)->and($td['state']['status'])->toBe('final');
+});
+
+test('a sack still marks the quarterback as facing downfield without a throw', function () {
+    $result = engineOutcome('deep_pass', 'sack');
+    expect($result['play']['animation']['dropback'])->toBeTrue()->and($result['play']['animation']['passing'])->toBeFalse();
+});
+
+test('a defensive try return scores two and animates possession to the opposite goal', function () {
+    $engine = app(ExhibitionEngine::class);
+    $found = null;
+    for ($seed = 1; $seed < 5000; $seed++) {
+        $state = array_merge($engine->initial(180, $seed, false), ['phase' => 'extra_point', 'spot' => 85, 'rules' => ['penalties' => false]]);
+        $result = $engine->resolve($state, engineRosters(), 'two_point_pass', 'zone');
+        if ($result['state']['away_score'] === 2) {
+            $found = $result;
+            break;
+        }
+    }
+    expect($found)->not->toBeNull()->and($found['state']['home_score'])->toBe(0)->and($found['state']['possession'])->toBe('home')
+        ->and($found['play']['clock_seconds'])->toBe(0)->and($found['play']['animation']['ball'][array_key_last($found['play']['animation']['ball'])][1])->toBe(10);
 });
