@@ -6,3 +6,43 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+.game-stage { position: fixed; inset: 0; overflow: hidden; background: #101a2b; font-size: 14px; }
+.game-field { position: absolute; inset: 0; width: 100%; height: 100%; }
+.game-stage > :not(.game-field) { position: absolute; z-index: 10; }
+.game-stage > [hidden] { display: none; }
+.game-scoreboard, .game-play-panel, .game-camera-controls, .game-actions, .game-last-result, .game-status, .game-timeouts { background: rgb(8 16 29 / 88%); border: 1px solid #344459; border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(8px); }
+.game-scoreboard { top: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.game-scoreboard h1 { font-size: 22px; }
+.game-situation { top: 96px; left: 24px; text-shadow: 0 1px 4px #000; }
+.game-coaches { top: 120px; left: 24px; color: #cbd5e1; text-shadow: 0 1px 4px #000; }
+.game-clock-management { top: 144px; left: 24px; text-shadow: 0 1px 4px #000; }
+.game-play-panel { bottom: 74px; left: 14px; right: 14px; max-height: 24vh; overflow: auto; }
+.game-play-panel label { font-size: 12px; }
+.game-play-panel select { max-width: 175px; }
+.game-play-panel > p:last-child { display: none; }
+.game-camera-controls { bottom: 12px; left: 14px; right: 330px; font-size: 12px; }
+.game-camera-controls button, .game-camera-controls select { padding: 6px 9px; }
+.game-camera-controls > span { display: none; }
+.game-actions { bottom: 12px; right: 14px; display: flex; gap: 14px; }
+.game-actions button { color: #bfdbfe; }
+.game-status { top: 96px; right: 24px; max-width: 43%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game-timeouts { top: 176px; left: 14px; }
+.game-cpu-toggle { bottom: 155px; right: 14px; background: #172b48; }
+.game-cpu-status { bottom: 202px; right: 20px; }
+.game-timeline { top: 180px; right: 24px; width: 220px; font-size: 11px; opacity: .85; }
+.game-last-result, .game-help, .game-stats { display: none; }
+.game-stage > dialog { position: fixed; z-index: 60; }
+.game-dialog { margin: auto; padding: 24px; width: min(950px, 92vw); max-height: 88vh; overflow: auto; color: white; background: #111e30; border: 1px solid #64748b; border-radius: 16px; }
+.game-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.game-dialog td, .game-dialog th { padding: 6px 8px; border-bottom: 1px solid #334155; }
+.game-dialog form button { padding: 6px 12px; background: #334155; border-radius: 6px; }
+.game-stage > [data-result-popup] { position: fixed; z-index: 50; bottom: 32vh; }
+@media (max-width: 950px) {
+    .game-camera-controls { right: 14px; bottom: 58px; }
+    .game-actions { bottom: 8px; }
+    .game-play-panel { bottom: 114px; max-height: 28vh; }
+    .game-status { top: 172px; left: 24px; transform: none; max-width: 55%; }
+    .game-timeline { top: 206px; }
+    .game-timeouts { top: 210px; }
+}

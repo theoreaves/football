@@ -62,7 +62,18 @@
                             <label>{{ $part === 'number' ? 'Number color' : ($part === 'number_outline' ? 'Number outline' : ucfirst($part)) }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?? $default) }}" class="block w-full h-10 border rounded mt-1"></label>
                         @endforeach
                     </div>
+                    <div class="grid grid-cols-3 gap-4 mt-3">
+                    @foreach(['helmet', 'shoulder', 'pants'] as $part)
+                        @php
+                            $stripe = "uniform_{$venue}_{$part}_stripe";
+                        @endphp
+                        <label><input type="hidden" name="{{ $stripe }}_enabled" value="0"><input type="checkbox" name="{{ $stripe }}_enabled" value="1" @checked(old($stripe.'_enabled', $team->{$stripe.'_enabled'}))> {{ ucfirst($part) }} stripe
+                        <input type="color" name="{{ $stripe }}" value="{{ old($stripe, $team->{$stripe} ?? '#ffffff') }}" class="block w-full h-10 border rounded"></label>
+                    @endforeach
+                    </div>
                 @endforeach
+                <input type="hidden" name="endzone_transparent" value="0">
+                <label class="block"><input type="checkbox" name="endzone_transparent" value="1" @checked(old('endzone_transparent', $team->endzone_transparent))> Grass end zones (transparent background; colored lettering only)</label>
                 <label class="block">End zone text<input name="endzone_text" maxlength="40" value="{{ old('endzone_text', $team->endzone_text ?? $team->name) }}" class="block w-full border rounded p-2"></label>
                 <div class="grid grid-cols-2 gap-4">
                     <label>End zone background<input type="color" name="endzone_background" value="{{ old('endzone_background', $team->endzone_background ?? $team->team_color1 ?? '#174880') }}" class="block w-full h-10 border rounded"></label>
@@ -321,7 +332,7 @@
                             @if($mode === 'edit' && $team->{$field})
                                 <div class="mb-2">
                                     <img
-                                        src="{{ Storage::disk('public')->url($team->{$field}) }}"
+                                        src="{{ in_array($field, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo']) ? route('teams.art', [$team, $field]) : Storage::disk('public')->url($team->{$field}) }}"
                                         alt="{{ $label }}"
                                         class="max-h-28 border rounded"
                                     />

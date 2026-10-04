@@ -74,7 +74,7 @@ class PlayTimeline
                 $path = [$point(0, $x, $z), $point(1.2, .3, $z), $point(5.3, $pass ? .3 : 2, $z), $point(6, $pass ? .3 : 2, $z)];
             }
             $person = $rosters[$side]['players'][$special && $role === 'QB' ? $play['carrier'] : $role];
-            $tracks[] = array_merge(array_intersect_key($person, array_flip(['id', 'name', 'number'])), ['role' => $role, 'team' => 'offense', 'side' => $side, 'path' => $path]);
+            $tracks[] = array_merge(array_intersect_key($person, array_flip(['id', 'name', 'number', 'height_inches', 'weight_pounds', 'skin_tone'])), ['role' => $role, 'team' => 'offense', 'side' => $side, 'path' => $path]);
         }
         foreach ($defense as $role => [$x, $z]) {
             $tackler = $pass ? 'CB1' : 'LB2';
@@ -86,7 +86,7 @@ class PlayTimeline
             if ($role === $tackler && ! $special && $play['outcome'] !== 'incomplete') {
                 $path = [$point(0, $x, $z), $point(3.8, $pass ? $play['target'] : $end * .7, $endZ + ($play['outcome'] === 'interception' ? 0 : 1)), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
             }
-            $tracks[] = array_merge(array_intersect_key($rosters[$other]['players'][$role], array_flip(['id', 'name', 'number'])), ['role' => $role, 'team' => 'defense', 'side' => $other, 'path' => $path]);
+            $tracks[] = array_merge(array_intersect_key($rosters[$other]['players'][$role], array_flip(['id', 'name', 'number', 'height_inches', 'weight_pounds', 'skin_tone'])), ['role' => $role, 'team' => 'defense', 'side' => $other, 'path' => $path]);
         }
         $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35 / .6, 26.7, 1), $point(.6, $handoff, 26.7, 1)];
         if ($special) {

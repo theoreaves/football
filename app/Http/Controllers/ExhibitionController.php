@@ -57,7 +57,9 @@ class ExhibitionController extends Controller
         $plannedCall = $cpuPlan['call'] ?? $calls[0];
         $humanDefenseOptions = ExhibitionEngine::defensesForCall($plannedCall);
 
-        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions'));
+        $boxScore = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition);
+
+        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore'));
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)

@@ -212,6 +212,9 @@ class TeamRosterController extends Controller
     {
         $data = $request->validate([
             // --- players table ---
+            'height_inches' => ['nullable', 'integer', 'min:48', 'max:96'],
+            'weight_pounds' => ['nullable', 'integer', 'min:90', 'max:450'],
+            'skin_tone' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:0', 'max:99'],
@@ -275,7 +278,7 @@ class TeamRosterController extends Controller
         ]);
 
         $playerData = collect($data)->only([
-            'firstname', 'lastname', 'age', 'position',
+            'firstname', 'lastname', 'age', 'position', 'height_inches', 'weight_pounds', 'skin_tone',
             'college', 'high_school', 'sleeper_id', 'espn_id',
             'pass_evade', 'pass_accuracy', 'pass_deep', 'pass_control',
             'rush', 'rush_power',

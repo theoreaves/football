@@ -5,7 +5,7 @@ import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor } from './camera-state.js';
 import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
-import { addJerseyNumbers } from './jersey-numbers.js';
+import { buildFootballPlayer, animateFootballPlayer } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
@@ -35,6 +35,11 @@ export function mountPractice(root) {
     renderer.domElement.setAttribute('aria-label', 'Three-dimensional practice football field');
     const appearance = JSON.parse(root.dataset.appearance || '{}');
     const home = appearance.home || {}, away = appearance.away || {};
+    const textures = new Map(), textureLoader = new THREE.TextureLoader();
+    const textureFor = url => {
+        if (!textures.has(url)) { const texture = textureLoader.load(url); texture.colorSpace = THREE.SRGBColorSpace; textures.set(url, texture); }
+        return textures.get(url);
+    };
     const animation = root.dataset.animation ? JSON.parse(root.dataset.animation) : null;
     const sample = (type, time) => animation ? sampleEnginePlay(animation, time) : samplePlay(type, time);
     const duration = animation?.duration || DURATION;
@@ -96,8 +101,14 @@ export function mountPractice(root) {
     addBox(144, 0.3, 78, 0x18392a, 60, -0.4, 26.7);
     addBox(120, 0.15, 53.33, 0x285d38, 60, -0.1, 26.665);
     for (let x = 10; x < 110; x += 10) addBox(10, 0.02, 53.33, x % 20 ? 0x31723f : 0x296638, x + 5, 0, 26.665);
-    addBox(10, 0.03, 53.33, home.endzone_background || 0x174880, 5, 0.02, 26.665);
-    addBox(10, 0.03, 53.33, home.endzone_background || 0x7a252c, 115, 0.02, 26.665);
+    if (!home.endzone_transparent) {
+        addBox(10, 0.03, 53.33, home.endzone_background || 0x174880, 5, 0.02, 26.665);
+        addBox(10, 0.03, 53.33, home.endzone_background || 0x174880, 115, 0.02, 26.665);
+    }
+    if (home.midfield_logo) {
+        const logo = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshBasicMaterial({map: textureFor(home.midfield_logo), transparent: true, depthWrite: false}));
+        logo.rotation.x = -Math.PI / 2; logo.position.set(60, .045, 26.665); scene.add(logo);
+    }
     for (const x of [5, 115]) {
         const canvas = document.createElement('canvas');
         canvas.width = 1024; canvas.height = 160;
@@ -137,20 +148,10 @@ export function mountPractice(root) {
     }
     if (animation?.firstDown === null) firstDownLine.visible = false;
     const players = sample('pass', 0).players.map(player => {
-        const group = new THREE.Group();
-        const side = player.team === 'offense' ? offenseSide : (offenseSide === 'home' ? 'away' : 'home');
-        const kit = (side === 'home' ? home : away).uniform || {};
-        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.65, 4, 8), material(kit.shirt || (player.team === 'offense' ? 0x3997ff : 0xea535b)));
-        body.position.y = 1.2; body.castShadow = true; group.add(body);
-        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), material(kit.helmet || (player.team === 'offense' ? 0xe9f2ff : 0xdddddd)));
-        helmet.position.y = 2.05; helmet.castShadow = true; group.add(helmet);
-        for (const offset of [-0.29, 0.29]) {
-            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.6, 0.22), material(kit.pants || 0xe2e8f0));
-            leg.position.set(offset, 0.5, 0); group.add(leg);
-            const sock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), material(kit.socks || '#ffffff'));
-            sock.position.y = -0.3; leg.add(sock);
-        }
-        addJerseyNumbers(group, player, document, kit);
+        const side = player.side || (player.team === 'offense' ? offenseSide : (offenseSide === 'home' ? 'away' : 'home'));
+        const team = side === 'home' ? home : away;
+        const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
+        const group = buildFootballPlayer(player, kit, document, textureFor);
         group.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
         scene.add(group);
         return group;
@@ -219,8 +220,7 @@ export function mountPractice(root) {
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
-            mesh.children[2].rotation.x = moving ? Math.sin(motionTime * 16) * 0.5 : 0;
-            mesh.children[3].rotation.x = -mesh.children[2].rotation.x;
+            animateFootballPlayer(mesh, moving, motionTime, i);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);
@@ -302,6 +302,17 @@ export function mountPractice(root) {
         saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
     });
+    const finishResult = () => {
+        if (phase !== 'result') return;
+        resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
+    };
+    root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
+    const logDialog = root.querySelector('[data-log-dialog]'), boxDialog = root.querySelector('[data-box-dialog]');
+    root.querySelector('[data-open-log]')?.addEventListener('click', () => logDialog.showModal());
+    root.querySelector('[data-open-box]')?.addEventListener('click', () => boxDialog.showModal());
+    root.querySelector('[data-fullscreen]')?.addEventListener('click', async () => {
+        try { if (document.fullscreenElement) await document.exitFullscreen(); else await root.requestFullscreen(); } catch { /* The full-window field remains available. */ }
+    });
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
     let penaltyShown = false;
@@ -339,7 +350,7 @@ export function mountPractice(root) {
     cpuToggle?.addEventListener('click', () => setCpuAuto(!cpuAuto));
 
     if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
-    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; });
+    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
     penaltyDialog?.addEventListener('close', showQuarter);
     if ((quarterDialog || penaltyDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const animate = now => {
@@ -359,7 +370,7 @@ export function mountPractice(root) {
         } else if (phase === 'result') {
             postElapsed += delta;
             if (postElapsed >= 10) {
-                resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
+                finishResult();
             }
         } else if (phase === 'huddle' && huddleProgress < 1) {
             postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
@@ -368,7 +379,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open || penaltyDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open || penaltyDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

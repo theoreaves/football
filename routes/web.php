@@ -23,6 +23,8 @@ Route::get('/practice', \App\Http\Controllers\PracticeController::class)->name('
 
 Route::middleware([\App\Http\Middleware\RequireWorld::class])->group(function () {
 
+    Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');
+
     Route::get('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'index'])->name('exhibitions.index');
     Route::post('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'store'])->name('exhibitions.store');
     Route::get('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'show'])->name('exhibitions.show');

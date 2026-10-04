@@ -24,6 +24,7 @@ test('team appearance saves and the practice field uses home and away uniforms',
         'uniform_home_number' => '#aabb00', 'uniform_home_number_outline' => '#112244',
         'uniform_away_number' => '#123456', 'uniform_away_number_outline' => '#654321',
         'uniform_home_pants' => '#778899', 'uniform_home_socks' => '#aabbcc',
+        'endzone_transparent' => true, 'uniform_home_helmet_stripe_enabled' => true, 'uniform_home_helmet_stripe' => '#ffcc00',
         'endzone_text' => 'TIGERS', 'endzone_background' => '#123456', 'endzone_text_color' => '#ffffff',
     ];
     $this->put(route('teams.editor.update', $home), $data)->assertRedirect(route('teams.editor.edit', $home));
@@ -35,7 +36,10 @@ test('team appearance saves and the practice field uses home and away uniforms',
             && $value['home']['uniform']['number_outline'] === '#112244'
             && $value['away']['uniform']['number'] === '#123abc'
             && $value['away']['uniform']['number_outline'] === '#fedcba'
-            && $value['home']['endzone_text'] === 'TIGERS');
+            && $value['home']['endzone_text'] === 'TIGERS'
+            && $value['home']['endzone_transparent']
+            && $value['home']['uniform']['helmet_stripe_enabled']
+            && $value['home']['uniform']['helmet_stripe'] === '#ffcc00');
     $this->get(route('teams.editor.edit', $home))->assertOk()->assertSee('Number color')->assertSee('uniform_away_number_outline');
     $this->put(route('teams.editor.update', $home), array_merge($data, ['uniform_home_number' => 'red', 'uniform_away_number_outline' => '#bad']))->assertSessionHasErrors(['uniform_home_number', 'uniform_away_number_outline']);
     $this->put(route('teams.editor.update', $home), array_merge($data, ['uniform_home_shirt' => 'invalid']))

@@ -31,7 +31,17 @@ class RosterBuilder
             if (! $player->simulation_ratings) {
                 $player->update(['simulation_ratings' => $ratings]);
             }
-            $roster[$role] = ['id' => $player->id, 'name' => trim($player->firstname.' '.$player->lastname), 'number' => $player->pivot->jersey_number, 'ratings' => $ratings];
+            $lineman = in_array($role, ['C', 'LG', 'RG', 'LT', 'RT', 'DT1', 'DT2']);
+            $profile = [
+                'height_inches' => $player->height_inches ?: ($lineman ? 76 : 72),
+                'weight_pounds' => $player->weight_pounds ?: ($lineman ? 305 : 215),
+                'skin_tone' => $player->skin_tone ?: ['#edc5a3', '#c78e61', '#8c5536', '#593b2c'][$player->id % 4],
+            ];
+            $missing = array_filter($profile, fn ($value, $key) => $player->{$key} === null, ARRAY_FILTER_USE_BOTH);
+            if ($missing) {
+                $player->update($missing);
+            }
+            $roster[$role] = array_merge(['id' => $player->id, 'name' => trim($player->firstname.' '.$player->lastname), 'number' => $player->pivot->jersey_number, 'ratings' => $ratings], $profile);
         }
 
         return ['year' => $year, 'players' => $roster];

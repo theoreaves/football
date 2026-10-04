@@ -35,6 +35,11 @@
             {{-- Identity --}}
             <div class="border rounded p-4">
                 <div class="font-semibold mb-3">Player</div>
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <label>Height (inches)<input type="number" name="height_inches" min="48" max="96" value="{{ old('height_inches', $player->height_inches ?? 72) }}" class="w-full border rounded p-2"></label>
+                    <label>Weight (pounds)<input type="number" name="weight_pounds" min="90" max="450" value="{{ old('weight_pounds', $player->weight_pounds ?? 215) }}" class="w-full border rounded p-2"></label>
+                    <label>Skin tone<input type="color" name="skin_tone" value="{{ old('skin_tone', $player->skin_tone ?? '#c78e61') }}" class="block w-full h-10"></label>
+                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>

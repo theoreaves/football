@@ -82,11 +82,16 @@ class TeamEditor extends Controller
         $hex = ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'];
 
         $appearance = [
+            'endzone_transparent' => ['sometimes', 'boolean'],
             'endzone_text' => ['nullable', 'string', 'max:40'],
             'endzone_background' => $hex,
             'endzone_text_color' => $hex,
         ];
         foreach (['home', 'away'] as $venue) {
+            foreach (['helmet', 'shoulder', 'pants'] as $part) {
+                $appearance["uniform_{$venue}_{$part}_stripe"] = $hex;
+                $appearance["uniform_{$venue}_{$part}_stripe_enabled"] = ['sometimes', 'boolean'];
+            }
             foreach (['helmet', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
                 $appearance["uniform_{$venue}_{$part}"] = $hex;
             }
@@ -156,7 +161,7 @@ class TeamEditor extends Controller
                 'jersey_image_white',
             ], true);
 
-            if ($shouldWand) {
+            if ($shouldWand && config('services.bg_remove.url')) {
                 // You can tune these tolerances per asset type
                 $tol = match ($field) {
                     'jersey_image_dark', 'jersey_image_white' => 35,

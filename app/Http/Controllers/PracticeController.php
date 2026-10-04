@@ -18,11 +18,22 @@ class PracticeController extends Controller
         return view('practice.index', compact('teams', 'home', 'away', 'appearance'));
     }
 
+    public function art(Team $team, string $asset)
+    {
+        abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo'], true), 404);
+        $path = $team->{$asset};
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        abort_unless($path && $disk->exists($path), 404);
+
+        return $disk->response($path);
+    }
+
     public function appearance(?Team $team, string $venue): array
     {
         if (! $team) {
             return [];
         }
+        $art = fn ($asset) => $team->{$asset} ? route('teams.art', ['team' => $team, 'asset' => $asset]) : null;
         $uniform = [];
         foreach (['helmet', 'shirt', 'pants', 'socks', 'number', 'number_outline'] as $part) {
             $fallback = $part === 'shirt' ? ($venue === 'home' ? ($team->team_color1 ?: '#3997ff') : '#ffffff') : '#e2e8f0';
@@ -32,7 +43,16 @@ class PracticeController extends Controller
             $uniform[$part] = $team->{"uniform_{$venue}_{$part}"} ?: $fallback;
         }
 
+        foreach (['helmet', 'shoulder', 'pants'] as $part) {
+            $uniform[$part.'_stripe'] = $team->{"uniform_{$venue}_{$part}_stripe"} ?: '#ffffff';
+            $uniform[$part.'_stripe_enabled'] = (bool) $team->{"uniform_{$venue}_{$part}_stripe_enabled"};
+        }
+
         return [
+            'helmet_logo_left' => $art('helmet_logo_left') ?: $art('team_logo'),
+            'helmet_logo_right' => $art('helmet_logo_right') ?: $art('team_logo'),
+            'midfield_logo' => $art('midfield_logo') ?: $art('team_logo'),
+            'endzone_transparent' => (bool) $team->endzone_transparent,
             'name' => $team->name,
             'uniform' => $uniform,
             'endzone_text' => $team->endzone_text ?: $team->name,

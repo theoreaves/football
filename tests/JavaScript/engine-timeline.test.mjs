@@ -173,3 +173,19 @@ test('camera anchor follows ball flight without changing zoom orbit or manual pa
         next.position.forEach((value, i) => assert.ok(Math.abs(value - next.target[i] - offset[i]) < 1e-10));
     }
 });
+
+test('football player meshes use body data short sleeves exposed skin and optional stripes', async () => {
+    const { buildFootballPlayer, animateFootballPlayer } = await import('../../resources/js/practice/player-model.js');
+    const document = { createElement: () => ({ getContext: () => ({ strokeText() {}, fillText() {} }) }) };
+    const kit = {shirt:'#aa0000', helmet:'#cccccc', helmet_stripe_enabled:true, pants_stripe_enabled:true, shoulder_stripe_enabled:true};
+    const small = buildFootballPlayer({number:7,height_inches:68,weight_pounds:180,skin_tone:'#593b2c'}, kit, document);
+    const large = buildFootballPlayer({number:73,height_inches:79,weight_pounds:315,skin_tone:'#edc5a3'}, kit, document);
+    assert.ok(large.scale.y > small.scale.y); assert.ok(large.scale.x > small.scale.x);
+    assert.equal(small.userData.legs.length,2); assert.equal(small.userData.arms.length,2);
+    assert.equal(small.userData.arms[0].children[1].material.color.getHexString(),'593b2c');
+    assert.ok(small.children.some(mesh=>mesh.geometry?.type==='TorusGeometry'));
+    animateFootballPlayer(small,true,.1,0);
+    assert.notEqual(small.userData.arms[0].rotation.x,0);
+    animateFootballPlayer(small,false,.1,0);
+    assert.equal(small.userData.legs[0].rotation.x,0);
+});
