@@ -24,7 +24,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
         // Legacy import commands use unscoped SQL. Disable them until they are world-aware.
         \Illuminate\Support\Facades\Event::listen(\Illuminate\Console\Events\CommandStarting::class, function ($event) {
-            if (! $event->command || in_array($event->command, ['world:adopt-legacy', 'world:seed-demo'], true)) {
+            if (! $event->command || in_array($event->command, ['world:adopt-legacy', 'world:seed-demo', 'football:seed-middle-earth'], true)) {
                 return;
             }
             $command = \Illuminate\Support\Facades\Artisan::all()[$event->command] ?? null;

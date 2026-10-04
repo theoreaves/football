@@ -105,3 +105,13 @@ test('middle earth seed failures roll back the entire league and restore world c
     $this->assertDatabaseCount('players', 0);
     $this->assertDatabaseCount('leagues', 0);
 });
+
+test('console dispatcher allows the scoped middle earth seeder and still blocks legacy imports', function () {
+    \Illuminate\Support\Facades\Artisan::all();
+    \Illuminate\Support\Facades\Event::dispatch(new \Illuminate\Console\Events\CommandStarting('football:seed-middle-earth', new \Symfony\Component\Console\Input\ArrayInput([]), new \Symfony\Component\Console\Output\BufferedOutput));
+    expect(\Illuminate\Support\Facades\Artisan::call('football:seed-middle-earth', ['--seed' => 42]))->toBe(0);
+    $this->assertDatabaseCount('teams', 16);
+    $this->assertDatabaseCount('players', 848);
+    expect(fn () => \Illuminate\Support\Facades\Event::dispatch(new \Illuminate\Console\Events\CommandStarting('football:seed-nfl', new \Symfony\Component\Console\Input\ArrayInput([]), new \Symfony\Component\Console\Output\BufferedOutput)))
+        ->toThrow(LogicException::class, 'Legacy football commands are disabled');
+});
