@@ -31,7 +31,7 @@
                 @foreach($teams as $team)
                     <tr class="border-t">
                         <td class="p-3">
-                            <div class="font-medium">{{ $team->city }} {{ $team->name }}</div>
+                            <div class="font-medium">{{ $team->city }} {{ $team->name }}@if($team->conference)<div class="text-xs text-gray-600">{{ $team->conference }} · {{ $team->division }}</div>@endif</div>
                         </td>
                         <td class="p-3">
                             <div class="flex gap-2 items-center">
