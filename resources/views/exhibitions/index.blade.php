@@ -12,9 +12,10 @@
             <label>{{ $label }} control<select name="{{ $side }}_control" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="human" @selected(old($side.'_control', 'human') === 'human')>Human</option><option value="cpu" @selected(old($side.'_control') === 'cpu')>CPU</option></select></label>
         @endforeach
         <label>Quarter length<select name="quarter_length" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="180">Quick game · 3 minutes</option><option value="900">Full game · 15 minutes</option></select></label>
+        <input type="hidden" name="penalties" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="penalties" value="1" @checked(old('penalties', true))>Penalties</label>
         <button class="bg-blue-700 rounded px-5 py-2" @disabled($teams->count() < 2)>Start game</button>
     </form>
-    <p class="text-sm text-gray-400">First version: kickoffs, extra-point attempts, and a simplified clock, no penalties, injuries, substitutions, or overtime. Ties stand.</p>
+    <p class="text-sm text-gray-400">First version: kickoffs, extra-point attempts, and a simplified clock, clock management and common scrimmage penalties; no injuries, substitutions, or overtime. Ties stand.</p>
     <div class="space-y-3">
         @forelse($games as $game)
             <a href="{{ route('exhibitions.show', $game) }}" class="block bg-gray-800 rounded p-4 hover:bg-gray-700">{{ $game->awayTeam->name }} {{ $game->state['away_score'] }} at {{ $game->homeTeam->name }} {{ $game->state['home_score'] }} <span class="text-gray-400 ml-4">{{ $game->state['status'] === 'final' ? 'Final' : 'Resume · Q'.$game->state['quarter'] }}</span></a>

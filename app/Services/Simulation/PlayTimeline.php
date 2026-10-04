@@ -39,6 +39,9 @@ class PlayTimeline
         $endZ = $pass ? match ($play['call']) {
             'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
         } : ($play['call'] === 'outside_run' ? 42 : 27);
+        if ($play['out_of_bounds'] ?? false) {
+            $endZ = $endZ < 26.7 ? 0 : 53.33;
+        }
         if (($play['defense'] ?? '') === 'blitz') {
             $defense['LB2'][0] = 2;
         }
@@ -119,7 +122,15 @@ class PlayTimeline
             $holders[] = [5.3, 'defense', $play['carrier'] === 'WR1' ? 'CB1' : 'LB2'];
         }
 
-        return ['duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        if ($play['call'] === 'spike') {
+            $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart, 26.7, 1), $point(1, $qbStart, 26.7, .25), $point(6, $qbStart, 26.7, .25)];
+            $holders = [[0, 'offense', 'C'], [.01, null, null], [.35, 'offense', 'QB'], [1, null, null]];
+            $events = [[0, 'Snap'], [1, 'Spike · clock stopped'], [5.3, $play['summary']]];
+        } elseif ($play['call'] === 'kneel') {
+            $events = [[0, 'Snap'], [2, 'Quarterback takes a knee'], [5.3, $play['summary']]];
+        }
+
+        return ['call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])), 'possession' => $side];
     }
 }

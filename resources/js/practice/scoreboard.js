@@ -5,5 +5,6 @@ export function scoreboardText(state, names) {
         : `Down ${state.down} & ${state.distance} · ${state.spot <= 50 ? 'Own '+state.spot : 'Opponent '+(100-state.spot)} yard line`;
     return { score: `${names.away} ${state.away_score} — ${names.home} ${state.home_score}`,
         clock: state.status === 'final' ? 'FINAL' : `Q${state.quarter} · ${minutes}:${seconds}`,
-        situation: `${names[state.possession]} · ${situation}` };
+        situation: `${names[state.possession]} · ${situation}`,
+        management: `Timeouts: ${names.home} ${state.timeouts?.home ?? 3} · ${names.away} ${state.timeouts?.away ?? 3} · ${state.clock_running ? 'Clock running' : 'Clock stopped'}${state.untimed_down ? ' · Untimed down' : ''}` };
 }

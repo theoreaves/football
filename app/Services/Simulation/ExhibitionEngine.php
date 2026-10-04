@@ -6,7 +6,7 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'spike', 'kneel'];
 
     public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread'];
 
@@ -18,17 +18,46 @@ class ExhibitionEngine
     {
         return ['quarter' => 1, 'clock' => $quarterLength, 'quarter_length' => $quarterLength, 'possession' => $openingKickoff ? 'away' : 'home', 'phase' => $openingKickoff ? 'kickoff' : 'scrimmage',
             'spot' => $openingKickoff ? 35 : 25, 'down' => 1, 'distance' => 10, 'home_score' => 0, 'away_score' => 0,
+            'timeouts' => ['home' => 3, 'away' => 3], 'clock_running' => false, 'warnings' => ['2' => false, '4' => false], 'untimed_down' => false, 'rules' => ['penalties' => true],
             'status' => 'playing', 'version' => 0, 'seed' => $seed ?? random_int(1, 2147483647),
             'stats' => ['home' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0], 'away' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0]]];
     }
 
-    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation = 'shotgun', string $defenseFormation = 'base_4_3'): array
+    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation = 'shotgun', string $defenseFormation = 'base_4_3', string $tempo = 'normal', string $clockStrategy = 'normal'): array
     {
         if ($state['status'] !== 'playing' || ! in_array($call, self::OFFENSE, true) || ! in_array($defense, self::DEFENSE, true) || ! array_key_exists($offenseFormation, self::OFFENSE_FORMATIONS) || ! array_key_exists($defenseFormation, self::DEFENSE_FORMATIONS)) {
             throw new LogicException('This game cannot accept that play.');
         }
         if (! in_array($call, self::callsForState($state), true) || ! in_array($defense, self::defensesForCall($call), true)) {
             throw new LogicException('Choose a call for the current phase.');
+        }
+        if (! in_array($tempo, ['normal', 'hurry', 'drain'], true) || ! in_array($clockStrategy, ['normal', 'sideline'], true)) {
+            throw new LogicException('Choose a valid tempo and clock strategy.');
+        }
+        $clock = app(GameClock::class);
+        $state = $clock->normalize($state);
+        $original = $state;
+        $runoff = $clock->runoff($state, $tempo);
+        if ($clock->warningDue($state, $runoff)) {
+            $state['clock'] = 120;
+
+            return $this->finish($state, $original, $this->stoppage('Official timeout', 'two_minute_warning') + ['two_minute_warning' => true, 'runoff_seconds' => $original['clock'] - 120], $rosters, 0);
+        }
+        if ($runoff >= $state['clock'] && $runoff > 0 && ! $state['untimed_down']) {
+            $state['clock'] = 0;
+
+            return $this->finish($state, $original, $this->stoppage('Clock expires before the snap', 'clock_expired') + ['runoff_seconds' => $original['clock']], $rosters, 0);
+        }
+        $state['clock'] -= $runoff;
+        $state['_clock_context'] = ['before' => $original, 'runoff' => $runoff, 'tempo' => $tempo, 'strategy' => $clockStrategy];
+        $prePenalty = app(PenaltyRules::class)->preSnap($state);
+        if ($prePenalty) {
+            $result = app(PenaltyRules::class)->enforce($state, $state, $this->stoppage('No snap', 'penalty'), $prePenalty);
+
+            return $this->finish($result['state'], $state, $result['play'], $rosters, 0);
+        }
+        if (in_array($call, ['spike', 'kneel'], true)) {
+            return $this->clockPlay($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
         }
         if (in_array($call, ['punt', 'field_goal', 'kickoff', 'extra_point'], true)) {
             return app(SpecialTeams::class)->resolve($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
@@ -106,6 +135,14 @@ class ExhibitionEngine
                 $gain += $yards($roll(), 8, 25);
             }
         }
+        $outOfBounds = false;
+        if ($clockStrategy === 'sideline' && $clock->lateHalf($before) && $outcome === 'tackle') {
+            $chance = $carrier === 'WR1' ? .75 : ($call === 'outside_run' ? .65 : .3);
+            $outOfBounds = $roll() < $chance;
+            if ($outOfBounds) {
+                $gain = max(0, $gain - 2);
+            }
+        }
         $gain = max(-$before['spot'], min(100 - $before['spot'], $gain));
         if (in_array($outcome, ['tackle', 'sack'], true) && $gain < 100 - $before['spot']
             && $roll() < max(.004, .045 - $off[$carrier]['ratings']['ball_security'] * .0004)) {
@@ -171,11 +208,14 @@ class ExhibitionEngine
                 }
             }
         }
-        $seconds = in_array($outcome, ['incomplete', 'interception', 'punt', 'field_goal_good', 'field_goal_missed'], true) ? $yards($roll(), 6, 12) : $yards($roll(), 28, 42);
+        if ($outOfBounds && $outcome !== 'touchdown') {
+            $summary .= ' · out of bounds, clock stopped';
+        }
+        $seconds = $yards($roll(), 5, 9);
 
         return $this->finish($state, $before, [
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
-            'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier, 'summary' => $summary,
+            'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier, 'summary' => $summary,
         ], $rosters, $seconds);
     }
 
@@ -197,28 +237,71 @@ class ExhibitionEngine
 
     public function finish(array $state, array $before, array $play, array $rosters, int $seconds): array
     {
-        $state['clock'] = max(0, $state['clock'] - $seconds);
-        if ($state['clock'] === 0 && ($state['phase'] ?? '') !== 'extra_point') {
-            if ($state['quarter'] === 4) {
-                $state['status'] = 'final';
-                $play['summary'] .= ' · FINAL';
-            } else {
-                $state['quarter']++;
-                $state['clock'] = $state['quarter_length'];
-                if ($state['quarter'] === 3) {
-                    $this->possession($state, 'home', 35);
-                    $state['phase'] = 'kickoff';
-                    $play['summary'] .= ' · halftime, away receives';
-                }
-            }
+        $state = app(GameClock::class)->normalize($state);
+        $snapBefore = app(GameClock::class)->normalize($before);
+        $context = $before['_clock_context'] ?? [];
+        $historyBefore = $context['before'] ?? $snapBefore;
+        $play += ['runoff_seconds' => $context['runoff'] ?? 0, 'tempo' => $context['tempo'] ?? 'normal', 'clock_strategy' => $context['strategy'] ?? 'normal', 'snap_clock' => $snapBefore['clock']];
+        $penalty = app(PenaltyRules::class)->live($snapBefore, $play);
+        if ($penalty) {
+            $result = app(PenaltyRules::class)->enforce($snapBefore, $state, $play, $penalty);
+            $state = $result['state'];
+            $play = $result['play'];
         }
+        $state = app(GameClock::class)->advance($state, $snapBefore, $play, $seconds);
+        unset($state['_clock_context'], $historyBefore['_clock_context']);
+        $before = $historyBefore;
         $state['version']++;
         $play += ['number' => $state['version'], 'before' => $before, 'after' => $state, 'duration' => 6];
         $play['summary'] = ucfirst($play['summary']);
-        $play['animation'] = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
-            ? app(SpecialTeamsTimeline::class)->build($play, $rosters) : app(PlayTimeline::class)->build($play, $rosters);
+        $animationPlay = array_merge($play, ['outcome' => $play['live_outcome'] ?? $play['outcome']]);
+        $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
+            ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
 
         return ['state' => $state, 'play' => $play];
+    }
+
+    public function timeout(array $state, array $rosters, string $side): array
+    {
+        $state = app(GameClock::class)->normalize($state);
+        if ($state['status'] !== 'playing' || ! in_array($side, ['home', 'away'], true) || $state['timeouts'][$side] <= 0 || ! $state['clock_running']) {
+            throw new LogicException('A timeout needs a running clock and an available timeout.');
+        }
+        $before = $state;
+        $state['timeouts'][$side]--;
+        $state['clock_running'] = false;
+
+        return $this->finish($state, $before, $this->stoppage(ucfirst($side).' timeout · '.$state['timeouts'][$side].' remaining this half', 'timeout'), $rosters, 0);
+    }
+
+    private function stoppage(string $summary, string $outcome): array
+    {
+        return ['call' => 'clock_event', 'defense' => 'balanced', 'offense_formation' => 'shotgun', 'defense_formation' => 'base_4_3', 'outcome' => $outcome, 'carrier' => 'RB', 'gain' => 0, 'target' => 0, 'summary' => $summary, 'no_snap' => true];
+    }
+
+    private function clockPlay(array $state, array $rosters, string $call, string $defense, string $offenseFormation, string $defenseFormation): array
+    {
+        $before = $state;
+        $side = $state['possession'];
+        $other = $side === 'home' ? 'away' : 'home';
+        $gain = $call === 'kneel' ? -1 : 0;
+        $state['stats'][$side]['plays']++;
+        $state['stats'][$side]['yards'] += $gain;
+        $state['spot'] = max(0, $state['spot'] + $gain);
+        $state['distance'] -= $gain;
+        $state['down']++;
+        $summary = $rosters[$side]['players']['QB']['name'].($call === 'kneel' ? ' takes a knee · loss of 1 yard' : ' spikes the ball · clock stopped');
+        if ($state['spot'] === 0) {
+            $state[$other.'_score'] += 2;
+            $this->possession($state, $side, 20);
+            $state['phase'] = 'kickoff';
+            $summary .= ' · SAFETY';
+        } elseif ($state['down'] > 4) {
+            $this->possession($state, $other, 100 - $state['spot']);
+            $summary .= ' · turnover on downs';
+        }
+
+        return $this->finish($state, $before, ['call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation, 'outcome' => $call, 'gain' => $gain, 'target' => 0, 'carrier' => 'QB', 'summary' => $summary], $rosters, $call === 'spike' ? 1 : 2);
     }
 
     private function possession(array &$state, string $side, int $spot): void

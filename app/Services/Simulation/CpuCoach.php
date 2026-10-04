@@ -20,6 +20,15 @@ class CpuCoach
         $players = $rosters[$side]['players'];
         $margin = $state[$side.'_score'] - $state[$other.'_score'];
         $late = $state['quarter'] === 4 && $state['clock'] <= $state['quarter_length'] / 3;
+        $endHalf = app(GameClock::class)->lateHalf($state);
+        $range = 40 + ($players['K']['ratings']['kicking'] - 50) * .3;
+        if ($endHalf && $state['clock'] <= 15 && 117 - $state['spot'] <= $range && ($state['quarter'] === 2 || $margin <= 0)) {
+            return ['call' => 'field_goal', 'formation' => 'singleback'];
+        }
+        $timeouts = $state['timeouts'][$other] ?? 3;
+        if ($state['quarter'] === 4 && $margin > 0 && $timeouts === 0 && $state['clock'] <= 38 * (4 - $state['down']) + 2 && $state['spot'] > 1) {
+            return ['call' => 'kneel', 'formation' => 'singleback'];
+        }
         $mustGo = $late && $margin < 0 && ($margin < -3 || $state['spot'] < 60);
         if ($state['down'] === 4 && ! $mustGo) {
             $distance = 117 - $state['spot'];
@@ -36,6 +45,9 @@ class CpuCoach
         $passChance = 48 + ($passSkill - $runSkill) * .6 + ($state['distance'] >= 10 ? 12 : 0) + ($state['down'] >= 3 ? 12 : 0);
         if ($state['distance'] <= 2) {
             $passChance -= 28;
+        }
+        if ($endHalf && $state['quarter'] === 2) {
+            $passChance += 25;
         }
         if ($late) {
             $passChance += $margin < 0 ? 25 : ($margin > 0 ? -25 : 0);
@@ -70,6 +82,37 @@ class CpuCoach
                 : ($roll < 50 ? 'balanced' : ($roll < 75 ? 'coverage' : ($roll < 90 ? 'blitz' : 'run_commit'))));
 
         return ['call' => $call, 'formation' => $call === 'coverage' && $state['spot'] < 80 ? 'two_high' : ($call === 'blitz' ? 'single_high' : 'base_4_3')];
+    }
+
+    public function management(array $state): array
+    {
+        $side = $state['possession'];
+        $other = $side === 'home' ? 'away' : 'home';
+        $margin = $state[$side.'_score'] - $state[$other.'_score'];
+        $late = app(GameClock::class)->lateHalf($state);
+        $hurry = ($late && $state['quarter'] === 2) || ($state['quarter'] === 4 && $state['clock'] <= 180 && $margin <= 0);
+        $tempo = $hurry ? 'hurry' : ($state['quarter'] === 4 && $margin > 0 ? 'drain' : 'normal');
+
+        return ['tempo' => $tempo, 'clock_strategy' => $late && ($state['quarter'] === 2 || $margin <= 0) ? 'sideline' : 'normal'];
+    }
+
+    public function timeoutTeam(array $state): ?string
+    {
+        if (! ($state['clock_running'] ?? false) || ($state['phase'] ?? 'scrimmage') !== 'scrimmage') {
+            return null;
+        }
+        $controls = $this->controls($state);
+        $side = $state['possession'];
+        $other = $side === 'home' ? 'away' : 'home';
+        $margin = $state[$side.'_score'] - $state[$other.'_score'];
+        if ($state['quarter'] === 4 && $state['clock'] <= 180 && $margin > 0 && $controls[$other] === 'cpu' && ($state['timeouts'][$other] ?? 3) > 0) {
+            return $other;
+        }
+        if (app(GameClock::class)->lateHalf($state) && $state['clock'] <= 30 && ($state['quarter'] === 2 || $margin <= 0) && $controls[$side] === 'cpu' && ($state['timeouts'][$side] ?? 3) > 0) {
+            return $side;
+        }
+
+        return null;
     }
 
     private function roll(array $state, string $decision): int

@@ -38,6 +38,7 @@ export function mountPractice(root) {
     const animation = root.dataset.animation ? JSON.parse(root.dataset.animation) : null;
     const sample = (type, time) => animation ? sampleEnginePlay(animation, time) : samplePlay(type, time);
     const duration = animation?.duration || DURATION;
+    slider.max = duration;
     const offenseSide = animation?.possession || 'home';
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x101a2b, 160, 280);
@@ -170,17 +171,19 @@ export function mountPractice(root) {
         root.querySelector('[data-scoreboard]').textContent = labels.score;
         root.querySelector('[data-clock]').textContent = labels.clock;
         root.querySelector('[data-situation]').textContent = labels.situation;
+        const management = root.querySelector('[data-clock-management]');
+        if (management) management.textContent = labels.management;
         root.querySelectorAll('[data-hidden-result]').forEach(el => el.hidden = !committed);
         root.querySelectorAll('[data-stats]').forEach(el => {
             const side = el.dataset.stats, stats = state.stats[side];
-            el.textContent = `${teamNames[side]}: ${stats.plays} plays · ${stats.yards} yards · ${stats.turnovers} turnovers`;
+            el.textContent = `${teamNames[side]}: ${stats.plays} plays · ${stats.yards} yards · ${stats.turnovers} turnovers · ${stats.penalties ?? 0} penalties / ${stats.penalty_yards ?? 0} yards`;
         });
         const count = root.querySelector('[data-log-count]');
         if (count) count.textContent = committed ? afterState.version : beforeState.version;
         const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
     };
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
-    let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? 'liningup' : 'play');
+    let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
     const lineupDuration = 3;
     let lineupProgress = 0;
     const setDuration = 4;
@@ -200,7 +203,7 @@ export function mountPractice(root) {
             frame = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
             future = frame;
         }
-        if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= 5.3) showState(true);
+        if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
@@ -226,6 +229,7 @@ export function mountPractice(root) {
         const eventMessage = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
         const message = holder ? `${eventMessage} · ${carrierLabel(holder)}` : eventMessage;
         if (status.textContent !== message) status.textContent = message;
+        if (animation?.no_snap) { carrierArrow.visible = carrierRing.visible = ballGlow.visible = false; }
         slider.value = elapsed;
         root.querySelector('[data-time]').textContent = phase === 'liningup' ? `Forming up · ${(lineupProgress * lineupDuration).toFixed(1)} / ${lineupDuration.toFixed(1)}s` : phase === 'set' ? `Ready · ${(setDuration - setElapsed).toFixed(1)}s` : `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
     };
@@ -287,6 +291,7 @@ export function mountPractice(root) {
         };
         call?.addEventListener('change', refreshCalls); refreshCalls();
     }
+    root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
     callForm?.addEventListener('submit', () => {
         saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';

@@ -12,11 +12,14 @@
     </div>
     <p data-situation class="text-gray-300">{{ $teamNames[$shown['possession']] }} · {{ match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point', default => 'Down '.$shown['down'].' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opponent '.(100-$shown['spot'])).' yard line' } }}</p>
     <p class="text-sm text-gray-400">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
+    <p data-clock-management class="text-sm text-gray-300">Timeouts: {{ $teamNames['home'] }} {{ $shown['timeouts']['home'] ?? 3 }} · {{ $teamNames['away'] }} {{ $shown['timeouts']['away'] ?? 3 }} · {{ ($shown['clock_running'] ?? false) ? 'Clock running' : 'Clock stopped' }}@if($shown['untimed_down'] ?? false) · Untimed down @endif</p>
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
     @if($state['status'] === 'playing')
     <form data-call-form @if($watching) hidden @endif method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="flex flex-wrap gap-4 items-end bg-gray-800 rounded-xl p-4">
         @csrf<input type="hidden" name="version" value="{{ $state['version'] }}">
         @unless($cpuOffense)
+        <label>Tempo<select name="tempo" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="normal">Normal</option><option value="hurry">Hurry-up</option><option value="drain">Run the clock</option></select></label>
+        <label>Clock strategy<select name="clock_strategy" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="normal">Normal finish</option>@if(app(\App\Services\Simulation\GameClock::class)->lateHalf($state))<option value="sideline">Try to get out of bounds</option>@endif</select></label>
         <label>Offense formation<select data-formation name="offense_formation" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach(\App\Services\Simulation\ExhibitionEngine::OFFENSE_FORMATIONS as $value => $label)<option value="{{ $value }}" @selected(($last['offense_formation'] ?? 'shotgun') === $value)>{{ $label }}</option>@endforeach</select></label>
         <label>Offense play<select name="call" class="block bg-gray-900 text-white rounded p-2 mt-1">@foreach($calls as $call)<option value="{{ $call }}" @selected($last && $last['call'] === $call)>{{ ucwords(str_replace('_', ' ', $call)) }}</option>@endforeach</select></label>
         @else
@@ -31,6 +34,15 @@
         <button data-snap class="bg-blue-700 rounded px-6 py-2">{{ $cpuOffense && $cpuDefense ? 'Next CPU play' : 'Call play & watch' }}</button><p class="text-xs text-gray-400">{{ $cpuOffense || $cpuDefense ? 'CPU calls are chosen automatically.' : 'You call both teams.' }} Results save at the snap; replaying changes no stats.</p>
     </form>
     @endif
+    @if($state['status'] === 'playing' && $state['clock_running'])
+    <div data-hidden-result @if($watching) hidden @endif class="flex flex-wrap gap-3">
+    @foreach(['home', 'away'] as $timeoutSide)
+        @if($controls[$timeoutSide] === 'human' && $state['timeouts'][$timeoutSide] > 0)
+        <form method="POST" data-timeout-form action="{{ route('exhibitions.play', $exhibition) }}">@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><input type="hidden" name="action" value="timeout"><input type="hidden" name="timeout_team" value="{{ $timeoutSide }}"><button class="border border-gray-500 rounded px-4 py-2">{{ $teamNames[$timeoutSide] }} timeout ({{ $state['timeouts'][$timeoutSide] }})</button></form>
+        @endif
+    @endforeach
+    </div>
+    @endif
     @if($cpuOffense && $cpuDefense && $state['status'] === 'playing')
     <button type="button" data-cpu-toggle class="border border-blue-400 rounded px-5 py-2">Start CPU game</button><span data-cpu-status class="ml-3 text-sm text-gray-400">Paused between plays</span>
     @endif
@@ -41,11 +53,11 @@
         <p class="mt-2 text-sm text-gray-400">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
     </div>
     @endif
-    @if($last && ($last['before']['quarter'] !== $last['after']['quarter'] || $last['after']['status'] === 'final'))
+    @if($last && (($last['two_minute_warning'] ?? false) || $last['before']['quarter'] !== $last['after']['quarter'] || $last['after']['status'] === 'final'))
     <dialog data-quarter-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-md backdrop:bg-black/70">
-        <h2 class="text-2xl font-semibold">{{ $last['after']['status'] === 'final' ? 'Final whistle' : ($last['before']['quarter'] === 2 ? 'Halftime' : 'End of quarter '.$last['before']['quarter']) }}</h2>
+        <h2 class="text-2xl font-semibold">{{ $last['after']['status'] === 'final' ? 'Final whistle' : (($last['two_minute_warning'] ?? false) ? 'Two-minute warning' : ($last['before']['quarter'] === 2 ? 'Halftime' : 'End of quarter '.$last['before']['quarter'])) }}</h2>
         <p class="mt-3">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
-        <p class="mt-3 text-gray-300">{{ $last['after']['status'] === 'final' ? 'The exhibition is complete.' : ($last['before']['quarter'] === 2 ? 'The away team receives to start the second half.' : 'Quarter '.$state['quarter'].' is ready. Possession and field position carry over.') }}</p>
+        <p class="mt-3 text-gray-300">{{ $last['after']['status'] === 'final' ? 'The exhibition is complete.' : (($last['two_minute_warning'] ?? false) ? 'The clock is stopped. Choose your clock strategy for the rest of the half.' : ($last['before']['quarter'] === 2 ? 'The away team receives to start the second half.' : 'Quarter '.$state['quarter'].' is ready. Possession and field position carry over.')) }}</p>
         <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">{{ $last['after']['status'] === 'final' ? 'View final result' : 'Continue' }}</button></form>
     </dialog>
     @endif
@@ -60,7 +72,7 @@
     <p data-status aria-live="polite" class="text-blue-300">Loading field…</p>
     @if($last)<p data-hidden-result @if($watching) hidden @endif class="bg-gray-800 rounded p-3">Last play: {{ $last['summary'] }}</p>@endif
     <p class="text-sm text-gray-400">Home offense moves toward the right end zone; away offense toward the left. The scoreboard updates when the replay reveals the result.</p>
-    <div class="grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers</p>@endforeach</div>
+    <div class="grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
     <details><summary class="cursor-pointer text-gray-300">Play log (<span data-log-count>{{ count($exhibition->history) - ($watching ? 1 : 0) }}</span>)</summary><ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · Q{{ $play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}</li>@endforeach</ol></details>
 </div>
 </x-layouts.app>

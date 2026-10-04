@@ -122,6 +122,7 @@ test('the ball and tackler finish at the engine dead-ball spot for both directio
         foreach (['inside_run', 'outside_run', 'slant', 'deep_pass'] as $call) {
             for ($seed = 1; $seed <= 60; $seed++) {
                 $state = array_merge($engine->initial(180, $seed, false), ['possession' => $side]);
+                $state['rules']['penalties'] = false;
                 $play = $engine->resolve($state, engineRosters(), $call, 'balanced')['play'];
                 $animation = $play['animation'];
                 $ball = end($animation['ball']);
