@@ -3,10 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Football Companion</title>
-{{--    <script src="https://unpkg.com/winbox@0.2.82/dist/winbox.bundle.js"></script>--}}
-{{--    <script src="https://unpkg.com/winbox/dist/winbox.bundle.js"></script>--}}
-    <script src="https://unpkg.com/winbox/dist/winbox.bundle.min.js"></script>
+    <title>Football</title>
+
 
 
 
@@ -15,13 +13,15 @@
 
 </head>
 <body class="bg-gray-900">
-@auth
-<nav class="flex gap-4 p-3 text-white bg-gray-800">
+<nav class="flex flex-wrap items-center gap-5 p-4 text-gray-200 bg-gray-950 border-b border-gray-700">
+    <a class="font-semibold text-white" href="{{ route('worlds.index') }}">Football</a>
     <a href="{{ route('home') }}">Games</a><a href="{{ route('teams.editor.index') }}">Teams</a>
-    <a href="{{ route('worlds.index') }}">{{ auth()->user()->currentWorld?->name ?? 'Choose world' }}</a>
-    <form method="POST" action="{{ route('logout') }}">@csrf<button>Log out</button></form>
+    <a href="{{ route('practice') }}">Practice field</a>
+    <a class="ml-auto" href="{{ route('worlds.index') }}">Saved games</a>
+    @if (app(\App\Support\CurrentWorld::class)->id)
+        <form method="POST" action="{{ route('worlds.close') }}">@csrf<button class="text-gray-400">Close saved game</button></form>
+    @endif
 </nav>
-@endauth
 {{ $slot }}
 
 @livewireScripts

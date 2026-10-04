@@ -15,19 +15,13 @@ use App\Http\Controllers\TeamSheetController;
 use App\Livewire\GameCompanion;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('guest')->group(function () {
-    Route::view('/login', 'auth.form', ['register' => false])->name('login');
-    Route::view('/register', 'auth.form', ['register' => true])->name('register');
-    Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login'])->middleware('throttle:6,1');
-    Route::post('/register', [\App\Http\Controllers\AuthController::class, 'register'])->middleware('throttle:6,1');
-});
-Route::middleware('auth')->group(function () {
-    Route::post('/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->name('logout');
-    Route::get('/worlds', [\App\Http\Controllers\WorldController::class, 'index'])->name('worlds.index');
-    Route::post('/worlds', [\App\Http\Controllers\WorldController::class, 'store'])->name('worlds.store');
-    Route::post('/worlds/{world}/select', [\App\Http\Controllers\WorldController::class, 'select'])->whereNumber('world')->name('worlds.select');
-});
-Route::middleware(['auth', \App\Http\Middleware\RequireWorld::class])->group(function () {
+Route::get('/worlds', [\App\Http\Controllers\WorldController::class, 'index'])->name('worlds.index');
+Route::post('/worlds', [\App\Http\Controllers\WorldController::class, 'store'])->name('worlds.store');
+Route::post('/worlds/{world}/select', [\App\Http\Controllers\WorldController::class, 'select'])->whereNumber('world')->name('worlds.select');
+Route::post('/worlds/close', [\App\Http\Controllers\WorldController::class, 'close'])->name('worlds.close');
+Route::view('/practice', 'practice.index')->name('practice');
+
+Route::middleware([\App\Http\Middleware\RequireWorld::class])->group(function () {
 
     Route::get('/', [GameSetupController::class, 'index'])->name('home');
 

@@ -3,10 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Models\LocalSetting;
 use App\Models\Player;
 use App\Models\Team;
 use App\Models\TeamPlayer;
-use App\Models\User;
+use App\Models\World;
 use App\Support\CurrentWorld;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -14,12 +15,11 @@ use LogicException;
 
 class SeedDemoWorld extends Command
 {
-    protected $signature = 'world:seed-demo {email : Your registered account email}
-        {--world= : Owned world ID; defaults to your currently selected world}
+    protected $signature = 'world:seed-demo {world? : Saved-game ID; defaults to the last selected saved game}
         {--teams=4 : Number of fictional teams, from 2 to 16}
         {--year= : Roster year; defaults to the latest season in the world}';
 
-    protected $description = 'Fill an empty owned world with fictional teams, 53-player rosters and exhibition games';
+    protected $description = 'Fill an empty local saved game with fictional teams, 53-player rosters and exhibition games';
 
     private const TEAMS = [
         ['Memphis', 'Riverhawks'], ['Jackson', 'Copperheads'], ['Birmingham', 'Ironclads'], ['Little Rock', 'Thunder'],
@@ -34,16 +34,10 @@ class SeedDemoWorld extends Command
 
     public function handle(): int
     {
-        $user = User::where('email', $this->argument('email'))->first();
-        if (! $user) {
-            $this->error('No account has that email. Register first, then use your actual login email.');
-
-            return self::FAILURE;
-        }
-        $worldId = $this->option('world') ?? $user->current_world_id;
-        $world = $user->worlds()->where('owner_user_id', $user->id)->find($worldId);
+        $worldId = $this->argument('world') ?? LocalSetting::find(1)?->current_world_id;
+        $world = $worldId ? World::find($worldId) : null;
         if (! $world) {
-            $this->error('Select or create a world first, or supply --world with an ID you own.');
+            $this->error('Create or open a saved game first, or supply its numeric ID: world:seed-demo 1');
 
             return self::FAILURE;
         }

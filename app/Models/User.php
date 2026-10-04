@@ -47,16 +47,6 @@ class User extends Authenticatable
         ];
     }
 
-    public function worlds(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(World::class, 'world_user')->withPivot('role')->withTimestamps();
-    }
-
-    public function currentWorld(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(World::class, 'current_world_id');
-    }
-
     /**
      * Get the user's initials
      */

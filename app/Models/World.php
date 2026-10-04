@@ -6,12 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class World extends Model
 {
-    protected $fillable = ['name', 'owner_user_id'];
-
-    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'world_user')->withPivot('role')->withTimestamps();
-    }
+    protected $fillable = ['name'];
 
     public function leagues(): \Illuminate\Database\Eloquent\Relations\HasMany
     {

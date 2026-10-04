@@ -2,20 +2,19 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User;
+use App\Models\World;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class AdoptLegacyWorld extends Command
 {
-    protected $signature = 'world:adopt-legacy {user : Existing user email} {world : World ID owned by that user}';
+    protected $signature = 'world:adopt-legacy {world : Local saved-game ID}';
 
     protected $description = 'Assign all unassigned legacy teams, players and games to an existing owned world';
 
     public function handle(): int
     {
-        $user = User::where('email', $this->argument('user'))->firstOrFail();
-        $world = $user->worlds()->where('owner_user_id', $user->id)->findOrFail($this->argument('world'));
+        $world = World::findOrFail($this->argument('world'));
         DB::transaction(function () use ($world) {
             // Reject partial/corrupt ownership rather than connecting two worlds.
             foreach ([['team_players', 'team_id', 'teams'], ['team_players', 'player_id', 'players'],
