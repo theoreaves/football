@@ -10,26 +10,29 @@ use App\Support\CurrentWorld;
 
 beforeEach(function () {
     $this->withoutVite();
+    $this->actingAs(\App\Models\User::factory()->create());
 });
 function footballSave(string $name = 'Solo'): World
 {
     $world = World::create(['name' => $name]);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
     app(CurrentWorld::class)->id = $world->id;
 
     return $world;
 }
-test('new installs open saved games without login', function () {
-    $this->get('/')->assertRedirect(route('worlds.index'));
-    $this->get('/worlds')->assertOk()->assertSee('New saved game');
-    $this->get('/login')->assertNotFound();
-    $this->get('/register')->assertNotFound();
-    $this->get('/practice')->assertOk();
+test('browser routes require login and accounts own new saves', function () {
+    \Illuminate\Support\Facades\Auth::logout();
+    $this->get('/')->assertRedirect(route('login'));
+    $this->get('/worlds')->assertRedirect(route('login'));
+    $this->get('/login')->assertOk();
+    $this->get('/register')->assertOk();
+    $this->get('/practice')->assertRedirect(route('login'));
 });
-test('local saves create leagues and seasons without accounts', function () {
+test('browser saves create leagues and seasons for their owner', function () {
     $this->post('/worlds', ['name' => 'Theo Save', 'league_name' => 'Solo League', 'year' => 2030])->assertRedirect(route('home'));
     $this->assertDatabaseHas('seasons', ['year' => 2030, 'phase' => 'preseason']);
-    $this->assertDatabaseCount('users', 0);
+    $this->assertDatabaseHas('worlds', ['name' => 'Theo Save', 'owner_user_id' => auth()->id()]);
     $this->get('/')->assertOk();
 });
 test('separate saves cannot mix bound teams or exhibition records', function () {
@@ -46,8 +49,7 @@ test('separate saves cannot mix bound teams or exhibition records', function () 
 test('save selection persists and closing restores the picker', function () {
     $first = footballSave('First');
     footballSave('Second');
-    $this->post('/worlds/'.$first->id.'/select')->assertRedirect(route('home'));
-    $this->assertDatabaseHas('local_settings', ['id' => 1, 'current_world_id' => $first->id]);
+    $this->post('/worlds/'.$first->id.'/select')->assertRedirect(route('home'))->assertSessionHas('current_world_id', $first->id);
     $this->post('/worlds/9999/select')->assertNotFound();
     $this->post('/worlds/close')->assertRedirect(route('worlds.index'));
     $this->get('/')->assertRedirect(route('worlds.index'));

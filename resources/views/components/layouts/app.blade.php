@@ -23,6 +23,11 @@
     @if (app(\App\Support\CurrentWorld::class)->id)
         <form method="POST" action="{{ route('worlds.close') }}">@csrf<button class="text-gray-400">Close saved game</button></form>
     @endif
+    @auth
+        <span class="text-sm text-gray-400">{{ auth()->user()->name }}</span>
+        @if(config('services.google.client_id') && config('services.google.client_secret') && !auth()->user()->google_id)<a href="{{ route('google.redirect') }}" class="text-sm text-blue-300">Link Google</a>@endif
+        <form method="POST" action="{{ route('logout') }}">@csrf<button class="text-gray-300">Sign out</button></form>
+    @endauth
 </nav>
 @endunless
 {{ $slot }}

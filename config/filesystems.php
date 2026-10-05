@@ -29,6 +29,11 @@ return [
     */
 
     'disks' => [
+        'team_art' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/team-art'),
+            'throw' => true,
+        ],
 
         'local' => [
             'driver' => 'local',

@@ -45,3 +45,12 @@ function something()
 {
     // ..
 }
+
+function openFootballSave(\App\Models\World $world): void
+{
+    $user = auth()->user() ?? \App\Models\User::factory()->create();
+    test()->actingAs($user);
+    $world->update(['owner_user_id' => $user->id]);
+    test()->withSession(['current_world_id' => $world->id]);
+    app(\App\Support\CurrentWorld::class)->id = $world->id;
+}

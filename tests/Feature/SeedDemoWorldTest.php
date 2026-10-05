@@ -9,6 +9,7 @@ function emptyDemoWorld(): World
 {
     $world = World::create(['name' => 'Test World']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
 
     return $world;
 }

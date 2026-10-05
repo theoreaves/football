@@ -9,6 +9,7 @@ beforeEach(function () {
     $this->withoutVite();
     $world = World::create(['name' => 'Appearance']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
     app(CurrentWorld::class)->id = $world->id;
 });
 
@@ -52,5 +53,6 @@ test('practice selections cannot use teams in another saved game', function () {
     $team = Team::create(['city' => 'Memphis', 'name' => 'Tigers']);
     $other = World::create(['name' => 'Other']);
     LocalSetting::find(1)->update(['current_world_id' => $other->id]);
+    openFootballSave($other);
     $this->get(route('practice', ['home' => $team->id]))->assertNotFound();
 });

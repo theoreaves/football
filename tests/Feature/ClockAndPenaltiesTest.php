@@ -201,6 +201,7 @@ test('human timeout requests are version checked scoped and cannot control the C
     $this->withoutVite();
     $world = World::create(['name' => 'Timeout UI']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
     $this->artisan('world:seed-demo', ['world' => $world->id, '--teams' => 2])->assertSuccessful();
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();
@@ -224,6 +225,7 @@ test('human penalty choices commit the selected outcome once and block interveni
     $this->withoutVite();
     $world = World::create(['name' => 'Flags']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
     $this->artisan('world:seed-demo', ['world' => $world->id, '--teams' => 2])->assertSuccessful();
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();

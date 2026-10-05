@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Console\Commands\SeedDemoWorld;
-use App\Models\LocalSetting;
 use App\Models\World;
 use App\Support\CurrentWorld;
 use Illuminate\Http\RedirectResponse;
@@ -14,9 +13,9 @@ use Illuminate\View\View;
 
 class WorldController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        return view('worlds.index', ['worlds' => World::orderByDesc('updated_at')->get()]);
+        return view('worlds.index', ['worlds' => World::where('owner_user_id', $request->user()->id)->orderByDesc('updated_at')->get()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -26,19 +25,24 @@ class WorldController extends Controller
             'league_name' => ['required', 'string', 'max:255'],
             'year' => ['required', 'integer', 'between:1900,2200'],
             'demo' => ['sometimes', 'boolean'],
+            'preset' => ['sometimes', \Illuminate\Validation\Rule::in(['empty', 'demo', 'middle-earth'])],
         ]);
         $world = DB::transaction(function () use ($request, $data) {
-            $world = World::create(['name' => $data['name']]);
+            $world = World::create(['name' => $data['name'], 'owner_user_id' => $request->user()->id]);
             app(CurrentWorld::class)->id = $world->id;
             $league = $world->leagues()->create(['name' => $data['league_name']]);
             $league->seasons()->create(['year' => $data['year']]);
-            if ($request->boolean('demo')) {
+            if (($data['preset'] ?? ($request->boolean('demo') ? 'demo' : 'empty')) === 'middle-earth') {
+                $status = Artisan::call('football:seed-middle-earth', ['world' => $world->id, '--year' => $data['year']]);
+                if ($status !== SeedDemoWorld::SUCCESS) {
+                    throw new \RuntimeException('Unable to create the Middle Earth league.');
+                }
+            } elseif (($data['preset'] ?? ($request->boolean('demo') ? 'demo' : 'empty')) === 'demo') {
                 $status = Artisan::call('world:seed-demo', ['world' => $world->id, '--year' => $data['year']]);
                 if ($status !== SeedDemoWorld::SUCCESS) {
                     throw new \RuntimeException('Unable to create the demo league.');
                 }
             }
-            LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
 
             return $world;
         });
@@ -49,8 +53,7 @@ class WorldController extends Controller
 
     public function select(Request $request, int $world): RedirectResponse
     {
-        $savedGame = World::findOrFail($world);
-        LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $savedGame->id]);
+        $savedGame = World::where('owner_user_id', $request->user()->id)->findOrFail($world);
         $request->session()->put('current_world_id', $savedGame->id);
 
         return redirect()->route('home');
@@ -58,7 +61,6 @@ class WorldController extends Controller
 
     public function close(Request $request): RedirectResponse
     {
-        LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => null]);
         $request->session()->forget('current_world_id');
 
         return redirect()->route('worlds.index');

@@ -12,6 +12,7 @@ beforeEach(function () {
     $this->withoutVite();
     $save = World::create(['name' => 'Personnel']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $save->id]);
+    openFootballSave($save);
     app(CurrentWorld::class)->id = $save->id;
     $this->artisan('world:seed-demo', ['world' => $save->id, '--teams' => 2])->assertSuccessful();
     $teams = Team::all();

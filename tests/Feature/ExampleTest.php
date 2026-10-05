@@ -1,5 +1,5 @@
 <?php
 
-test('home opens the saved-game picker on a new install', function () {
-    $this->get('/')->assertRedirect(route('worlds.index'));
+test('home opens the login screen on a new install', function () {
+    $this->get('/')->assertRedirect(route('login'));
 });

@@ -16,6 +16,7 @@ beforeEach(function () {
     $world = World::create(['name' => 'Cleanup']);
     app(CurrentWorld::class)->id = $world->id;
     App\Models\LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
 });
 test('legacy endpoints commands tables and card fields are gone', function () {
     foreach (['/football', '/games', '/games/new', '/gameplay/test', '/pdf-library', '/game-cards/offense', '/dice'] as $path) {

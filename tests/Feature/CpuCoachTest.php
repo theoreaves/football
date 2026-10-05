@@ -45,6 +45,7 @@ test('all four control combinations persist and only show selectors for human te
     $this->withoutVite();
     $world = World::create(['name' => 'CPU test']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
     $this->artisan('world:seed-demo', ['world' => $world->id, '--teams' => 2])->assertSuccessful();
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();
@@ -76,6 +77,7 @@ test('CPU versus CPU can finish a saved game without human calls and retains rat
     $this->withoutVite();
     $world = World::create(['name' => 'CPU season']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
     $this->artisan('world:seed-demo', ['world' => $world->id, '--teams' => 2])->assertSuccessful();
     app(CurrentWorld::class)->id = $world->id;
     $teams = Team::all();

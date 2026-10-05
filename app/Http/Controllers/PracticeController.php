@@ -22,10 +22,10 @@ class PracticeController extends Controller
     {
         abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right'], true), 404);
         $path = $team->{$asset};
-        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
         abort_unless($path && $disk->exists($path), 404);
 
-        return $disk->response($path);
+        return $disk->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 
     public function appearance(?Team $team, string $venue): array

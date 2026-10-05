@@ -12,6 +12,7 @@ beforeEach(function () {
     $this->withoutVite();
     $save = World::create(['name' => 'Engine']);
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $save->id]);
+    openFootballSave($save);
     app(CurrentWorld::class)->id = $save->id;
     $this->artisan('world:seed-demo', ['world' => $save->id, '--teams' => 2])->assertSuccessful();
 });
@@ -57,6 +58,7 @@ test('exhibitions reject same team incomplete rosters and records from other sav
     $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     $other = World::create(['name' => 'Other']);
     LocalSetting::find(1)->update(['current_world_id' => $other->id]);
+    openFootballSave($other);
     $this->get(route('exhibitions.show', $game))->assertNotFound();
     $this->post(route('exhibitions.play', $game), ['call' => 'slant', 'defense' => 'man_to_man', 'version' => 0])->assertNotFound();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertNotFound();

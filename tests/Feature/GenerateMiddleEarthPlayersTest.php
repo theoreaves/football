@@ -15,6 +15,7 @@ test('middle earth command creates the original league without changing the curr
     $old = World::create(['name' => 'Existing save']);
     app(CurrentWorld::class)->id = $old->id;
     LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $old->id]);
+    openFootballSave($old);
     $oldTeam = Team::create(['city' => 'Existing', 'name' => 'Team', 'uniform_home_shirt' => '#112233']);
     $this->artisan('football:seed-middle-earth', ['--year' => 2030, '--seed' => 42])->assertSuccessful();
     expect(app(CurrentWorld::class)->id)->toBe($old->id);
@@ -53,6 +54,7 @@ test('middle earth command creates the original league without changing the curr
     $result = $engine->resolve($engine->initial(180, 42), $rosters, 'kickoff', 'kickoff_return');
     expect($result['play']['animation']['players'])->toHaveCount(22);
     app(CurrentWorld::class)->id = null;
+    openFootballSave($world);
     $this->withSession(['current_world_id' => $world->id])->get(route('teams.editor.index'))->assertOk()->assertSee('Imperial')->assertSee('Watch');
 });
 

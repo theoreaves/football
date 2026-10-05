@@ -111,7 +111,7 @@ class TeamEditor extends Controller
         foreach ($fields as $field) {
             if ($request->boolean('clear_'.$field)) {
                 if ($team->{$field}) {
-                    Storage::disk('public')->delete($team->{$field});
+                    Storage::disk('team_art')->delete($team->{$field});
                 }
                 $team->update([$field => null]);
             }
@@ -121,7 +121,7 @@ class TeamEditor extends Controller
 
             // delete old
             if ($team->{$field}) {
-                Storage::disk('public')->delete($team->{$field});
+                Storage::disk('team_art')->delete($team->{$field});
             }
 
             $file = $request->file($field);
@@ -144,7 +144,7 @@ class TeamEditor extends Controller
 
                 if ($pngBytes) {
                     $storedPath = "teams/{$team->id}/{$field}.png";
-                    Storage::disk('public')->put($storedPath, $pngBytes);
+                    Storage::disk('team_art')->put($storedPath, $pngBytes);
                     $team->update([$field => $storedPath]);
 
                     continue;
@@ -154,8 +154,8 @@ class TeamEditor extends Controller
 
             $storedPath = $file->storeAs(
                 "teams/{$team->id}",
-                "{$field}.".$file->getClientOriginalExtension(),
-                'public'
+                "{$field}.".$file->extension(),
+                'team_art'
             );
 
             $team->update([$field => $storedPath]);

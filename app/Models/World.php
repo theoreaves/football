@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class World extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'owner_user_id'];
 
     public function leagues(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
