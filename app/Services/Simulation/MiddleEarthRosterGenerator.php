@@ -35,10 +35,7 @@ class MiddleEarthRosterGenerator
             $players = [];
             for ($i = 0; $i < $count; $i++) {
                 do {
-                    $parts = self::NAMES[$random->getInt(0, count(self::NAMES) - 1)];
-                    $name = array_map(fn ($pool) => $pool[$random->getInt(0, count($pool) - 1)], $parts);
-                    $first = $name[0].$name[1];
-                    $last = $name[2].$name[3];
+                    [$first, $last] = $this->name($random);
                 } while (isset($names[$first.' '.$last]));
                 $names[$first.' '.$last] = true;
                 $talent = intdiv($random->getInt(40, 88) + $random->getInt(40, 88), 2);
@@ -57,5 +54,13 @@ class MiddleEarthRosterGenerator
         }
 
         return $roster;
+    }
+
+    protected function name(Randomizer $random): array
+    {
+        $parts = self::NAMES[$random->getInt(0, count(self::NAMES) - 1)];
+        $name = array_map(fn ($pool) => $pool[$random->getInt(0, count($pool) - 1)], $parts);
+
+        return [$name[0].$name[1], $name[2].$name[3]];
     }
 }
