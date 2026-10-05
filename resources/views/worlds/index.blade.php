@@ -1,6 +1,6 @@
 <x-layouts.app>
 <div class="max-w-4xl mx-auto p-8 text-white space-y-8">
-    <div><p class="text-sm text-blue-400 uppercase tracking-widest">Your football universe</p><h1 class="text-3xl font-semibold mt-2">Saved games</h1><p class="text-gray-400 mt-3">Create a league and play through its history. Your leagues and saves belong to your account and can be opened from any browser.</p></div>
+    <div><x-brand-logo sport="general" class="w-48 mb-5" /><p class="text-sm text-blue-400 uppercase tracking-widest">Your football universe</p><h1 class="text-3xl font-semibold mt-2">Saved games</h1><p class="text-gray-400 mt-3">Create a league and play through its history. Your leagues and saves belong to your account and can be opened from any browser.</p></div>
     @if(session('status'))<p class="text-blue-200">{{ session('status') }}</p>@endif
     <div class="grid gap-4 sm:grid-cols-2">
     @forelse ($worlds as $world)

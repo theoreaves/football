@@ -4,7 +4,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Football</title>
+    <title>WebSports Football</title>
+    <meta name="application-name" content="WebSports Football">
+    <link rel="icon" type="image/png" href="{{ asset('branding/websports-football.png') }}">
 
 
 
@@ -16,7 +18,7 @@
 <body class="bg-gray-900">
 @unless($immersive)
 <nav class="flex flex-wrap items-center gap-5 p-4 text-gray-200 bg-gray-950 border-b border-gray-700">
-    <a class="font-semibold text-white" href="{{ route('worlds.index') }}">Football</a>
+    <a class="shrink-0" href="{{ route('worlds.index') }}"><x-brand-logo class="w-44" /></a>
     <a href="{{ route('home') }}">Exhibitions</a><a href="{{ route('teams.editor.index') }}">Teams</a>
     <a href="{{ route('practice') }}">Practice field</a>
     <a class="ml-auto" href="{{ route('worlds.index') }}">Saved games</a>
