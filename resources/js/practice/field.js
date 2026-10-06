@@ -1,3 +1,4 @@
+import { mobileControls } from './mobile-controls.js';
 import { stadiumAudio } from './stadium-audio.js';
 import { soundCues, crossedCues } from './sound-cues.js';
 import { fitLogo } from './logo-fit.js';
@@ -204,6 +205,7 @@ export function mountPractice(root) {
         if (count) count.textContent = committed ? afterState.version : beforeState.version;
         const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
     };
+    const disposeMobileControls = mobileControls(root);
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
     let audioTime = -2;
@@ -432,6 +434,7 @@ export function mountPractice(root) {
         if (disposed) return;
         disposed = true;
         document.removeEventListener('visibilitychange', silenceHidden);
+        disposeMobileControls();
         audio.dispose();
         saveCamera();
         controls.removeEventListener('end', saveCamera);
