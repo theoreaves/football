@@ -22,6 +22,11 @@ return new class extends Migration
         } finally {
             Schema::enableForeignKeyConstraints();
         }
+        // MySQL may use the legacy composite index to support the world foreign key.
+        // Create its replacement first, including when retrying a partially run migration.
+        if (! Schema::hasIndex('players', 'players_world_id_index')) {
+            Schema::table('players', fn (Blueprint $table) => $table->index('world_id'));
+        }
         Schema::table('players', function (Blueprint $table) {
             $table->dropUnique(['world_id', 'sleeper_id']);
             foreach (['espn_id', 'college', 'high_school'] as $column) {
