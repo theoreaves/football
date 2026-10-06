@@ -10,6 +10,7 @@
 .game-stage { position: fixed; inset: 0; overflow: hidden; background: #101a2b; font-size: 14px; }
 .game-field { position: absolute; inset: 0; width: 100%; height: 100%; }
 .game-stage > :not(.game-field) { position: absolute; z-index: 10; }
+.game-stage > .game-brand-watermark { right: max(20px, env(safe-area-inset-right)); bottom: max(64px, env(safe-area-inset-bottom)); width: clamp(110px, 12vw, 180px); opacity: .35; pointer-events: none; user-select: none; z-index: 1; }
 .game-stage > [hidden] { display: none; }
 .game-scoreboard, .game-play-panel, .game-camera-controls, .game-actions, .game-last-result, .game-status, .game-timeouts { background: rgb(8 16 29 / 88%); border: 1px solid #344459; border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(8px); }
 .game-scoreboard { top: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
