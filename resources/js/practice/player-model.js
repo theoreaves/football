@@ -61,7 +61,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     group.userData.faceMask = faceMask;
     if (kit.helmet_stripe_enabled) {
         const stripePaint = mat(kit.helmet_stripe || '#ffffff'); stripePaint.flatShading = false;
-        stripePaint.side = THREE.DoubleSide;
+        stripePaint.side = THREE.FrontSide;
         stripePaint.polygonOffset = true;
         stripePaint.polygonOffsetFactor = -1;
         stripePaint.polygonOffsetUnits = -1;

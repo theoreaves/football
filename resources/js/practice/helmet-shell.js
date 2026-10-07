@@ -10,7 +10,7 @@ export function helmetPoint(theta, phi, lift = 0) {
     return new THREE.Vector3(x, y, z - .025).addScaledVector(normal, lift);
 }
 
-function surface(columns, rows, pointAt) {
+function surface(columns, rows, pointAt, reverseWinding = false) {
     const positions = [], normals = [], uv = [], indices = [];
     for (let row = 0; row <= rows; row++) {
         for (let col = 0; col <= columns; col++) {
@@ -21,7 +21,8 @@ function surface(columns, rows, pointAt) {
             normals.push(...normal.toArray()); uv.push(u, 1 - v);
             if (row < rows && col < columns) {
                 const a = row * (columns + 1) + col, b = a + columns + 1;
-                indices.push(a, a + 1, b, a + 1, b + 1, b);
+                if (reverseWinding) indices.push(a, b, a + 1, a + 1, b, b + 1);
+                else indices.push(a, a + 1, b, a + 1, b + 1, b);
             }
         }
     }
@@ -62,5 +63,5 @@ export function helmetStripeGeometry() {
         const normal = new THREE.Vector3(point.x / (.355 ** 2), point.y / (.38 ** 2), point.z / (.405 ** 2)).normalize();
         point.z -= .025;
         return point.addScaledVector(normal, .0006);
-    });
+    }, true);
 }

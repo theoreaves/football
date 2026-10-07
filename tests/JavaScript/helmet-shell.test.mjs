@@ -55,3 +55,20 @@ test('stripe hugs the shell across its width and stops inside the helmet edges',
     // Multiple columns follow the crown instead of forming a flat floating band.
     assert.ok(positions.getY(40 * 9 + 4) > positions.getY(40 * 9));
 });
+
+
+test('stripe faces outward so lighting does not invert its paint color', () => {
+    const geometry = helmetStripeGeometry();
+    const positions = geometry.attributes.position;
+    for (let i = 0; i < geometry.index.count; i += 3) {
+        const points = [0, 1, 2].map(offset => new THREE.Vector3().fromBufferAttribute(positions, geometry.index.getX(i + offset)));
+        const normal = new THREE.Vector3().fromBufferAttribute(geometry.attributes.normal, geometry.index.getX(i));
+        const face = points[1].clone().sub(points[0]).cross(points[2].clone().sub(points[0]));
+        assert.ok(face.dot(normal) > 0, 'front-facing triangle matches the outward lighting normal');
+    }
+    const document = { createElement: () => ({ getContext: () => ({ strokeText() {}, fillText() {} }) }) };
+    const player = buildFootballPlayer({}, { helmet_stripe_enabled: true, helmet_stripe: '#ffffff' }, document);
+    const stripe = player.getObjectByName('helmet-stripe');
+    assert.equal(stripe.material.side, THREE.FrontSide);
+    assert.equal(stripe.material.color.getHexString(), 'ffffff');
+});
