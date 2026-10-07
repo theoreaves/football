@@ -1,3 +1,4 @@
+import { samplePreSnapMotion } from './motion.js';
 import { mobileControls } from './mobile-controls.js';
 import { stadiumAudio } from './stadium-audio.js';
 import { soundCues, crossedCues } from './sound-cues.js';
@@ -226,26 +227,21 @@ export function mountPractice(root) {
         let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress) : sample(type, elapsed);
         let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02)) : sample(type, Math.min(duration, elapsed + 0.03));
         if (phase === 'liningup') {
-            const formation = sample(type, 0);
-            if (animation?.motion_start !== null) formation.players.forEach(player => { if (player.team === 'offense' && player.role === animation.motion) player.z = animation.motion_start; });
+            const formation = samplePreSnapMotion(sample(type, 0), animation, 0);
             frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress);
             future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02));
         }
         if (phase === 'set') {
-            frame = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
-            if (animation?.motion_start != null) {
-                const progress = Math.min(1, setElapsed / 3);
-                const eased = progress * progress * (3 - 2 * progress);
-                frame.players.forEach(player => { if (player.team === 'offense' && player.role === animation.motion) player.z = animation.motion_start + (animation.motion_end - animation.motion_start) * eased; });
-            }
-            future = frame;
+            const formation = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
+            frame = samplePreSnapMotion(formation, animation, setElapsed / 3);
+            future = samplePreSnapMotion(formation, animation, (setElapsed + .03) / 3);
         }
         if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             const next = future.players[i];
-            const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002 || (phase === 'set' && setElapsed < 3 && player.team === 'offense' && player.role === animation?.motion);
+            const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);

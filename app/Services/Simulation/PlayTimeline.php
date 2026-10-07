@@ -93,6 +93,28 @@ class PlayTimeline
             $offense[$motion][1] = $motionStart < 26.7 ? 36 : 17;
             $offense[$motion][0] = min(-2, $offense[$motion][0]);
         }
+        $motionDefender = null;
+        $motionDefenderStart = null;
+        if ($motionStart !== null && in_array($play['defense'] ?? '', ['man_to_man', 'blitz'], true)) {
+            $assignments = match ($motion) {
+                'WR1' => ['CB1'],
+                'WR2' => ['CB2'],
+                'WR3' => ['CB3', 'LB3', 'S1'],
+                'TE' => ['S2', 'LB5', 'LB3', 'CB3'],
+                'RB' => ['LB2', 'CB4', 'LB1'],
+                default => [],
+            };
+            foreach ($assignments as $role) {
+                if (isset($defense[$role])) {
+                    $motionDefender = $role;
+                    // Keep inside leverage as the assigned defender travels with the receiver.
+                    $leverage = $motionStart < 26.7 ? 1 : -1;
+                    $motionDefenderStart = $motionStart + $leverage;
+                    $defense[$role][1] = $offense[$motion][1] + $leverage;
+                    break;
+                }
+            }
+        }
         $qbZ = ($play['pressure'] ?? false) && $play['outcome'] !== 'sack' ? 30.7 : 26.7;
         $qbStart = $offense['QB'][0];
         $qbSet = $qbStart - 2;
@@ -220,7 +242,7 @@ class PlayTimeline
             $holders[] = [3.8, 'defense', $returner];
         }
 
-        return ['motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => in_array($play['outcome'], ['tackle', 'sack', 'fumble'], true) && ! ($play['out_of_bounds'] ?? false) ? 5.3 : null, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        return ['motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => in_array($play['outcome'], ['tackle', 'sack', 'fumble'], true) && ! ($play['out_of_bounds'] ?? false) ? 5.3 : null, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])), 'possession' => $side];
     }
 }

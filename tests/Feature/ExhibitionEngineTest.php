@@ -356,3 +356,20 @@ test('motion and pressure metadata survive deterministic formation replays', fun
     expect($play['design'])->toBe('screen')->and($play['motion'])->toBe('WR2')->and($play['expect'])->toBe('pass')->and($play['blitz'])->toBeTrue();
     expect($play['animation']['motion'])->toBe('WR2')->and($play['animation']['motion_start'])->not->toBe($play['animation']['motion_end']);
 });
+
+test('man coverage follows motion while zone coverage holds its assignment even when blitzing', function () {
+    $engine = app(ExhibitionEngine::class);
+    $state = $engine->initial(900, 55, false);
+    $state['rules'] = ['penalties' => false, 'injuries' => false];
+    foreach (['WR1' => 'CB1', 'WR2' => 'CB2', 'WR3' => 'LB3', 'TE' => 'S2', 'RB' => 'LB2'] as $receiver => $defender) {
+        foreach (['man_to_man', 'zone'] as $coverage) {
+            $animation = $engine->resolve($state, engineRosters(), 'short_pass', $coverage, 'shotgun', 'base_4_3', 'normal', 'normal', 'balanced', true, $receiver)['play']['animation'];
+            expect($animation['motion_defender'])->toBe($coverage === 'man_to_man' ? $defender : null);
+            if ($coverage === 'man_to_man') {
+                $track = collect($animation['players'])->first(fn ($player) => $player['team'] === 'defense' && $player['role'] === $defender);
+                expect($track['path'][0][3])->toBe($animation['motion_defender_end'])
+                    ->and($animation['motion_defender_end'] - $animation['motion_defender_start'])->toBe($animation['motion_end'] - $animation['motion_start']);
+            }
+        }
+    }
+});
