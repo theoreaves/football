@@ -11,6 +11,7 @@
             </select></label>
             <label>{{ $label }} control<select name="{{ $side }}_control" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="human" @selected(old($side.'_control', 'human') === 'human')>Human</option><option value="cpu" @selected(old($side.'_control') === 'cpu')>CPU</option></select></label>
         @endforeach
+        <label>Visitor coin call<select name="coin_call" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="heads" @selected(old('coin_call', 'heads') === 'heads')>Heads</option><option value="tails" @selected(old('coin_call') === 'tails')>Tails</option></select></label>
         <label>Stadium fullness (%)<input type="number" name="crowd_fullness" min="0" max="100" step="1" value="{{ old('crowd_fullness', 80) }}" class="block bg-gray-900 text-white rounded p-2 mt-1 w-28" required></label>
         <label>Visiting fans (% of crowd)<input type="number" name="visiting_fans" min="0" max="100" step="1" value="{{ old('visiting_fans', 10) }}" class="block bg-gray-900 text-white rounded p-2 mt-1 w-28" required></label>
         <label>Quarter length<select name="quarter_length" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="180">Quick game · 3 minutes</option><option value="900">Full game · 15 minutes</option></select></label>

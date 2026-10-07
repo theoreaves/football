@@ -28,12 +28,15 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
+        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
+        $coin = random_int(0, 1) === 0 ? 'heads' : 'tails';
+        $coinCall = $data['coin_call'] ?? 'heads';
+        $receiver = $coin === $coinCall ? 'away' : 'home';
         $game = DB::transaction(fn () => Exhibition::create([
             'home_team_id' => $home->id, 'away_team_id' => $away->id,
-            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
+            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $receiver], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
             'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
         ]));
 
@@ -49,7 +52,7 @@ class ExhibitionController extends Controller
         $history = $exhibition->history;
         $last = $history ? $history[array_key_last($history)] : null;
         $preview = $last ?? ['before' => $exhibition->state, 'call' => 'inside_run', 'outcome' => 'tackle', 'carrier' => 'RB', 'gain' => 0, 'target' => 0, 'summary' => 'Ready for the snap'];
-        $animation = $last['animation'] ?? app(\App\Services\Simulation\PlayTimeline::class)->build($preview, $exhibition->rosters);
+        $animation = $last['animation'] ?? \App\Services\Simulation\FieldOrientation::animation(app(\App\Services\Simulation\PlayTimeline::class)->build($preview, $exhibition->rosters), $preview['before']);
 
         $calls = ExhibitionEngine::callsForState($exhibition->state);
         $defenseOptions = array_combine(ExhibitionEngine::OFFENSE, array_map(ExhibitionEngine::defensesForCall(...), ExhibitionEngine::OFFENSE));

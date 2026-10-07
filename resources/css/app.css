@@ -107,3 +107,6 @@
 @media (max-width: 950px), (max-height: 500px) {
     .score-team-logo { width: 22px; height: 22px; }
 }
+
+.game-event-title { font-size: clamp(28px, 5vw, 48px); font-weight: 900; line-height: 1.1; letter-spacing: .03em; text-align: center; }
+.game-stage > [data-result-popup] { max-height: 70dvh; overflow-y: auto; }

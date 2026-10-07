@@ -314,6 +314,8 @@ class ExhibitionEngine
         $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
             ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
 
+        $play['animation'] = FieldOrientation::animation($play['animation'], $before);
+
         $personnel = app(GamePersonnel::class)->afterPlay($state, $before, $play, $rosters);
         $state = $personnel['state'];
         $play['personnel_notices'] = $personnel['notices'];

@@ -5,7 +5,15 @@
     $shown = $watching ? $last['before'] : $state;
     $teamNames = ['home' => $exhibition->homeTeam->name, 'away' => $exhibition->awayTeam->name];
 @endphp
-<div data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ $state['possession'] === 'home' ? 10 + $state['spot'] : 110 - $state['spot'] }}" data-next-possession="{{ $state['possession'] }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' ? 'true' : 'false' }}" class="game-stage text-white">
+<div data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ \App\Services\Simulation\FieldOrientation::line($state) }}" data-next-possession="{{ $state['possession'] }}" data-next-direction="{{ \App\Services\Simulation\FieldOrientation::direction($state) }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' ? 'true' : 'false' }}" class="game-stage text-white">
+    @if($state['version'] === 0 && isset($state['coin_toss']))
+    <dialog data-coin-dialog class="game-dialog text-center">
+        <h2 class="game-event-title text-blue-300">COIN TOSS</h2>
+        <p class="mt-4">{{ $teamNames['away'] }} called {{ $state['coin_toss']['call'] }}. The coin landed {{ $state['coin_toss']['result'] }}.</p>
+        <p class="mt-3 font-semibold">{{ $teamNames[$state['coin_toss']['winner']] }} wins and receives the opening kickoff.</p>
+        <form method="dialog" class="mt-4"><button>OK · Start game</button></form>
+    </dialog>
+    @endif
     <div class="game-brand-watermark" aria-hidden="true"><x-brand-logo /></div>
     <div class="game-scoreboard">
         <a href="{{ route('exhibitions.index') }}" class="score-exit">Exhibitions</a>
@@ -66,7 +74,9 @@
     @endif
     @if($last)
     <div data-result-popup hidden role="status" class="fixed z-50 bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white border border-blue-400 rounded-xl shadow-xl p-5 w-full max-w-lg text-center">
-        <h2 class="text-lg font-semibold text-blue-300">Play result</h2>
+        @foreach(\App\Support\PlayAnnouncement::titles($last) as $title)
+        <h2 class="game-event-title {{ $title === 'FLAG!' ? 'text-yellow-300' : 'text-blue-300' }}">{{ $title }}</h2>
+        @endforeach
         <p class="mt-2">{{ $last['summary'] }}</p>
         <button type="button" data-result-ok class="bg-blue-700 rounded px-5 py-2 mt-3">OK · Continue</button>
         <p class="mt-2 text-sm text-gray-400">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
@@ -74,7 +84,7 @@
     @endif
     @if($last && !empty($last['personnel_notices']))
     <dialog data-injury-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-orange-400 p-6 max-w-xl backdrop:bg-black/70">
-        <h2 class="text-2xl font-semibold text-orange-300">Player availability</h2>
+        <h2 class="game-event-title text-orange-300">{{ collect($last['personnel_notices'])->contains(fn ($notice) => !str_contains($notice, 'cleared to return')) ? 'INJURY!' : 'PLAYER RETURN' }}</h2>
         @foreach($last['personnel_notices'] as $notice)<p class="mt-3">{{ $notice }}</p>@endforeach
         <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">OK</button></form>
     </dialog>
@@ -99,7 +109,8 @@
     </dialog>
     @if($last && isset($last['penalty']) && !($last['penalty']['decided'] ?? false))
     <dialog data-penalty-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-yellow-400 p-6 max-w-xl backdrop:bg-black/70">
-        <h2 class="text-2xl font-semibold text-yellow-300">Flag: {{ ucwords(str_replace('_', ' ', $last['penalty']['type'])) }}</h2>
+        <h2 class="game-event-title text-yellow-300">FLAG!</h2>
+        <p class="mt-3 font-semibold">{{ ucwords(str_replace('_', ' ', $last['penalty']['type'])) }}</p>
         <p class="mt-3">On {{ $teamNames[$last['penalty']['team']] }}.</p>
         <p class="mt-3 text-gray-300">{{ $last['penalty']['explanation'] }}</p>
         @if(!($last['no_snap'] ?? false) && isset($last['penalty']['play_result']))<p class="mt-3 text-gray-300">Play result: {{ $last['penalty']['play_result'] }}</p>@endif

@@ -54,17 +54,19 @@ test('all four control combinations persist and only show selectors for human te
     $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
     expect($game->state['controls'])->toBe(['home' => $homeControl, 'away' => $awayControl]);
     $page = $this->get(route('exhibitions.show', $game))->assertOk();
-    if ($awayControl === 'human') {
+    $offenseControl = $game->state['controls'][$game->state['possession']];
+    $defenseControl = $game->state['controls'][$game->state['possession'] === 'home' ? 'away' : 'home'];
+    if ($offenseControl === 'human') {
         $page->assertSee('name="call"', false);
     } else {
         $page->assertDontSee('name="call"', false);
     }
-    if ($homeControl === 'human') {
+    if ($defenseControl === 'human') {
         $page->assertSee('name="defense"', false);
     } else {
         $page->assertDontSee('name="defense"', false);
     }
-    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => $awayControl === 'cpu' ? 'forged' : 'kickoff', 'defense' => $homeControl === 'cpu' ? 'forged' : 'kickoff_return'])->assertRedirect();
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => $offenseControl === 'cpu' ? 'forged' : 'kickoff', 'defense' => $defenseControl === 'cpu' ? 'forged' : 'kickoff_return'])->assertRedirect();
     $game->refresh();
     expect($game->history[0]['call'])->toBe('kickoff')->and($game->history[0]['defense'])->toBe('kickoff_return');
     expect($game->state['controls'])->toBe(['home' => $homeControl, 'away' => $awayControl]);

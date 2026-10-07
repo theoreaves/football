@@ -70,13 +70,13 @@ class GameClock
                 $state['quarter']++;
                 $state['clock'] = $state['quarter_length'];
                 if ($state['quarter'] === 3) {
-                    $state['possession'] = 'home';
+                    $state['possession'] = $state['opening_receiver'] ?? 'home';
                     $state['spot'] = 35;
                     $state['down'] = 1;
                     $state['distance'] = 10;
                     $state['phase'] = 'kickoff';
                     $state['timeouts'] = ['home' => 3, 'away' => 3];
-                    $play['summary'] .= ' · halftime, away receives';
+                    $play['summary'] .= ' · halftime, '.($state['possession'] === 'home' ? 'away' : 'home').' receives';
                 }
             }
         }

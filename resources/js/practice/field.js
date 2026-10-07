@@ -69,7 +69,10 @@ export function mountPractice(root) {
     const cameraKey = root.dataset.cameraKey || 'football-practice-camera';
     const cameraSelect = root.querySelector('[data-camera]');
     let cameraMode = 'broadcast';
-    let cameraDirection = offenseSide === 'home' ? 1 : -1;
+    const playDirection = animation?.direction ?? (offenseSide === 'home' ? 1 : -1);
+    const nextDirection = Number(root.dataset.nextDirection) || (root.dataset.nextPossession === 'home' ? 1 : -1);
+    const nextHomeDirection = nextDirection * (root.dataset.nextPossession === 'home' ? 1 : -1);
+    let cameraDirection = playDirection;
     const saveCamera = () => {
         try { localStorage.setItem(cameraKey, JSON.stringify(captureCamera(cameraMode, camera.position.toArray(), controls.target.toArray(), focus, cameraDirection))); } catch { /* Storage may be unavailable. */ }
     };
@@ -169,7 +172,7 @@ export function mountPractice(root) {
         const team = side === 'home' ? home : away;
         const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
         const group = buildFootballPlayer(player, kit, document, textureFor);
-        group.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
+        group.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
         scene.add(group);
         return group;
     });
@@ -231,12 +234,12 @@ export function mountPractice(root) {
     let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
-        let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress) : sample(type, elapsed);
-        let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02)) : sample(type, Math.min(duration, elapsed + 0.03));
+        let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress, nextHomeDirection) : sample(type, elapsed);
+        let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02), nextHomeDirection) : sample(type, Math.min(duration, elapsed + 0.03));
         if (phase === 'liningup') {
             const formation = samplePreSnapMotion(sample(type, 0), animation, 0);
-            frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress);
-            future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02));
+            frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress, playDirection * (offenseSide === 'home' ? 1 : -1));
+            future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02), playDirection * (offenseSide === 'home' ? 1 : -1));
         }
         if (phase === 'set') {
             const formation = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
@@ -252,9 +255,9 @@ export function mountPractice(root) {
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
-            else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
+            else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
-            else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
+            else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
             if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at && ((player.team === 'offense' && player.role === animation.carrier) || (player.team === 'defense' && player.role === (animation.carrier === 'WR1' ? 'CB1' : 'LB2')))) {
                 const fall = Math.min(1, (elapsed - animation.contact_at) / .55);
                 mesh.rotation.z = fall * Math.PI / 2; mesh.position.y = fall * .15;
@@ -300,14 +303,14 @@ export function mountPractice(root) {
         showState(false);
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
-        moveFocus(animation?.line ?? 40, offenseSide === 'home' ? 1 : -1);
+        moveFocus(animation?.line ?? 40, playDirection);
         scrimmageLine.position.x = animation?.line ?? 40;
         firstDownLine.position.x = animation?.firstDown ?? 50;
     };
     const huddleView = () => {
-        moveFocus(nextLine, root.dataset.nextPossession === 'home' ? 1 : -1);
+        moveFocus(nextLine, nextDirection);
         scrimmageLine.position.x = nextLine;
-        firstDownLine.position.x = Math.max(10, Math.min(110, nextLine + (root.dataset.nextPossession === 'home' ? 1 : -1) * Number(root.dataset.nextDistance || 10)));
+        firstDownLine.position.x = Math.max(10, Math.min(110, nextLine + nextDirection * Number(root.dataset.nextDistance || 10)));
     };
     if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
@@ -384,6 +387,8 @@ export function mountPractice(root) {
     const injuryKey = `${cameraKey}:injury:${root.dataset.playNumber}`;
     let injuryShown = false;
     try { injuryShown = sessionStorage.getItem(injuryKey) === 'shown'; } catch { /* Optional persistence. */ }
+    const coinDialog = root.querySelector('[data-coin-dialog]');
+    coinDialog?.showModal();
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
     let penaltyShown = false;
@@ -426,6 +431,8 @@ export function mountPractice(root) {
     if (cpuAuto) setCpuAuto(true);
     cpuToggle?.addEventListener('click', () => setCpuAuto(!cpuAuto));
 
+    coinDialog?.addEventListener('close', () => { if (snapButton) snapButton.disabled = false; });
+    if (coinDialog?.open && snapButton) snapButton.disabled = true;
     if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
     penaltyDialog?.addEventListener('close', showQuarter);
@@ -466,7 +473,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(coinDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);
