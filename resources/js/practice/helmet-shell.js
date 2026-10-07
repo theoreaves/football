@@ -52,10 +52,15 @@ export function helmetLogoGeometry(sign, width = .36, height = .29) {
 }
 
 export function helmetStripeGeometry() {
-    return surface(1, 48, (u, v) => {
-        const angle = -2.25 + v * 3.6;
-        const point = helmetPoint(Math.abs(angle), angle < 0 ? -Math.PI / 2 : Math.PI / 2, .004);
-        point.x = (u - .5) * .052;
-        return point;
+    return surface(8, 64, (u, v) => {
+        // Follow the ellipsoid across the width as well as front-to-back.
+        // Leave a small margin inside the brow and rear edge of the shell.
+        const angle = -2.238 + v * 3.576;
+        const x = (u - .5) * .052;
+        const radius = Math.sqrt(1 - (x / .355) ** 2);
+        const point = new THREE.Vector3(x, .38 * radius * Math.cos(angle), .405 * radius * Math.sin(angle));
+        const normal = new THREE.Vector3(point.x / (.355 ** 2), point.y / (.38 ** 2), point.z / (.405 ** 2)).normalize();
+        point.z -= .025;
+        return point.addScaledVector(normal, .0006);
     });
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { helmetShellGeometry, helmetPoint, helmetLogoGeometry } from '../../resources/js/practice/helmet-shell.js';
+import { helmetShellGeometry, helmetPoint, helmetLogoGeometry, helmetStripeGeometry } from '../../resources/js/practice/helmet-shell.js';
 import { buildFootballPlayer } from '../../resources/js/practice/player-model.js';
 
 test('helmet has a raised face opening deep sides and smooth outward-facing surfaces', () => {
@@ -37,4 +37,21 @@ test('helmet paint is smooth and both logo panels conform to the shell', () => {
         const size = logo.geometry.boundingBox.getSize(new THREE.Vector3());
         assert.ok(size.z > size.y * 3, 'wide logo retains its aspect ratio');
     }
+});
+
+
+test('stripe hugs the shell across its width and stops inside the helmet edges', () => {
+    const geometry = helmetStripeGeometry();
+    const positions = geometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i) + .025;
+        const radius = Math.sqrt((x / .355) ** 2 + (y / .38) ** 2 + (z / .405) ** 2);
+        assert.ok(radius > 1 && radius < 1.002, 'stripe stays immediately above the shell');
+        const theta = Math.acos(y / (.38 * radius));
+        const phi = Math.atan2(z / .405, x / .355);
+        const bottom = 2.25 - .9 * Math.max(0, Math.sin(phi)) ** 4;
+        assert.ok(theta < bottom, 'stripe does not overhang the opening');
+    }
+    // Multiple columns follow the crown instead of forming a flat floating band.
+    assert.ok(positions.getY(40 * 9 + 4) > positions.getY(40 * 9));
 });

@@ -62,6 +62,9 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     if (kit.helmet_stripe_enabled) {
         const stripePaint = mat(kit.helmet_stripe || '#ffffff'); stripePaint.flatShading = false;
         stripePaint.side = THREE.DoubleSide;
+        stripePaint.polygonOffset = true;
+        stripePaint.polygonOffsetFactor = -1;
+        stripePaint.polygonOffsetUnits = -1;
         const stripe = new THREE.Mesh(helmetStripeGeometry(), stripePaint);
         stripe.name = 'helmet-stripe'; helmet.add(stripe);
     }
