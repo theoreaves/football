@@ -22,5 +22,6 @@
             <a href="{{ route('exhibitions.show', $game) }}" class="block bg-gray-800 rounded p-4 hover:bg-gray-700">{{ $game->awayTeam->name }} {{ $game->state['away_score'] }} at {{ $game->homeTeam->name }} {{ $game->state['home_score'] }} <span class="text-gray-400 ml-4">{{ $game->state['status'] === 'final' ? 'Final' : 'Resume · Q'.$game->state['quarter'] }}</span></a>
         @empty<p class="text-gray-400">No exhibitions yet. Use a demo save for complete rosters.</p>@endforelse
     </div>
+    {{ $games->links() }}
 </div>
 </x-layouts.app>

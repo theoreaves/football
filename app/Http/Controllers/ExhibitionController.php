@@ -16,7 +16,14 @@ class ExhibitionController extends Controller
 {
     public function index()
     {
-        return view('exhibitions.index', ['teams' => Team::orderBy('city')->get(), 'games' => Exhibition::with(['homeTeam', 'awayTeam'])->latest()->get()]);
+        // Sort narrow rows: MySQL can otherwise copy large replay JSON into its sort buffer.
+        $games = Exhibition::select('id')->latest()->orderByDesc('id')->paginate(20);
+        $summaries = Exhibition::select(['id', 'world_id', 'home_team_id', 'away_team_id', 'state'])
+            ->with(['homeTeam', 'awayTeam'])->whereIn('id', $games->getCollection()->pluck('id'))
+            ->get()->keyBy('id');
+        $games->setCollection($games->getCollection()->map(fn ($game) => $summaries->get($game->id))->filter()->values());
+
+        return view('exhibitions.index', ['teams' => Team::orderBy('city')->get(), 'games' => $games]);
     }
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine)

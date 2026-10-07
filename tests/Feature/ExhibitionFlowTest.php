@@ -98,3 +98,25 @@ test('watch page renders the pre-play display and hides the new result until rev
     $html = $response->getContent();
     expect($html)->toMatch('/data-situation[^>]*>[^<]*Kickoff<\/p>/')->toContain('data-hidden-result  hidden');
 });
+
+test('exhibition list paginates newest summaries without loading replay history or rosters', function () {
+    Exhibition::query()->delete();
+    $teams = Team::all();
+    $ids = [];
+    for ($i = 0; $i < 21; $i++) {
+        $ids[] = Exhibition::create([
+            'home_team_id' => $teams[0]->id, 'away_team_id' => $teams[1]->id,
+            'state' => ['home_score' => $i, 'away_score' => 0, 'status' => 'playing', 'quarter' => 1],
+            'rosters' => ['large' => str_repeat('x', 10000)], 'history' => [['large' => str_repeat('x', 10000)]],
+        ])->id;
+    }
+    $response = $this->get(route('exhibitions.index'))->assertOk();
+    $games = $response->viewData('games');
+    expect($games->total())->toBe(21)
+        ->and($games->count())->toBe(20)
+        ->and($games->first()->id)->toBe($ids[20])
+        ->and(array_key_exists('history', $games->first()->getAttributes()))->toBeFalse()
+        ->and(array_key_exists('rosters', $games->first()->getAttributes()))->toBeFalse();
+    $second = $this->get(route('exhibitions.index', ['page' => 2]))->assertOk()->viewData('games');
+    expect($second->count())->toBe(1)->and($second->first()->id)->toBe($ids[0]);
+});
