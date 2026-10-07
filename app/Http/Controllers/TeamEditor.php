@@ -67,6 +67,10 @@ class TeamEditor extends Controller
         $hex = ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'];
 
         $appearance = [
+            'stadium_style' => ['sometimes', 'required', \Illuminate\Validation\Rule::in(array_keys(config('stadiums')))],
+            'stadium_seat_color' => $hex,
+            'stadium_wall_color' => $hex,
+            'stadium_roof_color' => $hex,
             'endzone_transparent' => ['sometimes', 'boolean'],
             'endzone_text' => ['nullable', 'string', 'max:40'],
             'endzone_background' => $hex,

@@ -1,3 +1,4 @@
+import { buildStadium } from './stadium.js';
 import { samplePreSnapMotion } from './motion.js';
 import { mobileControls } from './mobile-controls.js';
 import { stadiumAudio } from './stadium-audio.js';
@@ -155,9 +156,8 @@ export function mountPractice(root) {
     for (let x = 11; x < 110; x++) for (const z of [0.6, 23.6, 29.7, 52.7]) addBox(0.1, 0.03, 0.55, 0xddddcb, x, 0.06, z);
     const scrimmageLine = addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
     const firstDownLine = addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
-    for (const z of [-10, 64]) {
-        for (let tier = 0; tier < 4; tier++) addBox(132, 2, 3, 0x293649, 60, tier * 2, z + (z < 0 ? -tier * 3 : tier * 3));
-    }
+    const stadium = buildStadium(home, document, away);
+    scene.add(stadium.group);
     for (const x of [0, 120]) {
         addBox(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
         addBox(.18, .18, 6.2, 0xffcc33, x, 3.5, 26.7);
@@ -188,6 +188,7 @@ export function mountPractice(root) {
     const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
     const teamNames = root.dataset.teamNames ? JSON.parse(root.dataset.teamNames) : null;
     let revealed = root.dataset.autoplay !== 'true';
+    stadium.updateScoreboard(revealed ? afterState : beforeState, teamNames);
     const showState = committed => {
         if (!beforeState) return;
         revealed = committed;
@@ -197,7 +198,13 @@ export function mountPractice(root) {
         root.querySelector('[data-away-score]').textContent = state.away_score;
         root.querySelectorAll('[data-possession]').forEach(node => node.textContent = node.dataset.possession === state.possession ? '●' : '');
         root.querySelector('[data-clock]').textContent = labels.clock;
-        root.querySelector('[data-situation]').textContent = labels.situation;
+        root.querySelector('[data-situation]').textContent = labels.compact;
+        root.querySelectorAll('[data-timeout-marks]').forEach(node => {
+            const count = state.timeouts?.[node.dataset.timeoutMarks] ?? 3;
+            node.setAttribute('aria-label', `${count} timeouts remaining`);
+            [...node.children].forEach((mark, index) => mark.classList.toggle('timeout-used', index >= count));
+        });
+        stadium.updateScoreboard(state, teamNames);
         const management = root.querySelector('[data-clock-management]');
         if (management) management.textContent = labels.management;
         root.querySelectorAll('[data-hidden-result]').forEach(el => el.hidden = !committed);

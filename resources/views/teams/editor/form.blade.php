@@ -56,6 +56,21 @@
             </div>
             <section class="border rounded p-4 space-y-4">
                 <h2 class="text-xl font-semibold">3D uniforms and home field</h2>
+                <label class="block">Home stadium
+                    <select name="stadium_style" class="block w-full border rounded p-2 mt-1">
+                        @foreach(config('stadiums') as $value => $label)
+                            <option value="{{ $value }}" @selected(old('stadium_style', $team->stadium_style ?? 'classic_oval') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <div class="grid grid-cols-3 gap-4">
+                    @foreach(['seat' => 'Seats', 'wall' => 'Walls / structure', 'roof' => 'Roof / canopy'] as $part => $label)
+                        @php
+                            $field = 'stadium_'.$part.'_color';
+                        @endphp
+                        <label>{{ $label }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?: ($part === 'seat' ? ($team->team_color1 ?: '#315b85') : ($part === 'wall' ? '#657587' : '#cbd5e1'))) }}" class="block w-full h-10 border rounded"></label>
+                    @endforeach
+                </div>
                 @foreach(['home' => 'Home uniform', 'away' => 'Away uniform'] as $venue => $label)
                     <h3 class="font-semibold">{{ $label }}</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">

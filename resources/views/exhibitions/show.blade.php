@@ -9,14 +9,23 @@
     <div class="game-brand-watermark" aria-hidden="true"><x-brand-logo /></div>
     <div class="game-scoreboard">
         <a href="{{ route('exhibitions.index') }}" class="score-exit">Exhibitions</a>
-        <div class="score-team"><span>{{ $exhibition->awayTeam->name }}</span><strong data-away-score>{{ $shown['away_score'] }}</strong><span data-possession="away">{{ $shown['possession'] === 'away' ? '●' : '' }}</span></div>
-        <div class="score-team"><span>{{ $exhibition->homeTeam->name }}</span><strong data-home-score>{{ $shown['home_score'] }}</strong><span data-possession="home">{{ $shown['possession'] === 'home' ? '●' : '' }}</span></div>
+        @foreach(['away', 'home'] as $scoreSide)
+        <div class="score-team">
+            @if($appearance[$scoreSide]['team_logo'] ?? null)<img class="score-team-logo" src="{{ $appearance[$scoreSide]['team_logo'] }}" alt="{{ $teamNames[$scoreSide] }} logo">@endif
+            <div class="score-team-label"><span class="score-team-name">{{ $teamNames[$scoreSide] }}</span>
+                <span class="timeout-marks" data-timeout-marks="{{ $scoreSide }}" role="img" aria-label="{{ $shown['timeouts'][$scoreSide] ?? 3 }} timeouts remaining">
+                    @for($mark = 0; $mark < 3; $mark++)<i aria-hidden="true" class="timeout-mark {{ $mark >= ($shown['timeouts'][$scoreSide] ?? 3) ? 'timeout-used' : '' }}"></i>@endfor
+                </span>
+            </div>
+            <strong @if($scoreSide === 'home') data-home-score @else data-away-score @endif>{{ $shown[$scoreSide.'_score'] }}</strong>
+            <span data-possession="{{ $scoreSide }}">{{ $shown['possession'] === $scoreSide ? '●' : '' }}</span>
+        </div>
+        @endforeach
+        <p data-situation class="game-situation">{{ $shown['status'] === 'final' ? 'Game over' : match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point try', default => (['', '1st', '2nd', '3rd', '4th'][$shown['down']] ?? 'Down '.$shown['down']).' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opp '.(100-$shown['spot'])) } }}</p>
         <p data-clock class="score-clock">{{ $shown['status'] === 'final' ? 'FINAL' : 'Q'.$shown['quarter'].' · '.gmdate('i:s', $shown['clock']) }}</p>
         <h1 data-scoreboard class="sr-only">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1>
     </div>
-    <p data-situation class="game-situation">{{ $teamNames[$shown['possession']] }} · {{ match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Try · 1-point kick or 2-point play', default => 'Down '.$shown['down'].' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opponent '.(100-$shown['spot'])).' yard line' } }}</p>
     <p class="game-coaches">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
-    <p data-clock-management class="game-clock-management">Timeouts: {{ $teamNames['home'] }} {{ $shown['timeouts']['home'] ?? 3 }} · {{ $teamNames['away'] }} {{ $shown['timeouts']['away'] ?? 3 }} · {{ ($shown['clock_running'] ?? false) ? 'Clock running' : 'Clock stopped' }}@if($shown['untimed_down'] ?? false) · Untimed down @endif</p>
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
     @if($state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
     <form data-call-form @if($watching) hidden @endif method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="game-play-panel flex flex-wrap gap-3 items-end">

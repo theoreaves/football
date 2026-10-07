@@ -52,6 +52,7 @@ class PracticeController extends Controller
         }
 
         return [
+            'team_logo' => $art('team_logo'),
             'helmet_logo_left' => $art('helmet_logo_left'),
             'helmet_logo_right' => $art('helmet_logo_right'),
             'midfield_logo' => $art('midfield_logo') ?: $art('team_logo'),
@@ -59,6 +60,10 @@ class PracticeController extends Controller
             'endzone_logo_right' => $art('endzone_logo_right'),
             'endzone_transparent' => (bool) $team->endzone_transparent,
             'name' => $team->name,
+            'stadium_style' => $team->stadium_style ?: 'classic_oval',
+            'stadium_seat_color' => $team->stadium_seat_color ?: ($team->team_color1 ?: '#315b85'),
+            'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',
+            'stadium_roof_color' => $team->stadium_roof_color ?: '#cbd5e1',
             'uniform' => $uniform,
             'endzone_text' => $team->endzone_text ?: $team->name,
             'endzone_background' => $team->endzone_background ?: ($team->team_color1 ?: '#174880'),

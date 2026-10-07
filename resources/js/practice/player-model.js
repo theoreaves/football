@@ -1,3 +1,4 @@
+import { buildPlayerFace } from './player-face.js';
 import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry } from './helmet-shell.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
@@ -34,6 +35,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     }
     box(group, [.23, .2, .23], [0, 1.75, 0], skin);
     box(group, [.43, .38, .35], [0, 1.97, .08], skin);
+    group.add(buildPlayerFace(player, skin));
     helmetPaint.flatShading = false; helmetPaint.roughness = .32;
     const helmet = new THREE.Mesh(helmetShellGeometry(), helmetPaint);
     helmet.name = 'helmet-shell';
