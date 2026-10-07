@@ -54,6 +54,8 @@ test('startup picker creates a private pro league with complete playable rosters
             \Illuminate\Support\Facades\Storage::disk('team_art')->assertExists($team->{$field});
         }
         expect(collect([$team->team_logo, $team->helmet_logo_left, $team->helmet_logo_right, $team->midfield_logo])->unique())->toHaveCount(4);
+        expect((bool) $team->uniform_home_name_enabled)->toBeTrue()->and((bool) $team->uniform_away_pants_stripe_enabled)->toBeTrue()
+            ->and($team->uniform_home_helmet_stripe)->not->toBe($team->uniform_home_helmet);
         $roster = $builder->build($team);
         expect($roster['year'])->toBe('2031')->and($roster['pool'])->toHaveCount(53)->and($roster['players'])->toHaveCount(28);
         foreach ($roster['pool'] as $player) {
@@ -107,4 +109,38 @@ test('pro rosters have reproducible names ratings and depth while Middle Earth n
     expect($fantasy)->not->toBe($first);
     $depths = collect($first)->pluck('roster.depth_chart_position');
     expect($depths)->toContain('QB1', 'QB2', 'WR1', 'WR6', 'K1', 'P1');
+});
+
+test('pro appearance defaults enable names and visible stripes and distribute all ten stadiums', function () {
+    $appearance = app(\App\Services\Simulation\ProTeamAppearance::class);
+    $styles = [];
+    foreach (config('pro-football.teams') as $entry) {
+        $settings = $appearance->defaults($entry);
+        $styles[] = $settings['stadium_style'];
+        foreach (['home', 'away'] as $venue) {
+            expect($settings["uniform_{$venue}_name_enabled"])->toBeTrue();
+            foreach (['helmet', 'shoulder', 'pants'] as $part) {
+                expect($settings["uniform_{$venue}_{$part}_stripe_enabled"])->toBeTrue();
+            }
+            expect($settings["uniform_{$venue}_helmet_stripe"])->not->toBe($entry[8]);
+            expect($settings["uniform_{$venue}_pants_stripe"])->not->toBe($entry[9]);
+        }
+    }
+    expect(array_unique($styles))->toHaveCount(10);
+});
+
+test('existing-save appearance updates matching pro teams only in the requested save', function () {
+    $owner = User::factory()->create();
+    $world = World::create(['name' => 'Pro', 'owner_user_id' => $owner->id]);
+    app(CurrentWorld::class)->id = $world->id;
+    $pro = Team::create(['city' => 'Minnesota', 'name' => 'Norsemen', 'abbr' => 'MIN', 'team_logo' => 'custom.png']);
+    $custom = Team::create(['city' => 'Custom', 'name' => 'Bison', 'abbr' => 'BFB']);
+    $other = World::create(['name' => 'Other', 'owner_user_id' => $owner->id]);
+    app(CurrentWorld::class)->id = $other->id;
+    $outside = Team::create(['city' => 'Minnesota', 'name' => 'Norsemen', 'abbr' => 'MIN']);
+    $this->artisan('football:apply-pro-appearance', ['world' => $world->id])->assertSuccessful();
+    expect(app(CurrentWorld::class)->id)->toBe($other->id);
+    $this->assertDatabaseHas('teams', ['id' => $pro->id, 'stadium_style' => 'indoor_dome', 'uniform_home_name_enabled' => 1, 'uniform_away_helmet_stripe_enabled' => 1, 'team_logo' => 'custom.png']);
+    $this->assertDatabaseHas('teams', ['id' => $custom->id, 'stadium_style' => 'classic_oval', 'uniform_home_name_enabled' => 0]);
+    $this->assertDatabaseHas('teams', ['id' => $outside->id, 'stadium_style' => 'classic_oval', 'uniform_home_name_enabled' => 0]);
 });

@@ -27,7 +27,7 @@ class LeagueTemplateSeeder
                 $league = $world->leagues()->first() ?? $world->leagues()->create(['name' => 'Pro Football League']);
                 $league->seasons()->firstOrCreate(['year' => $year]);
                 foreach (config('pro-football.teams') as $index => [$city, $name, $abbr, $conference, $division, $primary, $secondary, $accent, $helmet, $pants]) {
-                    $team = Team::create([
+                    $team = Team::create(array_merge([
                         'city' => $city, 'name' => $name, 'abbr' => $abbr, 'conference' => $conference, 'division' => $division,
                         'team_color1' => $primary, 'team_color2' => $secondary,
                         'uniform_home_helmet' => $helmet, 'uniform_home_shirt' => $primary, 'uniform_home_pants' => $pants, 'uniform_home_socks' => $primary,
@@ -38,7 +38,7 @@ class LeagueTemplateSeeder
                         'uniform_away_helmet_stripe' => $secondary, 'uniform_away_shoulder_stripe' => $accent, 'uniform_away_pants_stripe' => $primary,
                         'uniform_home_facemask' => $primary, 'uniform_away_facemask' => $primary,
                         'endzone_text' => strtoupper($name), 'endzone_background' => $primary, 'endzone_text_color' => '#ffffff',
-                    ]);
+                    ], app(ProTeamAppearance::class)->defaults(config('pro-football.teams')[$index])));
                     app(ProTeamBranding::class)->apply($team);
                     $teamSeed = (int) (($seed + $index * 7919) % 2147483647);
                     foreach (app(ProRosterGenerator::class)->generate($teamSeed) as $entry) {
