@@ -99,7 +99,6 @@
         <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">OK</button></form>
     </dialog>
     @endif
-    <button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel class="fixed bottom-4 right-4 z-30 bg-gray-800 border border-gray-600 rounded px-4 py-2">Depth / injuries</button>
     <dialog data-personnel-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto backdrop:bg-black/70">
         <div class="flex justify-between items-center gap-4"><h2 class="text-xl font-semibold">Depth chart and availability</h2><form method="dialog"><button class="border rounded px-3 py-2">Close</button></form></div>
         <p class="text-sm text-gray-300 mt-3">Lowest depth number starts. Tired players rotate with a rested backup; injuries force replacements. Fatigue lowers performance by up to 25%. Human coaches can choose game-only starters below. Automatic restores the saved depth order. Injuries and fatigue rotation still apply; your selections remain until changed.</p>
@@ -195,7 +194,7 @@
     @if($last)<p data-hidden-result @if($watching) hidden @endif class="game-last-result">Last play: {{ $last['summary'] }}</p>@endif
     <p class="game-help text-sm text-gray-400">Home offense moves toward the right end zone; away offense toward the left. The scoreboard updates when the replay reveals the result.</p>
     <div class="game-stats grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
-    <div class="game-actions"><button type="button" data-open-log>Play log (<span data-log-count>{{ count($exhibition->history) - ($watching ? 1 : 0) }}</span>)</button><button type="button" data-open-box>Box score</button><button type="button" data-fullscreen>Full screen</button></div>
+    <div class="game-actions"><button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button><button type="button" data-open-log>Play log (<span data-log-count>{{ count($exhibition->history) - ($watching ? 1 : 0) }}</span>)</button><button type="button" data-open-box>Box score</button><button type="button" data-fullscreen>Full screen</button></div>
     <dialog data-log-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Play log</h2>
 <ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · Q{{ $play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}</li>@endforeach</ol>
     </dialog>

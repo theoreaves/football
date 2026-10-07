@@ -25,7 +25,7 @@
 .game-camera-controls { bottom: 12px; left: 14px; right: 330px; font-size: 12px; }
 .game-camera-controls button, .game-camera-controls select { padding: 6px 9px; }
 .game-camera-controls > span { display: none; }
-.game-actions { bottom: 12px; right: 14px; display: flex; gap: 14px; }
+.game-actions { bottom: 12px; right: 14px; display: flex; flex-wrap: wrap; gap: 14px; }
 .game-actions button { color: #bfdbfe; }
 .game-status { top: 96px; right: 24px; max-width: 43%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .game-timeouts { top: 176px; left: 14px; }

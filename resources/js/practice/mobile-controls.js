@@ -7,7 +7,7 @@ export function mobileControls(root) {
     const groups = [
         ['Call play', '.game-play-panel'],
         ['Camera', '.game-camera-controls, .game-timeline'],
-        ['Game', '.game-coaches, .game-clock-management, .game-timeouts, .game-actions, [data-open-personnel], details:has([data-sound-toggle]), .game-cpu-toggle, .game-cpu-status'],
+        ['Game', '.game-coaches, .game-clock-management, .game-timeouts, .game-actions, details:has([data-sound-toggle]), .game-cpu-toggle, .game-cpu-status'],
     ];
     const entries = groups.map(([label, selector], index) => {
         const dialog = document.createElement('dialog');
