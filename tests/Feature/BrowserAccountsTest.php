@@ -100,13 +100,11 @@ test('local saves can only be claimed by an explicit console action', function (
     $this->artisan('football:claim-saves', ['email' => $other->email, 'world' => $unowned->id])->assertFailed();
 });
 
-test('a new account can seed its own Middle Earth league from the picker', function () {
+test('the startup picker no longer offers or accepts the Middle Earth template', function () {
     $user = User::factory()->create();
-    $this->actingAs($user)->post('/worlds', ['name' => 'Middle Earth', 'league_name' => 'League', 'year' => 2026, 'preset' => 'middle-earth'])->assertRedirect(route('home'));
-    $this->assertDatabaseHas('worlds', ['owner_user_id' => $user->id]);
-    $this->assertDatabaseCount('teams', 16);
-    $this->assertDatabaseCount('players', 848);
-    $this->get('/')->assertOk()->assertSee('Watch');
+    $this->actingAs($user)->get('/worlds')->assertOk()->assertDontSee('value="middle-earth"', false);
+    $this->post('/worlds', ['name' => 'Middle Earth', 'league_name' => 'League', 'year' => 2026, 'preset' => 'middle-earth'])->assertSessionHasErrors('preset');
+    $this->assertDatabaseCount('worlds', 0);
 });
 
 test('password login uses a fresh session and rejects weak or duplicate registration', function () {

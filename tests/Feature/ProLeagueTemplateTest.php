@@ -13,6 +13,7 @@ use App\Support\CurrentWorld;
 
 beforeEach(function () {
     $this->withoutVite();
+    \Illuminate\Support\Facades\Storage::fake('team_art');
 });
 
 test('pro template contains fictional identities and four teams per NFL-style division', function () {
@@ -48,6 +49,11 @@ test('startup picker creates a private pro league with complete playable rosters
     expect(Team::count())->toBe(32)->and(Player::count())->toBe(1696);
     $builder = app(RosterBuilder::class);
     foreach (Team::all() as $team) {
+        foreach (['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo'] as $field) {
+            expect($team->{$field})->not->toBeNull();
+            \Illuminate\Support\Facades\Storage::disk('team_art')->assertExists($team->{$field});
+        }
+        expect(collect([$team->team_logo, $team->helmet_logo_left, $team->helmet_logo_right, $team->midfield_logo])->unique())->toHaveCount(4);
         $roster = $builder->build($team);
         expect($roster['year'])->toBe('2031')->and($roster['pool'])->toHaveCount(53)->and($roster['players'])->toHaveCount(28);
         foreach ($roster['pool'] as $player) {
@@ -57,7 +63,16 @@ test('startup picker creates a private pro league with complete playable rosters
         }
         expect($team->uniform_away_shirt)->toBe('#ffffff')->and($team->endzone_text)->toBe(strtoupper($team->name));
     }
+    $branded = Team::first();
+    $this->get(route('teams.art', [$branded, 'team_logo']))->assertOk()->assertHeader('Content-Type', 'image/svg+xml');
+    $oldHelmet = $branded->helmet_logo_left;
+    $this->put(route('teams.editor.update', $branded), ['city' => $branded->city, 'name' => $branded->name, 'clear_helmet_logo_left' => true])->assertRedirect();
+    \Illuminate\Support\Facades\Storage::disk('team_art')->assertMissing($oldHelmet);
+    foreach (['team_logo', 'helmet_logo_right', 'midfield_logo'] as $field) {
+        \Illuminate\Support\Facades\Storage::disk('team_art')->assertExists($branded->{$field});
+    }
     $this->assertDatabaseHas('teams', ['id' => $oldTeam->id, 'world_id' => $existing->id, 'name' => 'Club']);
+    app(CurrentWorld::class)->id = $world->id;
     $teams = Team::whereIn('abbr', ['KCW', 'NYP'])->get();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
     $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();

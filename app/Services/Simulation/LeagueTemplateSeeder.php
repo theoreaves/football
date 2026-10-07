@@ -39,6 +39,7 @@ class LeagueTemplateSeeder
                         'uniform_home_facemask' => $primary, 'uniform_away_facemask' => $primary,
                         'endzone_text' => strtoupper($name), 'endzone_background' => $primary, 'endzone_text_color' => '#ffffff',
                     ]);
+                    app(ProTeamBranding::class)->apply($team);
                     $teamSeed = (int) (($seed + $index * 7919) % 2147483647);
                     foreach (app(ProRosterGenerator::class)->generate($teamSeed) as $entry) {
                         $player = Player::create($entry['player']);

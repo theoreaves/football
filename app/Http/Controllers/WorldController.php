@@ -25,7 +25,7 @@ class WorldController extends Controller
             'league_name' => ['required', 'string', 'max:255'],
             'year' => ['required', 'integer', 'between:1900,2200'],
             'demo' => ['sometimes', 'boolean'],
-            'preset' => ['sometimes', \Illuminate\Validation\Rule::in(['empty', 'demo', 'middle-earth', 'pro'])],
+            'preset' => ['sometimes', \Illuminate\Validation\Rule::in(['empty', 'demo', 'pro'])],
         ]);
         $world = DB::transaction(function () use ($request, $data) {
             $world = World::create(['name' => $data['name'], 'owner_user_id' => $request->user()->id]);
@@ -34,11 +34,6 @@ class WorldController extends Controller
             $league->seasons()->create(['year' => $data['year']]);
             if (($data['preset'] ?? '') === 'pro') {
                 app(\App\Services\Simulation\LeagueTemplateSeeder::class)->pro($world, (int) $data['year'], (int) $data['year']);
-            } elseif (($data['preset'] ?? ($request->boolean('demo') ? 'demo' : 'empty')) === 'middle-earth') {
-                $status = Artisan::call('football:seed-middle-earth', ['world' => $world->id, '--year' => $data['year']]);
-                if ($status !== SeedDemoWorld::SUCCESS) {
-                    throw new \RuntimeException('Unable to create the Middle Earth league.');
-                }
             } elseif (($data['preset'] ?? ($request->boolean('demo') ? 'demo' : 'empty')) === 'demo') {
                 $status = Artisan::call('world:seed-demo', ['world' => $world->id, '--year' => $data['year']]);
                 if ($status !== SeedDemoWorld::SUCCESS) {
