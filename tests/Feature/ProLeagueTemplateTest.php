@@ -49,7 +49,7 @@ test('startup picker creates a private pro league with complete playable rosters
     $builder = app(RosterBuilder::class);
     foreach (Team::all() as $team) {
         $roster = $builder->build($team);
-        expect($roster['year'])->toBe('2031')->and($roster['pool'])->toHaveCount(53)->and($roster['players'])->toHaveCount(27);
+        expect($roster['year'])->toBe('2031')->and($roster['pool'])->toHaveCount(53)->and($roster['players'])->toHaveCount(28);
         foreach ($roster['pool'] as $player) {
             foreach (PlayerRatings::FIELDS as $field) {
                 expect($player['ratings'][$field])->toBeBetween(1, 99);

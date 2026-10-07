@@ -321,3 +321,38 @@ test('a defensive try return scores two and animates possession to the opposite 
     expect($found)->not->toBeNull()->and($found['state']['home_score'])->toBe(0)->and($found['state']['possession'])->toBe('home')
         ->and($found['play']['clock_seconds'])->toBe(0)->and($found['play']['animation']['ball'][array_key_last($found['play']['animation']['ball'])][1])->toBe(10);
 });
+
+test('pressure can produce sacks scrambles throwaways and passes with mobility affecting sacks', function () {
+    $engine = app(ExhibitionEngine::class);
+    $counts = ['sack' => 0, 'scramble' => 0, 'throwaway' => 0, 'pressure_pass' => 0];
+    $sacks = ['slow' => 0, 'mobile' => 0];
+    foreach (range(1, 800) as $seed) {
+        $state = $engine->initial(900, $seed, false);
+        $state['rules'] = ['penalties' => false, 'injuries' => false];
+        foreach (['slow' => 25, 'mobile' => 90] as $kind => $speed) {
+            $rosters = engineRosters();
+            $rosters['home']['players']['QB']['ratings']['speed'] = $speed;
+            $play = $engine->resolve($state, $rosters, 'deep_pass', 'man_to_man')['play'];
+            $sacks[$kind] += $play['outcome'] === 'sack';
+            if ($kind === 'mobile') {
+                $counts['sack'] += $play['outcome'] === 'sack';
+                $counts['scramble'] += $play['scramble'];
+                $counts['throwaway'] += $play['throwaway'];
+                $counts['pressure_pass'] += $play['pressure'] && ! $play['scramble'] && ! $play['throwaway'] && $play['outcome'] !== 'sack';
+            }
+        }
+    }
+    foreach ($counts as $count) {
+        expect($count)->toBeGreaterThan(0);
+    }
+    expect($sacks['mobile'])->toBeLessThan($sacks['slow']);
+});
+
+test('motion and pressure metadata survive deterministic formation replays', function () {
+    $engine = app(ExhibitionEngine::class);
+    $state = $engine->initial(900, 55, false);
+    $state['rules'] = ['penalties' => false, 'injuries' => false];
+    $play = $engine->resolve($state, engineRosters(), 'screen', 'zone', 'trips', 'dime', 'normal', 'normal', 'pass', true, 'WR2')['play'];
+    expect($play['design'])->toBe('screen')->and($play['motion'])->toBe('WR2')->and($play['expect'])->toBe('pass')->and($play['blitz'])->toBeTrue();
+    expect($play['animation']['motion'])->toBe('WR2')->and($play['animation']['motion_start'])->not->toBe($play['animation']['motion_end']);
+});

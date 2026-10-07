@@ -77,14 +77,19 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
 export function animateFootballPlayer(group, moving, time, index, throwing = null) {
     const stride = moving ? Math.sin(time * 16 + index) * .5 : 0;
     group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? stride : -stride; });
-    group.userData.arms?.forEach((arm, i) => { arm.rotation.x = i === 0 ? -stride * .65 : stride * .65; });
+    group.userData.arms?.forEach((arm, i) => { arm.rotation.z = 0; arm.rotation.x = i === 0 ? -stride * .65 : stride * .65; });
     group.userData.elbows?.forEach(elbow => { elbow.rotation.x = 0; });
     if (throwing !== null && throwing >= 1.4 && throwing <= 2.9) {
         const arm = group.userData.arms?.[1];
         if (arm) {
-            const progress = Math.max(0, Math.min(1, (throwing - 1.4) / .8));
-            group.userData.elbows[1].rotation.x = throwing <= 2.2 ? -1.3 * progress : -1.3 * (1 - Math.min(1, (throwing - 2.2) / .3));
-            arm.rotation.x = throwing <= 2.2 ? -Math.PI * progress : -Math.PI + Math.min(1, (throwing - 2.2) / .7) * Math.PI;
+            const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
+            const cock = smooth((throwing - 1.4) / .55);
+            const release = smooth((throwing - 2.1) / .1);
+            const recover = smooth((throwing - 2.3) / .6);
+            arm.rotation.x = (-1.5 * cock - .8 * release) * (1 - recover);
+            arm.rotation.z = -.45 * cock * (1 - recover);
+            group.userData.elbows[1].rotation.x = -1.5 * cock * (1 - release) * (1 - recover);
+            if (group.userData.arms[0]) group.userData.arms[0].rotation.x = -.6 * cock * (1 - recover);
         }
     }
 }

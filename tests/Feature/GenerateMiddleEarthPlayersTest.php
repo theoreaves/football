@@ -37,7 +37,7 @@ test('middle earth command creates the original league without changing the curr
         expect($players->pluck('pivot.jersey_number')->unique())->toHaveCount(53);
         expect($players->map(fn ($player) => $player->firstname.' '.$player->lastname)->unique())->toHaveCount(53);
         $roster = app(RosterBuilder::class)->build($team);
-        expect($roster['players'])->toHaveCount(27);
+        expect($roster['players'])->toHaveCount(28);
         foreach ($players as $player) {
             expect(array_keys($player->simulation_ratings))->toBe(PlayerRatings::FIELDS);
             foreach ($player->simulation_ratings as $value) {

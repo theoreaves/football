@@ -21,7 +21,7 @@ test('exhibition starts from real rosters and duplicate snaps do not advance twi
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
     $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
-    expect($game->rosters['home']['players'])->toHaveCount(27);
+    expect($game->rosters['home']['players'])->toHaveCount(28);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Call play')->assertSee('data-animation', false);
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertStatus(409);

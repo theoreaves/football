@@ -31,7 +31,7 @@ class GamePersonnel
                         }
                     }
                 }
-                if (! $player && in_array($role, ['LB4', 'LB5', 'CB3'], true)) {
+                if (! $player && in_array($role, ['LB4', 'LB5', 'CB3', 'CB4'], true)) {
                     continue;
                 }
                 if (! $player) {

@@ -62,12 +62,14 @@ class ExhibitionController extends Controller
         $cpuDefense = $controls[$defenseSide] === 'cpu';
         $personnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state);
         $cpuPlan = $cpuOffense ? $coach->offense($exhibition->state, $personnel) : null;
+        $coachSuggestion = $coach->offense($exhibition->state, $personnel);
+        $coachDefense = $coach->defense($exhibition->state, $coachSuggestion['call']);
         $plannedCall = $cpuPlan['call'] ?? $calls[0];
         $humanDefenseOptions = ExhibitionEngine::defensesForCall($plannedCall);
 
         $boxScore = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition);
 
-        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel'));
+        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense'));
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
@@ -93,6 +95,9 @@ class ExhibitionController extends Controller
         if ($action === 'penalty') {
             $rules['decision'] = ['required', Rule::in(['accept', 'decline'])];
         }
+        $rules['expect'] = ['sometimes', Rule::in(['balanced', 'run', 'pass'])];
+        $rules['blitz'] = ['sometimes', 'boolean'];
+        $rules['motion'] = ['sometimes', Rule::in(['none', 'WR1', 'WR2', 'WR3', 'TE', 'RB'])];
         $data = $request->validate($rules);
         DB::transaction(function () use ($exhibition, $engine, $data, $request) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
@@ -141,7 +146,7 @@ class ExhibitionController extends Controller
                     $defense = ['call' => $human['defense'], 'formation' => $human['defense_formation'] ?? 'base_4_3'];
                 }
                 $management = $controls[$side] === 'cpu' ? $coach->management($game->state) : ['tempo' => $data['tempo'] ?? 'normal', 'clock_strategy' => $data['clock_strategy'] ?? 'normal'];
-                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy']);
+                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : 'none');
             }
             $history = $game->history;
             $history[] = $result['play'];

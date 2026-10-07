@@ -53,8 +53,9 @@ class ExhibitionBoxScore
             $outcome = $play['outcome'];
             $gain = $play['gain'];
             $carrier = $play['carrier'];
-            $pass = in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'spike'], true);
-            if ($pass || in_array($call, ['inside_run', 'outside_run', 'kneel'], true)) {
+            $scramble = $play['scramble'] ?? false;
+            $pass = ! $scramble && in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'spike'], true);
+            if ($scramble || $pass || in_array($call, ['inside_run', 'outside_run', 'kneel'], true)) {
                 $teams[$side]['plays']++;
                 $yards = in_array($outcome, ['interception', 'incomplete', 'spike'], true) ? 0 : $gain;
                 $teams[$side]['yards'] += $yards;
@@ -88,12 +89,12 @@ class ExhibitionBoxScore
                     }
                 }
             }
-            if ($pass || in_array($call, ['inside_run', 'outside_run'], true)) {
+            if ($scramble || $pass || in_array($call, ['inside_run', 'outside_run'], true)) {
                 $tackler = $carrier === 'WR1' ? 'CB1' : 'LB2';
                 if (in_array($outcome, ['tackle', 'sack', 'fumble', 'safety'], true) && ! ($play['out_of_bounds'] ?? false) && $call !== 'spike') {
                     $players[$other][$tackler]['tackles']++;
                 }
-                if ($carrier === 'QB' && $call !== 'spike') {
+                if ($carrier === 'QB' && $call !== 'spike' && ! $scramble) {
                     $players[$other][$tackler]['defensive_sacks']++;
                 }
                 if ($outcome === 'interception') {

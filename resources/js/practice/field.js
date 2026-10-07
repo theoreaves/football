@@ -192,6 +192,9 @@ export function mountPractice(root) {
         revealed = committed;
         const state = committed ? afterState : beforeState, labels = scoreboardText(state, teamNames);
         root.querySelector('[data-scoreboard]').textContent = labels.score;
+        root.querySelector('[data-home-score]').textContent = state.home_score;
+        root.querySelector('[data-away-score]').textContent = state.away_score;
+        root.querySelectorAll('[data-possession]').forEach(node => node.textContent = node.dataset.possession === state.possession ? '●' : '');
         root.querySelector('[data-clock]').textContent = labels.clock;
         root.querySelector('[data-situation]').textContent = labels.situation;
         const management = root.querySelector('[data-clock-management]');
@@ -205,6 +208,7 @@ export function mountPractice(root) {
         if (count) count.textContent = committed ? afterState.version : beforeState.version;
         const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
     };
+    if (new URLSearchParams(window.location.search).get('debug_replay') === '1') root.classList.add('game-debug-replay');
     const disposeMobileControls = mobileControls(root);
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
@@ -223,24 +227,35 @@ export function mountPractice(root) {
         let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02)) : sample(type, Math.min(duration, elapsed + 0.03));
         if (phase === 'liningup') {
             const formation = sample(type, 0);
+            if (animation?.motion_start !== null) formation.players.forEach(player => { if (player.team === 'offense' && player.role === animation.motion) player.z = animation.motion_start; });
             frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress);
             future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02));
         }
         if (phase === 'set') {
             frame = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
+            if (animation?.motion_start != null) {
+                const progress = Math.min(1, setElapsed / 3);
+                const eased = progress * progress * (3 - 2 * progress);
+                frame.players.forEach(player => { if (player.team === 'offense' && player.role === animation.motion) player.z = animation.motion_start + (animation.motion_end - animation.motion_start) * eased; });
+            }
             future = frame;
         }
         if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
-        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : elapsed;
+        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             const next = future.players[i];
-            const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
+            const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002 || (phase === 'set' && setElapsed < 3 && player.team === 'offense' && player.role === animation?.motion);
+            mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
-            else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play') mesh.rotation.y = (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
+            else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * (offenseSide === 'home' ? 1 : -1) * Math.PI / 2;
+            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at && ((player.team === 'offense' && player.role === animation.carrier) || (player.team === 'defense' && player.role === (animation.carrier === 'WR1' ? 'CB1' : 'LB2')))) {
+                const fall = Math.min(1, (elapsed - animation.contact_at) / .55);
+                mesh.rotation.z = fall * Math.PI / 2; mesh.position.y = fall * .15;
+            }
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
@@ -293,6 +308,7 @@ export function mountPractice(root) {
     };
     if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
+        root.classList.add('game-replay-controls');
         if (phase !== 'play' && phase !== 'liningup' && phase !== 'set') replayView();
         if (elapsed >= duration) { elapsed = 0; audioTime = -2; }
         setCpuAuto(false);
@@ -311,16 +327,40 @@ export function mountPractice(root) {
         const refreshCalls = () => {
             if (call && defense) {
                 const selected = defense.value;
-                defense.replaceChildren(...options[call.value].map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
+                defense.replaceChildren(...options[call.value].filter(value => !['blitz', 'run_stop'].includes(value)).map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
                 if (options[call.value].includes(selected)) defense.value = selected;
             }
             const special = call ? ['punt','field_goal','kickoff','extra_point'].includes(call.value) : root.dataset.cpuSpecial === 'true';
             callForm.querySelectorAll('[data-formation]').forEach(select => select.parentElement.hidden = special);
         };
         call?.addEventListener('change', refreshCalls); refreshCalls();
+        const formation = callForm.querySelector('[name="offense_formation"]');
+        const allCalls = call ? [...call.options].map(option => ({value: option.value, text: option.textContent})) : [];
+        const formationCalls = { singleback: ['inside_run','outside_run','slant','short_pass','medium_pass'], i_form: ['inside_run','outside_run','short_pass','medium_pass'], pistol: ['inside_run','outside_run','draw','short_pass','medium_pass','deep_pass'], shotgun: ['inside_run','draw','screen','slant','short_pass','medium_pass','deep_pass'], spread: ['outside_run','draw','screen','short_pass','medium_pass','deep_pass'], trips: ['outside_run','screen','slant','short_pass','medium_pass','deep_pass'] };
+        const refreshFormation = () => {
+            if (!call || !formation || !formationCalls[formation.value]) return;
+            const selected = call.value;
+            const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || ['punt','field_goal','kickoff','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value));
+            call.replaceChildren(...choices.map(({value,text}) => new Option(text,value)));
+            if (choices.some(option => option.value === selected)) call.value = selected;
+            refreshCalls();
+        };
+        formation?.addEventListener('change', refreshFormation); refreshFormation();
+        callForm.querySelector('[data-coach-offense]')?.addEventListener('click', () => {
+            const plan = JSON.parse(root.dataset.coachOffense); formation.value = plan.formation; refreshFormation(); call.value = plan.call; refreshCalls();
+        });
+        callForm.querySelector('[data-coach-defense]')?.addEventListener('click', () => {
+            const plan = JSON.parse(root.dataset.coachDefense);
+            callForm.querySelector('[name="defense_formation"]').value = plan.formation;
+            const recommendation = plan.call === 'blitz' ? 'man_to_man' : plan.call === 'run_stop' ? 'zone' : plan.call;
+            defense.value = [...defense.options].some(option => option.value === recommendation) ? recommendation : defense.options[0].value;
+            callForm.querySelector('[name="blitz"]').checked = plan.call === 'blitz';
+            callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
+        });
     }
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
     callForm?.addEventListener('submit', () => {
+        root.classList.remove('game-replay-controls');
         saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
     });
