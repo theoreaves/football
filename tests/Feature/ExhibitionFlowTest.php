@@ -157,3 +157,31 @@ test('visitor coin call lets the winner choose and halftime reverses receiving t
     $next = app(\App\Services\Simulation\GameClock::class)->advance($state, $state, $play, 1);
     expect($next['quarter'])->toBe(3)->and($next['phase'])->toBe('kickoff')->and($next['possession'])->toBe($receiver);
 })->with(['kick', 'receive']);
+
+test('human game lineup overrides use captured backups without changing permanent rosters', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'away_control' => 'cpu'])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    $original = $game->rosters;
+    $starter = $original['home']['players']['QB']['id'];
+    $backup = collect($original['home']['pool'])->first(fn ($p) => $p['position'] === 'QB' && $p['id'] !== $starter);
+    expect($backup)->not->toBeNull();
+    $request = ['action' => 'lineup', 'version' => 0, 'team' => 'home', 'role' => 'QB', 'player' => $backup['id']];
+    $this->post(route('exhibitions.play', $game), $request)->assertRedirect();
+    $game->refresh();
+    expect($game->rosters)->toBe($original)->and($game->history)->toBe([])->and($game->state['version'])->toBe(0);
+    $active = app(\App\Services\Simulation\GamePersonnel::class)->active($game->rosters, $game->state);
+    expect($active['home']['players']['QB']['id'])->toBe($backup['id']);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Set QB');
+    $this->post(route('exhibitions.play', $game), array_merge($request, ['team' => 'away']))->assertStatus(422);
+    $wrong = collect($original['home']['pool'])->first(fn ($p) => $p['position'] !== 'QB');
+    $this->post(route('exhibitions.play', $game), array_merge($request, ['player' => $wrong['id']]))->assertStatus(422);
+    $state = $game->state;
+    $state['injuries']['home'][$backup['id']] = ['return_snap' => null];
+    app(CurrentWorld::class)->id = (int) $game->world_id;
+    $game->update(['state' => $state]);
+    $this->post(route('exhibitions.play', $game), $request)->assertStatus(422);
+    expect(app(\App\Services\Simulation\GamePersonnel::class)->active($original, $state)['home']['players']['QB']['id'])->toBe($starter);
+    $this->post(route('exhibitions.play', $game), array_merge($request, ['player' => '']))->assertRedirect();
+    expect($game->fresh()->state['game_lineup']['home'])->toBe([]);
+});

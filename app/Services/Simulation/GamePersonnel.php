@@ -10,16 +10,17 @@ class GamePersonnel
             if (! isset($roster['pool'])) {
                 continue;
             }
+            $preferences = $state['game_lineup'][$side] ?? [];
             $used = [];
             $selected = [];
             $snap = $state['personnel_snaps'] ?? 0;
             foreach (RosterBuilder::GROUPS as $role => $positions) {
-                $eligible = array_filter($roster['pool'], function ($player) use ($used, $state, $side, $snap) {
+                $eligible = array_filter($roster['pool'], function ($player) use ($used, $state, $side, $snap, $preferences, $role) {
                     $injury = $state['injuries'][$side][$player['id']] ?? null;
 
-                    return ! in_array($player['id'], $used, true) && (! $injury || ($injury['return_snap'] !== null && $snap >= $injury['return_snap']));
+                    return ! in_array($player['id'], $used, true) && ! in_array($player['id'], array_diff_key($preferences, [$role => true]), true) && (! $injury || ($injury['return_snap'] !== null && $snap >= $injury['return_snap']));
                 });
-                $rank = fn ($player) => [array_search($player['position'], $positions, true), (int) (preg_replace('/\D/', '', $player['depth'] ?? '') ?: 99), $player['id']];
+                $rank = fn ($player) => [($preferences[$role] ?? null) === $player['id'] ? 0 : 1, array_search($player['position'], $positions, true), (int) (preg_replace('/\D/', '', $player['depth'] ?? '') ?: 99), $player['id']];
                 $candidates = array_values(array_filter($eligible, fn ($player) => in_array($player['position'], $positions, true)));
                 usort($candidates, fn ($a, $b) => $rank($a) <=> $rank($b));
                 $player = $candidates[0] ?? null;

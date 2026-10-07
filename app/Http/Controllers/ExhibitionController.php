@@ -87,7 +87,12 @@ class ExhibitionController extends Controller
         $side = $exhibition->state['possession'];
         $rules = ['version' => ['required', 'integer', 'min:0']];
         $action = $request->input('action', 'play');
-        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty', 'coin'])];
+        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty', 'coin', 'lineup'])];
+        if ($action === 'lineup') {
+            $rules['team'] = ['required', Rule::in(['home', 'away'])];
+            $rules['role'] = ['required', Rule::in(array_keys(RosterBuilder::GROUPS))];
+            $rules['player'] = ['nullable', 'integer', 'min:1'];
+        }
         if ($action === 'coin') {
             $rules['choice'] = ['required', Rule::in(['kick', 'receive'])];
         }
@@ -145,6 +150,27 @@ class ExhibitionController extends Controller
             }
             abort_if($game->state['penalty_pending'] ?? false, 409, 'Accept or decline the penalty before continuing.');
             abort_if($game->state['status'] !== 'playing', 409, 'This game is final.');
+            if ($request->input('action') === 'lineup') {
+                $state = $game->state;
+                $side = $data['team'];
+                $role = $data['role'];
+                abort_unless(app(CpuCoach::class)->controls($state)[$side] === 'human', 422, 'Only human teams can change their lineup.');
+                $playerId = isset($data['player']) ? (int) $data['player'] : null;
+                if ($playerId) {
+                    $player = collect($game->rosters[$side]['pool'] ?? [])->firstWhere('id', $playerId);
+                    abort_unless($player && in_array($player['position'], RosterBuilder::GROUPS[$role], true), 422, 'Choose a player at the correct position from this game roster.');
+                    $injury = $state['injuries'][$side][$playerId] ?? null;
+                    abort_if($injury && ($injury['return_snap'] === null || ($state['personnel_snaps'] ?? 0) < $injury['return_snap']), 422, 'This player is injured.');
+                    $preferences = $state['game_lineup'][$side] ?? [];
+                    abort_if(in_array($playerId, array_diff_key($preferences, [$role => true]), true), 422, 'This player is already selected for another role. Reset that role to automatic first.');
+                    $state['game_lineup'][$side][$role] = $playerId;
+                } else {
+                    unset($state['game_lineup'][$side][$role]);
+                }
+                $game->update(['state' => $state]);
+
+                return;
+            }
             $coach = app(CpuCoach::class);
             $controls = $coach->controls($game->state);
             $side = $game->state['possession'];
@@ -180,6 +206,6 @@ class ExhibitionController extends Controller
             $game->update(['state' => $result['state'], 'history' => $history]);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin'], true) ? 0 : 1]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup'], true) ? 0 : 1]);
     }
 }

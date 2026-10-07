@@ -102,9 +102,34 @@
     <button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel class="fixed bottom-4 right-4 z-30 bg-gray-800 border border-gray-600 rounded px-4 py-2">Depth / injuries</button>
     <dialog data-personnel-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto backdrop:bg-black/70">
         <div class="flex justify-between items-center gap-4"><h2 class="text-xl font-semibold">Depth chart and availability</h2><form method="dialog"><button class="border rounded px-3 py-2">Close</button></form></div>
-        <p class="text-sm text-gray-300 mt-3">Lowest depth number starts. Tired players rotate with a rested backup; injuries force replacements. Fatigue lowers performance by up to 25%. Edit player stamina, durability and depth in Teams before starting a new exhibition.</p>
+        <p class="text-sm text-gray-300 mt-3">Lowest depth number starts. Tired players rotate with a rested backup; injuries force replacements. Fatigue lowers performance by up to 25%. Human coaches can choose game-only starters below. Automatic restores the saved depth order. Injuries and fatigue rotation still apply; your selections remain until changed.</p>
         @foreach($personnel as $side => $roster)
             <h3 class="font-semibold text-lg mt-5">{{ $teamNames[$side] }}</h3>
+            @if($controls[$side] === 'human' && isset($roster['pool']) && $state['status'] === 'playing' && !($state['penalty_pending'] ?? false) && !($state['coin_toss']['pending'] ?? false))
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            @foreach(\App\Services\Simulation\RosterBuilder::GROUPS as $role => $positions)
+                <form method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="border border-gray-600 rounded p-3">
+                    @csrf
+                    <input type="hidden" name="action" value="lineup"><input type="hidden" name="version" value="{{ $state['version'] }}">
+                    <input type="hidden" name="team" value="{{ $side }}"><input type="hidden" name="role" value="{{ $role }}">
+                    <label class="block">{{ $role }} · {{ $roster['players'][$role]['name'] ?? 'No active player' }}
+                    <select name="player" class="block w-full bg-gray-900 text-white rounded p-2 mt-2">
+                        <option value="">Automatic</option>
+                        @foreach($roster['pool'] as $candidate)
+                            @if(in_array($candidate['position'], $positions, true))
+                            @php
+                                $hurt = $state['injuries'][$side][$candidate['id']] ?? null;
+                                $unavailable = $hurt && ($hurt['return_snap'] === null || ($state['personnel_snaps'] ?? 0) < $hurt['return_snap']);
+                            @endphp
+                            <option value="{{ $candidate['id'] }}" @selected(($state['game_lineup'][$side][$role] ?? null) === $candidate['id']) @disabled($unavailable)>#{{ $candidate['number'] }} {{ $candidate['name'] }} · {{ round($state['fatigue'][$side][$candidate['id']] ?? 0) }}% fatigue{{ $unavailable ? ' · Injured' : '' }}</option>
+                            @endif
+                        @endforeach
+                    </select></label>
+                    <button class="mt-2 border rounded px-3 py-2">Set {{ $role }}</button>
+                </form>
+            @endforeach
+            </div>
+            @endif
             @if(!isset($roster['pool']))<p class="text-orange-300">Start a new exhibition to capture backups and enable injuries.</p>@endif
             <table class="w-full text-sm mt-3"><thead><tr class="text-left"><th class="p-2">Role</th><th class="p-2">Player</th><th class="p-2">Fatigue</th><th class="p-2">Status</th></tr></thead><tbody>
             @foreach($roster['pool'] ?? $roster['players'] as $player)
