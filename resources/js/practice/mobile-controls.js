@@ -22,7 +22,13 @@ export function mobileControls(root) {
         button.type = 'button'; button.textContent = label;
         button.setAttribute('aria-controls', dialog.id);
         button.setAttribute('aria-haspopup', 'dialog');
-        button.addEventListener('click', () => dialog.showModal());
+        button.addEventListener('click', () => {
+            if (label === 'Call play' && root.querySelector('[data-play-wizard]')) {
+                dialog.querySelector('.game-play-panel button')?.click();
+            } else {
+                dialog.showModal();
+            }
+        });
         bar.append(button); root.append(dialog);
         const nodes = [...root.querySelectorAll(selector)].map(node => {
             const anchor = document.createComment('desktop control position');

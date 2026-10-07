@@ -1,5 +1,6 @@
 import { buildStadium } from './stadium.js';
 import { samplePreSnapMotion } from './motion.js';
+import { mountPlayWizard } from './play-wizard.js';
 import { mobileControls } from './mobile-controls.js';
 import { stadiumAudio } from './stadium-audio.js';
 import { soundCues, crossedCues } from './sound-cues.js';
@@ -220,7 +221,7 @@ export function mountPractice(root) {
         const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
     };
     if (new URLSearchParams(window.location.search).get('debug_replay') === '1') root.classList.add('game-debug-replay');
-    const disposeMobileControls = mobileControls(root);
+
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
     let audioTime = -2;
@@ -331,10 +332,13 @@ export function mountPractice(root) {
     if (callForm && root.dataset.defenseOptions) {
         const options = JSON.parse(root.dataset.defenseOptions), call = callForm.querySelector('[name="call"]'), defense = callForm.querySelector('[name="defense"]');
         const refreshCalls = () => {
+            if (!call && defense) {
+                [...defense.options].filter(option => ['blitz', 'run_stop'].includes(option.value)).forEach(option => option.remove());
+            }
             if (call && defense) {
                 const selected = defense.value;
                 defense.replaceChildren(...options[call.value].filter(value => !['blitz', 'run_stop'].includes(value)).map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
-                if (options[call.value].includes(selected)) defense.value = selected;
+                if ([...defense.options].some(option => option.value === selected)) defense.value = selected;
             }
             const special = call ? ['punt','field_goal','kickoff','extra_point'].includes(call.value) : root.dataset.cpuSpecial === 'true';
             callForm.querySelectorAll('[data-formation]').forEach(select => select.parentElement.hidden = special);
@@ -364,6 +368,8 @@ export function mountPractice(root) {
             callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
         });
     }
+    mountPlayWizard(root);
+    const disposeMobileControls = mobileControls(root);
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
     callForm?.addEventListener('submit', () => {
         root.classList.remove('game-replay-controls');
@@ -474,7 +480,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(coinDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

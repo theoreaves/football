@@ -110,3 +110,38 @@
 
 .game-event-title { font-size: clamp(28px, 5vw, 48px); font-weight: 900; line-height: 1.1; letter-spacing: .03em; text-align: center; }
 .game-stage > [data-result-popup] { max-height: 70dvh; overflow-y: auto; }
+
+.play-wizard { width: min(980px, 96vw); max-height: 90dvh; padding: 20px; }
+.play-wizard-source { display: none; }
+.play-wizard-form[hidden] { display: none; }
+.play-wizard-form > p { display: none; }
+.wizard-heading, .wizard-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wizard-heading h2 { font-size: 24px; font-weight: 700; }
+.wizard-heading p, .wizard-progress { color: #94a3b8; font-size: 12px; }
+.wizard-progress { margin: 14px 0; line-height: 1.8; }
+.wizard-progress .current { color: #93c5fd; font-weight: 700; }
+.wizard-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.wizard-card { border: 2px solid #475569; border-radius: 12px; padding: 8px; background: #17273b; text-align: center; }
+.wizard-card[aria-pressed="true"] { border-color: #60a5fa; background: #203b5b; }
+.wizard-card:hover { border-color: #93c5fd; }
+.wizard-card svg { display: block; width: 100%; }
+.wizard-card span { display: block; margin-top: 8px; font-weight: 600; }
+.wizard-nav { margin-top: 20px; }
+.wizard-nav button, .wizard-heading button { padding: 10px 16px; border: 1px solid #64748b; border-radius: 8px; }
+.wizard-nav [data-wizard-next] { background: #1d4ed8; border-color: #60a5fa; }
+.wizard-nav button:disabled { opacity: .4; }
+.wizard-review { grid-column: 1 / -1; padding: 16px; background: #17273b; border-radius: 10px; }
+.wizard-review li { margin-top: 8px; }
+.wizard-cards label { grid-column: span 1; }
+.wizard-cards select { width: 100%; min-height: 44px; }
+@media(max-width: 600px) {
+    .play-wizard { padding: 12px; }
+    .wizard-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .wizard-heading h2 { font-size: 19px; }
+    .wizard-nav button { padding: 10px; }
+}
+
+.wizard-opponent { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 14px; margin-bottom: 14px; background: #17273b; border: 1px solid #475569; border-radius: 10px; }
+.wizard-opponent p { color: #94a3b8; font-size: 12px; }
+.wizard-opponent strong { color: #93c5fd; }
+.wizard-opponent svg { width: 150px; flex-shrink: 0; }
