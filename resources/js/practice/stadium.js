@@ -1,3 +1,4 @@
+import { buildStadiumCrowd } from './stadium-crowd.js';
 import * as THREE from 'three';
 import { fitLogo } from './logo-fit.js';
 import { scoreboardText } from './scoreboard.js';
@@ -29,7 +30,7 @@ function band(rx, rz, width, y, rise, allowed) {
     geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
 
-export function buildStadium(home, document, away = {}) {
+export function buildStadium(home, document, away = {}, crowd = {}) {
     const design = STADIUMS[home.stadium_style] || STADIUMS.classic_oval;
     const group = new THREE.Group(); group.name = 'stadium'; group.position.set(60, 0, 26.665);
     group.userData.style = home.stadium_style in STADIUMS ? home.stadium_style : 'classic_oval';
@@ -48,6 +49,7 @@ export function buildStadium(home, document, away = {}) {
     const box = (size, position, material, name) => {
         const mesh = add(new THREE.BoxGeometry(...size), material, name); mesh.position.set(...position); return mesh;
     };
+    const fanSeats = [];
     let offset = 0, height = 1;
     for (let deck = 0; deck < design.decks; deck++) {
         const deckGroup = new THREE.Group(); deckGroup.name = `seating-deck-${deck + 1}`; group.add(deckGroup);
@@ -65,7 +67,9 @@ export function buildStadium(home, document, away = {}) {
                 const angle = i / count * Math.PI * 2;
                 if (!allowed(angle) || (design.asymmetric && deck === 2 && Math.sin(angle) > .2)) continue;
                 dummy.position.set((rx + .7) * Math.cos(angle), height + .3, (rz + .7) * Math.sin(angle));
-                dummy.rotation.y = -angle - Math.PI / 2; dummy.updateMatrix(); chairs.setMatrixAt(instance++, dummy.matrix);
+                dummy.rotation.y = -angle - Math.PI / 2;
+                fanSeats.push({ x: dummy.position.x, y: dummy.position.y, z: dummy.position.z, yaw: dummy.rotation.y });
+                dummy.updateMatrix(); chairs.setMatrixAt(instance++, dummy.matrix);
             }
             offset += design.width; height += design.step;
         }
@@ -73,6 +77,7 @@ export function buildStadium(home, document, away = {}) {
         add(band(80 + offset, 48 + offset, 4, height, 0, allowed), walls, 'concourse');
         offset += 4; height += 2;
     }
+    group.add(buildStadiumCrowd(fanSeats, crowd, home, away));
     // Lower terrace closes the open end beneath the horseshoe's upper decks.
     if (design.gap === 'end') add(band(80, 48, 8, 1, 3, angle => Math.cos(angle) >= .83), seats, 'end-terrace');
     if (design.tower) {

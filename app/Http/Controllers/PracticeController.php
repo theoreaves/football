@@ -63,6 +63,8 @@ class PracticeController extends Controller
             'endzone_logo_right' => $art('endzone_logo_right'),
             'endzone_transparent' => (bool) $team->endzone_transparent,
             'name' => $team->name,
+            'primary_color' => $team->team_color1 ?: $uniform['shirt'],
+            'secondary_color' => $team->team_color2 ?: $uniform['shirt'],
             'stadium_style' => $team->stadium_style ?: 'classic_oval',
             'stadium_seat_color' => $team->stadium_seat_color ?: ($team->team_color1 ?: '#315b85'),
             'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',

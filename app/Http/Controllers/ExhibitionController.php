@@ -28,12 +28,12 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean']]);
+        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $game = DB::transaction(fn () => Exhibition::create([
             'home_team_id' => $home->id, 'away_team_id' => $away->id,
-            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
+            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
             'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
         ]));
 

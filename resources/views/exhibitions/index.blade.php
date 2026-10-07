@@ -11,6 +11,8 @@
             </select></label>
             <label>{{ $label }} control<select name="{{ $side }}_control" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="human" @selected(old($side.'_control', 'human') === 'human')>Human</option><option value="cpu" @selected(old($side.'_control') === 'cpu')>CPU</option></select></label>
         @endforeach
+        <label>Stadium fullness (%)<input type="number" name="crowd_fullness" min="0" max="100" step="1" value="{{ old('crowd_fullness', 80) }}" class="block bg-gray-900 text-white rounded p-2 mt-1 w-28" required></label>
+        <label>Visiting fans (% of crowd)<input type="number" name="visiting_fans" min="0" max="100" step="1" value="{{ old('visiting_fans', 10) }}" class="block bg-gray-900 text-white rounded p-2 mt-1 w-28" required></label>
         <label>Quarter length<select name="quarter_length" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="180">Quick game · 3 minutes</option><option value="900">Full game · 15 minutes</option></select></label>
         <input type="hidden" name="penalties" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="penalties" value="1" @checked(old('penalties', true))>Penalties</label>
         <input type="hidden" name="injuries" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="injuries" value="1" @checked(old('injuries', true))>Injuries</label>

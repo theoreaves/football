@@ -120,3 +120,16 @@ test('exhibition list paginates newest summaries without loading replay history 
     $second = $this->get(route('exhibitions.index', ['page' => 2]))->assertOk()->viewData('games');
     expect($second->count())->toBe(1)->and($second->first()->id)->toBe($ids[0]);
 });
+
+test('crowd settings persist through plays and invalid percentages are rejected', function () {
+    $teams = Team::all();
+    $data = ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'crowd_fullness' => 63, 'visiting_fans' => 17];
+    $this->post(route('exhibitions.store'), array_merge($data, ['crowd_fullness' => 101, 'visiting_fans' => -1]))->assertSessionHasErrors(['crowd_fullness', 'visiting_fans']);
+    $this->post(route('exhibitions.store'), $data)->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    $crowd = $game->state['crowd'];
+    expect($crowd['fullness'])->toBe(63)->and($crowd['visitors'])->toBe(17)->and($crowd['seed'])->toBeGreaterThan(0);
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
+    expect($game->fresh()->state['crowd'])->toBe($crowd);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-crowd=', false);
+});

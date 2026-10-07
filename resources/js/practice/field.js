@@ -156,7 +156,7 @@ export function mountPractice(root) {
     for (let x = 11; x < 110; x++) for (const z of [0.6, 23.6, 29.7, 52.7]) addBox(0.1, 0.03, 0.55, 0xddddcb, x, 0.06, z);
     const scrimmageLine = addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
     const firstDownLine = addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
-    const stadium = buildStadium(home, document, away);
+    const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'));
     scene.add(stadium.group);
     for (const x of [0, 120]) {
         addBox(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
