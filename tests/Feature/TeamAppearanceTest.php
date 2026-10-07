@@ -26,6 +26,7 @@ test('team appearance saves and the practice field uses home and away uniforms',
         'uniform_home_number' => '#aabb00', 'uniform_home_number_outline' => '#112244',
         'uniform_away_number' => '#123456', 'uniform_away_number_outline' => '#654321',
         'uniform_home_pants' => '#778899', 'uniform_home_socks' => '#aabbcc',
+        'uniform_home_name_enabled' => true, 'uniform_home_name_color' => '#abcdef', 'uniform_away_name_enabled' => false,
         'endzone_transparent' => true, 'uniform_home_helmet_stripe_enabled' => true, 'uniform_home_helmet_stripe' => '#ffcc00',
         'endzone_text' => 'TIGERS', 'endzone_background' => '#123456', 'endzone_text_color' => '#ffffff',
     ];
@@ -40,6 +41,9 @@ test('team appearance saves and the practice field uses home and away uniforms',
             && $value['home']['uniform']['number_outline'] === '#112244'
             && $value['away']['uniform']['number'] === '#123abc'
             && $value['away']['uniform']['number_outline'] === '#fedcba'
+            && $value['home']['uniform']['name_enabled']
+            && $value['home']['uniform']['name_color'] === '#abcdef'
+            && ! $value['away']['uniform']['name_enabled']
             && $value['home']['stadium_style'] === 'indoor_dome'
             && $value['home']['stadium_seat_color'] === '#123abc'
             && $value['home']['stadium_wall_color'] === '#456def'
@@ -51,7 +55,7 @@ test('team appearance saves and the practice field uses home and away uniforms',
             && $value['home']['uniform']['helmet_stripe'] === '#ffcc00');
     $this->get(route('teams.editor.edit', $home))->assertOk()->assertSee('Face mask')->assertSee('uniform_away_facemask')->assertSee('Number color')->assertSee('uniform_away_number_outline');
     $this->put(route('teams.editor.update', $home), array_merge($data, ['uniform_home_facemask' => 'blue', 'uniform_home_number' => 'red', 'uniform_away_number_outline' => '#bad']))->assertSessionHasErrors(['uniform_home_facemask', 'uniform_home_number', 'uniform_away_number_outline']);
-    $this->put(route('teams.editor.update', $home), array_merge($data, ['stadium_style' => 'unknown', 'stadium_seat_color' => 'blue']))->assertSessionHasErrors(['stadium_style', 'stadium_seat_color']);
+    $this->put(route('teams.editor.update', $home), array_merge($data, ['stadium_style' => 'unknown', 'stadium_seat_color' => 'blue', 'uniform_home_name_color' => 'bad']))->assertSessionHasErrors(['stadium_style', 'stadium_seat_color', 'uniform_home_name_color']);
     $this->put(route('teams.editor.update', $home), array_merge($data, ['uniform_home_shirt' => 'invalid']))
         ->assertSessionHasErrors('uniform_home_shirt');
 });

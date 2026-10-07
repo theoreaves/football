@@ -86,6 +86,14 @@
                             <label>{{ $part === 'number' ? 'Number color' : ($part === 'number_outline' ? 'Number outline' : ($part === 'facemask' ? 'Face mask' : ucfirst($part))) }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?? $default) }}" class="block w-full h-10 border rounded mt-1"></label>
                         @endforeach
                     </div>
+                    @php
+                        $nameEnabled = "uniform_{$venue}_name_enabled";
+                        $nameColor = "uniform_{$venue}_name_color";
+                    @endphp
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <label><input type="hidden" name="{{ $nameEnabled }}" value="0"><input type="checkbox" name="{{ $nameEnabled }}" value="1" @checked(old($nameEnabled, $team->{$nameEnabled}))> Show last names on jersey backs</label>
+                        <label>Jersey name color<input type="color" name="{{ $nameColor }}" value="{{ old($nameColor, $team->{$nameColor} ?: ($team->{"uniform_{$venue}_number"} ?: '#ffffff')) }}" class="block w-24 h-10 border rounded"></label>
+                    </div>
                     <div class="grid grid-cols-3 gap-4 mt-3">
                     @foreach(['helmet', 'shoulder', 'pants'] as $part)
                         @php

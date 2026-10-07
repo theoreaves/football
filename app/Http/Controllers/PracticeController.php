@@ -51,6 +51,9 @@ class PracticeController extends Controller
             $uniform[$part.'_stripe_enabled'] = (bool) $team->{"uniform_{$venue}_{$part}_stripe_enabled"};
         }
 
+        $uniform['name_enabled'] = (bool) $team->{"uniform_{$venue}_name_enabled"};
+        $uniform['name_color'] = $team->{"uniform_{$venue}_name_color"} ?: $uniform['number'];
+
         return [
             'team_logo' => $art('team_logo'),
             'helmet_logo_left' => $art('helmet_logo_left'),

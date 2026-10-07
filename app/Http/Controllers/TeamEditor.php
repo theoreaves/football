@@ -77,6 +77,8 @@ class TeamEditor extends Controller
             'endzone_text_color' => $hex,
         ];
         foreach (['home', 'away'] as $venue) {
+            $appearance["uniform_{$venue}_name_enabled"] = ['sometimes', 'boolean'];
+            $appearance["uniform_{$venue}_name_color"] = $hex;
             foreach (['helmet', 'shoulder', 'pants'] as $part) {
                 $appearance["uniform_{$venue}_{$part}_stripe"] = $hex;
                 $appearance["uniform_{$venue}_{$part}_stripe_enabled"] = ['sometimes', 'boolean'];
