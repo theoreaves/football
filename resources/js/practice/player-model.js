@@ -1,3 +1,4 @@
+import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry } from './helmet-shell.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
 import { addJerseyNumbers } from './jersey-numbers.js';
@@ -33,7 +34,9 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     }
     box(group, [.23, .2, .23], [0, 1.75, 0], skin);
     box(group, [.43, .38, .35], [0, 1.97, .08], skin);
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(.37, 12, 8, 0, Math.PI * 2, 0, 2.05), helmetPaint);
+    helmetPaint.flatShading = false; helmetPaint.roughness = .32;
+    const helmet = new THREE.Mesh(helmetShellGeometry(), helmetPaint);
+    helmet.name = 'helmet-shell';
     helmet.position.set(0, 2.03, 0); helmet.castShadow = true; group.add(helmet);
     const faceMask = new THREE.Group(); faceMask.name = 'facemask'; group.add(faceMask);
     const maskPaint = mat(kit.facemask || '#17202b'); maskPaint.roughness = .4;
@@ -57,14 +60,25 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     }
     group.userData.faceMask = faceMask;
     if (kit.helmet_stripe_enabled) {
-        const stripe = new THREE.Mesh(new THREE.TorusGeometry(.374, .027, 4, 20, Math.PI), mat(kit.helmet_stripe || '#ffffff'));
-        stripe.rotation.y = Math.PI / 2; stripe.position.y = 2.03; group.add(stripe);
+        const stripePaint = mat(kit.helmet_stripe || '#ffffff'); stripePaint.flatShading = false;
+        stripePaint.side = THREE.DoubleSide;
+        const stripe = new THREE.Mesh(helmetStripeGeometry(), stripePaint);
+        stripe.name = 'helmet-stripe'; helmet.add(stripe);
     }
     for (const [sign, url] of [[-1, kit.helmet_logo_left], [1, kit.helmet_logo_right]]) {
         const texture = url && textureFor(url); if (!texture) continue;
-        const logo = new THREE.Mesh(new THREE.PlaneGeometry(.36, .29), new THREE.MeshBasicMaterial({map: texture, transparent: true, depthWrite: false}));
-        logo.onBeforeRender = () => { if (texture.image) { const size = fitLogo(texture.image.width, texture.image.height, .36, .29); logo.scale.set(size.width / .36, size.height / .29, 1); } };
-        logo.position.set(sign * .368, 2.04, 0); logo.rotation.y = sign * Math.PI / 2; group.add(logo);
+        const logo = new THREE.Mesh(helmetLogoGeometry(sign), new THREE.MeshBasicMaterial({map: texture, transparent: true, depthWrite: false, side: THREE.DoubleSide}));
+        logo.name = sign < 0 ? 'helmet-logo-left' : 'helmet-logo-right';
+        let dimensions = '';
+        logo.onBeforeRender = () => {
+            if (!texture.image) return;
+            const key = `${texture.image.width}:${texture.image.height}`;
+            if (key === dimensions) return;
+            const size = fitLogo(texture.image.width, texture.image.height, .36, .29);
+            logo.geometry.dispose(); logo.geometry = helmetLogoGeometry(sign, size.width, size.height);
+            dimensions = key;
+        };
+        helmet.add(logo);
     }
     addJerseyNumbers(group, player, document, kit, {depth: .253, height: 1.27});
     const height = Math.max(48, Math.min(96, Number(player.height_inches) || 72)) / 72;

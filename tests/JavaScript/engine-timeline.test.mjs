@@ -183,7 +183,7 @@ test('football player meshes use body data short sleeves exposed skin and option
     assert.ok(large.scale.y > small.scale.y); assert.ok(large.scale.x > small.scale.x);
     assert.equal(small.userData.legs.length,2); assert.equal(small.userData.arms.length,2);
     assert.equal(small.userData.arms[0].children[1].material.color.getHexString(),'593b2c');
-    assert.ok(small.children.some(mesh=>mesh.geometry?.type==='TorusGeometry'));
+    assert.ok(small.getObjectByName('helmet-stripe'));
     animateFootballPlayer(small,true,.1,0);
     assert.notEqual(small.userData.arms[0].rotation.x,0);
     animateFootballPlayer(small,false,.1,0);
