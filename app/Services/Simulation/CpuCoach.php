@@ -72,7 +72,12 @@ class CpuCoach
             $call = 'short_pass';
         }
 
-        return ['call' => $call, 'formation' => in_array($call, ['inside_run', 'outside_run'], true) ? 'singleback' : ($call === 'deep_pass' ? 'spread' : 'shotgun')];
+        $formation = in_array($call, ['inside_run', 'outside_run'], true) ? 'singleback' : ($call === 'deep_pass' ? 'spread' : 'shotgun');
+        $roles = array_values(array_filter($formation === 'spread' ? ['WR1', 'WR2', 'WR3'] : ['WR1', 'WR2', 'TE', 'RB'], fn ($role) => isset($players[$role])));
+        // PFF's 2025 pre-snap motion rate: 64% (not motion at the snap).
+        $motion = $roles && $this->roll($state, 'motion') < 64 ? $roles[$this->roll($state, 'motion-player') % count($roles)] : 'none';
+
+        return ['call' => $call, 'formation' => $formation, 'motion' => $motion];
     }
 
     public function defense(array $state, string $call): array
@@ -120,6 +125,11 @@ class CpuCoach
         }
 
         return null;
+    }
+
+    public function coinChoice(array $state): string
+    {
+        return $this->roll($state, 'coin-choice') < 80 ? 'kick' : 'receive';
     }
 
     private function roll(array $state, string $decision): int

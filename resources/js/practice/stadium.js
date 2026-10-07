@@ -49,6 +49,10 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
     const box = (size, position, material, name) => {
         const mesh = add(new THREE.BoxGeometry(...size), material, name); mesh.position.set(...position); return mesh;
     };
+    // Continuous grass apron beneath the entire bowl, including open corners.
+    const ground = add(new THREE.PlaneGeometry(360, 280), paint('#18392a'), 'stadium-ground');
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -.26;
     const fanSeats = [];
     let offset = 0, height = 1;
     for (let deck = 0; deck < design.decks; deck++) {

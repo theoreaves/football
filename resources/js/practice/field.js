@@ -353,7 +353,7 @@ export function mountPractice(root) {
         };
         formation?.addEventListener('change', refreshFormation); refreshFormation();
         callForm.querySelector('[data-coach-offense]')?.addEventListener('click', () => {
-            const plan = JSON.parse(root.dataset.coachOffense); formation.value = plan.formation; refreshFormation(); call.value = plan.call; refreshCalls();
+            const plan = JSON.parse(root.dataset.coachOffense); formation.value = plan.formation; refreshFormation(); call.value = plan.call; callForm.querySelector('[name="motion"]').value = plan.motion || 'none'; refreshCalls();
         });
         callForm.querySelector('[data-coach-defense]')?.addEventListener('click', () => {
             const plan = JSON.parse(root.dataset.coachDefense);
@@ -389,6 +389,7 @@ export function mountPractice(root) {
     try { injuryShown = sessionStorage.getItem(injuryKey) === 'shown'; } catch { /* Optional persistence. */ }
     const coinDialog = root.querySelector('[data-coin-dialog]');
     coinDialog?.showModal();
+    coinDialog?.addEventListener('cancel', event => { if (coinDialog.dataset.pending === 'true') event.preventDefault(); });
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
     let penaltyShown = false;

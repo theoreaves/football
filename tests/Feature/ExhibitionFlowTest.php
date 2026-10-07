@@ -134,7 +134,7 @@ test('crowd settings persist through plays and invalid percentages are rejected'
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-crowd=', false);
 });
 
-test('visitor coin call determines the opening receiver and halftime reverses receiving teams', function () {
+test('visitor coin call lets the winner choose and halftime reverses receiving teams', function (string $choice) {
     $teams = Team::all();
     $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'coin_call' => 'tails'])->assertRedirect();
     $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
@@ -143,10 +143,17 @@ test('visitor coin call determines the opening receiver and halftime reverses re
     expect($state['coin_toss']['call'])->toBe('tails')->and($state['opening_receiver'])->toBe($winner)
         ->and($state['possession'])->toBe($winner === 'home' ? 'away' : 'home');
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('COIN TOSS');
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => 'kickoff', 'defense' => 'kickoff_return'])->assertStatus(409);
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'coin', 'choice' => $choice])->assertRedirect();
+    $state = $game->fresh()->state;
+    $receiver = $choice === 'receive' ? $winner : ($winner === 'home' ? 'away' : 'home');
+    expect($state['coin_toss']['pending'])->toBeFalse()->and($state['opening_receiver'])->toBe($receiver)
+        ->and($state['possession'])->toBe($receiver === 'home' ? 'away' : 'home');
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'coin', 'choice' => 'receive'])->assertStatus(409);
     $state['quarter'] = 2;
     $state['clock'] = 1;
     $state['phase'] = 'scrimmage';
     $play = ['outcome' => 'tackle', 'summary' => 'Tackle'];
     $next = app(\App\Services\Simulation\GameClock::class)->advance($state, $state, $play, 1);
-    expect($next['quarter'])->toBe(3)->and($next['phase'])->toBe('kickoff')->and($next['possession'])->toBe($winner);
-});
+    expect($next['quarter'])->toBe(3)->and($next['phase'])->toBe('kickoff')->and($next['possession'])->toBe($receiver);
+})->with(['kick', 'receive']);

@@ -26,17 +26,23 @@ class ExhibitionController extends Controller
         return view('exhibitions.index', ['teams' => Team::orderBy('city')->get(), 'games' => $games]);
     }
 
-    public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine)
+    public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine, CpuCoach $coach)
     {
         $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $coin = random_int(0, 1) === 0 ? 'heads' : 'tails';
         $coinCall = $data['coin_call'] ?? 'heads';
-        $receiver = $coin === $coinCall ? 'away' : 'home';
+        $winner = $coin === $coinCall ? 'away' : 'home';
+        $initial = $engine->initial((int) $data['quarter_length']);
+        $controls = ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human'];
+        // Older clients without a coin call retain the receive default.
+        $pending = $controls[$winner] === 'human' && isset($data['coin_call']);
+        $choice = $controls[$winner] === 'cpu' ? $coach->coinChoice($initial) : ($pending ? null : 'receive');
+        $receiver = $choice === 'kick' ? ($winner === 'home' ? 'away' : 'home') : $winner;
         $game = DB::transaction(fn () => Exhibition::create([
             'home_team_id' => $home->id, 'away_team_id' => $away->id,
-            'state' => array_merge($engine->initial((int) $data['quarter_length']), ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $receiver], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human']]),
+            'state' => array_merge($initial, ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
             'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
         ]));
 
@@ -81,7 +87,10 @@ class ExhibitionController extends Controller
         $side = $exhibition->state['possession'];
         $rules = ['version' => ['required', 'integer', 'min:0']];
         $action = $request->input('action', 'play');
-        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty'])];
+        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty', 'coin'])];
+        if ($action === 'coin') {
+            $rules['choice'] = ['required', Rule::in(['kick', 'receive'])];
+        }
         if ($action === 'timeout') {
             $rules['timeout_team'] = ['required', Rule::in(['home', 'away'])];
         }
@@ -105,6 +114,21 @@ class ExhibitionController extends Controller
         DB::transaction(function () use ($exhibition, $engine, $data, $request) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
+            if ($request->input('action') === 'coin') {
+                $state = $game->state;
+                abort_unless($state['version'] === 0 && ($state['coin_toss']['pending'] ?? false), 409, 'The coin toss was already decided.');
+                $winner = $state['coin_toss']['winner'];
+                abort_unless(app(CpuCoach::class)->controls($state)[$winner] === 'human', 422, 'The CPU decides its coin toss.');
+                $receiver = $data['choice'] === 'receive' ? $winner : ($winner === 'home' ? 'away' : 'home');
+                $state['coin_toss']['choice'] = $data['choice'];
+                $state['coin_toss']['pending'] = false;
+                $state['opening_receiver'] = $receiver;
+                $state['possession'] = $receiver === 'home' ? 'away' : 'home';
+                $game->update(['state' => $state]);
+
+                return;
+            }
+            abort_if($game->state['coin_toss']['pending'] ?? false, 409, 'Choose kick or receive before continuing.');
             if ($request->input('action') === 'penalty') {
                 $history = $game->history;
                 $index = count($history) - 1;
@@ -149,13 +173,13 @@ class ExhibitionController extends Controller
                     $defense = ['call' => $human['defense'], 'formation' => $human['defense_formation'] ?? 'base_4_3'];
                 }
                 $management = $controls[$side] === 'cpu' ? $coach->management($game->state) : ['tempo' => $data['tempo'] ?? 'normal', 'clock_strategy' => $data['clock_strategy'] ?? 'normal'];
-                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : 'none');
+                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'));
             }
             $history = $game->history;
             $history[] = $result['play'];
             $game->update(['state' => $result['state'], 'history' => $history]);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => $action === 'penalty' ? 0 : 1]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin'], true) ? 0 : 1]);
     }
 }

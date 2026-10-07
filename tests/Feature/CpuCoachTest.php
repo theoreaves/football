@@ -93,6 +93,22 @@ test('CPU versus CPU can finish a saved game without human calls and retains rat
     }
     expect($game->state['status'])->toBe('final')->and($game->rosters)->toBe($rosters);
     expect(count($game->history))->toBe($game->state['version']);
+    expect(collect($game->history)->contains(fn ($play) => ($play['motion'] ?? 'none') !== 'none'))->toBeTrue();
     $this->get(route('exhibitions.show', $game))->assertOk()->assertDontSee('data-call-form', false);
     $this->post(route('exhibitions.play', $game), ['version' => $game->state['version']])->assertStatus(409);
+});
+
+test('CPU motion and coin choices follow their target rates and remain deterministic', function () {
+    $coach = app(CpuCoach::class);
+    $motion = $kicks = 0;
+    foreach (range(1, 2000) as $seed) {
+        $state = app(ExhibitionEngine::class)->initial(180, $seed, false);
+        $plan = $coach->offense($state, cpuRosters());
+        expect($plan)->toBe($coach->offense($state, cpuRosters()));
+        $motion += $plan['motion'] !== 'none' ? 1 : 0;
+        $kicks += $coach->coinChoice($state) === 'kick' ? 1 : 0;
+        expect($coach->offense(array_merge($state, ['phase' => 'kickoff']), cpuRosters())['motion'] ?? 'none')->toBe('none');
+    }
+    expect($motion / 2000)->toBeBetween(.60, .68);
+    expect($kicks / 2000)->toBeBetween(.76, .84);
 });

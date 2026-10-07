@@ -7,11 +7,21 @@
 @endphp
 <div data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ \App\Services\Simulation\FieldOrientation::line($state) }}" data-next-possession="{{ $state['possession'] }}" data-next-direction="{{ \App\Services\Simulation\FieldOrientation::direction($state) }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' ? 'true' : 'false' }}" class="game-stage text-white">
     @if($state['version'] === 0 && isset($state['coin_toss']))
-    <dialog data-coin-dialog class="game-dialog text-center">
+    <dialog data-coin-dialog data-pending="{{ ($state['coin_toss']['pending'] ?? false) ? 'true' : 'false' }}" class="game-dialog text-center">
         <h2 class="game-event-title text-blue-300">COIN TOSS</h2>
         <p class="mt-4">{{ $teamNames['away'] }} called {{ $state['coin_toss']['call'] }}. The coin landed {{ $state['coin_toss']['result'] }}.</p>
-        <p class="mt-3 font-semibold">{{ $teamNames[$state['coin_toss']['winner']] }} wins and receives the opening kickoff.</p>
+        <p class="mt-3 font-semibold">{{ $teamNames[$state['coin_toss']['winner']] }} wins the toss.</p>
+        @if($state['coin_toss']['pending'] ?? false)
+        <p class="mt-3">Choose whether to kick or receive.</p>
+        <form method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="mt-4 flex justify-center gap-4">
+            @csrf
+            <input type="hidden" name="version" value="0"><input type="hidden" name="action" value="coin">
+            <button name="choice" value="kick">Kick</button><button name="choice" value="receive">Receive</button>
+        </form>
+        @else
+        <p class="mt-3">{{ $teamNames[$state['coin_toss']['winner']] }} chooses to {{ $state['coin_toss']['choice'] ?? 'receive' }}. {{ $teamNames[$state['opening_receiver']] }} receives the opening kickoff.</p>
         <form method="dialog" class="mt-4"><button>OK · Start game</button></form>
+        @endif
     </dialog>
     @endif
     <div class="game-brand-watermark" aria-hidden="true"><x-brand-logo /></div>
