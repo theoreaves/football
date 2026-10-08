@@ -40,6 +40,6 @@ Existing exhibitions remain independent. Season fixture rows contain no simulate
 
 ## Player appearance
 
-The roster player editor includes a helmet-free portrait and an expandable appearance panel. The full-body preview rotates and zooms, wearing the team's home uniform. Visual choices cover hair (bald, buzz, short, curly, long), eyebrows, nose, mouth, and beard; colors cover skin, eyes, and hair/brows/beard. Height is in inches and weight in pounds. Height scales stature while weight changes torso and limb proportions more than head width.
+The roster player editor includes a helmet-free portrait and an expandable appearance panel. The full-body preview rotates and zooms, wearing the team's home uniform. Visual choices cover head shape (round, oval, square, wide, long), hair (bald, buzz, short, curly, long), eyebrows, nose, mouth, and beard; colors cover skin, eyes, and hair/brows/beard. Height is in inches and weight in pounds. Height scales stature while weight changes torso and limb proportions more than head width.
 
 Use appearance closes the panel with the draft values retained; Cancel restores the values from when the panel opened. Save player persists the entire form. Appearance is captured when a new game is created and included in saved animation tracks, so later player edits do not alter existing game portraits or replays. Existing players and replays use the generic face with no hair until customized.

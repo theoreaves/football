@@ -18,7 +18,10 @@ export function featureGraphic(kind, value) {
  } else if(kind === 'beard') {
   detail = ({none:'',stubble:'<ellipse cx="40" cy="56" rx="18" ry="7" fill="#555"/>',moustache:'<rect x="30" y="46" width="20" height="4" rx="2" fill="#25201e"/>',goatee:'<rect x="34" y="54" width="12" height="12" rx="3" fill="#25201e"/>',full:'<path d="M21 45Q19 73 40 75Q61 73 59 45L50 51H30Z" fill="#25201e"/>'}[value]);
  }
- return `<svg viewBox="0 0 80 80" aria-hidden="true"><ellipse cx="40" cy="40" rx="25" ry="31" fill="#c78e61"/>${eyes}${detail}</svg>`;
+ const head = kind === 'head_shape'
+  ? ({round:'<ellipse cx="40" cy="40" rx="25" ry="27" fill="#c78e61"/>',oval:'<ellipse cx="40" cy="40" rx="23" ry="31" fill="#c78e61"/>',square:'<rect x="15" y="11" width="50" height="58" rx="15" fill="#c78e61"/>',wide:'<ellipse cx="40" cy="40" rx="29" ry="27" fill="#c78e61"/>',long:'<ellipse cx="40" cy="40" rx="20" ry="34" fill="#c78e61"/>'}[value])
+  : '<ellipse cx="40" cy="40" rx="25" ry="31" fill="#c78e61"/>';
+ return `<svg viewBox="0 0 80 80" aria-hidden="true">${head}${eyes}${detail}</svg>`;
 }
 
 export function mountPlayerAppearance(root) {
@@ -31,7 +34,7 @@ export function mountPlayerAppearance(root) {
  const current=()=>{
   const value=name=>form.elements.namedItem(name)?.value;
   const appearance={};
-  for(const feature of ['eye_color','hair_color','hair','brow','nose','mouth','beard']) appearance[feature]=value(`appearance[${feature}]`);
+  for(const feature of ['head_shape','eye_color','hair_color','hair','brow','nose','mouth','beard']) appearance[feature]=value(`appearance[${feature}]`);
   return {...JSON.parse(root.dataset.profile),number:value('jersey_number'),lastname:value('lastname'),height_inches:value('height_inches'),weight_pounds:value('weight_pounds'),skin_tone:value('skin_tone'),appearance};
  };
  const disposeModel=model=>model?.traverse(object=>{

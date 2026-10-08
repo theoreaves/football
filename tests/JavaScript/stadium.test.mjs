@@ -91,3 +91,21 @@ test('hair leaves the eyes and eyebrows uncovered for every hairstyle', () => {
         }
     }
 });
+
+test('head shapes resize the face ears and hair together and leave the helmet unchanged', async () => {
+    const { buildFootballPlayer } = await import('../../resources/js/practice/player-model.js');
+    const models = ['round','oval','square','wide','long'].map(head_shape => buildFootballPlayer({appearance:{head_shape,hair:'short'}}, {}, mockDocument()));
+    const round = models[0].getObjectByName('player-head-shape');
+    assert.equal(round.scale.x, 1);
+    assert.ok(models[3].getObjectByName('player-head-shape').scale.x > round.scale.x);
+    assert.ok(models[4].getObjectByName('player-head-shape').scale.y > round.scale.y);
+    for (const model of models) {
+        const parts = model.getObjectByName('player-head-shape');
+        assert.equal(model.getObjectByName('player-face').parent, parts);
+        assert.equal(model.getObjectByName('player-head').parent, parts);
+        assert.deepEqual(model.getObjectByName('helmet-shell').scale.toArray(), [1,1,1]);
+    }
+    assert.notDeepEqual([...models[2].getObjectByName('player-head').geometry.attributes.position.array], [...models[0].getObjectByName('player-head').geometry.attributes.position.array]);
+    const { featureGraphic } = await import('../../resources/js/player-appearance.js');
+    assert.equal(new Set(['round','oval','square','wide','long'].map(shape => featureGraphic('head_shape',shape))).size, 5);
+});

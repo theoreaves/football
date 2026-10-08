@@ -35,6 +35,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         if (kit.shoulder_stripe_enabled) box(arm, [.305, .07, .5], [0, -.1, 0], mat(kit.shoulder_stripe || '#ffffff'));
     }
     box(group, [.23, .2, .23], [0, 1.75, 0], skin);
+    const headPartsStart = group.children.length;
     const head = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), skin);
     head.name = 'player-head'; head.scale.set(.225, .21, .18); head.position.set(0, 1.97, .08); group.add(head);
     for (const sign of [-1, 1]) {
@@ -42,6 +43,22 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         ear.scale.set(.5, 1, .7); ear.position.set(sign * .23, 1.95, .07); group.add(ear);
     }
     group.add(buildPlayerFace(player, skin));
+    const shape = player.appearance?.head_shape || 'round';
+    if (shape === 'square') {
+        const vertices = head.geometry.attributes.position;
+        for (let i = 0; i < vertices.count; i++) {
+            const y = vertices.getY(i);
+            if (y < 0) vertices.setX(i, vertices.getX(i) * (1 + .18 * Math.sin(-y * Math.PI)));
+        }
+        head.geometry.computeVertexNormals();
+    }
+    const headParts = new THREE.Group(); headParts.name = 'player-head-shape';
+    headParts.position.set(0, 1.97, .08);
+    for (const part of group.children.slice(headPartsStart)) {
+        part.position.sub(headParts.position); headParts.add(part);
+    }
+    headParts.scale.set(...({oval:[.95,1.07,1],square:[1,1,1],wide:[1.12,.96,1.04],long:[.91,1.13,1]}[shape] || [1,1,1]));
+    group.add(headParts);
     helmetPaint.flatShading = false; helmetPaint.roughness = .32;
     const helmet = new THREE.Mesh(helmetShellGeometry(), helmetPaint);
     helmet.name = 'helmet-shell';
