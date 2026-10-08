@@ -102,6 +102,8 @@ export function mountPlayWizard(root) {
     let step=0;
     const state = JSON.parse(root.dataset.afterState || '{}');
     const names = JSON.parse(root.dataset.teamNames || '{}');
+    const appearance = JSON.parse(root.dataset.appearance || '{}');
+    const lastResult = root.querySelector('.game-last-result')?.textContent.trim() || '';
     let opened = false, idleSeconds = 0;
     // Kick formations are offered only when those calls are legal for this phase.
     if (field('offense_formation') && field('call')) {
@@ -114,6 +116,21 @@ export function mountPlayWizard(root) {
         const list=steps(); step=Math.min(step,list.length-1); const current=list[step];
         const labels = scoreboardText(state, names);
         ui.innerHTML='<p class="wizard-situation">'+escape((names[state.possession] || '')+' · '+labels.compact+' · '+labels.clock)+'</p><div class="wizard-heading"><div><p>Step '+(step+1)+' of '+list.length+'</p><h2>'+current.title+'</h2></div><button type="button" data-wizard-close>Close</button></div><p class="wizard-progress">'+list.map((item,index)=>'<span class="'+(index===step?'current':'')+'">'+escape(item.title)+'</span>').join(' → ')+'</p><div class="wizard-cards"></div><div class="wizard-nav"><button type="button" data-wizard-back '+(step===0?'disabled':'')+'>Back</button><button type="button" data-wizard-coach>Coach pick</button><button type="button" data-wizard-next>'+(current.kind==='review'?'Call play & watch':'Next')+'</button></div>';
+        const situation = ui.querySelector('.wizard-situation');
+        const logo = appearance[state.possession]?.team_logo;
+        if (logo) {
+            const image = document.createElement('img');
+            image.src = logo;
+            image.alt = (names[state.possession] || 'Team')+' logo';
+            image.className = 'wizard-team-logo';
+            situation.prepend(image);
+        }
+        if (lastResult) {
+            const result = document.createElement('p');
+            result.className = 'wizard-last-result';
+            result.textContent = lastResult;
+            situation.after(result);
+        }
         if (field('defense') && (current.kind.startsWith('defense') || current.kind === 'review')) {
             const opponentFormation = field('offense_formation')?.value || JSON.parse(root.dataset.coachOffense || '{}').formation || 'shotgun';
             const labels = { singleback:'Singleback', shotgun:'Shotgun', spread:'Spread', i_form:'I formation', pistol:'Pistol', trips:'Trips' };

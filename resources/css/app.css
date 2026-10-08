@@ -154,3 +154,5 @@
 .game-stage > .game-replay-return { bottom: 74px; left: 14px; z-index: 30; background: #111e30; border: 1px solid #60a5fa; border-radius: 8px; padding: 10px 14px; color: #93c5fd; }
 
 .wizard-situation { padding: 10px 14px; margin-bottom: 14px; border: 1px solid #60a5fa; background: #203b5b; border-radius: 8px; font-size: 18px; font-weight: 700; color: #dbeafe; }
+.wizard-team-logo { display: inline-block; width: 32px; height: 32px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
+.wizard-last-result { margin: -6px 0 14px; padding: 0 14px; font-size: 14px; line-height: 1.5; color: #cbd5e1; }

@@ -495,7 +495,7 @@ export function mountPractice(root, onReady = () => {}) {
             else showQuarter();
         } else if (phase === 'result') {
             postElapsed += delta;
-            if (postElapsed >= 4) {
+            if (postElapsed >= 3) {
                 finishResult();
             }
         } else if (phase === 'huddle' && huddleProgress < 1) {
