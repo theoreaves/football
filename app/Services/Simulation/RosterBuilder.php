@@ -56,6 +56,6 @@ class RosterBuilder
             $player->update($missing);
         }
 
-        return array_merge(['id' => $player->id, 'name' => trim($player->firstname.' '.$player->lastname), 'lastname' => $player->lastname, 'number' => $player->pivot->jersey_number, 'position' => $position, 'depth' => $player->pivot->depth_chart_position, 'ratings' => $ratings], $profile);
+        return array_merge(['id' => $player->id, 'name' => trim($player->firstname.' '.$player->lastname), 'lastname' => $player->lastname, 'number' => $player->pivot->jersey_number, 'position' => $position, 'depth' => $player->pivot->depth_chart_position, 'ratings' => $ratings, 'appearance' => $player->appearance ?? []], $profile);
     }
 }

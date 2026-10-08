@@ -30,7 +30,7 @@ class SpecialTeamsTimeline
             }
             if ($player['role'] === 'QB') {
                 $person = $rosters[$side]['players'][$play['carrier']];
-                $player = array_merge($player, array_intersect_key($person, array_flip(['id', 'name', 'number', 'height_inches', 'weight_pounds', 'skin_tone'])));
+                $player = array_merge($player, array_intersect_key($person, array_flip(['id', 'name', 'number', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance'])));
                 $player['path'] = [$point(0, $kick - 2 * $direction, 0, 26.7), $point(1.2, $kick, 0, 26.7), $point(6, $kick + $direction, 0, 26.7)];
             }
             if ($player['role'] === 'CB1' && ! $goalKick) {

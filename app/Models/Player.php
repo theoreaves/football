@@ -10,7 +10,7 @@ class Player extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['simulation_ratings' => 'array'];
+    protected $casts = ['simulation_ratings' => 'array', 'appearance' => 'array'];
 
     public function team()
     {

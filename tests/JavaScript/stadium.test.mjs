@@ -50,3 +50,27 @@ test('compact score strip includes down distance and position without revealing 
     const state = { home_score: 0, away_score: 0, clock: 900, quarter: 1, down: 2, distance: 7, spot: 38, possession: 'home', status: 'playing' };
     assert.equal(scoreboardText(state, { home: 'Home', away: 'Away' }).compact, '2nd & 7 · Own 38');
 });
+
+test('saved face colors hair and beard change the shared player model', () => {
+    const skin = new THREE.MeshStandardMaterial({ color: '#593b2c' });
+    const face = buildPlayerFace({ appearance: { hair: 'curly', hair_color: '#332211', eye_color: '#2266aa', nose: 'wide', mouth: 'smile', beard: 'goatee' } }, skin);
+    assert.equal(face.getObjectByName('eye').material.color.getHexString(), '2266aa');
+    assert.equal(face.getObjectByName('hair').material.color.getHexString(), '332211');
+    assert.equal(face.children.filter(mesh => mesh.name === 'hair-curl').length, 18);
+    assert.ok(face.getObjectByName('beard'));
+    assert.equal(face.getObjectByName('nose').scale.x, 1.2);
+    assert.equal(face.getObjectByName('mouth').geometry.type, 'TubeGeometry');
+    const bald = buildPlayerFace({ appearance: { hair: 'bald', beard: 'none' } }, skin);
+    assert.equal(bald.getObjectByName('hair'), undefined);
+    assert.equal(bald.getObjectByName('beard'), undefined);
+    assert.ok(buildPlayerFace({ appearance: { hair: 'long' } }, skin).getObjectByName('hair-back'));
+});
+
+test('appearance thumbnails distinguish all selectable hair and face options', async () => {
+    const { featureGraphic } = await import('../../resources/js/player-appearance.js');
+    for (const [feature, choices] of Object.entries({hair:['bald','buzz','short','curly','long'],brow:['straight','angled','thick','arched'],nose:['standard','small','wide','long'],mouth:['neutral','wide','thin','smile'],beard:['none','stubble','moustache','goatee','full']})) {
+        const graphics = choices.map(choice => featureGraphic(feature, choice));
+        assert.equal(new Set(graphics).size, choices.length);
+        assert.ok(graphics.every(graphic => graphic.includes('<svg') && !graphic.includes('undefined')));
+    }
+});

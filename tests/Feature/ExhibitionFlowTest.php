@@ -266,3 +266,19 @@ test('quick simulator completes all overtime modes using real captured game rost
         expect($result['state']['home_score'])->not->toBe($result['state']['away_score']);
     }
 })->with(['traditional', 'modern', 'traditional_playoff', 'modern_playoff']);
+
+test('player appearance is captured in games and saved animation tracks', function () {
+    $appearance = ['hair' => 'short', 'hair_color' => '#332211', 'eye_color' => '#2266aa', 'beard' => 'stubble'];
+    Player::all()->each(fn ($player) => $player->update(['appearance' => $appearance]));
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    expect($game->rosters['home']['players']['QB']['appearance'])->toBe($appearance);
+    Player::all()->each(fn ($player) => $player->update(['appearance' => ['hair' => 'bald']]));
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
+    $game->refresh();
+    expect($game->rosters['home']['players']['QB']['appearance'])->toBe($appearance);
+    foreach ($game->history[0]['animation']['players'] as $track) {
+        expect($track['appearance'])->toBe($appearance);
+    }
+});

@@ -17,8 +17,8 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     };
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(.6, .44, .72, 4), shirt);
     torso.geometry.rotateY(Math.PI / 4); torso.scale.z = .6; torso.position.y = 1.25; torso.castShadow = true; group.add(torso);
-    box(group, [1.17, .22, .56], [0, 1.58, 0], shirt);
-    box(group, [.69, .21, .44], [0, .83, 0], pants);
+    const shoulders = box(group, [1.17, .22, .56], [0, 1.58, 0], shirt);
+    const hips = box(group, [.69, .21, .44], [0, .83, 0], pants);
     const legs = [], arms = [], elbows = [];
     for (const sign of [-1, 1]) {
         const leg = new THREE.Group(); leg.position.set(sign * .23, .84, 0); group.add(leg); legs.push(leg);
@@ -35,7 +35,12 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         if (kit.shoulder_stripe_enabled) box(arm, [.305, .07, .5], [0, -.1, 0], mat(kit.shoulder_stripe || '#ffffff'));
     }
     box(group, [.23, .2, .23], [0, 1.75, 0], skin);
-    box(group, [.43, .38, .35], [0, 1.97, .08], skin);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), skin);
+    head.name = 'player-head'; head.scale.set(.225, .21, .18); head.position.set(0, 1.97, .08); group.add(head);
+    for (const sign of [-1, 1]) {
+        const ear = new THREE.Mesh(new THREE.SphereGeometry(.04, 12, 8), skin);
+        ear.scale.set(.5, 1, .7); ear.position.set(sign * .23, 1.95, .07); group.add(ear);
+    }
     group.add(buildPlayerFace(player, skin));
     helmetPaint.flatShading = false; helmetPaint.roughness = .32;
     const helmet = new THREE.Mesh(helmetShellGeometry(), helmetPaint);
@@ -86,11 +91,17 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         };
         helmet.add(logo);
     }
+    const labelStart = group.children.length;
     addJerseyNumbers(group, player, document, kit, {depth: .253, height: 1.27});
     addJerseyName(group, player, document, kit);
     const height = Math.max(48, Math.min(96, Number(player.height_inches) || 72)) / 72;
     const bulk = Math.max(.8, Math.min(1.35, Math.sqrt((Number(player.weight_pounds) || 215) / 215)));
-    group.scale.set(bulk, height, bulk);
+    group.scale.set(Math.pow(bulk, .2), height, Math.pow(bulk, .2));
+    shoulders.scale.x = Math.pow(bulk,.6); shoulders.scale.z = Math.pow(bulk,.6); hips.scale.x = Math.pow(bulk,.4); hips.scale.z = Math.pow(bulk,.4);
+    torso.scale.x = Math.pow(bulk, .7); torso.scale.z *= Math.pow(bulk, .9);
+    group.children.slice(labelStart).forEach(label => { label.position.z *= Math.pow(bulk, .9); });
+    arms.forEach((arm, i) => { arm.position.x = (i === 0 ? -1 : 1) * .57 * Math.pow(bulk, .6); arm.scale.set(Math.pow(bulk,.35),1,Math.pow(bulk,.35)); });
+    legs.forEach(leg => { leg.scale.x = Math.pow(bulk,.4); leg.scale.z = Math.pow(bulk,.4); });
     group.userData.legs = legs; group.userData.arms = arms; group.userData.elbows = elbows;
     return group;
 }

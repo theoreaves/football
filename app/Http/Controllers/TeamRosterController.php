@@ -138,13 +138,21 @@ class TeamRosterController extends Controller
             'height_inches' => ['nullable', 'integer', 'between:48,96'], 'weight_pounds' => ['nullable', 'integer', 'between:90,450'],
             'skin_tone' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'depth_chart_position' => ['required', 'string', 'max:10'], 'jersey_number' => ['nullable', 'integer', 'between:0,99'],
+            'appearance' => ['sometimes', 'array:eye_color,hair_color,hair,brow,nose,mouth,beard'],
+            'appearance.eye_color' => ['sometimes', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'appearance.hair_color' => ['sometimes', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'appearance.hair' => ['sometimes', \Illuminate\Validation\Rule::in(['bald', 'buzz', 'short', 'curly', 'long'])],
+            'appearance.brow' => ['sometimes', \Illuminate\Validation\Rule::in(['straight', 'angled', 'thick', 'arched'])],
+            'appearance.nose' => ['sometimes', \Illuminate\Validation\Rule::in(['standard', 'small', 'wide', 'long'])],
+            'appearance.mouth' => ['sometimes', \Illuminate\Validation\Rule::in(['neutral', 'wide', 'thin', 'smile'])],
+            'appearance.beard' => ['sometimes', \Illuminate\Validation\Rule::in(['none', 'stubble', 'moustache', 'goatee', 'full'])],
             'ratings' => ['required', 'array'],
         ];
         foreach (PlayerRatings::FIELDS as $field) {
             $rules['ratings.'.$field] = ['required', 'integer', 'between:1,99'];
         }
         $data = $request->validate($rules);
-        $player = collect($data)->only(['firstname', 'lastname', 'age', 'position', 'height_inches', 'weight_pounds', 'skin_tone'])->all();
+        $player = collect($data)->only(['firstname', 'lastname', 'age', 'position', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance'])->all();
         $player['simulation_ratings'] = array_intersect_key($data['ratings'], array_flip(PlayerRatings::FIELDS));
         $pivot = ['team_year' => $year, 'position' => $data['position'], 'depth_chart_position' => $data['depth_chart_position'], 'jersey_number' => $data['jersey_number'] ?? null];
 

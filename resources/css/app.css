@@ -245,3 +245,23 @@
 .depth-player button { border: 1px solid #64748b; padding: 7px 12px; border-radius: 5px; }
 .depth-player button:disabled { opacity: .35; }
 @media (max-width: 600px) { .depth-player { flex-wrap: wrap; gap: 8px; padding: 10px; } }
+.player-appearance { border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; background: #f1f5f9; color: #111827; }
+.player-portrait-block { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.player-portrait { width: 180px; height: 180px; border-radius: 12px; overflow: hidden; background: #182537; color: white; }
+.appearance-button { padding: 10px 16px; border-radius: 6px; background: #1d4ed8; color: white; font-weight: 600; }
+.appearance-button.secondary { background: #475569; }
+.appearance-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; margin-top: 24px; }
+.appearance-panel[hidden] { display: none; }
+.appearance-panel h2 { font-size: 22px; font-weight: 700; }
+.appearance-panel p { font-size: 13px; color: #475569; margin: 8px 0; }
+.player-body-preview { width: 100%; height: 480px; background: #182537; border-radius: 12px; overflow: hidden; color: white; }
+.appearance-options fieldset { margin: 18px 0; }
+.appearance-options legend { font-weight: 600; margin-bottom: 8px; }
+.appearance-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.appearance-fields input { display: block; width: 100%; border: 1px solid #94a3b8; border-radius: 5px; background: white; color: #111827; padding: 6px; min-height: 38px; }
+.appearance-choices { display: grid; grid-template-columns: repeat(auto-fit,minmax(70px,1fr)); gap: 8px; }
+.appearance-choice { display: flex; flex-direction: column; align-items: center; border: 2px solid #cbd5e1; border-radius: 8px; background: white; padding: 6px; cursor: pointer; font-size: 12px; }
+.appearance-choice:has(input:checked) { border-color: #2563eb; background: #dbeafe; }
+.appearance-choice svg { width: 58px; height: 58px; }
+.appearance-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+@media(max-width:700px) { .appearance-panel { grid-template-columns: 1fr; } .player-body-preview { height: 380px; } }

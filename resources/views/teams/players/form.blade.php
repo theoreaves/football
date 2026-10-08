@@ -7,14 +7,15 @@
     <form method="POST" action="{{ $mode === 'create' ? route('teams.editor.teams.players.store', [$team, 'year' => $year]) : route('teams.editor.teams.players.update', [$team, $player, 'year' => $year, 'season' => $season?->id, 'embedded' => request()->boolean('embedded') ? 1 : null]) }}" class="space-y-6 mt-4">
         @csrf @if($mode === 'edit') @method('PUT') @endif
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            @foreach(['firstname' => 'First name', 'lastname' => 'Last name', 'age' => 'Age', 'position' => 'Position', 'height_inches' => 'Height (inches)', 'weight_pounds' => 'Weight (pounds)'] as $field => $label)
+            @foreach(['firstname' => 'First name', 'lastname' => 'Last name', 'age' => 'Age', 'position' => 'Position'] as $field => $label)
             <label>{{ $label }}<input name="{{ $field }}" type="{{ in_array($field, ['age', 'height_inches', 'weight_pounds']) ? 'number' : 'text' }}" value="{{ old($field, $player->{$field} ?? ($field === 'height_inches' ? 72 : ($field === 'weight_pounds' ? 215 : ''))) }}" class="block w-full border rounded p-2"></label>
             @endforeach
-            <label>Skin tone<input type="color" name="skin_tone" value="{{ old('skin_tone', $player->skin_tone ?? '#c78e61') }}" class="block w-full h-10"></label>
+
             <label>Jersey number<input type="number" name="jersey_number" min="0" max="99" value="{{ old('jersey_number', $pivot['jersey_number']) }}" class="block w-full border rounded p-2"></label>
             <p class="text-sm text-gray-600">Depth order: QB1 starts before QB2; WR1–WR3 fill receiver slots. Stamina controls fatigue and recovery; durability controls injury risk. Higher ratings are better. Changes apply to new games.</p>
             <label>Roster depth<input name="depth_chart_position" value="{{ old('depth_chart_position', $pivot['depth_chart_position']) }}" placeholder="QB1, WR2, LB3…" class="block w-full border rounded p-2"></label>
         </div>
+        @include('teams.players.appearance')
         <h2 class="font-semibold">Engine ratings (1–99)</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             @foreach(\App\Services\Simulation\PlayerRatings::FIELDS as $field)
