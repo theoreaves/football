@@ -13,6 +13,7 @@ export function mountSeasonRoster() {
     if (!root || root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const search = root.querySelector('[data-roster-search]'), position = root.querySelector('[data-roster-position]');
+    if (search && position) {
     const rows = [...root.querySelectorAll('[data-roster-player]')];
     const key = 'football:roster-filters:'+window.location.pathname+window.location.search;
     try { const saved = JSON.parse(sessionStorage.getItem(key) || '{}'); search.value = saved.search || ''; position.value = saved.position || ''; } catch { /* Optional persistence. */ }
@@ -24,6 +25,7 @@ export function mountSeasonRoster() {
         try { sessionStorage.setItem(key, JSON.stringify({search:search.value,position:position.value})); } catch { /* Optional persistence. */ }
     };
     search.addEventListener('input', filter); position.addEventListener('change', filter); filter();
+    }
     const dialog = root.querySelector('[data-roster-dialog]'), frame = root.querySelector('[data-roster-frame]');
     root.querySelectorAll('[data-roster-editor]').forEach(link => link.addEventListener('click', event => {
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

@@ -72,3 +72,23 @@ test('season player editor stays embedded after saving and returns to the roster
         ->assertRedirect(route('teams.editor.teams.players.edit', $parameters));
     $this->assertDatabaseHas('players', ['id' => $player->id, 'lastname' => 'Updated']);
 });
+
+test('season depth charts save ordered eligible players without changing world roster depth', function () {
+    $ids = [];
+    foreach (['Starter', 'Backup'] as $i => $name) {
+        $player = \App\Models\Player::create(['firstname' => $name, 'lastname' => 'Quarterback', 'position' => 'QB', 'age' => 25]);
+        \App\Models\TeamPlayer::create(['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB', 'depth_chart_position' => 'QB'.($i + 1)]);
+        $ids[] = $player->id;
+    }
+    $this->post(route('seasons.store'), ['setup' => json_encode($this->setup)])->assertRedirect();
+    $season = Season::withoutGlobalScopes()->first();
+    $url = route('seasons.depth', [$season, $this->teams[0]]);
+    $this->put($url, ['position' => 'QB', 'players' => array_reverse($ids)])->assertRedirect()->assertSessionHas('status');
+    expect($season->fresh()->settings['depth_charts'][$this->teams[0]->id]['QB'])->toBe(array_reverse($ids));
+    $this->get(route('seasons.team', ['season' => $season, 'team' => $this->teams[0], 'tab' => 'depth', 'position' => 'QB']))->assertOk()->assertSeeInOrder(['Backup Quarterback', 'Starter Quarterback']);
+    $this->assertDatabaseHas('team_players', ['player_id' => $ids[0], 'depth_chart_position' => 'QB1']);
+    $this->put($url, ['position' => 'QB', 'players' => [$ids[0]]])->assertSessionHasErrors('players');
+    $this->put($url, ['position' => 'RB', 'players' => $ids])->assertSessionHasErrors('players');
+    $this->put($url, ['position' => 'QB', 'players' => [$ids[0], $ids[0]]])->assertSessionHasErrors();
+    expect($season->fresh()->settings['depth_charts'][$this->teams[0]->id]['QB'])->toBe(array_reverse($ids));
+});

@@ -1,6 +1,8 @@
+import { mountSeasonDepth } from './season-depth.js';
 import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
 function initializePractice() {
+    mountSeasonDepth();
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
     const root = document.querySelector('[data-practice]');

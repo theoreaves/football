@@ -42,6 +42,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/seasons/{season}', [\App\Http\Controllers\SeasonController::class, 'show'])->name('seasons.show');
         Route::put('/seasons/{season}/controls', [\App\Http\Controllers\SeasonController::class, 'controls'])->name('seasons.controls');
         Route::get('/seasons/{season}/teams/{team}', [\App\Http\Controllers\SeasonController::class, 'team'])->name('seasons.team');
+        Route::put('/seasons/{season}/teams/{team}/depth', [\App\Http\Controllers\SeasonController::class, 'depth'])->name('seasons.depth');
 
         Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');
 

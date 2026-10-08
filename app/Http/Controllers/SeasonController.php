@@ -156,11 +156,45 @@ class SeasonController extends Controller
     {
         abort_unless(isset($season->settings['members'][$team->id]), 404);
         $tab = $request->query('tab', 'overview');
-        abort_unless(in_array($tab, ['overview', 'roster', 'schedule', 'stats', 'injuries', 'settings'], true), 404);
+        abort_unless(in_array($tab, ['overview', 'roster', 'depth', 'schedule', 'stats', 'injuries', 'settings'], true), 404);
+        $players = $team->players()->wherePivot('team_year', (string) $season->year)->orderBy('team_players.depth_chart_position')->get();
+        $positions = $players->pluck('pivot.position')->unique()->sort()->values();
+        $request->validate(['position' => ['sometimes', 'string', 'max:10']]);
+        $position = $request->query('position', $positions->first());
+        if ($position !== null) {
+            abort_unless($positions->contains($position), 422, 'Choose a position on this roster.');
+        }
+        $savedDepth = $season->settings['depth_charts'][$team->id][$position] ?? [];
+        $depthPlayers = $players->filter(fn ($player) => $player->pivot->position === $position)->sortBy(function ($player) use ($savedDepth) {
+            $index = array_search($player->id, $savedDepth);
+
+            return [$index === false ? 1 : 0, $index === false ? (int) preg_replace('/\D/', '', $player->pivot->depth_chart_position) : $index, $player->id];
+        });
 
         return view('seasons.team', ['season' => $season, 'team' => $team, 'tab' => $tab,
             'member' => $season->settings['members'][$team->id],
-            'players' => $team->players()->wherePivot('team_year', (string) $season->year)->orderBy('team_players.depth_chart_position')->get(),
+            'players' => $players, 'positions' => $positions, 'position' => $position, 'depthPlayers' => $depthPlayers,
             'fixtures' => $season->fixtures()->where(fn ($q) => $q->where('home_team_id', $team->id)->orWhere('away_team_id', $team->id))->orderBy('week')->get()]);
+    }
+
+    public function depth(Request $request, Season $season, Team $team)
+    {
+        abort_unless(isset($season->settings['members'][$team->id]), 404);
+        $data = $request->validate(['position' => ['required', 'string', 'max:10'], 'players' => ['required', 'array', 'min:1'], 'players.*' => ['required', 'integer', 'distinct']]);
+        DB::transaction(function () use ($season, $team, $data) {
+            $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            $eligible = $team->players()->wherePivot('team_year', (string) $locked->year)->wherePivot('position', $data['position'])->pluck('players.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+            $ordered = array_map('intval', $data['players']);
+            $submitted = $ordered;
+            sort($submitted);
+            if ($eligible !== $submitted) {
+                throw ValidationException::withMessages(['players' => 'The roster changed or contains invalid players. Reload and try again.']);
+            }
+            $settings = $locked->settings;
+            $settings['depth_charts'][$team->id][$data['position']] = $ordered;
+            $locked->update(['settings' => $settings]);
+        });
+
+        return redirect()->route('seasons.team', ['season' => $season, 'team' => $team, 'tab' => 'depth', 'position' => $data['position']])->with('status', 'Season depth chart saved.');
     }
 }

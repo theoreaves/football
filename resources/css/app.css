@@ -238,3 +238,12 @@
 .roster-editor-bar h2 { font-size: 18px; margin: 0; }
 .roster-editor-bar button { border: 1px solid #64748b; padding: 5px 12px; border-radius: 6px; }
 .roster-editor-dialog iframe { width: 100%; height: calc(100% - 58px); border: 0; background: white; }
+.depth-player { display: flex; align-items: center; gap: 14px; background: #101c2d; border: 1px solid #475569; padding: 14px; border-radius: 8px; margin-bottom: 10px; }
+.depth-player-name { flex: 1; min-width: 0; }
+.depth-player-name a { color: #93c5fd; }
+.depth-player-name small { display: block; color: #94a3b8; }
+.depth-player button { border: 1px solid #64748b; padding: 7px 12px; border-radius: 5px; }
+.depth-player button:disabled { opacity: .35; }
+.depth-handle { cursor: grab; touch-action: none; user-select: none; }
+.depth-dragging { border-color: #60a5fa; background: #203b5b; }
+@media (max-width: 600px) { .depth-player { flex-wrap: wrap; gap: 8px; padding: 10px; } }
