@@ -115,7 +115,9 @@
     <dialog data-injury-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-orange-400 p-6 max-w-xl backdrop:bg-black/70">
         <h2 class="game-event-title text-orange-300">{{ collect($last['personnel_notices'])->contains(fn ($notice) => !str_contains($notice, 'cleared to return')) ? 'INJURY!' : 'PLAYER RETURN' }}</h2>
         @foreach(['home', 'away'] as $noticeSide)
-            @php($teamNotices = array_filter($last['personnel_notices'], fn ($notice) => str_starts_with($notice, ucfirst($noticeSide).' · ')))
+            @php
+                $teamNotices = array_filter($last['personnel_notices'], fn ($notice) => str_starts_with($notice, ucfirst($noticeSide).' · '));
+            @endphp
             @if($teamNotices)
             <div class="mt-4 flex items-center gap-3">
                 @if($appearance[$noticeSide]['team_logo'] ?? null)<img src="{{ $appearance[$noticeSide]['team_logo'] }}" alt="{{ $teamNames[$noticeSide] }} logo" class="w-14 h-14 object-contain">@endif
