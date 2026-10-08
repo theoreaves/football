@@ -178,7 +178,7 @@ export function mountPlayWizard(root) {
             idleSeconds = 0; return;
         }
         idleSeconds += delta;
-        if (idleSeconds >= 5) openWizard();
+        if (idleSeconds >= 3) openWizard();
     };
 }
 
