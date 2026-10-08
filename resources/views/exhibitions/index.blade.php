@@ -18,6 +18,8 @@
         <input type="hidden" name="penalties" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="penalties" value="1" @checked(old('penalties', true))>Penalties</label>
         <input type="hidden" name="injuries" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="injuries" value="1" @checked(old('injuries', true))>Injuries</label>
         <button class="bg-blue-700 rounded px-5 py-2" @disabled($teams->count() < 2)>Start game</button>
+        <button name="quick_sim" value="1" class="border border-blue-400 rounded px-5 py-2" @disabled($teams->count() < 2)>Quick Sim</button>
+        <p class="text-xs text-gray-400 w-full">Quick Sim lets the CPU coach both teams and opens the final box score, with every play and replay saved.</p>
     </form>
     <p class="text-sm text-gray-400">First version: kickoffs, extra-point attempts, and a simplified clock, clock management and common scrimmage penalties; depth chart substitutions, player fatigue and exhibition injuries. Injuries reset for each new exhibition; no overtime. Ties stand.</p>
     <div class="space-y-3">

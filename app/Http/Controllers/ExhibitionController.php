@@ -28,7 +28,7 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine, CpuCoach $coach)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
+        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $coin = random_int(0, 1) === 0 ? 'heads' : 'tails';
@@ -36,17 +36,28 @@ class ExhibitionController extends Controller
         $winner = $coin === $coinCall ? 'away' : 'home';
         $initial = $engine->initial((int) $data['quarter_length']);
         $controls = ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human'];
+        $quickSim = (bool) ($data['quick_sim'] ?? false);
+        if ($quickSim) {
+            $controls = ['home' => 'cpu', 'away' => 'cpu'];
+        }
         // Older clients without a coin call retain the receive default.
         $pending = $controls[$winner] === 'human' && isset($data['coin_call']);
         $choice = $controls[$winner] === 'cpu' ? $coach->coinChoice($initial) : ($pending ? null : 'receive');
         $receiver = $choice === 'kick' ? ($winner === 'home' ? 'away' : 'home') : $winner;
-        $game = DB::transaction(fn () => Exhibition::create([
-            'home_team_id' => $home->id, 'away_team_id' => $away->id,
-            'state' => array_merge($initial, ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
-            'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
-        ]));
+        $game = DB::transaction(function () use ($home, $away, $initial, $receiver, $coinCall, $coin, $winner, $choice, $pending, $data, $controls, $builder, $quickSim) {
+            $game = Exhibition::create([
+                'home_team_id' => $home->id, 'away_team_id' => $away->id,
+                'state' => array_merge($initial, ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
+                'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
+            ]);
+            if ($quickSim) {
+                $game->update(app(\App\Services\Simulation\QuickSimulator::class)->run($game->state, $game->rosters));
+            }
 
-        return redirect()->route('exhibitions.show', $game);
+            return $game;
+        });
+
+        return redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => $quickSim ? 1 : 0]);
     }
 
     public function show(Exhibition $exhibition)

@@ -206,3 +206,25 @@ test('saved animations can be replayed and bookmarked without advancing or chang
     $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 999]))->assertNotFound();
     $this->post(route('exhibitions.highlights.save', $game), ['number' => 999])->assertNotFound();
 });
+
+test('quick sim finishes games with CPU coaches and retains all box score and replay data', function (int $quarterLength) {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), [
+        'home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => $quarterLength,
+        'home_control' => 'human', 'away_control' => 'human', 'coin_call' => 'heads',
+        'quick_sim' => 1, 'penalties' => 1, 'injuries' => 1,
+    ])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    expect($game->state['status'])->toBe('final')->and($game->state['quarter'])->toBe(4)
+        ->and($game->state['clock'])->toBe(0)->and($game->state['quick_sim'])->toBeTrue()
+        ->and($game->state['controls'])->toBe(['home' => 'cpu', 'away' => 'cpu'])
+        ->and($game->state['coin_toss']['pending'])->toBeFalse()
+        ->and(count($game->history))->toBe($game->state['version']);
+    foreach ($game->history as $play) {
+        expect($play)->toHaveKeys(['animation', 'before', 'after', 'summary']);
+    }
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'summary' => 1]))->assertOk()
+        ->assertSee('data-summary="true"', false)->assertSee('Box score')->assertSee('Highlights')
+        ->assertDontSee('data-call-form', false)->assertDontSee('data-quarter-dialog', false);
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 1, 'watch' => 1]))->assertOk();
+})->with([180, 300, 600, 900]);
