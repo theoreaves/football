@@ -59,3 +59,16 @@ test('human control can change without altering fixtures and seasons remain worl
     $this->put(route('seasons.controls', $season), [])->assertNotFound();
     $this->post(route('seasons.preview'), $this->setup)->assertNotFound();
 });
+
+test('season player editor stays embedded after saving and returns to the roster', function () {
+    $player = \App\Models\Player::create(['firstname' => 'Theo', 'lastname' => 'Reaves', 'position' => 'QB', 'age' => 25]);
+    \App\Models\TeamPlayer::create(['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB', 'depth_chart_position' => 'QB1', 'jersey_number' => 12]);
+    $this->post(route('seasons.store'), ['setup' => json_encode($this->setup)])->assertRedirect();
+    $season = Season::withoutGlobalScopes()->first();
+    $parameters = [$this->teams[0], $player, 'year' => 2026, 'season' => $season->id, 'embedded' => 1];
+    $this->get(route('seasons.team', ['season' => $season, 'team' => $this->teams[0], 'tab' => 'roster']))->assertOk()->assertSee('data-roster-search', false)->assertSee('data-roster-editor', false);
+    $this->get(route('teams.editor.teams.players.edit', $parameters))->assertOk()->assertSee('Back to roster')->assertSee('data-player-editor-back', false)->assertDontSee('Close world');
+    $this->put(route('teams.editor.teams.players.update', $parameters), ['firstname' => 'Theo', 'lastname' => 'Updated', 'position' => 'QB', 'age' => 25, 'depth_chart_position' => 'QB1', 'jersey_number' => 12, 'ratings' => array_fill_keys(\App\Services\Simulation\PlayerRatings::FIELDS, 70)])
+        ->assertRedirect(route('teams.editor.teams.players.edit', $parameters));
+    $this->assertDatabaseHas('players', ['id' => $player->id, 'lastname' => 'Updated']);
+});

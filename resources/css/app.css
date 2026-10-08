@@ -232,3 +232,9 @@
 .season-card-logo { width: 56px; height: 56px; object-fit: contain; flex-shrink: 0; }
 .season-hub-logo { width: 88px; height: 88px; object-fit: contain; flex-shrink: 0; }
 @media (max-width: 600px) { .season-hub-logo { width: 64px; height: 64px; } }
+.roster-editor-dialog { margin: auto; width: min(1100px, 96vw); height: 90dvh; max-height: 94dvh; padding: 0; border: 1px solid #64748b; border-radius: 12px; background: #111827; color: white; }
+.roster-editor-dialog::backdrop { background: #000b; }
+.roster-editor-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; height: 58px; }
+.roster-editor-bar h2 { font-size: 18px; margin: 0; }
+.roster-editor-bar button { border: 1px solid #64748b; padding: 5px 12px; border-radius: 6px; }
+.roster-editor-dialog iframe { width: 100%; height: calc(100% - 58px); border: 0; background: white; }

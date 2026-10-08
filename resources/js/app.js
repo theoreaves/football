@@ -1,5 +1,7 @@
+import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
 function initializePractice() {
+    mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
     const root = document.querySelector('[data-practice]');
     if (root) import('./practice/field.js').then(module => module.mountPractice(root)).catch(() => {

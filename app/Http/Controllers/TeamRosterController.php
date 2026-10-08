@@ -94,16 +94,18 @@ class TeamRosterController extends Controller
 
     public function edit(Team $team, Player $player, Request $request)
     {
+        $season = $this->editorSeason($request, $team);
         $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? date('Y'));
         $attached = $team->players()->where('players.id', $player->id)->wherePivot('team_year', $year)->firstOrFail();
         $pivot = $attached->pivot->toArray();
         $ratings = app(PlayerRatings::class)->forPlayer($player);
 
-        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings') + ['mode' => 'edit']);
+        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit']);
     }
 
     public function update(Team $team, Player $player, Request $request)
     {
+        $season = $this->editorSeason($request, $team);
         $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? date('Y'));
         $row = TeamPlayer::where('team_id', $team->id)->where('player_id', $player->id)->where('team_year', $year)->firstOrFail();
         [$data, $pivot] = $this->validated($request, $year);
@@ -112,7 +114,20 @@ class TeamRosterController extends Controller
             $row->update($pivot);
         });
 
-        return redirect()->route('teams.editor.teams.players.edit', [$team, $player, 'year' => $year])->with('status', 'Player updated. New games use the updated player.');
+        return redirect()->route('teams.editor.teams.players.edit', [$team, $player, 'year' => $year,
+            'season' => $season?->id, 'embedded' => $request->boolean('embedded') ? 1 : null])->with('status', 'Player updated. New games use the updated player.');
+    }
+
+    private function editorSeason(Request $request, Team $team): ?\App\Models\Season
+    {
+        if (! $request->has('season')) {
+            return null;
+        }
+        $request->validate(['season' => ['required', 'integer']]);
+        $season = \App\Models\Season::findOrFail($request->integer('season'));
+        abort_unless(isset($season->settings['members'][$team->id]), 404);
+
+        return $season;
     }
 
     private function validated(Request $request, string $year): array
