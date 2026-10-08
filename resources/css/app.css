@@ -227,3 +227,8 @@
 .season-human-team { background: #173b35; border-color: #34d399; }
 .season-human-team:hover { background: #1c4940; }
 .season-human-label { display: inline-block; margin-bottom: 10px; padding: 4px 9px; border-radius: 5px; background: #065f46; color: #a7f3d0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.season-team-heading { display: flex; align-items: center; gap: 16px; }
+.season-team-heading h2 { margin-bottom: 0; }
+.season-card-logo { width: 56px; height: 56px; object-fit: contain; flex-shrink: 0; }
+.season-hub-logo { width: 88px; height: 88px; object-fit: contain; flex-shrink: 0; }
+@media (max-width: 600px) { .season-hub-logo { width: 64px; height: 64px; } }

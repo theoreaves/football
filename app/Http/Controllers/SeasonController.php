@@ -127,6 +127,8 @@ class SeasonController extends Controller
         abort_unless(in_array($tab, ['overview', 'standings', 'schedule', 'leaders', 'stats', 'injuries', 'playoffs', 'settings'], true), 404);
 
         return view('seasons.show', ['season' => $season, 'tab' => $tab, 'members' => $season->settings['members'],
+            'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])
+                ->filter(fn ($team) => (bool) $team->team_logo)->mapWithKeys(fn ($team) => [$team->id => route('teams.art', ['team' => $team, 'asset' => 'team_logo'])]),
             'fixtures' => $season->fixtures()->orderBy('week')->orderBy('id')->get()]);
     }
 

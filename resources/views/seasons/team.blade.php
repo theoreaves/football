@@ -1,6 +1,6 @@
 <x-layouts.app>
 <main class="season-page">
-<header class="season-header"><div><p class="season-eyebrow">{{ $season->name }} · {{ $season->year }}</p><h1>{{ $member['name'] }}</h1><p>{{ $member['conference_name'] }} · {{ $member['division'] }} · {{ strtoupper($member['control']) }}</p></div><a href="{{ route('seasons.show', $season) }}">League hub</a></header>
+<header class="season-header"><div class="season-team-heading">@if($team->team_logo)<img class="season-hub-logo" src="{{ route('teams.art', ['team' => $team, 'asset' => 'team_logo']) }}" alt="{{ $member['name'] }} logo">@endif<div><p class="season-eyebrow">{{ $season->name }} · {{ $season->year }}</p><h1>{{ $member['name'] }}</h1><p>{{ $member['conference_name'] }} · {{ $member['division'] }} · {{ strtoupper($member['control']) }}</p></div></div><a href="{{ route('seasons.show', $season) }}">League hub</a></header>
 <nav class="season-tabs" aria-label="Team sections">@foreach(['overview'=>'Overview','roster'=>'Roster / Depth chart','schedule'=>'Schedule','stats'=>'Stats','injuries'=>'Injuries','settings'=>'Settings'] as $key => $label)<a @if($tab === $key) aria-current="page" @endif href="{{ route('seasons.team', ['season' => $season, 'team' => $team, 'tab' => $key]) }}">{{ $label }}</a>@endforeach</nav>
 @if($tab === 'overview')
     <section class="season-panel"><h2>Season outlook</h2><p>Record: 0–0–0 · No season games played yet.</p><p>{{ $fixtures->count() }} scheduled games · {{ $member['control'] === 'human' ? 'You control this team' : 'CPU controlled' }}</p></section>
