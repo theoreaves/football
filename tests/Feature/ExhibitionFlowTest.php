@@ -185,3 +185,24 @@ test('human game lineup overrides use captured backups without changing permanen
     $this->post(route('exhibitions.play', $game), array_merge($request, ['player' => '']))->assertRedirect();
     expect($game->fresh()->state['game_lineup']['home'])->toBe([]);
 });
+
+test('saved animations can be replayed and bookmarked without advancing or changing the game', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertRedirect();
+    $game->refresh();
+    $state = $game->state;
+    $animation = $game->history[0]['animation'];
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 1, 'watch' => 1]))
+        ->assertOk()->assertSee('Return to game')->assertDontSee('data-call-form', false)->assertDontSee('data-quarter-dialog', false);
+    $this->post(route('exhibitions.highlights.save', $game), ['number' => 1])->assertRedirect();
+    $game->refresh();
+    expect($game->state)->toBe($state)->and($game->history[0]['animation'])->toBe($animation)
+        ->and($game->history[0]['saved_highlight'])->toBeTrue();
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Saved by you')->assertSee('Watch highlight');
+    $this->post(route('exhibitions.highlights.save', $game), ['number' => 1])->assertRedirect();
+    expect($game->fresh()->history)->toHaveCount(1);
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 999]))->assertNotFound();
+    $this->post(route('exhibitions.highlights.save', $game), ['number' => 999])->assertNotFound();
+});

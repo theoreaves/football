@@ -150,3 +150,5 @@
 @media (max-width: 950px), (max-height: 500px) {
     .game-stage > .game-live-turnover { top: 146px; left: 12px; max-width: calc(100% - 24px); padding: 10px 16px; font-size: 24px; }
 }
+
+.game-stage > .game-replay-return { bottom: 74px; left: 14px; z-index: 30; background: #111e30; border: 1px solid #60a5fa; border-radius: 8px; padding: 10px 14px; color: #93c5fd; }

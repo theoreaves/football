@@ -57,6 +57,13 @@ class ExhibitionController extends Controller
         $exhibition->state = app(GameClock::class)->normalize($exhibition->state);
         $history = $exhibition->history;
         $last = $history ? $history[array_key_last($history)] : null;
+        $replayOnly = request()->has('replay');
+        if ($replayOnly) {
+            $data = request()->validate(['replay' => ['required', 'integer', 'min:1']]);
+            $last = collect($history)->firstWhere('number', (int) $data['replay']);
+            abort_unless($last && isset($last['animation']), 404, 'This saved replay is unavailable.');
+        }
+        $highlights = array_values(array_filter($history, \App\Support\PlayHighlights::saved(...)));
         $preview = $last ?? ['before' => $exhibition->state, 'call' => 'inside_run', 'outcome' => 'tackle', 'carrier' => 'RB', 'gain' => 0, 'target' => 0, 'summary' => 'Ready for the snap'];
         $animation = $last['animation'] ?? \App\Services\Simulation\FieldOrientation::animation(app(\App\Services\Simulation\PlayTimeline::class)->build($preview, $exhibition->rosters), $preview['before']);
 
@@ -78,7 +85,27 @@ class ExhibitionController extends Controller
 
         $boxScore = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition);
 
-        return view('exhibitions.show', compact('exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense'));
+        if ($replayOnly) {
+            $exhibition->state = $last['after'] ?? $last['before'];
+        }
+
+        return view('exhibitions.show', compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense'));
+    }
+
+    public function saveHighlight(Request $request, Exhibition $exhibition)
+    {
+        $data = $request->validate(['number' => ['required', 'integer', 'min:1'], 'return_replay' => ['sometimes', 'boolean']]);
+        DB::transaction(function () use ($exhibition, $data) {
+            $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
+            $history = $game->history;
+            $index = array_search((int) $data['number'], array_column($history, 'number'), true);
+            abort_unless($index !== false && isset($history[$index]['animation']), 404, 'This saved replay is unavailable.');
+            abort_if($history[$index]['after']['penalty_pending'] ?? false, 409, 'Decide the penalty before saving this highlight.');
+            $history[$index]['saved_highlight'] = true;
+            $game->update(['history' => $history]);
+        }, 3);
+
+        return redirect()->route('exhibitions.show', array_filter(['exhibition' => $exhibition, 'replay' => ($data['return_replay'] ?? false) ? $data['number'] : null, 'watch' => ($data['return_replay'] ?? false) ? 1 : 0]));
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)

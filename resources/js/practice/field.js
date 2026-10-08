@@ -392,6 +392,9 @@ export function mountPractice(root) {
         resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
     };
     root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
+    const highlightsDialog = root.querySelector('[data-highlights-dialog]');
+    root.querySelector('[data-open-highlights]')?.addEventListener('click', () => highlightsDialog.showModal());
+    root.querySelector('[data-save-highlight-form]')?.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); });
     const logDialog = root.querySelector('[data-log-dialog]'), boxDialog = root.querySelector('[data-box-dialog]');
     root.querySelector('[data-open-log]')?.addEventListener('click', () => logDialog.showModal());
     root.querySelector('[data-open-box]')?.addEventListener('click', () => boxDialog.showModal());
@@ -494,7 +497,7 @@ export function mountPractice(root) {
             postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
-        const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !boxDialog?.open && (running || phase === 'result' || (phase === 'huddle' && huddleProgress < 1));
+        const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (running || phase === 'result' || (phase === 'huddle' && huddleProgress < 1));
         audio.setActive(audible);
         const soundTime = phase === 'liningup' || phase === 'set' ? -1 : phase === 'result' ? duration + postElapsed : elapsed;
         if (audible) {
@@ -504,7 +507,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);
