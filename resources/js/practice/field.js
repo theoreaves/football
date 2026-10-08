@@ -145,7 +145,9 @@ export function mountPractice(root, onReady = () => {}) {
         sign.rotation.set(-Math.PI / 2, 0, x === 5 ? Math.PI / 2 : -Math.PI / 2);
         sign.position.set(x, 0.08, 26.665); scene.add(sign);
     }
-    for (const z of [0, 53.33]) addBox(120, 0.03, 0.18, 0xf3f1d9, 60, 0.05, z);
+    // Six-foot (two-yard) border sits outside the playable field.
+    for (const z of [-1, 54.33]) addBox(124, 0.03, 2, 0xf3f1d9, 60, 0.05, z);
+    for (const x of [-1, 121]) addBox(2, 0.03, 53.33, 0xf3f1d9, x, 0.05, 26.665);
     for (let x = 10; x <= 110; x += 5) {
         addBox(0.13, 0.03, 53.33, 0xf3f1d9, x, 0.05, 26.665);
         if (x % 10 === 0 && x > 10 && x < 110) {

@@ -152,7 +152,7 @@ class ExhibitionEngine
                     'medium_pass' => $yards($roll(), 10, 20),
                     default => $yards($roll(), 18, 35),
                 };
-                $target = min($target, 100 - $state['spot']);
+                $target = min($target, 108 - $state['spot']);
                 $complete = max(.15, min(.93, .64 + ($off['QB']['ratings']['throwing'] + $off['WR1']['ratings']['catching'] - 2 * $coverage) * .004
                     - match ($call) {
                         'deep_pass' => .2, 'medium_pass' => .1, 'short_pass' => -.06, default => 0

@@ -10,6 +10,12 @@ class PlayTimeline
         $other = $side === 'home' ? 'away' : 'home';
         $direction = $side === 'home' ? 1 : -1;
         $line = $side === 'home' ? 10 + $play['before']['spot'] : 110 - $play['before']['spot'];
+        // Visual follow-through is separate from the recorded scoring yardage.
+        if ($play['outcome'] === 'touchdown') {
+            $play['gain'] = min(108 - $play['before']['spot'], max($play['gain'], $play['target']) + 3);
+        } elseif ($play['outcome'] === 'interception' && $play['before']['spot'] + $play['target'] >= 100) {
+            $play['gain'] = $play['target'];
+        }
         $point = fn ($t, $x, $z, $y = 0) => [$t, max(0, min(120, $line + $direction * $x)), $y, max(0, min(53.33, $z))];
         $offense = ['QB' => [-5, 26.7], 'C' => [-1, 26.7], 'LG' => [-1, 24.5], 'RG' => [-1, 28.9], 'LT' => [-1, 22.3], 'RT' => [-1, 31.1], 'RB' => [-7, 29], 'TE' => [-1, 34], 'WR1' => [-1, 9], 'WR2' => [-1, 43], 'WR3' => [-3, 16]];
         $defense = ['DE1' => [1, 22], 'DT1' => [1, 25], 'DT2' => [1, 28], 'DE2' => [1, 31], 'LB1' => [5, 22], 'LB2' => [5, 27], 'LB3' => [5, 33], 'CB1' => [3, 9], 'CB2' => [3, 43], 'S1' => [11, 20], 'S2' => [12, 34]];
@@ -227,7 +233,7 @@ class PlayTimeline
 
         if ($play['defensive_return'] ?? false) {
             $returner = $pass ? 'CB1' : 'LB2';
-            $goal = $side === 'home' ? 10 : 110;
+            $goal = $side === 'home' ? 7 : 113;
             foreach ($tracks as &$track) {
                 if ($track['team'] === 'defense' && $track['role'] === $returner) {
                     $track['path'] = [$track['path'][0], $point(3.8, $pass ? $play['target'] : $play['gain'], $endZ), [5.3, $goal, 0, $endZ], [6, $goal, 0, $endZ]];

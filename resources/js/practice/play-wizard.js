@@ -223,7 +223,7 @@ export function mountPlayWizard(root) {
             idleSeconds = 0; return;
         }
         idleSeconds += delta;
-        if (idleSeconds >= 2) openWizard();
+        if (idleSeconds >= 1) openWizard();
     };
 }
 

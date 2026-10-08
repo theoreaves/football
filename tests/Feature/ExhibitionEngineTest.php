@@ -3,6 +3,28 @@
 use App\Services\Simulation\ExhibitionEngine;
 use App\Services\Simulation\PlayerRatings;
 
+test('touchdown carriers cross the goal line while stats stop at it', function () {
+    foreach (['home', 'away'] as $side) {
+        $result = engineOutcome('inside_run', 'touchdown', ['possession' => $side, 'spot' => 99, 'distance' => 1]);
+        $ball = $result['play']['animation']['ball'];
+        $end = $ball[array_key_last($ball)][1];
+        expect($result['play']['gain'])->toBe(1);
+        expect($side === 'home' ? $end > 110 : $end < 10)->toBeTrue();
+    }
+});
+
+test('red zone pass targets and turnover animations extend into the end zone', function () {
+    foreach (['touchdown', 'incomplete', 'interception'] as $outcome) {
+        $result = engineOutcome('deep_pass', $outcome, ['spot' => 95, 'distance' => 5]);
+        expect($result['play']['target'])->toBeGreaterThan(5)->toBeLessThanOrEqual(13);
+        $ball = $result['play']['animation']['ball'];
+        expect(max(array_column($ball, 1)))->toBeGreaterThan(110)->toBeLessThan(120);
+        if ($outcome === 'interception') {
+            expect($result['state']['possession'])->toBe('away')->and($result['state']['spot'])->toBe(20);
+        }
+    }
+});
+
 function engineRosters(int $rating = 70): array
 {
     $rosters = [];
@@ -319,7 +341,7 @@ test('a defensive try return scores two and animates possession to the opposite 
         }
     }
     expect($found)->not->toBeNull()->and($found['state']['home_score'])->toBe(0)->and($found['state']['possession'])->toBe('home')
-        ->and($found['play']['clock_seconds'])->toBe(0)->and($found['play']['animation']['ball'][array_key_last($found['play']['animation']['ball'])][1])->toBe(10);
+        ->and($found['play']['clock_seconds'])->toBe(0)->and($found['play']['animation']['ball'][array_key_last($found['play']['animation']['ball'])][1])->toBe(7);
 });
 
 test('pressure can produce sacks scrambles throwaways and passes with mobility affecting sacks', function () {
