@@ -1,4 +1,18 @@
 import { scoreboardText } from './scoreboard.js';
+export function reviewCountdown() {
+    let remaining = null;
+    return {
+        start: () => { remaining = 5; },
+        cancel: () => { remaining = null; },
+        tick(delta, active) {
+            if (remaining === null || !active) return null;
+            remaining = Math.max(0, remaining - delta);
+            const seconds = Math.ceil(remaining);
+            if (remaining === 0) remaining = null;
+            return seconds;
+        },
+    };
+}
 const special = value => ['punt', 'field_goal', 'kickoff', 'extra_point'].includes(value);
 const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
 
@@ -105,6 +119,9 @@ export function mountPlayWizard(root) {
     const appearance = JSON.parse(root.dataset.appearance || '{}');
     const lastResult = root.querySelector('.game-last-result')?.textContent.trim() || '';
     let opened = false, idleSeconds = 0;
+    const countdown = reviewCountdown();
+    dialog.addEventListener('close', () => countdown.cancel());
+    dialog.addEventListener('cancel', () => countdown.cancel());
     // Kick formations are offered only when those calls are legal for this phase.
     if (field('offense_formation') && field('call')) {
         [...field('offense_formation').options].filter(option => ['punt','field_goal'].includes(option.value) && (state.phase || 'scrimmage') !== 'scrimmage').forEach(option=>option.remove());
@@ -112,6 +129,7 @@ export function mountPlayWizard(root) {
     const steps=()=>wizardSteps(Boolean(field('call')), Boolean(field('defense')), field('call')?.value || (root.dataset.cpuSpecial==='true'?'kickoff':'inside_run'), field('call') ? [...field('call').options].map(option=>option.value) : []);
     const summary=()=>['offense_formation','call','motion','defense_formation','defense'].filter(name=>field(name)).map(name=>'<li>'+escape(field(name).selectedOptions[0]?.textContent || '')+'</li>').join('')+(field('expect')?'<li>'+escape(field('expect').value)+(field('blitz').checked?' + blitz':' · regular')+'</li>':'');
     function render() {
+        countdown.cancel();
         ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
         const list=steps(); step=Math.min(step,list.length-1); const current=list[step];
         const labels = scoreboardText(state, names);
@@ -182,6 +200,10 @@ export function mountPlayWizard(root) {
             step=steps().length-1;
             render();
         };
+        if (current.kind === 'review') {
+            countdown.start();
+            ui.querySelector('[data-wizard-next]').textContent = 'Call play & watch · 5s';
+        }
     }
     const openWizard = () => {
         opened = true;
@@ -191,6 +213,12 @@ export function mountPlayWizard(root) {
     };
     open.addEventListener('click', openWizard);
     return ({delta, ready}) => {
+        const seconds = countdown.tick(delta, dialog.open && !document.hidden && root.isConnected);
+        if (seconds !== null) {
+            const button = ui.querySelector('[data-wizard-next]');
+            button.textContent = 'Call play & watch · '+seconds+'s';
+            if (seconds === 0) button.click();
+        }
         if (!canAutoOpenWizard({ready, opened, visible:!document.hidden, dialogOpen:Boolean(root.querySelector('dialog[open]'))})) {
             idleSeconds = 0; return;
         }
