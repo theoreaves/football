@@ -358,9 +358,10 @@ export function mountPractice(root, onReady = () => {}) {
         call?.addEventListener('change', refreshCalls); refreshCalls();
         const formation = callForm.querySelector('[name="offense_formation"]');
         const allCalls = call ? [...call.options].map(option => ({value: option.value, text: option.textContent})) : [];
+        const phaseCalls = allCalls.length > 0 && allCalls.every(option => ['kickoff','extra_point','two_point_run','two_point_pass'].includes(option.value));
         const formationCalls = { singleback: ['inside_run','outside_run','slant','short_pass','medium_pass'], i_form: ['inside_run','outside_run','short_pass','medium_pass'], pistol: ['inside_run','outside_run','draw','short_pass','medium_pass','deep_pass'], shotgun: ['inside_run','draw','screen','slant','short_pass','medium_pass','deep_pass'], spread: ['outside_run','draw','screen','short_pass','medium_pass','deep_pass'], trips: ['outside_run','screen','slant','short_pass','medium_pass','deep_pass'], punt: ['punt'], field_goal: ['field_goal'] };
         const refreshFormation = () => {
-            if (!call || !formation || !formationCalls[formation.value]) return;
+            if (!call || !formation || phaseCalls || !formationCalls[formation.value]) return;
             const selected = call.value;
             const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || (!['punt','field_goal'].includes(formation.value) && ['kickoff','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value)));
             call.replaceChildren(...choices.map(({value,text}) => new Option(text,value)));

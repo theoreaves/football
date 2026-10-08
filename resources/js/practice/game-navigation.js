@@ -1,10 +1,15 @@
 // Keep the rendered field visible while the next server-generated game view loads.
+export function submissionUrl(form, currentUrl) {
+    // Named form controls can shadow native properties such as form.action.
+    return new URL(form.getAttribute('action') || currentUrl, currentUrl);
+}
+
 export function gameNavigation(root, { freeze, dispose, mount }) {
     let pending = false;
     const submit = async event => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'post') return;
-        const action = new URL(form.action, window.location.href);
+        const action = submissionUrl(form, window.location.href);
         if (action.origin !== window.location.origin) return;
         event.preventDefault();
         if (pending) return;

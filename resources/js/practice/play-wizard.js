@@ -177,9 +177,9 @@ export function mountPlayWizard(root) {
             else {step++;render();ui.scrollIntoView({block:'start'});}
         };
         ui.querySelector('[data-wizard-coach]').onclick=()=>{
-            if(current.title.startsWith('Defense'))form.querySelector('[data-coach-defense]')?.click();
-            else if(current.kind==='review'){form.querySelector('[data-coach-offense]')?.click();form.querySelector('[data-coach-defense]')?.click();}
-            else form.querySelector('[data-coach-offense]')?.click();
+            form.querySelector('[data-coach-offense]')?.click();
+            form.querySelector('[data-coach-defense]')?.click();
+            step=steps().length-1;
             render();
         };
     }
