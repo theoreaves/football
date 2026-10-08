@@ -7,7 +7,7 @@
 @if($tab === 'overview')
     <p class="season-notice">Your schedule is saved. Playing/simming season games and advancing weeks will arrive in the next milestone. Exhibition games remain available separately.</p>
     <section class="season-panel"><h2>Week {{ $season->current_week }} matchups</h2>@foreach($fixtures->where('week', $season->current_week) as $game)<p>{{ $members[$game->away_team_id]['name'] }} at {{ $members[$game->home_team_id]['name'] }}</p>@endforeach</section>
-    <div class="season-grid">@foreach($members as $id => $member)<a class="season-panel" href="{{ route('seasons.team', [$season, $id]) }}"><h2>{{ $member['name'] }}</h2><p>{{ $member['conference_name'] }} · {{ $member['division'] }}</p><span class="text-blue-300">{{ strtoupper($member['control']) }} · Open team hub →</span></a>@endforeach</div>
+    <div class="season-grid">@foreach(collect($members)->sortBy(fn($member) => $member['control'] === 'human' ? 0 : 1) as $id => $member)<a class="season-panel {{ $member['control'] === 'human' ? 'season-human-team' : '' }}" href="{{ route('seasons.team', [$season, $id]) }}">@if($member['control'] === 'human')<span class="season-human-label">Human controlled</span>@endif<h2>{{ $member['name'] }}</h2><p>{{ $member['conference_name'] }} · {{ $member['division'] }}</p><span class="text-blue-300">{{ strtoupper($member['control']) }} · Open team hub →</span></a>@endforeach</div>
 @elseif($tab === 'schedule')
     @include('seasons.fixtures')
     @if($season->settings['bye'])<section class="season-panel"><h2>Bye weeks</h2>@foreach($members as $id => $member)
