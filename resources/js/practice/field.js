@@ -1,3 +1,4 @@
+import { turnoverMoment, crossedTurnover } from './live-announcement.js';
 import { buildStadium } from './stadium.js';
 import { samplePreSnapMotion } from './motion.js';
 import { mountPlayWizard } from './play-wizard.js';
@@ -225,6 +226,15 @@ export function mountPractice(root) {
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
     let audioTime = -2;
+    const turnover = turnoverMoment(animation);
+    const liveBanner = document.createElement('div');
+    liveBanner.className = 'game-live-turnover';
+    liveBanner.setAttribute('role', 'status');
+    liveBanner.setAttribute('aria-live', 'polite');
+    liveBanner.hidden = true;
+    root.append(liveBanner);
+    let turnoverTime = -1, bannerRemaining = 0;
+    const clearTurnoverBanner = () => { liveBanner.hidden = true; bannerRemaining = 0; };
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
     let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
     const lineupDuration = 3;
@@ -300,6 +310,7 @@ export function mountPractice(root) {
         moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
+        clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
         showState(false);
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
@@ -326,7 +337,7 @@ export function mountPractice(root) {
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
-    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); audioTime = elapsed; running = false; playButton.textContent = 'Play'; });
+    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); turnoverTime = elapsed; audioTime = elapsed; running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';
     const callForm = root.querySelector('[data-call-form]');
     if (callForm && root.dataset.defenseOptions) {
@@ -457,6 +468,19 @@ export function mountPractice(root) {
             if (setElapsed === setDuration) { phase = 'play'; elapsed = 0; }
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         lastTime = now;
+        if (bannerRemaining > 0) {
+            bannerRemaining = Math.max(0, bannerRemaining - delta);
+            if (bannerRemaining === 0) liveBanner.hidden = true;
+        }
+        if (phase === 'play' && running) {
+            if (elapsed < turnoverTime) clearTurnoverBanner();
+            if (crossedTurnover(turnover, turnoverTime, elapsed)) {
+                liveBanner.textContent = turnover.title;
+                liveBanner.hidden = false;
+                bannerRemaining = 3;
+            }
+            turnoverTime = elapsed;
+        }
         if (elapsed >= duration && phase === 'play') {
             running = false; playButton.textContent = 'Replay';
             if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }

@@ -145,3 +145,8 @@
 .wizard-opponent p { color: #94a3b8; font-size: 12px; }
 .wizard-opponent strong { color: #93c5fd; }
 .wizard-opponent svg { width: 150px; flex-shrink: 0; }
+
+.game-stage > .game-live-turnover { top: 230px; left: 24px; z-index: 40; padding: 14px 22px; border: 2px solid #fbbf24; border-radius: 12px; background: rgb(15 23 42 / 95%); color: #fbbf24; font-size: clamp(24px, 3vw, 40px); font-weight: 900; letter-spacing: .04em; box-shadow: 0 4px 24px rgb(0 0 0 / 50%); pointer-events: none; }
+@media (max-width: 950px), (max-height: 500px) {
+    .game-stage > .game-live-turnover { top: 146px; left: 12px; max-width: calc(100% - 24px); padding: 10px 16px; font-size: 24px; }
+}
