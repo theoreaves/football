@@ -74,3 +74,20 @@ test('appearance thumbnails distinguish all selectable hair and face options', a
         assert.ok(graphics.every(graphic => graphic.includes('<svg') && !graphic.includes('undefined')));
     }
 });
+
+test('hair leaves the eyes and eyebrows uncovered for every hairstyle', () => {
+    const skin = new THREE.MeshStandardMaterial();
+    for (const hair of ['buzz', 'short', 'curly', 'long']) {
+        const face = buildPlayerFace({appearance: {hair}}, skin);
+        face.updateMatrixWorld(true);
+        const meshes = face.children.filter(mesh => mesh.name.startsWith('hair'));
+        for (const x of [-.075, 0, .075]) {
+            for (const y of [.045, .075]) {
+                const ray = new THREE.Raycaster(new THREE.Vector3(x, 1.97 + y, 1), new THREE.Vector3(0, 0, -1));
+                for (const hit of ray.intersectObjects(meshes)) {
+                    assert.ok(hit.point.z < .20, `${hair} covers the face at ${x}, ${y}`);
+                }
+            }
+        }
+    }
+});

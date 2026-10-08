@@ -1,5 +1,19 @@
 import * as THREE from 'three';
 
+function scalpGeometry() {
+    const geometry = new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI * .52);
+    const positions = geometry.attributes.position, uv = geometry.attributes.uv;
+    for (let i = 0; i < positions.count; i++) {
+        const phi = uv.getX(i) * Math.PI * 2;
+        // Raise the front hairline above the brows, retaining lower sides and back.
+        const edge = Math.PI * (.52 - .20 * Math.max(0, Math.sin(phi)));
+        const theta = (1 - uv.getY(i)) * edge;
+        positions.setXYZ(i, -Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta));
+    }
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
 export function buildPlayerFace(player, skin) {
     const profile = player.appearance || {};
     const face = new THREE.Group(); face.name = 'player-face';
@@ -41,7 +55,7 @@ export function buildPlayerFace(player, skin) {
     const hair = profile.hair || 'bald';
     if (hair !== 'bald') {
         // Hair stays close to the skull so it fits under the game helmet.
-        const cap = feature('hair', new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI * .48), dark, 0, 0, -.177);
+        const cap = feature('hair', scalpGeometry(), dark, 0, 0, -.177);
         cap.scale.set(.23, hair === 'buzz' ? .214 : .235, .185);
         if (hair === 'short') cap.rotation.z = -.07;
         if (hair === 'curly') {
