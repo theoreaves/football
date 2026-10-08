@@ -411,6 +411,8 @@ export function mountPractice(root) {
     const coinDialog = root.querySelector('[data-coin-dialog]');
     coinDialog?.showModal();
     coinDialog?.addEventListener('cancel', event => { if (coinDialog.dataset.pending === 'true') event.preventDefault(); });
+    const otDialog = root.querySelector('[data-ot-dialog]');
+    otDialog?.addEventListener('cancel', event => event.preventDefault());
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
     let penaltyShown = false;
@@ -433,6 +435,7 @@ export function mountPractice(root) {
             return;
         }
         if (injuryDialog?.open) return;
+        if (otDialog) { if (!otDialog.open) otDialog.showModal(); return; }
         if (!quarterDialog || quarterShown) return;
         quarterShown = true;
         quarterDialog.showModal();
@@ -459,7 +462,7 @@ export function mountPractice(root) {
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
     penaltyDialog?.addEventListener('close', showQuarter);
     injuryDialog?.addEventListener('close', showQuarter);
-    if ((quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
+    if ((otDialog || quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const silenceHidden = () => { if (document.hidden) audio.setActive(false); };
     document.addEventListener('visibilitychange', silenceHidden);
     const animate = now => {
@@ -508,7 +511,7 @@ export function mountPractice(root) {
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

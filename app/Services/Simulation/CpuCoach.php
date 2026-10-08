@@ -12,7 +12,7 @@ class CpuCoach
     public function offense(array $state, array $rosters): array
     {
         $phase = $state['phase'] ?? 'scrimmage';
-        if ($phase === 'extra_point' && $state['quarter'] === 4) {
+        if ($phase === 'extra_point' && $state['quarter'] >= 4) {
             $side = $state['possession'];
             $margin = $state[$side.'_score'] - $state[($side === 'home' ? 'away' : 'home').'_score'];
             if (in_array($margin, [-2, -5, 1], true)) {
@@ -26,14 +26,14 @@ class CpuCoach
         $other = $side === 'home' ? 'away' : 'home';
         $players = $rosters[$side]['players'];
         $margin = $state[$side.'_score'] - $state[$other.'_score'];
-        $late = $state['quarter'] === 4 && $state['clock'] <= $state['quarter_length'] / 3;
+        $late = $state['quarter'] >= 4 && $state['clock'] <= ($state['quarter'] >= 5 ? Overtime::periodLength($state) : $state['quarter_length']) / 3;
         $endHalf = app(GameClock::class)->lateHalf($state);
         $range = 40 + ($players['K']['ratings']['kicking'] - 50) * .3;
         if ($endHalf && $state['clock'] <= 15 && 117 - $state['spot'] <= $range && ($state['quarter'] === 2 || $margin <= 0)) {
             return ['call' => 'field_goal', 'formation' => 'singleback'];
         }
         $timeouts = $state['timeouts'][$other] ?? 3;
-        if ($state['quarter'] === 4 && $margin > 0 && $timeouts === 0 && $state['clock'] <= 38 * (4 - $state['down']) + 2 && $state['spot'] > 1) {
+        if ($state['quarter'] >= 4 && $margin > 0 && $timeouts === 0 && $state['clock'] <= 38 * (4 - $state['down']) + 2 && $state['spot'] > 1) {
             return ['call' => 'kneel', 'formation' => 'singleback'];
         }
         $mustGo = $late && $margin < 0 && ($margin < -3 || $state['spot'] < 60);
@@ -102,8 +102,8 @@ class CpuCoach
         $other = $side === 'home' ? 'away' : 'home';
         $margin = $state[$side.'_score'] - $state[$other.'_score'];
         $late = app(GameClock::class)->lateHalf($state);
-        $hurry = ($late && $state['quarter'] === 2) || ($state['quarter'] === 4 && $state['clock'] <= 180 && $margin <= 0);
-        $tempo = $hurry ? 'hurry' : ($state['quarter'] === 4 && $margin > 0 ? 'drain' : 'normal');
+        $hurry = ($late && $state['quarter'] === 2) || ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin <= 0);
+        $tempo = $hurry ? 'hurry' : ($state['quarter'] >= 4 && $margin > 0 ? 'drain' : 'normal');
 
         return ['tempo' => $tempo, 'clock_strategy' => $late && ($state['quarter'] === 2 || $margin <= 0) ? 'sideline' : 'normal'];
     }
@@ -117,7 +117,7 @@ class CpuCoach
         $side = $state['possession'];
         $other = $side === 'home' ? 'away' : 'home';
         $margin = $state[$side.'_score'] - $state[$other.'_score'];
-        if ($state['quarter'] === 4 && $state['clock'] <= 180 && $margin > 0 && $controls[$other] === 'cpu' && ($state['timeouts'][$other] ?? 3) > 0) {
+        if ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin > 0 && $controls[$other] === 'cpu' && ($state['timeouts'][$other] ?? 3) > 0) {
             return $other;
         }
         if (app(GameClock::class)->lateHalf($state) && $state['clock'] <= 30 && ($state['quarter'] === 2 || $margin <= 0) && $controls[$side] === 'cpu' && ($state['timeouts'][$side] ?? 3) > 0) {

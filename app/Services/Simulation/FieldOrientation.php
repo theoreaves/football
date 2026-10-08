@@ -6,7 +6,7 @@ class FieldOrientation
 {
     public static function direction(array $state): int
     {
-        return ($state['possession'] === 'home' ? 1 : -1) * (in_array((int) $state['quarter'], [2, 4], true) ? -1 : 1);
+        return ($state['possession'] === 'home' ? 1 : -1) * ((int) $state['quarter'] % 2 === 0 ? -1 : 1);
     }
 
     public static function line(array $state): float
@@ -17,7 +17,7 @@ class FieldOrientation
     public static function animation(array $animation, array $before): array
     {
         $animation['direction'] = self::direction($before);
-        if (in_array((int) $before['quarter'], [2, 4], true)) {
+        if ((int) $before['quarter'] % 2 === 0) {
             foreach ($animation['players'] as &$player) {
                 foreach ($player['path'] as &$point) {
                     $point[1] = 120 - $point[1];

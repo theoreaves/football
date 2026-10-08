@@ -19,7 +19,7 @@ class GameClock
 
     public function lateHalf(array $state): bool
     {
-        return in_array($state['quarter'], [2, 4], true) && $state['clock'] <= 120;
+        return ($state['quarter'] === 2 || $state['quarter'] >= 4) && $state['clock'] <= 120;
     }
 
     public function runoff(array $state, string $tempo): int
@@ -35,7 +35,7 @@ class GameClock
 
     public function warningDue(array $state, int $seconds): bool
     {
-        return in_array($state['quarter'], [2, 4], true) && ! ($state['warnings'][$state['quarter']] ?? false)
+        return ($state['quarter'] === 2 || $state['quarter'] >= 4) && ! ($state['warnings'][$state['quarter']] ?? false)
             && $state['clock'] > 120 && $state['clock'] - $seconds <= 120;
     }
 
@@ -58,14 +58,30 @@ class GameClock
             $play['summary'] .= ' · TWO-MINUTE WARNING';
         }
         $state['untimed_down'] = $state['clock'] === 0 && ((($before['untimed_down'] ?? false) && ($play['no_snap'] ?? false)) || (($play['penalty']['accepted'] ?? false) && ($play['penalty']['team'] ?? '') !== $before['possession'] && ! ($play['no_snap'] ?? false)));
-        if ($state['clock'] === 0 && $state['quarter'] === 4 && ($state['phase'] ?? '') === 'extra_point' && ($before['phase'] ?? '') !== 'extra_point' && abs($state['home_score'] - $state['away_score']) > 2) {
+        if ($state['clock'] === 0 && ($state['quarter'] === 4 || ($state['quarter'] >= 5 && ! Overtime::playoff($state))) && ($state['phase'] ?? '') === 'extra_point' && ($before['phase'] ?? '') !== 'extra_point' && abs($state['home_score'] - $state['away_score']) > 2) {
             $state['phase'] = 'kickoff';
+        }
+        if ($before['quarter'] >= 5 && isset($state['overtime'])) {
+            $state = app(Overtime::class)->afterPlay($state, $before, $play);
+        }
+        if ($state['status'] === 'final') {
+            $play['clock_seconds'] = ($play['runoff_seconds'] ?? 0) + $seconds;
+
+            return $state;
         }
         if ($state['clock'] === 0 && ($state['phase'] ?? '') !== 'extra_point' && ! $state['untimed_down']) {
             $state['clock_running'] = false;
-            if ($state['quarter'] === 4) {
-                $state['status'] = 'final';
-                $play['summary'] .= ' · FINAL';
+            if ($state['quarter'] >= 4) {
+                if ($state['quarter'] === 4 && $state['home_score'] === $state['away_score'] && ($state['rules']['overtime'] ?? 'none') !== 'none') {
+                    $state = app(Overtime::class)->begin($state);
+                    $play['summary'] .= ' · OVERTIME';
+                } elseif ($state['quarter'] >= 5 && Overtime::playoff($state)) {
+                    $state = app(Overtime::class)->nextPeriod($state);
+                    $play['summary'] .= ' · NEXT OVERTIME PERIOD';
+                } else {
+                    $state['status'] = 'final';
+                    $play['summary'] .= ' · FINAL'.($state['home_score'] === $state['away_score'] ? ' · TIE' : '');
+                }
             } else {
                 $state['quarter']++;
                 $state['clock'] = $state['quarter_length'];

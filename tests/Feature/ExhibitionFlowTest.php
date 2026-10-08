@@ -228,3 +228,41 @@ test('quick sim finishes games with CPU coaches and retains all box score and re
         ->assertDontSee('data-call-form', false)->assertDontSee('data-quarter-dialog', false);
     $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 1, 'watch' => 1]))->assertOk();
 })->with([180, 300, 600, 900]);
+
+test('human overtime visitor calls a new toss and its winner chooses without advancing plays', function () {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'overtime' => 'modern'])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    $state = array_replace($game->state, ['quarter' => 4, 'clock' => 1, 'phase' => 'scrimmage', 'possession' => 'home', 'spot' => 50]);
+    $state['rules']['penalties'] = false;
+    app(CurrentWorld::class)->id = (int) $game->world_id;
+    $game->update(['state' => $state]);
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => 'kneel', 'defense' => 'man_to_man'])->assertRedirect();
+    $game->refresh();
+    expect($game->state['quarter'])->toBe(5)->and($game->state['overtime']['toss']['call_pending'])->toBeTrue();
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('OVERTIME')->assertSee('data-ot-dialog', false);
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'call' => 'kickoff', 'defense' => 'kickoff_return'])->assertStatus(409);
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'ot_call', 'toss_call' => $game->state['overtime']['toss']['result']])->assertRedirect();
+    $game->refresh();
+    expect($game->state['overtime']['toss']['winner'])->toBe('away');
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'ot_choice', 'choice' => 'kick'])->assertRedirect();
+    $game->refresh();
+    expect($game->state['overtime']['receiver'])->toBe('home')->and($game->state['possession'])->toBe('away')
+        ->and($game->state['version'])->toBe(1)->and($game->state['timeouts'])->toBe(['home' => 2, 'away' => 2]);
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'ot_choice', 'choice' => 'receive'])->assertStatus(409);
+});
+
+test('quick simulator completes all overtime modes using real captured game rosters', function (string $mode) {
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180, 'overtime' => $mode])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    $state = array_replace($game->state, ['quarter' => 4, 'clock' => 1, 'phase' => 'scrimmage', 'possession' => 'home', 'spot' => 20]);
+    $state['rules']['penalties'] = false;
+    $state['rules']['injuries'] = false;
+    $result = app(\App\Services\Simulation\QuickSimulator::class)->run($state, $game->rosters);
+    expect($result['state']['status'])->toBe('final')->and($result['state']['quarter'])->toBeGreaterThanOrEqual(5);
+    expect(collect($result['history'])->contains(fn ($play) => $play['before']['quarter'] >= 5))->toBeTrue();
+    if (str_ends_with($mode, '_playoff')) {
+        expect($result['state']['home_score'])->not->toBe($result['state']['away_score']);
+    }
+})->with(['traditional', 'modern', 'traditional_playoff', 'modern_playoff']);

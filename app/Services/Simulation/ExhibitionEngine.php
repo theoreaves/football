@@ -37,6 +37,9 @@ class ExhibitionEngine
         if (! in_array($expect, ['balanced', 'run', 'pass'], true) || ! in_array($motion, ['none', 'WR1', 'WR2', 'WR3', 'TE', 'RB'], true)) {
             throw new LogicException('Choose valid defensive expectations and motion.');
         }
+        if (app(Overtime::class)->pending($state)) {
+            throw new LogicException('Finish the overtime coin toss before calling a play.');
+        }
         $design = $call;
         $call = match ($call) {
             'draw' => 'inside_run', 'screen' => 'short_pass', default => $call

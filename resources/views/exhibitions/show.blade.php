@@ -25,6 +25,24 @@
     </dialog>
     @endif
     @if($replayOnly)<a class="game-replay-return" href="{{ route('exhibitions.show', $exhibition) }}">← Return to game · Replay #{{ $last['number'] }}</a>@endif
+    @if(!$replayOnly && app(\App\Services\Simulation\Overtime::class)->pending($state))
+    <dialog data-ot-dialog class="game-dialog text-center">
+        <h2 class="game-event-title text-blue-300">OVERTIME · COIN TOSS</h2>
+        <p class="mt-3">{{ str_starts_with($state['rules']['overtime'], 'traditional') ? 'First score wins.' : 'Both teams get an opportunity, subject to the clock.' }} {{ \App\Services\Simulation\Overtime::playoff($state) ? '15-minute periods until a winner · three timeouts per two OT periods.' : 'One 10-minute period · two timeouts per team.' }}</p>
+        <form method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="mt-4 flex flex-wrap gap-4 justify-center">
+            @csrf<input type="hidden" name="version" value="{{ $state['version'] }}">
+            @if($state['overtime']['toss']['call_pending'])
+                <input type="hidden" name="action" value="ot_call">
+                <p class="w-full">{{ $teamNames['away'] }} calls the overtime toss.</p>
+                <button name="toss_call" value="heads">Heads</button><button name="toss_call" value="tails">Tails</button>
+            @else
+                <input type="hidden" name="action" value="ot_choice">
+                <p class="w-full">The coin landed {{ $state['overtime']['toss']['result'] }}. {{ $teamNames[$state['overtime']['toss']['winner']] }} wins—choose kick or receive.</p>
+                <button name="choice" value="kick">Kick</button><button name="choice" value="receive">Receive</button>
+            @endif
+        </form>
+    </dialog>
+    @endif
     <div class="game-brand-watermark" aria-hidden="true"><x-brand-logo /></div>
     <div class="game-scoreboard">
         <a href="{{ route('exhibitions.index') }}" class="score-exit">Exhibitions</a>
@@ -41,7 +59,7 @@
         </div>
         @endforeach
         <p data-situation class="game-situation">{{ $shown['status'] === 'final' ? 'Game over' : match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point try', default => (['', '1st', '2nd', '3rd', '4th'][$shown['down']] ?? 'Down '.$shown['down']).' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opp '.(100-$shown['spot'])) } }}</p>
-        <p data-clock class="score-clock">{{ $shown['status'] === 'final' ? 'FINAL' : 'Q'.$shown['quarter'].' · '.gmdate('i:s', $shown['clock']) }}</p>
+        <p data-clock class="score-clock">{{ $shown['status'] === 'final' ? 'FINAL' : ($shown['quarter'] >= 5 ? 'OT'.($shown['quarter'] > 5 ? $shown['quarter'] - 4 : '') : 'Q'.$shown['quarter']).' · '.gmdate('i:s', $shown['clock']) }}</p>
         <h1 data-scoreboard class="sr-only">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1>
     </div>
     <p class="game-coaches">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
@@ -170,9 +188,21 @@
     @endif
     @if(!request()->boolean('summary') && !$replayOnly && $last && (($last['two_minute_warning'] ?? false) || $last['before']['quarter'] !== $last['after']['quarter'] || $last['after']['status'] === 'final'))
     <dialog data-quarter-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-md backdrop:bg-black/70">
-        <h2 class="text-2xl font-semibold">{{ $last['after']['status'] === 'final' ? 'Final whistle' : (($last['two_minute_warning'] ?? false) ? 'Two-minute warning' : ($last['before']['quarter'] === 2 ? 'Halftime' : 'End of quarter '.$last['before']['quarter'])) }}</h2>
+        <h2 class="text-2xl font-semibold">{{ $state['status'] === 'final' ? 'Final whistle' : (($last['two_minute_warning'] ?? false) ? 'Two-minute warning' : ($state['quarter'] === 5 && $last['before']['quarter'] === 4 ? 'OVERTIME' : ($last['before']['quarter'] === 2 ? 'Halftime' : ($last['before']['quarter'] >= 5 ? 'End of overtime '.($last['before']['quarter'] - 4) : 'End of quarter '.$last['before']['quarter'])))) }}</h2>
+        @if($state['quarter'] === 5 && $last['before']['quarter'] === 4 && !app(\App\Services\Simulation\Overtime::class)->pending($state))
+        <p class="mt-3">Overtime toss: {{ $teamNames[$state['overtime']['toss']['winner']] }} wins and chooses to {{ $state['overtime']['toss']['choice'] }}. {{ $teamNames[$state['overtime']['receiver']] }} receives.</p>
+        @endif
         <p class="mt-3">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
-        <p class="mt-3 text-gray-300">{{ $last['after']['status'] === 'final' ? 'The exhibition is complete.' : (($last['two_minute_warning'] ?? false) ? 'The clock is stopped. Choose your clock strategy for the rest of the half.' : ($last['before']['quarter'] === 2 ? 'The away team receives to start the second half.' : 'Quarter '.$state['quarter'].' is ready. Possession and field position carry over.')) }}</p>
+        <p class="mt-3 text-gray-300">
+        @if($state['status'] === 'final')The exhibition is complete.
+        @elseif($last['two_minute_warning'] ?? false)The clock is stopped. Choose your clock strategy for the rest of the period.
+        @elseif($state['quarter'] === 5 && $last['before']['quarter'] === 4)
+            {{ str_starts_with($state['rules']['overtime'], 'traditional') ? 'First score wins.' : 'Both teams get an opportunity; if the first team does not score, the next score wins.' }}
+            {{ \App\Services\Simulation\Overtime::playoff($state) ? '15-minute periods continue until a winner.' : 'One 10-minute period; the game can end in a tie.' }}
+        @elseif($last['before']['quarter'] === 2){{ $teamNames[$state['possession'] === 'home' ? 'away' : 'home'] }} receives to start the second half.
+        @else{{ $state['quarter'] >= 5 ? 'Overtime '.($state['quarter'] - 4) : 'Quarter '.$state['quarter'] }} is ready. Possession and field position carry over.
+        @endif
+        </p>
         <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">{{ $last['after']['status'] === 'final' ? 'View final result' : 'Continue' }}</button></form>
     </dialog>
     @endif
@@ -200,7 +230,7 @@
     <div class="game-stats grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
     <div class="game-actions">@unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-log>Play log (<span data-log-count>{{ count($exhibition->history) - ($watching && !$replayOnly ? 1 : 0) }}</span>)</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-open-box>Box score</button><button type="button" data-fullscreen>Full screen</button></div>
     <dialog data-log-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Play log</h2>
-<ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · Q{{ $play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
+<ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · {{ $play['before']['quarter'] >= 5 ? 'OT'.($play['before']['quarter'] > 5 ? $play['before']['quarter'] - 4 : '') : 'Q'.$play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
 @if(isset($play['animation']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $play['number'], 'watch' => 1]) }}">Replay{{ \App\Support\PlayHighlights::saved($play) ? ' · Highlight' : '' }}</a>@endif</li>@endforeach</ol>
     </dialog>
     <dialog data-highlights-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Highlight reel</h2>

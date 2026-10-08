@@ -1,6 +1,6 @@
 <div class="space-y-5">
 <h2 class="text-2xl font-semibold">Box score{{ $state['status'] === 'final' ? ' · Final' : '' }}</h2>
-<table class="w-full text-left"><thead><tr><th>Team</th>@foreach(range(1,4) as $q)<th>Q{{ $q }}</th>@endforeach<th>Total</th></tr></thead><tbody>@foreach(['away','home'] as $side)<tr><th>{{ $teamNames[$side] }}</th>@foreach($boxScore['quarters'][$side] as $points)<td>{{ $points }}</td>@endforeach<td class="font-bold">{{ $state[$side.'_score'] }}</td></tr>@endforeach</tbody></table>
+<table class="w-full text-left"><thead><tr><th>Team</th>@foreach(array_keys($boxScore['quarters']['home']) as $q)<th>{{ $q >= 5 ? 'OT'.($q > 5 ? $q - 4 : '') : 'Q'.$q }}</th>@endforeach<th>Total</th></tr></thead><tbody>@foreach(['away','home'] as $side)<tr><th>{{ $teamNames[$side] }}</th>@foreach($boxScore['quarters'][$side] as $points)<td>{{ $points }}</td>@endforeach<td class="font-bold">{{ $state[$side.'_score'] }}</td></tr>@endforeach</tbody></table>
 <h3 class="text-lg font-semibold">Team statistics</h3>
 <table class="w-full text-left"><thead><tr><th>Statistic</th><th>{{ $teamNames['away'] }}</th><th>{{ $teamNames['home'] }}</th></tr></thead><tbody>
 @foreach(['plays'=>'Offensive plays','yards'=>'Total offense','rushing_yards'=>'Rushing yards','passing_yards'=>'Net passing yards','first_downs'=>'First downs','turnovers'=>'Turnovers','penalties'=>'Penalties','penalty_yards'=>'Penalty yards','possession_seconds'=>'Time of possession'] as $key=>$label)
@@ -14,5 +14,5 @@
 @endforeach
 @endforeach
 <h3 class="text-lg font-semibold">Scoring summary</h3>
-@forelse($boxScore['scoring'] as $score)<p class="text-sm">Q{{ $score['quarter'] }} {{ gmdate('i:s',$score['clock']) }} · {{ $score['summary'] }} · {{ $score['away_score'] }}–{{ $score['home_score'] }}</p>@empty<p>No scoring plays.</p>@endforelse
+@forelse($boxScore['scoring'] as $score)<p class="text-sm">{{ $score['quarter'] >= 5 ? 'OT'.($score['quarter'] > 5 ? $score['quarter'] - 4 : '') : 'Q'.$score['quarter'] }} {{ gmdate('i:s',$score['clock']) }} · {{ $score['summary'] }} · {{ $score['away_score'] }}–{{ $score['home_score'] }}</p>@empty<p>No scoring plays.</p>@endforelse
 </div>

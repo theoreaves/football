@@ -8,7 +8,7 @@ class ExhibitionBoxScore
 {
     public function build(Exhibition $game): array
     {
-        $quarters = ['home' => array_fill(1, 4, 0), 'away' => array_fill(1, 4, 0)];
+        $quarters = ['home' => array_fill(1, max(4, $game->state['quarter']), 0), 'away' => array_fill(1, max(4, $game->state['quarter']), 0)];
         $teams = [];
         $players = ['home' => [], 'away' => []];
         $scoring = [];

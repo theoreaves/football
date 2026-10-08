@@ -15,13 +15,14 @@
         <label>Stadium fullness (%)<input type="number" name="crowd_fullness" min="0" max="100" step="1" value="{{ old('crowd_fullness', 80) }}" class="block bg-gray-900 text-white rounded p-2 mt-1 w-28" required></label>
         <label>Visiting fans (% of crowd)<input type="number" name="visiting_fans" min="0" max="100" step="1" value="{{ old('visiting_fans', 10) }}" class="block bg-gray-900 text-white rounded p-2 mt-1 w-28" required></label>
         <label>Quarter length<select name="quarter_length" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="180">Quick game · 3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">Full game · 15 minutes</option></select></label>
+        <label>Overtime<select name="overtime" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="none">No OT · ties stand</option><option value="traditional">Traditional · sudden death (10 min)</option><option value="modern">Modern NFL · both teams get a chance (10 min)</option><option value="traditional_playoff">Traditional playoff · sudden death (15 min periods)</option><option value="modern_playoff">Modern NFL playoff · both teams get a chance (15 min periods)</option></select></label>
         <input type="hidden" name="penalties" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="penalties" value="1" @checked(old('penalties', true))>Penalties</label>
         <input type="hidden" name="injuries" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="injuries" value="1" @checked(old('injuries', true))>Injuries</label>
         <button class="bg-blue-700 rounded px-5 py-2" @disabled($teams->count() < 2)>Start game</button>
         <button name="quick_sim" value="1" class="border border-blue-400 rounded px-5 py-2" @disabled($teams->count() < 2)>Quick Sim</button>
         <p class="text-xs text-gray-400 w-full">Quick Sim lets the CPU coach both teams and opens the final box score, with every play and replay saved.</p>
     </form>
-    <p class="text-sm text-gray-400">First version: kickoffs, extra-point attempts, and a simplified clock, clock management and common scrimmage penalties; depth chart substitutions, player fatigue and exhibition injuries. Injuries reset for each new exhibition; no overtime. Ties stand.</p>
+    <p class="text-sm text-gray-400">First version: kickoffs, extra-point attempts, and a simplified clock, clock management and common scrimmage penalties; depth chart substitutions, player fatigue and exhibition injuries. Injuries reset for each new exhibition; Overtime follows your selected rules; a tie can stand after the 10-minute overtime period.</p>
     <div class="space-y-3">
         @forelse($games as $game)
             <a href="{{ route('exhibitions.show', $game) }}" class="block bg-gray-800 rounded p-4 hover:bg-gray-700">{{ $game->awayTeam->name }} {{ $game->state['away_score'] }} at {{ $game->homeTeam->name }} {{ $game->state['home_score'] }} <span class="text-gray-400 ml-4">{{ $game->state['status'] === 'final' ? 'Final' : 'Resume · Q'.$game->state['quarter'] }}</span></a>

@@ -28,7 +28,7 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine, CpuCoach $coach)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
+        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'overtime' => ['sometimes', Rule::in(['none', 'traditional', 'modern', 'traditional_playoff', 'modern_playoff'])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $coin = random_int(0, 1) === 0 ? 'heads' : 'tails';
@@ -47,7 +47,7 @@ class ExhibitionController extends Controller
         $game = DB::transaction(function () use ($home, $away, $initial, $receiver, $coinCall, $coin, $winner, $choice, $pending, $data, $controls, $builder, $quickSim) {
             $game = Exhibition::create([
                 'home_team_id' => $home->id, 'away_team_id' => $away->id,
-                'state' => array_merge($initial, ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
+                'state' => array_merge($initial, ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['overtime' => $data['overtime'] ?? 'none', 'penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
                 'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
             ]);
             if ($quickSim) {
@@ -125,7 +125,13 @@ class ExhibitionController extends Controller
         $side = $exhibition->state['possession'];
         $rules = ['version' => ['required', 'integer', 'min:0']];
         $action = $request->input('action', 'play');
-        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty', 'coin', 'lineup'])];
+        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'])];
+        if ($action === 'ot_call') {
+            $rules['toss_call'] = ['required', Rule::in(['heads', 'tails'])];
+        }
+        if ($action === 'ot_choice') {
+            $rules['choice'] = ['required', Rule::in(['kick', 'receive'])];
+        }
         if ($action === 'lineup') {
             $rules['team'] = ['required', Rule::in(['home', 'away'])];
             $rules['role'] = ['required', Rule::in(array_keys(RosterBuilder::GROUPS))];
@@ -157,6 +163,26 @@ class ExhibitionController extends Controller
         DB::transaction(function () use ($exhibition, $engine, $data, $request) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
+            if (in_array($request->input('action'), ['ot_call', 'ot_choice'], true)) {
+                $state = $game->state;
+                abort_if($state['penalty_pending'] ?? false, 409, 'Decide the penalty before the overtime toss.');
+                $ot = app(\App\Services\Simulation\Overtime::class);
+                abort_unless($state['status'] === 'playing' && $state['quarter'] >= 5 && $ot->pending($state), 409, 'This overtime toss was already decided.');
+                $controls = app(CpuCoach::class)->controls($state);
+                if ($request->input('action') === 'ot_call') {
+                    abort_unless(($state['overtime']['toss']['call_pending'] ?? false) && $controls['away'] === 'human', 422, 'The visitor calls the overtime toss.');
+                    $state = $ot->call($state, $data['toss_call']);
+                } else {
+                    abort_unless(($state['overtime']['toss']['pending'] ?? false) && $controls[$state['overtime']['toss']['winner']] === 'human', 422, 'The toss winner chooses kick or receive.');
+                    $state = $ot->choose($state, $data['choice']);
+                }
+                $game->update(['state' => $state]);
+
+                return;
+            }
+            if ($request->input('action') !== 'penalty') {
+                abort_if(app(\App\Services\Simulation\Overtime::class)->pending($game->state), 409, 'Finish the overtime coin toss before continuing.');
+            }
             if ($request->input('action') === 'coin') {
                 $state = $game->state;
                 abort_unless($state['version'] === 0 && ($state['coin_toss']['pending'] ?? false), 409, 'The coin toss was already decided.');
@@ -244,6 +270,6 @@ class ExhibitionController extends Controller
             $game->update(['state' => $result['state'], 'history' => $history]);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup'], true) ? 0 : 1]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'], true) ? 0 : 1]);
     }
 }
