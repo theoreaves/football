@@ -50,8 +50,8 @@ class WorldController extends Controller
 
     public function select(Request $request, int $world): RedirectResponse
     {
-        $savedGame = World::where('owner_user_id', $request->user()->id)->findOrFail($world);
-        $request->session()->put('current_world_id', $savedGame->id);
+        $selectedWorld = World::where('owner_user_id', $request->user()->id)->findOrFail($world);
+        $request->session()->put('current_world_id', $selectedWorld->id);
 
         return redirect()->route('home');
     }

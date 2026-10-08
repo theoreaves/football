@@ -19,11 +19,13 @@
 @unless($immersive)
 <nav class="flex flex-wrap items-center gap-5 p-4 text-gray-200 bg-gray-950 border-b border-gray-700">
     <a class="shrink-0" href="{{ route('worlds.index') }}"><x-brand-logo class="w-44" /></a>
-    <a href="{{ route('home') }}">Exhibitions</a><a href="{{ route('teams.editor.index') }}">Teams</a>
+    @if(app(\App\Support\CurrentWorld::class)->id)
+    <a href="{{ route('home') }}">World overview</a><a href="{{ route('teams.editor.index') }}">Teams</a>
+    @endif
     <a href="{{ route('practice') }}">Practice field</a>
-    <a class="ml-auto" href="{{ route('worlds.index') }}">Saved games</a>
+    <a class="ml-auto" href="{{ route('worlds.index') }}">Worlds</a>
     @if (app(\App\Support\CurrentWorld::class)->id)
-        <form method="POST" action="{{ route('worlds.close') }}">@csrf<button class="text-gray-400">Close saved game</button></form>
+        <form method="POST" action="{{ route('worlds.close') }}">@csrf<button class="text-gray-400">Close world</button></form>
     @endif
     @auth
         <span class="text-sm text-gray-400">{{ auth()->user()->name }}</span>

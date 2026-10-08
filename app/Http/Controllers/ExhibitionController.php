@@ -23,7 +23,15 @@ class ExhibitionController extends Controller
             ->get()->keyBy('id');
         $games->setCollection($games->getCollection()->map(fn ($game) => $summaries->get($game->id))->filter()->values());
 
-        return view('exhibitions.index', ['teams' => Team::orderBy('city')->get(), 'games' => $games]);
+        return view('exhibitions.index', ['teams' => Team::orderBy('city')->get(), 'games' => $games,
+            'world' => \App\Models\World::findOrFail(app(\App\Support\CurrentWorld::class)->id)]);
+    }
+
+    public function destroy(Exhibition $exhibition)
+    {
+        $exhibition->delete();
+
+        return redirect()->route('exhibitions.index')->with('status', 'Exhibition deleted.');
     }
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine, CpuCoach $coach)

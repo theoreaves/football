@@ -156,3 +156,49 @@
 .wizard-situation { padding: 10px 14px; margin-bottom: 14px; border: 1px solid #60a5fa; background: #203b5b; border-radius: 8px; font-size: 18px; font-weight: 700; color: #dbeafe; }
 .wizard-team-logo { display: inline-block; width: 32px; height: 32px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
 .wizard-last-result { margin: -6px 0 14px; padding: 0 14px; font-size: 14px; line-height: 1.5; color: #cbd5e1; }
+
+/* World hub and public introduction. */
+.creation-panel { border: 1px solid #374151; border-radius: 12px; overflow: hidden; }
+.creation-toggle { padding: 16px 20px; cursor: pointer; background: #1e3a5f; color: #dbeafe; font-weight: 600; }
+.creation-toggle:focus-visible, .exhibition-delete summary:focus-visible { outline: 2px solid #93c5fd; outline-offset: -3px; }
+.creation-body { padding: 24px; background: #1f293780; }
+.world-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.world-mode { padding: 22px; background: #111c2e; border: 1px solid #334155; border-radius: 14px; }
+.world-mode.active { border-color: #60a5fa; background: #172c47; }
+.world-mode h2 { font-size: 22px; font-weight: 700; margin: 10px 0; }
+.world-mode p { color: #94a3b8; line-height: 1.6; font-size: 14px; }
+.mode-label { color: #93c5fd; text-transform: uppercase; font-size: 11px; letter-spacing: .12em; }
+.exhibition-card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; overflow: hidden; }
+.exhibition-delete { padding: 0 16px 12px; font-size: 13px; color: #fca5a5; }
+.exhibition-delete summary { cursor: pointer; width: fit-content; }
+.exhibition-delete form { margin-top: 12px; border-top: 1px solid #475569; padding-top: 12px; color: #cbd5e1; }
+.football-landing { background: radial-gradient(ellipse at 80% 15%, #183959 0, transparent 50%), #080f1c; min-height: 100vh; }
+.landing-nav, .football-landing main, .football-landing footer { max-width: 1200px; margin: auto; padding-left: 28px; padding-right: 28px; }
+.landing-nav { display: flex; justify-content: space-between; align-items: center; padding-top: 24px; padding-bottom: 24px; gap: 24px; }
+.landing-nav > div, .landing-actions { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.landing-button { display: inline-block; background: #2563eb; border: 1px solid #60a5fa; color: white; border-radius: 8px; padding: 12px 20px; font-weight: 600; }
+.landing-button:hover { background: #1d4ed8; }
+.landing-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; padding: 64px 0; }
+.landing-eyebrow { color: #93c5fd; font-size: 12px; text-transform: uppercase; letter-spacing: .15em; }
+.landing-hero h1 { font-size: clamp(40px, 5vw, 68px); font-weight: 800; line-height: 1.08; margin: 20px 0; letter-spacing: -.04em; }
+.landing-intro { color: #cbd5e1; font-size: 18px; line-height: 1.7; margin-bottom: 28px; }
+.landing-note { color: #94a3b8; font-size: 13px; margin-top: 20px; }
+.landing-field { border: 1px solid #475569; border-radius: 18px; padding: 18px; background: #0c1927; box-shadow: 0 24px 70px #0006; }
+.landing-score { display: flex; justify-content: space-between; gap: 12px; color: #cbd5e1; font-size: 11px; align-items: center; padding: 12px 4px 20px; }
+.landing-score b { display: block; color: white; font-size: 28px; }
+.landing-field svg { width: 100%; height: auto; }
+.landing-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; border-top: 1px solid #334155; padding: 40px 0 64px; }
+.landing-features span { font-size: 11px; color: #60a5fa; letter-spacing: .12em; }
+.landing-features h2 { font-size: 21px; font-weight: 600; margin: 14px 0; }
+.landing-features p, .landing-future p:not(.landing-eyebrow) { color: #94a3b8; line-height: 1.7; }
+.landing-future { display: flex; align-items: center; justify-content: space-between; gap: 32px; background: #13243a; border: 1px solid #334155; border-radius: 16px; padding: 32px; }
+.landing-future h2 { font-size: 28px; font-weight: 700; line-height: 1.25; margin: 12px 0; }
+.landing-future .landing-button { flex-shrink: 0; }
+.football-landing footer { padding-top: 40px; padding-bottom: 28px; font-size: 12px; color: #64748b; }
+@media (max-width: 700px) {
+    .world-modes, .landing-hero, .landing-features { grid-template-columns: 1fr; }
+    .landing-hero { padding: 32px 0; gap: 32px; }
+    .landing-future { flex-direction: column; align-items: flex-start; padding: 24px; }
+    .landing-nav { flex-wrap: wrap; }
+    .landing-nav, .football-landing main, .football-landing footer { padding-left: 20px; padding-right: 20px; }
+}

@@ -1,7 +1,7 @@
 <x-layouts.app :immersive="true">
 <div class="min-h-screen flex items-center justify-center p-6 text-white">
     <section class="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-8 space-y-5">
-        <a href="{{ route('login') }}" class="block"><x-brand-logo class="w-64 max-w-full" /></a>
+        <a href="{{ route('home') }}" class="block"><x-brand-logo class="w-64 max-w-full" /></a>
         <h1 class="text-3xl font-semibold">{{ match($screen) { 'register' => 'Create your account', 'password.request' => 'Forgot your password?', 'password.reset' => 'Reset your password', 'verification.notice' => 'Verify your email', default => 'Welcome back' } }}</h1>
         @if(session('status'))<p role="status" class="rounded bg-blue-950 p-3 text-blue-200">{{ session('status') }}</p>@endif
         @if($errors->any())<div role="alert" class="rounded bg-red-950 p-3 text-red-200">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif

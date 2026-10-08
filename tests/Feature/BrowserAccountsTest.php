@@ -37,7 +37,7 @@ test('login failures are throttled and logout clears the selected save', functio
         $this->post('/login', ['email' => $user->email, 'password' => 'wrong'])->assertSessionHasErrors('email');
     }
     $this->post('/login', ['email' => $user->email, 'password' => 'wrong'])->assertStatus(429);
-    $this->actingAs($user)->withSession(['current_world_id' => 123])->post('/logout')->assertRedirect(route('login'))->assertSessionMissing('current_world_id');
+    $this->actingAs($user)->withSession(['current_world_id' => 123])->post('/logout')->assertRedirect(route('home'))->assertSessionMissing('current_world_id');
     $this->assertGuest();
 });
 

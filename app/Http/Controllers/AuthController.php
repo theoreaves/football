@@ -50,7 +50,7 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('home');
     }
 
     public function sendReset(AccountRequest $request): RedirectResponse
@@ -77,7 +77,7 @@ class AuthController extends Controller
     {
         $request->fulfill();
 
-        return redirect()->route('worlds.index')->with('status', 'Email verified. You can create your first save.');
+        return redirect()->route('worlds.index')->with('status', 'Email verified. You can create your first world.');
     }
 
     public function resend(Request $request): RedirectResponse

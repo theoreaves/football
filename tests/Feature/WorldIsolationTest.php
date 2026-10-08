@@ -23,7 +23,7 @@ function footballSave(string $name = 'Solo'): World
 }
 test('browser routes require login and accounts own new saves', function () {
     \Illuminate\Support\Facades\Auth::logout();
-    $this->get('/')->assertRedirect(route('login'));
+    $this->get('/')->assertOk()->assertSee('Call the play.')->assertSee(route('register'));
     $this->get('/worlds')->assertRedirect(route('login'));
     $this->get('/login')->assertOk();
     $this->get('/register')->assertOk();

@@ -4,6 +4,8 @@ use App\Http\Controllers\TeamEditor;
 use App\Http\Controllers\TeamRosterController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/', \App\Http\Controllers\HomeController::class)->middleware('auth.session')->name('home');
+
 Route::get('/auth/google', [\App\Http\Controllers\GoogleAuthController::class, 'redirect'])->middleware('throttle:10,1')->name('google.redirect');
 Route::get('/auth/google/callback', [\App\Http\Controllers\GoogleAuthController::class, 'callback'])->middleware('throttle:10,1')->name('google.callback');
 
@@ -38,12 +40,12 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'index'])->name('exhibitions.index');
         Route::post('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'store'])->name('exhibitions.store');
         Route::get('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'show'])->name('exhibitions.show');
+        Route::delete('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'destroy'])->name('exhibitions.destroy');
         Route::post('/exhibitions/{exhibition}/highlights', [\App\Http\Controllers\ExhibitionController::class, 'saveHighlight'])->name('exhibitions.highlights.save');
         Route::post('/exhibitions/{exhibition}/play', [\App\Http\Controllers\ExhibitionController::class, 'play'])->name('exhibitions.play');
         Route::get('/teams/{team}/simulation-ratings', [\App\Http\Controllers\SimulationRatingsController::class, 'edit'])->name('simulation-ratings.edit');
         Route::put('/teams/{team}/simulation-ratings', [\App\Http\Controllers\SimulationRatingsController::class, 'update'])->name('simulation-ratings.update');
 
-        Route::get('/', [\App\Http\Controllers\ExhibitionController::class, 'index'])->name('home');
         Route::get('/teams', [TeamEditor::class, 'index'])->name('teams.index');
         Route::resource('teams/editor', TeamEditor::class)
             ->only(['index', 'create', 'store', 'edit', 'update'])->names('teams.editor')
