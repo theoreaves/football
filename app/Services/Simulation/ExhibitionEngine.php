@@ -8,7 +8,7 @@ class ExhibitionEngine
 {
     public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel'];
 
-    public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread', 'i_form' => 'I formation', 'pistol' => 'Pistol', 'trips' => 'Trips'];
+    public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread', 'i_form' => 'I formation', 'pistol' => 'Pistol', 'trips' => 'Trips', 'punt' => 'Punt', 'field_goal' => 'Field goal'];
 
     public const DEFENSE_FORMATIONS = ['base_4_3' => 'Base 4–3', 'base_3_5' => '3–5', 'nickel' => 'Nickel · 4–2–5', 'two_high' => '4–3 · two high safeties', 'single_high' => '4–3 · single high safety', 'base_3_4' => '3–4', 'dime' => 'Dime · 4–1–6'];
 
@@ -39,6 +39,9 @@ class ExhibitionEngine
         }
         if (app(Overtime::class)->pending($state)) {
             throw new LogicException('Finish the overtime coin toss before calling a play.');
+        }
+        if (in_array($offenseFormation, ['punt', 'field_goal'], true) && $call !== $offenseFormation) {
+            throw new LogicException('Choose the matching play for this special-teams formation.');
         }
         $design = $call;
         $call = match ($call) {

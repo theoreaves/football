@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formationPoints, playGraphic, wizardSteps } from '../../resources/js/practice/play-wizard.js';
+import { formationPoints, playGraphic, wizardSteps, canAutoOpenWizard } from '../../resources/js/practice/play-wizard.js';
 
 test('wizard sequences each human side and keeps the final call step after all choices', () => {
     const kinds=(offense,defense,call='short_pass',calls=[])=>wizardSteps(offense,defense,call,calls).map(step=>step.kind);
@@ -36,4 +36,16 @@ test('play and coverage graphics distinguish routes coverage and blitz types', (
         assert.notEqual(playGraphic('defense-type',expect+':regular','nickel'),playGraphic('defense-type',expect+':blitz','nickel'));
     }
     assert.notEqual(playGraphic('motion','none'),playGraphic('motion','WR1'));
+});
+
+test('kick formations keep formation and play steps and automatic opening waits for an idle human turn', () => {
+    assert.deepEqual(wizardSteps(true,true,'punt',['punt']).map(step=>step.kind), ['formation','play','defense-coverage','review']);
+    for(const formation of ['punt','field_goal']) {
+        assert.equal(Object.keys(formationPoints('offense',formation)).length,11);
+    }
+    const ready={ready:true,opened:false,visible:true,dialogOpen:false};
+    assert.equal(canAutoOpenWizard(ready),true);
+    for(const change of [{ready:false},{opened:true},{visible:false},{dialogOpen:true}]) {
+        assert.equal(canAutoOpenWizard({...ready,...change}),false);
+    }
 });

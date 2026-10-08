@@ -357,18 +357,18 @@ export function mountPractice(root) {
         call?.addEventListener('change', refreshCalls); refreshCalls();
         const formation = callForm.querySelector('[name="offense_formation"]');
         const allCalls = call ? [...call.options].map(option => ({value: option.value, text: option.textContent})) : [];
-        const formationCalls = { singleback: ['inside_run','outside_run','slant','short_pass','medium_pass'], i_form: ['inside_run','outside_run','short_pass','medium_pass'], pistol: ['inside_run','outside_run','draw','short_pass','medium_pass','deep_pass'], shotgun: ['inside_run','draw','screen','slant','short_pass','medium_pass','deep_pass'], spread: ['outside_run','draw','screen','short_pass','medium_pass','deep_pass'], trips: ['outside_run','screen','slant','short_pass','medium_pass','deep_pass'] };
+        const formationCalls = { singleback: ['inside_run','outside_run','slant','short_pass','medium_pass'], i_form: ['inside_run','outside_run','short_pass','medium_pass'], pistol: ['inside_run','outside_run','draw','short_pass','medium_pass','deep_pass'], shotgun: ['inside_run','draw','screen','slant','short_pass','medium_pass','deep_pass'], spread: ['outside_run','draw','screen','short_pass','medium_pass','deep_pass'], trips: ['outside_run','screen','slant','short_pass','medium_pass','deep_pass'], punt: ['punt'], field_goal: ['field_goal'] };
         const refreshFormation = () => {
             if (!call || !formation || !formationCalls[formation.value]) return;
             const selected = call.value;
-            const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || ['punt','field_goal','kickoff','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value));
+            const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || (!['punt','field_goal'].includes(formation.value) && ['kickoff','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value)));
             call.replaceChildren(...choices.map(({value,text}) => new Option(text,value)));
             if (choices.some(option => option.value === selected)) call.value = selected;
             refreshCalls();
         };
         formation?.addEventListener('change', refreshFormation); refreshFormation();
         callForm.querySelector('[data-coach-offense]')?.addEventListener('click', () => {
-            const plan = JSON.parse(root.dataset.coachOffense); formation.value = plan.formation; refreshFormation(); call.value = plan.call; callForm.querySelector('[name="motion"]').value = plan.motion || 'none'; refreshCalls();
+            const plan = JSON.parse(root.dataset.coachOffense); formation.value = ['punt','field_goal'].includes(plan.call) ? plan.call : plan.formation; refreshFormation(); call.value = plan.call; callForm.querySelector('[name="motion"]').value = plan.motion || 'none'; refreshCalls();
         });
         callForm.querySelector('[data-coach-defense]')?.addEventListener('click', () => {
             const plan = JSON.parse(root.dataset.coachDefense);
@@ -379,7 +379,7 @@ export function mountPractice(root) {
             callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
         });
     }
-    mountPlayWizard(root);
+    const tickPlayWizard = mountPlayWizard(root);
     const disposeMobileControls = mobileControls(root);
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
     callForm?.addEventListener('submit', () => {
@@ -508,6 +508,7 @@ export function mountPractice(root) {
             if (running || phase === 'result') crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
             audioTime = soundTime;
         } else if (running || phase === 'result') audioTime = soundTime;
+        tickPlayWizard?.({delta, ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         renderState(); controls.update(); renderer.render(scene, camera);
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),

@@ -1,3 +1,4 @@
+import { scoreboardText } from './scoreboard.js';
 const special = value => ['punt', 'field_goal', 'kickoff', 'extra_point'].includes(value);
 const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
 
@@ -15,6 +16,12 @@ export function formationPoints(side, formation) {
     if (formation === 'nickel') { delete defense.LB3; defense.CB3=[5,16]; }
     if (formation === 'base_3_4') { delete defense.DT2; defense.LB4=[4,33]; defense.LB3=[4,17]; }
     if (formation === 'dime') { delete defense.LB2; delete defense.LB3; defense.CB4=[7,39]; defense.CB3=[7,16]; }
+    if (formation === 'punt') { delete offense.QB; offense.P=[-12,26.7]; offense.RB=[-5,26.7]; }
+    if (formation === 'field_goal') {
+        delete offense.QB; delete offense.RB;
+        offense.H=[-7,26.7]; offense.K=[-10,30];
+        offense.WR1=[-1,19]; offense.WR2=[-1,36]; offense.WR3=[-2,21];
+    }
     return side === 'offense' ? offense : defense;
 }
 
@@ -60,7 +67,7 @@ export function playGraphic(kind, value, formation = 'shotgun') {
 export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
     const list=[];
     if(humanOffense) {
-        const onlySpecial=calls.length>0 && calls.every(value=>special(value)||value.startsWith('two_point'));
+        const onlySpecial=calls.length>0 && calls.every(value=>['kickoff','extra_point'].includes(value)||value.startsWith('two_point'));
         if(!onlySpecial) list.push({title:'Offense · Formation',kind:'formation',name:'offense_formation'});
         list.push({title:'Offense · Play',kind:'play',name:'call'});
         if(!special(call)&&!['kneel','spike'].includes(call)) list.push({title:'Offense · Motion',kind:'motion',name:'motion'});
@@ -93,13 +100,20 @@ export function mountPlayWizard(root) {
     const ui=document.createElement('section'); ui.className='play-wizard-ui'; source.after(ui);
     const field=name=>form.elements.namedItem(name);
     let step=0;
-    const offenseSpecial=()=>special(field('call')?.value || (root.dataset.cpuSpecial==='true'?'kickoff':''));
+    const state = JSON.parse(root.dataset.afterState || '{}');
+    const names = JSON.parse(root.dataset.teamNames || '{}');
+    let opened = false, idleSeconds = 0;
+    // Kick formations are offered only when those calls are legal for this phase.
+    if (field('offense_formation') && field('call')) {
+        [...field('offense_formation').options].filter(option => ['punt','field_goal'].includes(option.value) && (state.phase || 'scrimmage') !== 'scrimmage').forEach(option=>option.remove());
+    }
     const steps=()=>wizardSteps(Boolean(field('call')), Boolean(field('defense')), field('call')?.value || (root.dataset.cpuSpecial==='true'?'kickoff':'inside_run'), field('call') ? [...field('call').options].map(option=>option.value) : []);
     const summary=()=>['offense_formation','call','motion','defense_formation','defense'].filter(name=>field(name)).map(name=>'<li>'+escape(field(name).selectedOptions[0]?.textContent || '')+'</li>').join('')+(field('expect')?'<li>'+escape(field('expect').value)+(field('blitz').checked?' + blitz':' · regular')+'</li>':'');
     function render() {
         ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
         const list=steps(); step=Math.min(step,list.length-1); const current=list[step];
-        ui.innerHTML='<div class="wizard-heading"><div><p>Step '+(step+1)+' of '+list.length+'</p><h2>'+current.title+'</h2></div><button type="button" data-wizard-close>Close</button></div><p class="wizard-progress">'+list.map((item,index)=>'<span class="'+(index===step?'current':'')+'">'+escape(item.title)+'</span>').join(' → ')+'</p><div class="wizard-cards"></div><div class="wizard-nav"><button type="button" data-wizard-back '+(step===0?'disabled':'')+'>Back</button><button type="button" data-wizard-coach>Coach pick</button><button type="button" data-wizard-next>'+(current.kind==='review'?'Call play & watch':'Next')+'</button></div>';
+        const labels = scoreboardText(state, names);
+        ui.innerHTML='<p class="wizard-situation">'+escape((names[state.possession] || '')+' · '+labels.compact+' · '+labels.clock)+'</p><div class="wizard-heading"><div><p>Step '+(step+1)+' of '+list.length+'</p><h2>'+current.title+'</h2></div><button type="button" data-wizard-close>Close</button></div><p class="wizard-progress">'+list.map((item,index)=>'<span class="'+(index===step?'current':'')+'">'+escape(item.title)+'</span>').join(' → ')+'</p><div class="wizard-cards"></div><div class="wizard-nav"><button type="button" data-wizard-back '+(step===0?'disabled':'')+'>Back</button><button type="button" data-wizard-coach>Coach pick</button><button type="button" data-wizard-next>'+(current.kind==='review'?'Call play & watch':'Next')+'</button></div>';
         if (field('defense') && (current.kind.startsWith('defense') || current.kind === 'review')) {
             const opponentFormation = field('offense_formation')?.value || JSON.parse(root.dataset.coachOffense || '{}').formation || 'shotgun';
             const labels = { singleback:'Singleback', shotgun:'Shotgun', spread:'Spread', i_form:'I formation', pistol:'Pistol', trips:'Trips' };
@@ -126,7 +140,7 @@ export function mountPlayWizard(root) {
             options.forEach(option=>{
                 const button=document.createElement('button');button.type='button';button.className='wizard-card';button.setAttribute('aria-pressed',String(selected===option.value));
                 const formation=current.kind.includes('formation')?option.value:field(current.kind.startsWith('defense')?'defense_formation':'offense_formation')?.value;
-                button.innerHTML=playGraphic(current.kind,option.value,formation)+'<span>'+escape(option.text)+'</span>';
+                button.innerHTML=playGraphic(current.kind==='formation' && ['punt','field_goal'].includes(option.value)?'play':current.kind,option.value,formation)+'<span>'+escape(option.text)+'</span>';
                 button.addEventListener('click',()=>{
                     if(current.kind==='defense-type') {field('expect').value=option.value.split(':')[0];field('blitz').checked=option.value.endsWith(':blitz');}
                     else {field(current.name).value=option.value;field(current.name).dispatchEvent(new Event('change',{bubbles:true}));}
@@ -152,9 +166,22 @@ export function mountPlayWizard(root) {
             render();
         };
     }
-    open.addEventListener('click',()=>{
+    const openWizard = () => {
+        opened = true;
         // Close the compact Call play sheet before opening the centered wizard.
         const parent=launch.closest('dialog'); if(parent?.open)parent.close();
         step=0;render();dialog.showModal();
-    });
+    };
+    open.addEventListener('click', openWizard);
+    return ({delta, ready}) => {
+        if (!canAutoOpenWizard({ready, opened, visible:!document.hidden, dialogOpen:Boolean(root.querySelector('dialog[open]'))})) {
+            idleSeconds = 0; return;
+        }
+        idleSeconds += delta;
+        if (idleSeconds >= 5) openWizard();
+    };
+}
+
+export function canAutoOpenWizard({ready, opened, visible, dialogOpen}) {
+    return ready && !opened && visible && !dialogOpen;
 }
