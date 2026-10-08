@@ -1,3 +1,4 @@
+import { gameNavigation } from './game-navigation.js';
 import { turnoverMoment, crossedTurnover } from './live-announcement.js';
 import { buildStadium } from './stadium.js';
 import { samplePreSnapMotion } from './motion.js';
@@ -17,7 +18,7 @@ import { buildFootballPlayer, animateFootballPlayer } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
-export function mountPractice(root) {
+export function mountPractice(root, onReady = () => {}) {
     if (root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const host = root.querySelector('[data-field]');
@@ -510,6 +511,7 @@ export function mountPractice(root) {
         } else if (running || phase === 'result') audioTime = soundTime;
         tickPlayWizard?.({delta, ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         renderState(); controls.update(); renderer.render(scene, camera);
+        onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
             submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
@@ -522,6 +524,7 @@ export function mountPractice(root) {
     const cleanup = () => {
         if (disposed) return;
         disposed = true;
+        disposeNavigation();
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();
         audio.dispose();
@@ -538,4 +541,18 @@ export function mountPractice(root) {
     };
     document.addEventListener('livewire:navigating', cleanup, { once: true });
     window.addEventListener('pagehide', cleanup, { once: true });
+    const disposeNavigation = gameNavigation(root, {
+        dispose: cleanup,
+        mount: mountPractice,
+        freeze: () => {
+            renderer.render(scene, camera);
+            const cover = document.createElement('canvas');
+            cover.width = renderer.domElement.width; cover.height = renderer.domElement.height;
+            cover.getContext('2d').drawImage(renderer.domElement, 0, 0);
+            const bounds = host.getBoundingClientRect();
+            cover.style.cssText = `position:fixed;pointer-events:none;z-index:9999;left:${bounds.left}px;top:${bounds.top}px;width:${bounds.width}px;height:${bounds.height}px`;
+            (document.fullscreenElement || document.body).append(cover);
+            return cover;
+        },
+    });
 }
