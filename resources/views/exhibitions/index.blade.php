@@ -3,7 +3,7 @@
     <header><p class="text-blue-300 text-sm uppercase tracking-widest">World overview</p><h1 class="text-3xl font-semibold mt-2">{{ $world->name }}</h1><p class="text-gray-400 mt-2">Your teams, games, and the next chapter of your football world.</p></header>
     <div class="world-modes">
         <a class="world-mode active" href="#exhibitions"><span class="mode-label">Play now</span><h2>Exhibitions</h2><p>Coach a matchup, watch the CPU, or Quick Sim to the final score.</p></a>
-        <section class="world-mode"><span class="mode-label">Coming later</span><h2>Seasons</h2><p>A home for schedules, standings, and a full season of games.</p></section>
+        <a class="world-mode active" href="{{ route('seasons.index') }}"><span class="mode-label">Season setup</span><h2>Seasons</h2><p>Create a season, preview its schedule, and explore league and team hubs.</p></a>
         <section class="world-mode"><span class="mode-label">Coming later</span><h2>Franchise</h2><p>A home for your team's story across multiple seasons.</p></section>
     </div>
     <div id="exhibitions"><h2 class="text-2xl font-semibold">Exhibitions</h2></div>

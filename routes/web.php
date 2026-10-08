@@ -35,6 +35,14 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
 
     Route::middleware([\App\Http\Middleware\RequireWorld::class])->group(function () {
 
+        Route::get('/seasons', [\App\Http\Controllers\SeasonController::class, 'index'])->name('seasons.index');
+        Route::get('/seasons/create', [\App\Http\Controllers\SeasonController::class, 'create'])->name('seasons.create');
+        Route::post('/seasons/preview', [\App\Http\Controllers\SeasonController::class, 'preview'])->name('seasons.preview');
+        Route::post('/seasons', [\App\Http\Controllers\SeasonController::class, 'store'])->name('seasons.store');
+        Route::get('/seasons/{season}', [\App\Http\Controllers\SeasonController::class, 'show'])->name('seasons.show');
+        Route::put('/seasons/{season}/controls', [\App\Http\Controllers\SeasonController::class, 'controls'])->name('seasons.controls');
+        Route::get('/seasons/{season}/teams/{team}', [\App\Http\Controllers\SeasonController::class, 'team'])->name('seasons.team');
+
         Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');
 
         Route::get('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'index'])->name('exhibitions.index');

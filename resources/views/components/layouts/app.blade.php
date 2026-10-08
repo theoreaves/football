@@ -21,6 +21,7 @@
     <a class="shrink-0" href="{{ route('worlds.index') }}"><x-brand-logo class="w-44" /></a>
     @if(app(\App\Support\CurrentWorld::class)->id)
     <a href="{{ route('home') }}">World overview</a><a href="{{ route('teams.editor.index') }}">Teams</a>
+    <a href="{{ route('seasons.index') }}">Seasons</a>
     @endif
     <a href="{{ route('practice') }}">Practice field</a>
     <a class="ml-auto" href="{{ route('worlds.index') }}">Worlds</a>
