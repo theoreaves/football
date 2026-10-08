@@ -130,7 +130,12 @@ export function mountPlayWizard(root) {
                 button.addEventListener('click',()=>{
                     if(current.kind==='defense-type') {field('expect').value=option.value.split(':')[0];field('blitz').checked=option.value.endsWith(':blitz');}
                     else {field(current.name).value=option.value;field(current.name).dispatchEvent(new Event('change',{bubbles:true}));}
+                    step++;
                     render();
+                    const heading = ui.querySelector('h2');
+                    heading.tabIndex = -1;
+                    heading.focus({preventScroll:true});
+                    ui.scrollIntoView({block:'start'});
                 });cards.append(button);
             });
         }
