@@ -279,3 +279,6 @@
 .season-box-dialog::backdrop { background: rgb(0 0 0 / 65%); }
 .season-box-dialog > button { padding: 8px 12px; margin-bottom: 12px; border: 1px solid #64748b; border-radius: 6px; }
 .season-box-dialog iframe { width: 100%; height: 76dvh; border: 0; background: #0b1423; }
+
+.score-clock { text-align: right; }
+.score-clock-status { display: block; font-size: 10px; line-height: 1.4; color: #bae6fd; }

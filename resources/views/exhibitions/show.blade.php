@@ -59,7 +59,7 @@
         </div>
         @endforeach
         <p data-situation class="game-situation">{{ $shown['status'] === 'final' ? 'Game over' : match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point try', default => (['', '1st', '2nd', '3rd', '4th'][$shown['down']] ?? 'Down '.$shown['down']).' & '.($shown['distance'] >= 100 - $shown['spot'] ? 'Goal' : $shown['distance']).' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opp '.(100-$shown['spot'])) } }}</p>
-        <p data-clock class="score-clock">{{ $shown['status'] === 'final' ? 'FINAL' : ($shown['quarter'] >= 5 ? 'OT'.($shown['quarter'] > 5 ? $shown['quarter'] - 4 : '') : 'Q'.$shown['quarter']).' · '.gmdate('i:s', $shown['clock']) }}</p>
+        <div class="score-clock"><p data-clock>{{ $shown['status'] === 'final' ? 'FINAL' : ($shown['quarter'] >= 5 ? 'OT'.($shown['quarter'] > 5 ? $shown['quarter'] - 4 : '') : 'Q'.$shown['quarter']).' · '.gmdate('i:s', $shown['clock']) }}</p><span data-clock-status class="score-clock-status">{{ $shown['status'] !== 'final' && ($shown['clock_running'] ?? false) ? 'Running' : 'Stopped' }}</span></div>
         <h1 data-scoreboard class="sr-only">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1>
     </div>
     <p class="game-coaches">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>

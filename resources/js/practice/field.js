@@ -206,6 +206,7 @@ export function mountPractice(root, onReady = () => {}) {
         root.querySelector('[data-away-score]').textContent = state.away_score;
         root.querySelectorAll('[data-possession]').forEach(node => node.textContent = node.dataset.possession === state.possession ? '●' : '');
         root.querySelector('[data-clock]').textContent = labels.clock;
+        root.querySelector('[data-clock-status]').textContent = labels.clockStatus;
         root.querySelector('[data-situation]').textContent = labels.compact;
         root.querySelectorAll('[data-timeout-marks]').forEach(node => {
             const count = state.timeouts?.[node.dataset.timeoutMarks] ?? 3;
