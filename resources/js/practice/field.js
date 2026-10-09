@@ -1,3 +1,4 @@
+import { showSimProgress } from '../sim-progress.js';
 import { gameNavigation } from './game-navigation.js';
 import { turnoverMoment, crossedTurnover } from './live-announcement.js';
 import { buildStadium } from './stadium.js';
@@ -405,6 +406,7 @@ export function mountPractice(root, onReady = () => {}) {
             event.stopPropagation();
             return;
         }
+        showSimProgress();
         saveCamera(); setCpuAuto(false); root.querySelector('[data-finish-sim-form] button').disabled = true;
     });
     root.querySelector('[data-save-highlight-form]')?.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); });

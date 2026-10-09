@@ -1,8 +1,10 @@
+import { mountSimProgress } from './sim-progress.js';
 import { mountSeasonBoxScores } from './season-box-scores.js';
 import { mountSeasonDepth } from './season-depth.js';
 import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
 function initializePractice() {
+    mountSimProgress();
     const appearance = document.querySelector('[data-player-appearance]');
     if (appearance) import('./player-appearance.js').then(module => module.mountPlayerAppearance(appearance)).catch(() => {
         appearance.querySelector('[data-appearance-panel]').hidden = false;

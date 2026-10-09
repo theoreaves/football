@@ -1,3 +1,4 @@
+import { hideSimProgress } from '../sim-progress.js';
 // Keep the rendered field visible while the next server-generated game view loads.
 export function submissionUrl(form, currentUrl) {
     // Named form controls can shadow native properties such as form.action.
@@ -47,6 +48,8 @@ export function gameNavigation(root, { freeze, dispose, mount }) {
             reload.style.textDecoration = 'underline';
             message.append(reload);
             document.body.append(message);
+        } finally {
+            hideSimProgress();
         }
     };
     root.addEventListener('submit', submit);

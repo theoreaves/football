@@ -2,7 +2,7 @@
 @php
     $cpuGames = $fixtures->filter(fn($game) => (int) $game->week === (int) $season->current_week && !$game->exhibition_id && $game->status === 'scheduled' && ($season->settings['members'][$game->home_team_id]['control'] ?? 'human') === 'cpu' && ($season->settings['members'][$game->away_team_id]['control'] ?? 'human') === 'cpu')->count();
 @endphp
-<form method="POST" action="{{ route('seasons.sim-cpu', $season) }}" class="season-actions">
+<form data-sim-cpu method="POST" action="{{ route('seasons.sim-cpu', $season) }}" class="season-actions">
     @csrf
     <input type="hidden" name="week" value="{{ $season->current_week }}">
     <input type="hidden" name="return_tab" value="{{ request('tab') === 'schedule' ? 'schedule' : 'overview' }}">
