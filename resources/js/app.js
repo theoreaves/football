@@ -5,6 +5,14 @@ import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
 function initializePractice() {
     mountSimProgress();
+    document.querySelectorAll('[data-player-tabs]').forEach(root => {
+        if (root.dataset.tabsMounted) return;
+        root.dataset.tabsMounted = 'true';
+        root.querySelectorAll('[data-player-tab]').forEach(button => button.addEventListener('click', () => {
+            root.querySelectorAll('[data-player-tab]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button)));
+            root.querySelectorAll('[data-player-panel]').forEach(panel => panel.hidden = panel.dataset.playerPanel !== button.dataset.playerTab);
+        }));
+    });
     const appearance = document.querySelector('[data-player-appearance]');
     if (appearance) import('./player-appearance.js').then(module => module.mountPlayerAppearance(appearance)).catch(() => {
         appearance.querySelector('[data-appearance-panel]').hidden = false;

@@ -5,6 +5,11 @@
     @if(session('player_editor_saved'))<span data-player-editor-saved hidden></span>@endif
     @if(session('status'))<p class="my-4">{{ session('status') }}</p>@endif
     @if($errors->any())<ul class="my-4 text-red-700">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
+    @if($mode === 'edit')
+    <div data-player-tabs>
+        <div role="tablist" aria-label="Player details" class="player-editor-tabs"><button type="button" role="tab" aria-selected="true" aria-controls="player-attributes" data-player-tab="attributes">Attributes</button><button type="button" role="tab" aria-selected="false" aria-controls="player-statistics" data-player-tab="statistics">Stats</button></div>
+    @endif
+    <div id="player-attributes" data-player-panel="attributes" role="tabpanel">
     <form method="POST" action="{{ $mode === 'create' ? route('teams.editor.teams.players.store', [$team, 'year' => $year]) : route('teams.editor.teams.players.update', [$team, $player, 'year' => $year, 'season' => $season?->id, 'embedded' => request()->boolean('embedded') ? 1 : null]) }}" class="space-y-6 mt-4">
         @csrf @if($mode === 'edit') @method('PUT') @endif
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -25,5 +30,10 @@
         </div>
         <button class="bg-blue-600 text-white rounded px-5 py-2">Save player</button>
     </form>
+    </div>
+    @if($mode === 'edit')
+    <div id="player-statistics" data-player-panel="statistics" role="tabpanel" hidden>@include('teams.players.stats')</div>
+    </div>
+    @endif
 </div>
 </x-layouts.app>

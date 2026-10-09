@@ -100,7 +100,8 @@ class TeamRosterController extends Controller
         $pivot = $attached->pivot->toArray();
         $ratings = app(PlayerRatings::class)->forPlayer($player);
 
-        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit']);
+        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit',
+            'statHistory' => app(\App\Services\Seasons\SeasonStats::class)->playerHistory($player->id, $season)]);
     }
 
     public function update(Team $team, Player $player, Request $request)

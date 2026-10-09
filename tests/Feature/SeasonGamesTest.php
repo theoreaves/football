@@ -270,3 +270,55 @@ test('bulk CPU sim skips games already underway and respects control changes', f
     $this->post(route('seasons.sim-cpu', $season), ['week' => 1])->assertRedirect()->assertSessionHas('status', 'No unstarted CPU vs CPU games remain this week.');
     $this->assertDatabaseCount('exhibitions', 1);
 });
+
+test('team and player season stats include completed games and keep previous seasons separate', function () {
+    $fixture = $this->fixture;
+    $team = $fixture->homeTeam;
+    $team->update(['team_logo' => 'logos/test.png']);
+    $this->get(route('seasons.team', [$this->season, $team, 'tab' => 'schedule']))->assertOk()->assertSee('season-fixture-logo', false);
+    $this->get(route('seasons.team', [$this->season, $team, 'tab' => 'stats']))->assertOk()->assertSee('0 completed games');
+    $this->post(route('seasons.game', [$this->season, $fixture]), ['quick_sim' => 1])->assertRedirect();
+    $game = $fixture->fresh()->exhibition;
+    $stats = app(\App\Services\Seasons\SeasonStats::class)->team($this->season, $team->id);
+    $box = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game);
+    expect($stats['totals']['games'])->toBe(1)->and($stats['totals']['yards'])->toBe($box['teams']['home']['yards'])
+        ->and($stats['totals']['points_for'])->toBe($game->state['home_score']);
+    expect(array_sum(array_column($stats['players'], 'passing_yards')))->toBe(array_sum(array_column($box['players']['home'], 'passing_yards')));
+    $this->get(route('seasons.team', [$this->season, $team, 'tab' => 'stats']))->assertOk()->assertSee('1 completed games')->assertSee('Points scored:');
+    $playerId = array_key_first($stats['players']);
+    $previous = $this->season->replicate();
+    $previous->year = 2025;
+    $previous->name = 'Previous season';
+    $previous->save();
+    $oldGame = $game->replicate();
+    $oldGame->save();
+    $oldFixture = $fixture->fresh()->replicate();
+    $oldFixture->season_id = $previous->id;
+    $oldFixture->exhibition_id = $oldGame->id;
+    $oldFixture->save();
+    $rows = app(\App\Services\Seasons\SeasonStats::class)->playerHistory($playerId, $this->season);
+    expect(collect($rows)->pluck('season.year')->all())->toBe([2026, 2025]);
+    $this->get(route('teams.editor.teams.players.edit', [$team, $playerId, 'year' => 2026, 'season' => $this->season->id, 'embedded' => 1]))
+        ->assertOk()->assertSee('data-player-tab="statistics"', false)->assertSee('Current season')->assertSee('Previous seasons')->assertSee('Previous season');
+});
+
+test('season stats credit a substituted quarterback by player identity', function () {
+    $fixture = $this->fixture;
+    $game = app(SeasonGames::class)->start($this->season, $fixture, true);
+    $backup = collect($game->rosters['home']['pool'])->first(fn ($p) => $p['position'] === 'QB' && $p['id'] !== $game->rosters['home']['players']['QB']['id']);
+    $before = app(\App\Services\Simulation\ExhibitionEngine::class)->initial(180, 42, false);
+    $before['game_lineup']['home']['QB'] = $backup['id'];
+    $before['rules'] = ['penalties' => false, 'injuries' => false];
+    $after = $before;
+    $after['stats']['home']['plays'] = 1;
+    $after['stats']['home']['yards'] = 8;
+    $after['spot'] += 8;
+    $after['down'] = 2;
+    $after['distance'] = 2;
+    $play = ['before' => $before, 'after' => $after, 'call' => 'short_pass', 'outcome' => 'tackle', 'carrier' => 'WR1', 'gain' => 8, 'target' => 8, 'summary' => 'Completed pass', 'clock_seconds' => 7];
+    $game->update(['history' => [$play]]);
+    $stats = app(\App\Services\Seasons\SeasonStats::class)->team($this->season, $fixture->home_team_id);
+    expect($stats['players'][$backup['id']]['pass_attempts'])->toBe(1)->and($stats['players'][$backup['id']]['passing_yards'])->toBe(8)
+        ->and($stats['players'][$backup['id']]['passer_rating'])->toBe(100.0);
+    expect($stats['players'])->not->toHaveKey($game->rosters['home']['players']['QB']['id']);
+});

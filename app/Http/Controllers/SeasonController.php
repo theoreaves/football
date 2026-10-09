@@ -232,6 +232,9 @@ class SeasonController extends Controller
 
         return view('seasons.team', ['season' => $season, 'team' => $team, 'tab' => $tab,
             'member' => $season->settings['members'][$team->id],
+            'teamStats' => in_array($tab, ['stats', 'overview']) ? app(\App\Services\Seasons\SeasonStats::class)->team($season, $team->id) : null,
+            'record' => app(\App\Services\Seasons\SeasonGames::class)->standings($season)[$team->id],
+            'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])->mapWithKeys(fn ($t) => [$t->id => route('teams.art', ['team' => $t, 'asset' => 'team_logo'])]),
             'players' => $players, 'positions' => $positions, 'position' => $position, 'depthPlayers' => $depthPlayers,
             'fixtures' => $season->fixtures()->where(fn ($q) => $q->where('home_team_id', $team->id)->orWhere('away_team_id', $team->id))->orderBy('week')->get()]);
     }
