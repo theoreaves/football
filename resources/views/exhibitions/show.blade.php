@@ -43,47 +43,7 @@
                                     $eyeColor = $starter['appearance']['eye_color'] ?? '#17202b';
                                 @endphp
                                 <div class="flex gap-2 items-center rounded p-2" style="background:#223552;min-width:0;">
-                                    <div class="shrink-0 w-14 h-16 rounded overflow-hidden" style="background:#354d69" role="img" aria-label="Portrait of {{ $starter['name'] }}">
-                                      @if(!empty($starter['portrait_url']))
-                                        <img src="{{ $starter['portrait_url'] }}" alt="" loading="lazy" class="w-full h-full object-cover">
-                                      @else
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 64" width="56" height="64" aria-hidden="true">
-                                          <rect width="56" height="64" fill="#354d69"/>
-                                          <ellipse cx="28" cy="67" rx="28" ry="22" fill="{{ $appearance[$lineupSide]['uniform']['shirt'] ?? '#64748b' }}"/>
-                                          <rect x="23" y="40" width="10" height="12" rx="4" fill="{{ $skin }}"/>
-                                          <ellipse cx="28" cy="27" rx="{{ $headShape === 'wide' ? 19 : ($headShape === 'long' ? 14 : 16) }}" ry="{{ $headShape === 'long' ? 22 : ($headShape === 'wide' ? 17 : 19) }}" fill="{{ $skin }}"/>
-                                          @if($hairStyle === 'bald')
-                                            {{-- No hair --}}
-                                          @elseif($hairStyle === 'buzz')
-                                            <path d="M12 24 Q10 6 28 7 Q46 6 44 24 Q28 14 12 24Z" fill="{{ $hair }}"/>
-                                          @elseif($hairStyle === 'curly')
-                                            @foreach([13,19,26,33,40,44] as $curlX)
-                                              <circle cx="{{ $curlX }}" cy="{{ $curlX === 13 || $curlX === 44 ? 19 : 12 }}" r="7" fill="{{ $hair }}"/>
-                                            @endforeach
-                                          @elseif($hairStyle === 'long')
-                                            <path d="M11 24 Q6 4 29 6 Q50 3 46 25 L48 50 L39 47 L40 18 Q28 11 16 19 L16 48 L8 50Z" fill="{{ $hair }}"/>
-                                          @else
-                                            <path d="M12 25 Q8 5 29 7 Q48 5 44 26 L41 18 Q27 12 15 20Z" fill="{{ $hair }}"/>
-                                          @endif
-                                          <circle cx="22" cy="29" r="1.5" fill="{{ $eyeColor }}"/><circle cx="34" cy="29" r="1.5" fill="{{ $eyeColor }}"/>
-                                          @if($browStyle === 'thick')
-                                            <path d="M18 25h8 M30 25h8" stroke="{{ $hair }}" stroke-width="2.5" stroke-linecap="round"/>
-                                          @elseif($browStyle === 'angled')
-                                            <path d="M18 26l8 -2 M30 24l8 2" stroke="{{ $hair }}" stroke-width="1.5"/>
-                                          @endif
-                                          @if($beardStyle === 'full')
-                                            <path d="M14 34 Q15 49 28 50 Q41 49 42 34 Q36 45 28 46 Q20 45 14 34Z" fill="{{ $hair }}"/>
-                                          @elseif($beardStyle === 'goatee')
-                                            <path d="M23 43 Q28 54 33 43Z" fill="{{ $hair }}"/>
-                                          @elseif($beardStyle === 'moustache')
-                                            <path d="M20 39 Q24 35 28 39 Q32 35 36 39 Q30 42 28 40 Q24 42 20 39" fill="{{ $hair }}"/>
-                                          @elseif($beardStyle === 'stubble')
-                                            <path d="M18 38 Q28 51 38 38" stroke="{{ $hair }}" stroke-opacity=".42" stroke-width="3" fill="none"/>
-                                          @endif
-                                          <path d="M23 38 Q28 41 33 38" stroke="#49352a" stroke-width="1" fill="none"/>
-                                        </svg>
-                                      @endif
-                                    </div>
+                                    @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $starter, 'portraitSide' => $lineupSide])
                                     <div class="min-w-0"><p class="text-xs text-blue-300">{{ $lineupRole }} · #{{ $starter['number'] ?? '—' }}</p><p class="text-sm font-semibold truncate" title="{{ $starter['name'] }}">{{ $starter['name'] }}</p></div>
                                 </div>
                             @endif
@@ -198,6 +158,53 @@
         <h2 class="game-event-title {{ $title === 'FLAG!' ? 'text-yellow-300' : 'text-blue-300' }}">{{ $title }}</h2>
         @endforeach
         <p class="mt-2">{{ $last['summary'] }}</p>
+        @php
+            $resultSide = $last['before']['possession'] ?? 'home';
+            $otherSide = $resultSide === 'home' ? 'away' : 'home';
+            $resultCall = $last['call'] ?? '';
+            $resultOutcome = $last['outcome'] ?? '';
+            $resultReceiver = $last['receiver_role'] ?? null;
+            $resultCarrier = $last['carrier'] ?? 'RB';
+            $resultPlayers = [];
+            $addResultPlayer = function (string $side, string $role, string $label) use (&$resultPlayers, $exhibition) {
+                $person = $exhibition->rosters[$side]['players'][$role] ?? null;
+                if (!$person) return;
+                foreach ($resultPlayers as $existing) {
+                    if (($existing['player']['id'] ?? null) === ($person['id'] ?? null)) return;
+                }
+                $resultPlayers[] = ['player' => $person, 'side' => $side, 'role' => $role, 'label' => $label];
+            };
+            if (in_array($resultCall, ['field_goal', 'extra_point'], true)) {
+                $addResultPlayer($resultSide, 'K', 'Kicker');
+            } elseif ($resultCall === 'punt') {
+                $addResultPlayer($resultSide, 'P', 'Punter');
+            } elseif (in_array($resultCall, ['kickoff'], true)) {
+                $addResultPlayer($resultSide, 'K', 'Kicker');
+            } elseif ($resultReceiver !== null && isset($exhibition->rosters[$resultSide]['players'][$resultReceiver])) {
+                $addResultPlayer($resultSide, 'QB', 'Quarterback');
+                $addResultPlayer($resultSide, $resultReceiver, 'Target');
+                if ($resultOutcome === 'interception') $addResultPlayer($otherSide, 'CB1', 'Interception');
+                elseif ($resultOutcome !== 'incomplete') $addResultPlayer($otherSide, 'CB1', 'Defense');
+            } elseif ($resultCarrier === 'QB' && in_array($resultOutcome, ['sack', 'fumble'], true)) {
+                $addResultPlayer($resultSide, 'QB', 'Quarterback');
+                $addResultPlayer($otherSide, 'LB2', 'Defense');
+            } else {
+                $addResultPlayer($resultSide, $resultCarrier, 'Ball carrier');
+                $addResultPlayer($otherSide, 'LB2', 'Defense');
+            }
+        @endphp
+        @if(count($resultPlayers))
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Players involved in this play">
+                @foreach(array_slice($resultPlayers, 0, 3) as $resultEntry)
+                    <div class="rounded-lg bg-gray-700 p-2 flex flex-col items-center gap-1 min-w-0">
+                        @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $resultEntry['player'], 'portraitSide' => $resultEntry['side']])
+                        <span class="text-xs text-blue-200">{{ $resultEntry['label'] }} · {{ $resultEntry['role'] }}</span>
+                        <span class="text-sm font-medium truncate w-full">{{ $resultEntry['player']['name'] ?? 'Player' }}</span>
+                        <span class="text-xs text-gray-300">#{{ $resultEntry['player']['number'] ?? '—' }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
         <button type="button" data-result-ok class="bg-blue-700 rounded px-5 py-2 mt-3">OK · Continue</button>
         <p class="mt-2 text-sm text-gray-400">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
     </div>
