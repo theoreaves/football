@@ -168,6 +168,7 @@ class PlayTimeline
             $defense['CB1'][0] = 6;
             $defense['CB2'][0] = 6;
         }
+        $runnerPath = null;
         $tracks = [];
         foreach ($offense as $role => [$x, $z]) {
             $path = [$point(0, $x, $z), $point(1, $x + ($role === 'QB' ? -2 : 1), $z), $point(6, $x + 2, $z)];
@@ -188,6 +189,10 @@ class PlayTimeline
                     $point(2.4, max(0, $play['gain'] * .25), $cutZ),
                     $point(4.1, $play['gain'] * .72, $endZ + ($cutZ - $endZ) * .25),
                     $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+            }
+            if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
+                // Keep the ball on the exact RB track once the handoff completes.
+                $runnerPath = $path;
             }
             if ($role === 'QB' && $play['carrier'] === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(2, $qbSet, 26.7), $point(5.3, $play['gain'], 26.7), $point(6, $play['gain'], 26.7)];
@@ -231,6 +236,18 @@ class PlayTimeline
             if ($play['carrier'] === 'QB') {
                 $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35, 26.7, 1), $point(2, $qbSet, 26.7, 1), $point(5.3, $play['gain'], 26.7, 1), $point(6, $play['gain'], 26.7, 1)];
             }
+        }
+        // The runner may cut multiple times. Use the same sampled waypoints for
+        // ball and runner instead of drawing a straight ball-only line.
+        // Keep the snap-to-handoff keyframes (0-.6s), then synchronize at 1s.
+        if ($runnerPath !== null) {
+            $ball = array_merge(
+                array_values(array_filter($ball, fn ($frame) => $frame[0] < 1)),
+                array_map(
+                    fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]],
+                    array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= 1))
+                )
+            );
         }
         $events = [[0, 'Snap'], [.6, $special ? 'Kick setup' : ($pass || ($play['throwaway'] ?? false) || $play['carrier'] === 'QB' ? 'Dropback' : 'Handoff')], [2.2, $special ? 'Kick in flight' : ($pass || ($play['throwaway'] ?? false) ? 'Pass in flight' : (($play['scramble'] ?? false) ? 'QB scramble' : 'Run'))], [3.8, $pass ? match ($play['outcome']) {
             'incomplete' => 'Incomplete pass', 'interception' => 'Intercepted', default => 'Catch'
