@@ -278,6 +278,12 @@ export function mountPractice(root, onReady = () => {}) {
                 const fall = Math.min(1, (elapsed - animation.contact_at) / .55);
                 mesh.rotation.z = fall * Math.PI / 2; mesh.position.y = fall * .15;
             }
+            const kneelingHolder = animation?.players?.[i]?.pose === 'holder-kneel' && ['set', 'play', 'result'].includes(phase);
+            mesh.userData.holderKneel = kneelingHolder;
+            if (kneelingHolder) {
+                mesh.position.y = -.45;
+                mesh.rotation.y = playDirection * Math.PI / 2;
+            }
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);

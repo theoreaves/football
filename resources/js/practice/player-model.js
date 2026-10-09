@@ -124,6 +124,12 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
 }
 
 export function animateFootballPlayer(group, moving, time, index, throwing = null) {
+    if (group.userData.holderKneel) {
+        group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? -1.55 : 1.1; });
+        group.userData.arms?.forEach((arm, i) => { arm.rotation.z = i === 0 ? -.12 : .12; arm.rotation.x = -1.05; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.85; });
+        return;
+    }
     const stride = moving ? Math.sin(time * 16 + index) * .5 : 0;
     group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? stride : -stride; });
     group.userData.arms?.forEach((arm, i) => { arm.rotation.z = 0; arm.rotation.x = i === 0 ? -stride * .65 : stride * .65; });

@@ -45,6 +45,24 @@ class SpecialTeamsTimeline
                 $player['path'] = [$initial, $point(1.2, $kick + $direction, 0, 26.7), $point(6, $landing, 0, 26.7)];
             }
         } unset($player);
+        if ($goalKick) {
+            // The QB track is repurposed as the kicker above. Use the RB track for
+            // the holder, retaining its own player identity and uniform.
+            foreach ($base['players'] as &$player) {
+                if ($player['team'] !== 'offense' || $player['role'] !== 'RB') {
+                    continue;
+                }
+                $player['pose'] = 'holder-kneel';
+                $player['path'] = [
+                    $point(0, $kick - 1.4 * $direction, 0, 26.7),
+                    $point(.7, $kick - .45 * $direction, 0, 26.7),
+                    $point(1.2, $kick - .45 * $direction, 0, 26.7),
+                    $point(6, $kick - .45 * $direction, 0, 26.7),
+                ];
+                break;
+            }
+            unset($player);
+        }
         $height = $goalKick && str_ends_with($play['outcome'], '_good') ? 5 : ($goalKick || str_ends_with($play['outcome'], '_touchback') ? .25 : 1);
         $base['ball'] = [$point(0, $kickoff ? $kick : $absolute($play['before']['spot']) - $direction, $kickoff ? .25 : 1, 26.7),
             $point(1.2, $kick, .5, 26.7), $point(2.4, ($kick + $landing) / 2, $blocked ? 1 : 14, (26.7 + $endZ) / 2),
