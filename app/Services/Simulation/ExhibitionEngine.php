@@ -211,12 +211,14 @@ class ExhibitionEngine
             $state['stats'][$side]['yards'] += $gain;
         }
         $deadSpot = $before['spot'] + $gain;
-        $name = fn ($player) => $player['name'].(isset($player['number']) ? ' (#'.$player['number'].')' : '');
-        $qb = $name($off['QB']);
-        $runner = $name($off[$carrier]);
-        $receiver = $name($off[$targetRole ?? 'WR1']);
-        $tackler = $name($def[$targetRole !== null && $carrier !== 'QB' ? 'CB1' : 'LB2']);
-        $interceptor = $name($def['CB1']);
+        $name = fn ($player, string $role) => $role.' '.$player['name'].(isset($player['number']) ? ' (#'.$player['number'].')' : '');
+        $qb = $name($off['QB'], 'QB');
+        $runner = $name($off[$carrier], $carrier);
+        $receiverRole = $targetRole ?? 'WR1';
+        $receiver = $name($off[$receiverRole], $receiverRole);
+        $tacklerRole = $targetRole !== null && $carrier !== 'QB' ? 'CB1' : 'LB2';
+        $tackler = $name($def[$tacklerRole], $tacklerRole);
+        $interceptor = $name($def['CB1'], 'CB1');
         $yardage = $gain < 0 ? 'a loss of '.abs($gain).' yards' : "{$gain} yards";
         $completed = "{$qb} completes to {$receiver} for {$yardage}";
         $run = $scramble ? "{$qb} escapes pressure and scrambles for {$yardage}" : "{$qb} hands off to {$runner} for {$yardage}";
