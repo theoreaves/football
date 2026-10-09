@@ -40,6 +40,8 @@
     <section class="season-panel"><h2>Human / CPU control</h2><p>Check as many teams as you want. Unchecked teams use CPU control. Changes apply to games that have not started.</p><form method="POST" action="{{ route('seasons.controls', $season) }}" class="space-y-3">@csrf @method('PUT')
     @foreach($members as $id => $member)<label class="block"><input type="checkbox" name="human[]" value="{{ $id }}" @checked($member['control'] === 'human')> {{ $member['name'] }} · Human</label>@endforeach
     <button class="landing-button">Save team control</button></form></section>
+@elseif($tab === 'leaders')
+    @include('seasons.leaders')
 @elseif($tab === 'playoffs')
     <section class="season-panel"><h2>Playoff format</h2><p>{{ \App\Services\Seasons\SeasonOptions::PLAYOFFS[$season->settings['playoffs']] }}</p><p>Qualification, seeding, and the bracket will be connected after regular-season game processing.</p></section>
 @else
