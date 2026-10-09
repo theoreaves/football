@@ -2,6 +2,7 @@
 <div class="max-w-5xl mx-auto p-6 bg-white text-gray-900">
     <h1 class="text-2xl font-semibold">{{ $mode === 'create' ? 'Add Player' : 'Edit Player' }} · {{ $team->name }} ({{ $year }})</h1>
     @if(isset($season))<a data-player-editor-back href="{{ route('seasons.team', ['season' => $season, 'team' => $team, 'tab' => 'roster']) }}" class="underline">Back to roster</a>@else<a href="{{ route('teams.editor.teams.players.index', [$team, 'year' => $year]) }}" class="underline">Back to Players</a>@endif
+    @if(session('player_editor_saved'))<span data-player-editor-saved hidden></span>@endif
     @if(session('status'))<p class="my-4">{{ session('status') }}</p>@endif
     @if($errors->any())<ul class="my-4 text-red-700">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
     <form method="POST" action="{{ $mode === 'create' ? route('teams.editor.teams.players.store', [$team, 'year' => $year]) : route('teams.editor.teams.players.update', [$team, $player, 'year' => $year, 'season' => $season?->id, 'embedded' => request()->boolean('embedded') ? 1 : null]) }}" class="space-y-6 mt-4">

@@ -2,7 +2,13 @@ export function rosterMatches(name, position, search, filter) {
     return name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) && (!filter || position === filter);
 }
 
+export function closeSavedPlayerEditor(document, window) {
+    if (!document.querySelector('[data-player-editor-saved]') || window.parent === window) return;
+    window.parent.postMessage({type: 'football:close-player-editor'}, window.location.origin);
+}
+
 export function mountSeasonRoster() {
+    closeSavedPlayerEditor(document, window);
     const back = document.querySelector('[data-player-editor-back]');
     back?.addEventListener('click', event => {
         if (window.parent === window) return;

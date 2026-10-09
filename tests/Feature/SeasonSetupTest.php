@@ -60,7 +60,7 @@ test('human control can change without altering fixtures and seasons remain worl
     $this->post(route('seasons.preview'), $this->setup)->assertNotFound();
 });
 
-test('season player editor stays embedded after saving and returns to the roster', function () {
+test('season player editor signals successful save to close and retains the player and roster membership', function () {
     $player = \App\Models\Player::create(['firstname' => 'Theo', 'lastname' => 'Reaves', 'position' => 'QB', 'age' => 25]);
     \App\Models\TeamPlayer::create(['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB', 'depth_chart_position' => 'QB1', 'jersey_number' => 12]);
     $this->post(route('seasons.store'), ['setup' => json_encode($this->setup)])->assertRedirect();
@@ -69,10 +69,14 @@ test('season player editor stays embedded after saving and returns to the roster
     $this->get(route('seasons.team', ['season' => $season, 'team' => $this->teams[0], 'tab' => 'roster']))->assertOk()->assertSee('data-roster-search', false)->assertSee('data-roster-editor', false);
     $this->get(route('teams.editor.teams.players.edit', $parameters))->assertOk()->assertSee('Back to roster')->assertSee('data-player-editor-back', false)->assertDontSee('Close world');
     $this->put(route('teams.editor.teams.players.update', $parameters), ['firstname' => 'Theo', 'lastname' => 'Updated', 'appearance' => ['head_shape' => 'wide', 'hair' => 'curly', 'hair_color' => '#332211', 'eye_color' => '#2266aa', 'beard' => 'goatee'], 'height_inches' => 77, 'weight_pounds' => 290, 'position' => 'QB', 'age' => 25, 'depth_chart_position' => 'QB1', 'jersey_number' => 12, 'ratings' => array_fill_keys(\App\Services\Simulation\PlayerRatings::FIELDS, 70)])
-        ->assertRedirect(route('teams.editor.teams.players.edit', $parameters));
+        ->assertRedirect(route('teams.editor.teams.players.edit', $parameters))->assertSessionHas('player_editor_saved', true);
     $this->assertDatabaseHas('players', ['id' => $player->id, 'lastname' => 'Updated', 'height_inches' => 77, 'weight_pounds' => 290]);
     expect($player->fresh()->appearance)->toBe(['head_shape' => 'wide', 'hair' => 'curly', 'hair_color' => '#332211', 'eye_color' => '#2266aa', 'beard' => 'goatee']);
-    $this->get(route('teams.editor.teams.players.edit', $parameters))->assertOk()->assertSee('Edit appearance')->assertSee('data-player-body', false);
+    $this->get(route('teams.editor.teams.players.edit', $parameters))->assertOk()->assertSee('Edit appearance')->assertSee('data-player-body', false)->assertSee('data-player-editor-saved', false);
+    $this->assertDatabaseCount('players', 1);
+    $this->assertDatabaseCount('team_players', 1);
+    $this->assertDatabaseHas('team_players', ['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB']);
+    $this->get(route('seasons.team', ['season' => $season, 'team' => $this->teams[0], 'tab' => 'roster']))->assertOk()->assertSee('Updated');
     $this->put(route('teams.editor.teams.players.update', $parameters), ['firstname' => 'Theo', 'lastname' => 'Invalid', 'position' => 'QB', 'age' => 25, 'depth_chart_position' => 'QB1', 'appearance' => ['hair' => 'invalid'], 'ratings' => array_fill_keys(\App\Services\Simulation\PlayerRatings::FIELDS, 70)])->assertSessionHasErrors('appearance.hair');
     expect($player->fresh()->lastname)->toBe('Updated');
 });

@@ -115,7 +115,8 @@ class TeamRosterController extends Controller
         });
 
         return redirect()->route('teams.editor.teams.players.edit', [$team, $player, 'year' => $year,
-            'season' => $season?->id, 'embedded' => $request->boolean('embedded') ? 1 : null])->with('status', 'Player updated. New games use the updated player.');
+            'season' => $season?->id, 'embedded' => $request->boolean('embedded') ? 1 : null])->with('status', 'Player updated. New games use the updated player.')
+            ->with('player_editor_saved', $request->boolean('embedded'));
     }
 
     private function editorSeason(Request $request, Team $team): ?\App\Models\Season
