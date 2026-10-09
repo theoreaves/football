@@ -27,10 +27,16 @@
                     @foreach(['offense' => ['QB','RB','WR1','WR2','WR3','TE','C','LG','RG','LT','RT'], 'defense' => ['DE1','DT1','DT2','DE2','LB1','LB2','LB3','CB1','CB2','S1','S2'], 'special' => ['K','P']] as $lineupGroup => $lineupRoles)
                         <div data-lineup-group="{{ $lineupGroup }}" style="{{ $lineupGroup === 'offense' ? 'display:grid' : 'display:none' }}" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         @foreach($lineupRoles as $lineupRole)
-                            @php($starter = $exhibition->rosters[$lineupSide]['players'][$lineupRole] ?? null)
+                            @php
+                                $starter = $exhibition->rosters[$lineupSide]['players'][$lineupRole] ?? null;
+                            @endphp
                             @if($starter)
-                                @php($skin = $starter['skin_tone'] ?? '#bd906f')
-                                @php($hair = $starter['appearance']['hair_color'] ?? '#29241f')
+                                @php
+                                    $skin = $starter['skin_tone'] ?? '#bd906f';
+                                @endphp
+                                @php
+                                    $hair = $starter['appearance']['hair_color'] ?? '#29241f';
+                                @endphp
                                 <div class="flex gap-2 items-center rounded p-2" style="background:#223552;min-width:0;">
                                     <div class="shrink-0 w-14 h-16 rounded overflow-hidden" style="background:#354d69" role="img" aria-label="Portrait of {{ $starter['name'] }}">
                                       @if(!empty($starter['portrait_url']))
