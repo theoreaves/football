@@ -1,6 +1,6 @@
 <p class="season-notice">Top 10 players in each category from completed regular-season games. Exhibitions and games still in progress are excluded.</p>
 @unless(app(\App\Services\Seasons\LeagueLeaders::class)->isReady($season))
-    <p class="season-notice">League leaders are updating after completed games. Reload once the background queue processes the update.</p>
+    <p class="season-notice">Season leaders are being prepared. Rankings are published when a completed week advances.</p>
 @endunless
 @foreach($leaders as $title => $leaderboard)
 <section class="season-panel">

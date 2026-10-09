@@ -87,8 +87,6 @@ class SeasonGames
         $fixture->update([
             'status' => 'final', 'home_score' => $game->state['home_score'], 'away_score' => $game->state['away_score'],
         ]);
-        \App\Jobs\RebuildSeasonLeaders::dispatch((int) $fixture->world_id, (int) $fixture->season_id)
-            ->onConnection('database')->afterCommit();
     }
 
     public function advance(Season $season, int $week): void
@@ -105,6 +103,8 @@ class SeasonGames
             } else {
                 $season->update(['phase' => $season->settings['playoffs'] === 'none' ? 'completed' : 'playoffs_pending']);
             }
+            \App\Jobs\RebuildSeasonLeaders::dispatch((int) $season->world_id, (int) $season->id)
+                ->onConnection('database')->afterCommit();
         }, 3);
     }
 

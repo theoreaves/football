@@ -38,14 +38,14 @@ class LeagueLeaders
     {
         $snapshot = Cache::get($this->key($season));
 
-        return is_array($snapshot) && ($snapshot['fingerprint'] ?? null) === $this->fingerprint($season);
+        return is_array($snapshot) && isset($snapshot['leaders']);
     }
 
     /** Read only precomputed results in a web request. Never replay every game here. */
     public function forSeason(Season $season, int $limit = 10): array
     {
         $snapshot = Cache::get($this->key($season));
-        if (! is_array($snapshot) || ($snapshot['fingerprint'] ?? null) !== $this->fingerprint($season)) {
+        if (! is_array($snapshot)) {
             return [];
         }
 
@@ -55,14 +55,22 @@ class LeagueLeaders
         ], $snapshot['leaders']);
     }
 
+    public function teamStats(Season $season): array
+    {
+        return Cache::get($this->key($season))['teams'] ?? [];
+    }
+
     /** Heavy calculation intended for CLI, not a 30-second HTTP request. */
     public function rebuild(Season $season, int $limit = 100000): array
     {
         $members = $season->settings['members'] ?? [];
         $players = [];
+        $teams = [];
         $stats = app(SeasonStats::class);
         foreach ($members as $teamId => $member) {
-            foreach ($stats->team($season, (int) $teamId)['players'] as $person) {
+            $summary = $stats->team($season, (int) $teamId);
+            $teams[$teamId] = ['name' => $member['name'], 'totals' => $summary['totals'], 'opponents' => $summary['opponents']];
+            foreach ($summary['players'] as $person) {
                 $players[] = $person + [
                     'team_id' => (int) $teamId,
                     'team_name' => $member['name'],
@@ -86,6 +94,7 @@ class LeagueLeaders
         Cache::forever($this->key($season), [
             'fingerprint' => $this->fingerprint($season),
             'leaders' => $leaders,
+            'teams' => $teams,
         ]);
 
         return $leaders;
