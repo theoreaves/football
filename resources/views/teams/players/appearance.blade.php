@@ -1,5 +1,25 @@
 <section data-player-appearance class="player-appearance" data-profile="{{ json_encode(['number' => $pivot['jersey_number'] ?? null, 'lastname' => $player->lastname ?? '']) }}" data-kit="{{ json_encode(app(\App\Http\Controllers\PracticeController::class)->appearance($team, 'home')['uniform'] ?? []) }}">
-    <div class="player-portrait-block"><div data-player-portrait class="player-portrait" aria-label="Player portrait without helmet"></div><button type="button" data-appearance-open class="appearance-button">Edit appearance</button></div>
+    @php
+        $profileName = trim((old('firstname', $player->firstname ?? '')).' '.(old('lastname', $player->lastname ?? '')));
+        $profileHeight = old('height_inches', $player->height_inches ?? null);
+        $profileWeight = old('weight_pounds', $player->weight_pounds ?? null);
+    @endphp
+    <div class="flex flex-wrap items-start gap-6">
+        <div class="player-portrait-block shrink-0">
+            <div data-player-portrait class="player-portrait" aria-label="Player portrait without helmet"></div>
+            <button type="button" data-appearance-open class="appearance-button">Edit appearance</button>
+        </div>
+        <div class="flex-1 min-w-[220px]">
+            <h2 class="text-2xl font-semibold">{{ $profileName !== '' ? $profileName : 'New Player' }}</h2>
+            <p class="mt-1 text-gray-600">{{ old('position', $player->position ?? 'Position not set') }}</p>
+            <dl class="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+                <div><dt class="text-gray-500">Jersey</dt><dd class="font-medium">#{{ old('jersey_number', $pivot['jersey_number'] ?? '—') }}</dd></div>
+                <div><dt class="text-gray-500">Age</dt><dd class="font-medium">{{ old('age', $player->age ?? '—') }}</dd></div>
+                <div><dt class="text-gray-500">Height</dt><dd class="font-medium">{{ is_numeric($profileHeight) ? floor($profileHeight / 12)."′".($profileHeight % 12)."″" : '—' }}</dd></div>
+                <div><dt class="text-gray-500">Weight</dt><dd class="font-medium">{{ is_numeric($profileWeight) ? $profileWeight.' lbs' : '—' }}</dd></div>
+            </dl>
+        </div>
+    </div>
     <div data-appearance-panel hidden class="appearance-panel">
         <div><h2>Player appearance</h2><p>Rotate and zoom the model. Use appearance keeps your changes in this form; Save player commits them.</p><div data-player-body class="player-body-preview" aria-label="Full player model without helmet"></div></div>
         <div class="appearance-options">
