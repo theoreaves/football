@@ -433,12 +433,24 @@ export function mountPractice(root, onReady = () => {}) {
     const coinDialog = root.querySelector('[data-coin-dialog]');
     const pregameDialog = root.querySelector('[data-pregame-dialog]');
     const pregameKey = `${root.dataset.cameraKey}:pregame-shown`;
-    let showPregame = Boolean(pregameDialog);
+    let showPregame = Boolean(pregameDialog && root.dataset.playNumber === '0');
     try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
+    let openingPregame = showPregame;
     if (showPregame) pregameDialog.showModal();
     else coinDialog?.showModal();
-    pregameDialog?.querySelectorAll('[data-pregame-close]').forEach(button => button.addEventListener('click', () => pregameDialog.close()));
+    const pregameCloseButtons = pregameDialog?.querySelectorAll('[data-pregame-close]');
+    root.querySelector('[data-open-lineups]')?.addEventListener('click', () => {
+        if (!pregameDialog || pregameDialog.open) return;
+        openingPregame = false;
+        pregameCloseButtons?.forEach((button, index) => {
+            button.textContent = index === 0 ? 'Close Lineups' : 'Return to Game';
+        });
+        pregameDialog.showModal();
+    });
+    pregameCloseButtons?.forEach(button => button.addEventListener('click', () => pregameDialog.close()));
     pregameDialog?.addEventListener('close', () => {
+        if (!openingPregame) return;
+        openingPregame = false;
         try { sessionStorage.setItem(pregameKey, 'yes'); } catch { /* Storage optional */ }
         coinDialog?.showModal();
     });
@@ -554,7 +566,7 @@ export function mountPractice(root, onReady = () => {}) {
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);
