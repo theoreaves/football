@@ -3,11 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Models\Player;
+use App\Models\World;
+use App\Support\CurrentWorld;
 use Illuminate\Console\Command;
 
 class RandomizePlayerAppearance extends Command
 {
     protected $signature = 'players:randomize-appearance
+        {--world= : Required world ID whose players will be updated}
         {--all : Replace existing appearance settings as well as missing ones}
         {--seed= : Reproducible integer seed (optional)}
         {--dry-run : Show counts without updating players}';
@@ -16,6 +19,21 @@ class RandomizePlayerAppearance extends Command
 
     public function handle(): int
     {
+        $worldOption = $this->option('world');
+        if ($worldOption === null || ! ctype_digit((string) $worldOption) || (int) $worldOption < 1) {
+            $this->error('Specify a valid world ID, for example --world=3.');
+            return self::FAILURE;
+        }
+
+        $worldId = (int) $worldOption;
+        if (! World::query()->whereKey($worldId)->exists()) {
+            $this->error("World {$worldId} does not exist.");
+            return self::FAILURE;
+        }
+
+        app(CurrentWorld::class)->id = $worldId;
+        $this->info("World ID: {$worldId}");
+
         $replace = (bool) $this->option('all');
         $dryRun = (bool) $this->option('dry-run');
         $seed = $this->option('seed');
