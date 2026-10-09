@@ -398,6 +398,7 @@ export function mountPractice(root, onReady = () => {}) {
     root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
     const highlightsDialog = root.querySelector('[data-highlights-dialog]');
     root.querySelector('[data-open-highlights]')?.addEventListener('click', () => highlightsDialog.showModal());
+    root.querySelector('[data-finish-sim-form]')?.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); root.querySelector('[data-finish-sim-form] button').disabled = true; });
     root.querySelector('[data-save-highlight-form]')?.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); });
     const logDialog = root.querySelector('[data-log-dialog]'), boxDialog = root.querySelector('[data-box-dialog]');
     root.querySelector('[data-open-log]')?.addEventListener('click', () => logDialog.showModal());

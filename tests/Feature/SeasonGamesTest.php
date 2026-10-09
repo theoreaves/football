@@ -130,3 +130,96 @@ test('incomplete season rosters leave no partially created game or fixture link'
     expect($this->fixture->fresh()->status)->toBe('scheduled')->and($this->fixture->fresh()->exhibition_id)->toBeNull();
     $this->assertDatabaseCount('exhibitions', 0);
 });
+
+test('finish with quick sim keeps existing plays and highlights and records the season final once', function () {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $state = $game->state;
+    $state['coin_toss']['pending'] = false;
+    $state['rules']['penalties'] = false;
+    $game->update(['state' => $state]);
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => 'kickoff', 'defense' => 'kickoff_return'])->assertRedirect();
+    $game->refresh();
+    $history = $game->history;
+    $history[0]['saved_highlight'] = true;
+    $game->update(['history' => $history]);
+    $controls = $game->state['controls'];
+    $version = $game->state['version'];
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Finish with Quick Sim');
+    $this->post(route('exhibitions.finish', $game), ['version' => $version])->assertRedirect(route('exhibitions.show', ['exhibition' => $game, 'summary' => 1]));
+    $game->refresh();
+    expect($game->state['status'])->toBe('final')->and($game->state['controls'])->toBe($controls);
+    expect($game->history[0])->toBe($history[0])->and(count($game->history))->toBeGreaterThan(count($history));
+    expect(array_column($game->history, 'number'))->toBe(range(1, count($game->history)));
+    expect($this->fixture->fresh()->status)->toBe('final');
+    $snapshot = $game->history;
+    $this->post(route('exhibitions.finish', $game), ['version' => $version])->assertStatus(409);
+    $this->post(route('exhibitions.finish', $game), ['version' => $game->state['version']])->assertRedirect();
+    expect($game->fresh()->history)->toBe($snapshot);
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 1]))->assertOk()->assertDontSee('Finish with Quick Sim');
+});
+
+test('finish with quick sim lets CPU resolve a pending opening coin choice', function () {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $state = $game->state;
+    $state['coin_toss']['winner'] = 'home';
+    $state['coin_toss']['pending'] = true;
+    $state['controls'] = ['home' => 'human', 'away' => 'human'];
+    $state['quarter'] = 4;
+    $state['clock'] = 0;
+    $state['home_score'] = 14;
+    $state['away_score'] = 0;
+    $game->update(['state' => $state]);
+    $this->post(route('exhibitions.finish', $game), ['version' => 0])->assertRedirect();
+    $game->refresh();
+    expect($game->state['status'])->toBe('final')->and($game->state['coin_toss']['pending'])->toBeFalse();
+    expect($game->state['coin_toss']['choice'])->toBeIn(['kick', 'receive']);
+});
+
+test('finish with quick sim resolves saved penalty options before counting the final result', function () {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $state = $game->state;
+    $state['coin_toss']['pending'] = false;
+    $state['controls'] = ['home' => 'cpu', 'away' => 'cpu'];
+    $state['rules']['penalties'] = false;
+    $game->update(['state' => $state]);
+    $this->post(route('exhibitions.play', $game), ['version' => 0])->assertRedirect();
+    $game->refresh();
+    $state = $game->state;
+    $state['quarter'] = 4;
+    $state['clock'] = 0;
+    $state['home_score'] = 14;
+    $state['away_score'] = 0;
+    $state['controls'] = ['home' => 'human', 'away' => 'human'];
+    $history = $game->history;
+    $accepted = $history[0];
+    $accepted['summary'] = 'Accepted saved holding penalty';
+    $accepted['penalty'] = ['accepted' => true, 'beneficiary' => 'home'];
+    $history[0]['penalty'] = $accepted['penalty'];
+    $history[0]['penalty_options'] = ['accept' => ['state' => $state, 'play' => $accepted]];
+    $game->update(['state' => array_merge($state, ['penalty_pending' => true]), 'history' => $history]);
+    $this->post(route('exhibitions.finish', $game), ['version' => $state['version']])->assertRedirect();
+    $game->refresh();
+    expect($game->state['status'])->toBe('final')->and($game->state['penalty_pending'] ?? false)->toBeFalse();
+    expect($game->history[0]['summary'])->toBe('Accepted saved holding penalty')->and($game->history[0]['penalty']['decided'])->toBeTrue();
+    expect($this->fixture->fresh()->status)->toBe('final');
+});
+
+test('finish with quick sim resolves a pending overtime toss', function () {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $state = $game->state;
+    $state['coin_toss']['pending'] = false;
+    $state['controls'] = ['home' => 'human', 'away' => 'human'];
+    $state['quarter'] = 4;
+    $state['clock'] = 0;
+    $state = app(\App\Services\Simulation\Overtime::class)->begin($state);
+    $state['clock'] = 1;
+    expect(app(\App\Services\Simulation\Overtime::class)->pending($state))->toBeTrue();
+    $game->update(['state' => $state]);
+    $this->post(route('exhibitions.finish', $game), ['version' => $state['version']])->assertRedirect();
+    $game->refresh();
+    expect($game->state['status'])->toBe('final')->and(app(\App\Services\Simulation\Overtime::class)->pending($game->state))->toBeFalse();
+});

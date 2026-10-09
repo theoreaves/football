@@ -53,3 +53,7 @@ The roster player editor includes a helmet-free portrait and an expandable appea
 Use appearance closes the panel with the draft values retained; Cancel restores the values from when the panel opened. Save player persists the entire form and closes the season roster/depth-chart popup, refreshing the underlying list. Validation errors keep the editor open. Appearance is captured when a new game is created and included in saved animation tracks, so later player edits do not alter existing game portraits or replays. Existing players and replays use the generic face with no hair until customized.
 
 Quarter length can be selected at season creation and changed in league Settings: 3, 5, 10, or 15 minutes. It is stored in seconds as `settings.quarter_length`, defaulting to 900 for existing seasons. Fixture game creation captures this value; changing it does not rewrite games already started.
+
+## Finish an in-progress game
+
+The game action bar offers Finish with Quick Sim in both exhibitions and season games. It continues the saved clock, score, roster, lineup, fatigue, injuries, and statistics, appending CPU plays to existing history without removing highlights or replays. Pending opening/overtime toss choices and penalty options are resolved by the CPU. Completion opens the box score and records season results once. The submitted state version and row lock prevent a stale click from simulating over a newer play. Replay-only pages and settled final games hide the option.

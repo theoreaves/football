@@ -54,6 +54,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'show'])->name('exhibitions.show');
         Route::delete('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'destroy'])->name('exhibitions.destroy');
         Route::post('/exhibitions/{exhibition}/highlights', [\App\Http\Controllers\ExhibitionController::class, 'saveHighlight'])->name('exhibitions.highlights.save');
+        Route::post('/exhibitions/{exhibition}/finish', [\App\Http\Controllers\ExhibitionController::class, 'finish'])->name('exhibitions.finish');
         Route::post('/exhibitions/{exhibition}/play', [\App\Http\Controllers\ExhibitionController::class, 'play'])->name('exhibitions.play');
         Route::get('/teams/{team}/simulation-ratings', [\App\Http\Controllers\SimulationRatingsController::class, 'edit'])->name('simulation-ratings.edit');
         Route::put('/teams/{team}/simulation-ratings', [\App\Http\Controllers\SimulationRatingsController::class, 'update'])->name('simulation-ratings.update');
