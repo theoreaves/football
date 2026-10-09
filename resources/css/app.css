@@ -282,3 +282,5 @@
 
 .score-clock { text-align: right; }
 .score-clock-status { display: block; font-size: 10px; line-height: 1.4; color: #bae6fd; }
+
+.wizard-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
