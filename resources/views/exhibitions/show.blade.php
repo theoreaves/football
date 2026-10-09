@@ -155,7 +155,9 @@
     @if($last && !$replayOnly)
     <div data-result-popup hidden role="status" class="fixed z-50 bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white border border-blue-400 rounded-xl shadow-xl p-5 w-full max-w-lg text-center">
         @foreach(\App\Support\PlayAnnouncement::titles($last) as $title)
-        <h2 class="game-event-title {{ $title === 'FLAG!' ? 'text-yellow-300' : 'text-blue-300' }}">{{ $title }}</h2>
+        <h2 class="game-event-title {{ !empty($last['penalty']) ? 'text-yellow-300' : 'text-blue-300' }}">
+            @if(!empty($last['penalty']))<svg role="img" aria-label="Yellow penalty flag" title="Penalty flag" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="23" height="23" style="display:inline-block;vertical-align:middle;margin-right:6px"><path d="M5 3v18" stroke="#facc15" stroke-width="2"/><path d="M6 4h13l-3 5 3 5H6Z" fill="#facc15" stroke="#eab308" stroke-width="1"/></svg> @endif{{ $title }}
+        </h2>
         @endforeach
         <p class="mt-2">{{ $last['summary'] }}</p>
         @php
