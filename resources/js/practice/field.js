@@ -403,7 +403,8 @@ export function mountPractice(root, onReady = () => {}) {
     const logDialog = root.querySelector('[data-log-dialog]'), boxDialog = root.querySelector('[data-box-dialog]');
     root.querySelector('[data-open-log]')?.addEventListener('click', () => logDialog.showModal());
     root.querySelector('[data-open-box]')?.addEventListener('click', () => boxDialog.showModal());
-    if (root.dataset.summary === 'true') boxDialog?.showModal();
+    if (root.dataset.showHighlights === 'true') highlightsDialog?.showModal();
+    else if (root.dataset.summary === 'true') boxDialog?.showModal();
     root.querySelector('[data-fullscreen]')?.addEventListener('click', async () => {
         try { if (document.fullscreenElement) await document.exitFullscreen(); else await root.requestFullscreen(); } catch { /* The full-window field remains available. */ }
     });

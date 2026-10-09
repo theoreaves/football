@@ -47,7 +47,7 @@ test('season games capture controls year quarter length and depth without changi
     expect($game->state['controls']['home'])->toBe($settings['members'][$team->id]['control']);
     $original = $game->state;
     $this->put(route('seasons.rules', $this->season), ['quarter_length' => 600])->assertRedirect();
-    $this->post(route('seasons.game', [$this->season, $this->fixture]), ['quick_sim' => 1])->assertRedirect(route('exhibitions.show', ['exhibition' => $game, 'summary' => 0]));
+    $this->post(route('seasons.game', [$this->season, $this->fixture]), ['quick_sim' => 1])->assertRedirect(route('seasons.show', ['season' => $this->season, 'tab' => 'overview']));
     expect($game->fresh()->state)->toBe($original);
     $this->assertDatabaseCount('exhibitions', 1);
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Season · Week 1');
@@ -62,12 +62,14 @@ test('quick sim records one final result with box score and saved replays and ca
     expect((int) $fixture->home_score)->toBe($game->state['home_score']);
     expect($game->history)->not->toBeEmpty();
     expect($game->history[0]['animation'])->not->toBeEmpty();
+    $this->get(route('seasons.box-score', [$this->season, $fixture]))->assertOk()->assertSee('Team statistics')->assertDontSee('data-practice', false);
+    $this->get(route('seasons.show', ['season' => $this->season, 'tab' => 'schedule']))->assertOk()->assertSee('data-season-box', false);
     $this->get(route('exhibitions.show', ['exhibition' => $game, 'summary' => 1]))->assertOk()->assertSee('Box score');
     $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => $game->history[0]['number']]))->assertOk();
     $service = app(SeasonGames::class);
     $rows = $service->standings($this->season);
     $service->record($game);
-    $this->post(route('seasons.game', [$this->season, $this->fixture]), ['quick_sim' => 1])->assertRedirect();
+    $this->post(route('seasons.game', [$this->season, $this->fixture]), ['quick_sim' => 1, 'return_tab' => 'schedule'])->assertRedirect(route('seasons.show', ['season' => $this->season, 'tab' => 'schedule']));
     expect($service->standings($this->season))->toBe($rows);
     expect($rows[$fixture->home_team_id]['wins'] + $rows[$fixture->home_team_id]['losses'] + $rows[$fixture->home_team_id]['ties'])->toBe(1);
     $this->assertDatabaseCount('exhibitions', 1);
@@ -222,4 +224,14 @@ test('finish with quick sim resolves a pending overtime toss', function () {
     $this->post(route('exhibitions.finish', $game), ['version' => $state['version']])->assertRedirect();
     $game->refresh();
     expect($game->state['status'])->toBe('final')->and(app(\App\Services\Simulation\Overtime::class)->pending($game->state))->toBeFalse();
+});
+
+test('box score routes require a started fixture from the requested season and world', function () {
+    $this->get(route('seasons.box-score', [$this->season, $this->fixture]))->assertNotFound();
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $this->get(route('seasons.box-score', [$this->season, $this->fixture]))->assertOk()->assertSee('Box score')->assertDontSee('data-practice', false);
+    $other = Season::create(['league_id' => $this->season->league_id, 'year' => 2027, 'settings' => $this->season->settings]);
+    $this->get(route('seasons.box-score', [$other, $this->fixture]))->assertNotFound();
+    openFootballSave(World::create(['name' => 'Foreign box score']));
+    $this->get(route('seasons.box-score', [$this->season, $this->fixture]))->assertNotFound();
 });

@@ -275,3 +275,7 @@
 .season-game-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .season-game-actions .landing-button { padding: 8px 12px; font-size: 14px; }
 .season-actions button:disabled { opacity: .4; cursor: not-allowed; }
+.season-box-dialog { width: min(1100px, 96vw); max-width: 96vw; max-height: 92dvh; padding: 14px; border: 1px solid #475569; border-radius: 12px; background: #0b1423; color: white; }
+.season-box-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.season-box-dialog > button { padding: 8px 12px; margin-bottom: 12px; border: 1px solid #64748b; border-radius: 6px; }
+.season-box-dialog iframe { width: 100%; height: 76dvh; border: 0; background: #0b1423; }

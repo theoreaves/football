@@ -57,3 +57,5 @@ Quarter length can be selected at season creation and changed in league Settings
 ## Finish an in-progress game
 
 The game action bar offers Finish with Quick Sim in both exhibitions and season games. It continues the saved clock, score, roster, lineup, fatigue, injuries, and statistics, appending CPU plays to existing history without removing highlights or replays. Pending opening/overtime toss choices and penalty options are resolved by the CPU. Completion opens the box score and records season results once. The submitted state version and row lock prevent a stale click from simulating over a newer play. Replay-only pages and settled final games hide the option.
+
+League Quick Sim returns to Overview or Schedule / Results with the final score. Fixture Box score links open the shared statistics view in an iframe dialog without loading the 3D game. Closing the dialog retains the league page. Highlights / Replays opens the game and its highlights dialog.

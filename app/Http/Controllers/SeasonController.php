@@ -136,10 +136,28 @@ class SeasonController extends Controller
     public function game(Request $request, Season $season, \App\Models\SeasonFixture $fixture)
     {
         abort_unless((int) $fixture->season_id === (int) $season->id, 404);
-        $data = $request->validate(['quick_sim' => ['sometimes', 'boolean']]);
+        $data = $request->validate(['quick_sim' => ['sometimes', 'boolean'], 'return_tab' => ['sometimes', Rule::in(['overview', 'schedule'])]]);
         $game = app(\App\Services\Seasons\SeasonGames::class)->start($season, $fixture, (bool) ($data['quick_sim'] ?? false));
 
+        if ($data['quick_sim'] ?? false) {
+            $message = $game->state['status'] === 'final'
+                ? $season->settings['members'][$fixture->away_team_id]['name'].' '.$game->state['away_score'].' – '.$season->settings['members'][$fixture->home_team_id]['name'].' '.$game->state['home_score'].' · Final'
+                : 'This game is already underway. Use Resume game or Finish with Quick Sim inside it.';
+
+            return redirect()->route('seasons.show', ['season' => $season, 'tab' => $data['return_tab'] ?? 'overview'])->with('status', $message);
+        }
+
         return redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => $game->state['status'] === 'final' ? 1 : 0]);
+    }
+
+    public function boxScore(Season $season, \App\Models\SeasonFixture $fixture)
+    {
+        abort_unless((int) $fixture->season_id === (int) $season->id && $fixture->exhibition_id, 404);
+        $exhibition = $fixture->exhibition()->with(['homeTeam', 'awayTeam'])->firstOrFail();
+
+        return view('seasons.box-score', ['season' => $season, 'exhibition' => $exhibition, 'state' => $exhibition->state,
+            'teamNames' => ['home' => $exhibition->homeTeam->name, 'away' => $exhibition->awayTeam->name],
+            'boxScore' => app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition)]);
     }
 
     public function advance(Request $request, Season $season)

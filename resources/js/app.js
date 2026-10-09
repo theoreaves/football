@@ -1,3 +1,4 @@
+import { mountSeasonBoxScores } from './season-box-scores.js';
 import { mountSeasonDepth } from './season-depth.js';
 import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
@@ -8,6 +9,7 @@ function initializePractice() {
         appearance.querySelector('[data-appearance-open]').hidden = true;
         appearance.querySelector('[data-player-portrait]').textContent = 'Preview unavailable. You can still edit and save appearance below.';
     });
+    mountSeasonBoxScores();
     mountSeasonDepth();
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
