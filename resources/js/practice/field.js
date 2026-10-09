@@ -431,7 +431,26 @@ export function mountPractice(root, onReady = () => {}) {
     let injuryShown = false;
     try { injuryShown = sessionStorage.getItem(injuryKey) === 'shown'; } catch { /* Optional persistence. */ }
     const coinDialog = root.querySelector('[data-coin-dialog]');
-    coinDialog?.showModal();
+    const pregameDialog = root.querySelector('[data-pregame-dialog]');
+    const pregameKey = `${root.dataset.cameraKey}:pregame-shown`;
+    let showPregame = Boolean(pregameDialog);
+    try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
+    if (showPregame) pregameDialog.showModal();
+    else coinDialog?.showModal();
+    pregameDialog?.querySelectorAll('[data-pregame-close]').forEach(button => button.addEventListener('click', () => pregameDialog.close()));
+    pregameDialog?.addEventListener('close', () => {
+        try { sessionStorage.setItem(pregameKey, 'yes'); } catch { /* Storage optional */ }
+        coinDialog?.showModal();
+    });
+    pregameDialog?.querySelectorAll('[data-lineup-tab]').forEach(button => button.addEventListener('click', () => {
+        pregameDialog.querySelectorAll('[data-lineup-tab]').forEach(tab => {
+            const active = tab === button;
+            tab.setAttribute('aria-selected', String(active));
+            tab.classList.toggle('bg-blue-700', active);
+            tab.classList.toggle('bg-gray-700', !active);
+        });
+        pregameDialog.querySelectorAll('[data-lineup-group]').forEach(panel => { panel.style.display = panel.dataset.lineupGroup === button.dataset.lineupTab ? 'grid' : 'none'; });
+    }));
     coinDialog?.addEventListener('cancel', event => { if (coinDialog.dataset.pending === 'true') event.preventDefault(); });
     const otDialog = root.querySelector('[data-ot-dialog]');
     otDialog?.addEventListener('cancel', event => event.preventDefault());

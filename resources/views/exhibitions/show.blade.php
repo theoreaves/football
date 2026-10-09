@@ -6,6 +6,60 @@
     $teamNames = ['home' => $exhibition->homeTeam->name, 'away' => $exhibition->awayTeam->name];
 @endphp
 <div data-show-highlights="{{ request()->boolean('highlights') && !$replayOnly ? 'true' : 'false' }}" data-summary="{{ request()->boolean('summary') && !$replayOnly && $state['status'] === 'final' ? 'true' : 'false' }}" data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ \App\Services\Simulation\FieldOrientation::line($state) }}" data-next-possession="{{ $state['possession'] }}" data-next-direction="{{ \App\Services\Simulation\FieldOrientation::direction($state) }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' || $replayOnly ? 'true' : 'false' }}" class="game-stage text-white">
+    @if(!$replayOnly && !request()->boolean('summary') && (int) ($state['version'] ?? 0) === 0 && !($cpuOffense && $cpuDefense))
+    <dialog data-pregame-dialog class="game-dialog" style="width:min(94vw,1050px);max-width:1050px;max-height:90vh;overflow:auto;background:#101827;color:#f9fafb;border:1px solid #36537b;border-radius:16px;padding:24px;">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div><p class="text-blue-300 text-sm tracking-widest uppercase">Game Day</p><h2 class="text-2xl font-bold">Starting Lineups</h2></div>
+            <button type="button" data-pregame-close class="bg-blue-700 hover:bg-blue-600 rounded px-5 py-2">Continue to Coin Toss →</button>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-5" role="tablist" aria-label="Lineup group">
+            <button type="button" data-lineup-tab="offense" aria-selected="true" class="rounded px-4 py-2 bg-blue-700">Offense</button>
+            <button type="button" data-lineup-tab="defense" aria-selected="false" class="rounded px-4 py-2 bg-gray-700">Defense</button>
+            <button type="button" data-lineup-tab="special" aria-selected="false" class="rounded px-4 py-2 bg-gray-700">Special Teams</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            @foreach(['away', 'home'] as $lineupSide)
+                <section class="rounded-lg p-3" style="background:#1a2840;">
+                    <div class="flex gap-3 items-center mb-4">
+                        @if($appearance[$lineupSide]['team_logo'] ?? null)<img src="{{ $appearance[$lineupSide]['team_logo'] }}" alt="" loading="lazy" class="w-12 h-12 object-contain">@endif
+                        <div><p class="text-xs uppercase tracking-wider text-blue-300">{{ ucfirst($lineupSide) }} team</p><h3 class="font-bold text-lg">{{ $teamNames[$lineupSide] }}</h3></div>
+                    </div>
+                    @foreach(['offense' => ['QB','RB','WR1','WR2','WR3','TE','C','LG','RG','LT','RT'], 'defense' => ['DE1','DT1','DT2','DE2','LB1','LB2','LB3','CB1','CB2','S1','S2'], 'special' => ['K','P']] as $lineupGroup => $lineupRoles)
+                        <div data-lineup-group="{{ $lineupGroup }}" style="{{ $lineupGroup === 'offense' ? 'display:grid' : 'display:none' }}" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        @foreach($lineupRoles as $lineupRole)
+                            @php($starter = $exhibition->rosters[$lineupSide]['players'][$lineupRole] ?? null)
+                            @if($starter)
+                                @php($skin = $starter['skin_tone'] ?? '#bd906f')
+                                @php($hair = $starter['appearance']['hair_color'] ?? '#29241f')
+                                <div class="flex gap-2 items-center rounded p-2" style="background:#223552;min-width:0;">
+                                    <div class="shrink-0 w-14 h-16 rounded overflow-hidden" style="background:#354d69" role="img" aria-label="Portrait of {{ $starter['name'] }}">
+                                      @if(!empty($starter['portrait_url']))
+                                        <img src="{{ $starter['portrait_url'] }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                                      @else
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 64" width="56" height="64" aria-hidden="true">
+                                          <rect width="56" height="64" fill="#354d69"/>
+                                          <ellipse cx="28" cy="67" rx="28" ry="22" fill="{{ $lineupSide === 'home' ? '#4265a1' : '#9f4940' }}"/>
+                                          <rect x="23" y="40" width="10" height="12" rx="4" fill="{{ $skin }}"/>
+                                          <ellipse cx="28" cy="27" rx="16" ry="19" fill="{{ $skin }}"/>
+                                          <path d="M12 25 Q8 5 29 7 Q48 5 44 26 L41 18 Q27 12 15 20Z" fill="{{ $hair }}"/>
+                                          <circle cx="22" cy="29" r="1.5" fill="#17202b"/><circle cx="34" cy="29" r="1.5" fill="#17202b"/>
+                                          <path d="M23 38 Q28 41 33 38" stroke="#49352a" stroke-width="1" fill="none"/>
+                                        </svg>
+                                      @endif
+                                    </div>
+                                    <div class="min-w-0"><p class="text-xs text-blue-300">{{ $lineupRole }} · #{{ $starter['number'] ?? '—' }}</p><p class="text-sm font-semibold truncate" title="{{ $starter['name'] }}">{{ $starter['name'] }}</p></div>
+                                </div>
+                            @endif
+                        @endforeach
+                        </div>
+                    @endforeach
+                </section>
+            @endforeach
+        </div>
+        <p class="mt-4 text-xs text-gray-400">Portraits are lightweight illustrations based on player appearance. Custom player photos can be supported later.</p>
+        <button type="button" data-pregame-close class="mt-4 bg-blue-700 hover:bg-blue-600 rounded px-5 py-2">Start Game →</button>
+    </dialog>
+    @endif
     @if($state['version'] === 0 && isset($state['coin_toss']))
     <dialog data-coin-dialog data-pending="{{ ($state['coin_toss']['pending'] ?? false) ? 'true' : 'false' }}" class="game-dialog text-center">
         <h2 class="game-event-title text-blue-300">COIN TOSS</h2>
