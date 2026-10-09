@@ -128,9 +128,12 @@ class PlayTimeline
         $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true) && $play['carrier'] !== 'QB' && ! ($play['throwaway'] ?? false);
         $receiverRole = $play['receiver_role'] ?? 'WR1';
         $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true);
-        $endZ = $pass ? match ($play['call']) {
-            'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
-        } : ($play['call'] === 'outside_run' ? 42 : 27);
+        // Run toward a catch point near the actual receiver, not WR1's fixed sideline.
+        $receiverZ = $offense[$receiverRole][1] ?? $offense['WR1'][1];
+        $inside = $receiverZ < 26.7 ? 1 : -1;
+        $endZ = $pass ? max(3, min(50, $receiverZ + $inside * match ($play['call']) {
+            'slant' => 6, 'medium_pass' => 3, 'deep_pass' => 2, default => 1,
+        })) : ($play['call'] === 'outside_run' ? 42 : 27);
         if ($play['out_of_bounds'] ?? false) {
             $endZ = $endZ < 26.7 ? 0 : 53.33;
         }
@@ -156,7 +159,7 @@ class PlayTimeline
             }
             if ($role === $receiverRole && $pass) {
                 $end = $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'];
-                $path = [$point(0, $x, $z), $point(2.2, $play['target'] * .45, $z), $point(3.8, $play['target'], $endZ), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
+                $path = [$point(0, $x, $z), $point(2.2, $play['target'] * .45, $z + ($endZ - $z) * .45), $point(3.8, $play['target'], $endZ), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
             }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
                 $path = [$point(0, $x, $z), $point(1, $handoff, 27), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
