@@ -19,11 +19,15 @@
     @endforeach</section>@endif
 @elseif($tab === 'standings')
     <p class="season-notice">Opening standings. Records and tiebreakers will update when season game processing is connected.</p>
-    @foreach(collect($members)->groupBy('conference_name', true) as $conference => $conferenceTeams)
-    <section class="season-panel"><h2>{{ $conference }}</h2><div class="season-table-scroll"><table class="season-table"><thead><tr><th>Team</th><th>Division</th><th>W</th><th>L</th><th>T</th><th>Control</th></tr></thead><tbody>
-    @foreach($conferenceTeams as $id => $member)
-        <tr><td><a href="{{ route('seasons.team', [$season, $id]) }}">{{ $member['name'] }}</a></td><td>{{ $member['division'] }}</td><td>0</td><td>0</td><td>0</td><td>{{ strtoupper($member['control']) }}</td></tr>
-    @endforeach</tbody></table></div></section>@endforeach
+    @foreach(collect($members)->groupBy('conference', true) as $conferenceTeams)
+    <section class="season-panel"><h2>{{ $conferenceTeams->first()['conference_name'] }}</h2>
+    @foreach($conferenceTeams->groupBy('group', true) as $divisionTeams)
+        @if($season->settings['layout'] === 'divisions')<h3 class="text-lg font-semibold mt-5 mb-2">{{ $divisionTeams->first()['division'] }}</h3>@endif
+        <div class="season-table-scroll"><table class="season-table"><thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th><th>Control</th></tr></thead><tbody>
+        @foreach($divisionTeams as $id => $member)
+            <tr><td><a href="{{ route('seasons.team', [$season, $id]) }}">{{ $member['name'] }}</a></td><td>0</td><td>0</td><td>0</td><td>{{ strtoupper($member['control']) }}</td></tr>
+        @endforeach</tbody></table></div>
+    @endforeach</section>@endforeach
 @elseif($tab === 'settings')
     <section class="season-panel"><h2>Season rules</h2><p>{{ $season->settings['games'] }} games · {{ $season->settings['bye'] ? 'One bye' : 'No byes' }} · {{ \App\Services\Seasons\SeasonOptions::PLAYOFFS[$season->settings['playoffs']] }}</p><p>The saved layout and schedule are fixed. Team control and quarter length can change at any time.</p><form method="POST" action="{{ route('seasons.rules', $season) }}" class="season-fields">@csrf @method('PUT')<label>Quarter length<select name="quarter_length">@foreach(\App\Services\Seasons\SeasonOptions::QUARTER_LENGTHS as $seconds => $minutes)<option value="{{ $seconds }}" @selected(old('quarter_length', $season->settings['quarter_length'] ?? 900) == $seconds)>{{ $minutes }} minutes</option>@endforeach</select></label><button class="landing-button">Save quarter length</button></form><p>Applies to season games that have not started. Existing seasons default to 15 minutes.</p></section>
     <section class="season-panel"><h2>Human / CPU control</h2><p>Check as many teams as you want. Unchecked teams use CPU control. Future game integration will apply changes to games that have not started.</p><form method="POST" action="{{ route('seasons.controls', $season) }}" class="space-y-3">@csrf @method('PUT')
