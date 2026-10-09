@@ -31,8 +31,8 @@
         <button class="bg-blue-600 text-white rounded px-5 py-2">Save player</button>
     </div>
     @if($mode === 'edit')
-    <div id="player-statistics" data-player-panel="statistics" role="tabpanel" hidden>@include('teams.players.stats')</div>
-    <div id="player-injuries" data-player-panel="injuries" role="tabpanel" hidden>@include('teams.players.injuries')</div>
+    <div id="player-statistics" data-player-panel="statistics" data-player-lazy-url="{{ route('teams.editor.teams.players.history', [$team, $player, 'tab' => 'statistics', 'year' => $year, 'season' => $season?->id]) }}" role="tabpanel" hidden><p role="status">Statistics will load when this tab is selected.</p></div>
+    <div id="player-injuries" data-player-panel="injuries" data-player-lazy-url="{{ route('teams.editor.teams.players.history', [$team, $player, 'tab' => 'injuries', 'year' => $year, 'season' => $season?->id]) }}" role="tabpanel" hidden><p role="status">Injuries will load when this tab is selected.</p></div>
     </div>
     @endif
     </form>

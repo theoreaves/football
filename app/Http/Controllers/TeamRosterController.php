@@ -100,9 +100,25 @@ class TeamRosterController extends Controller
         $pivot = $attached->pivot->toArray();
         $ratings = app(PlayerRatings::class)->forPlayer($player);
 
-        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit',
-            'statHistory' => app(\App\Services\Seasons\SeasonStats::class)->playerHistory($player->id, $season),
-            'injuryHistory' => app(\App\Services\Seasons\SeasonInjuries::class)->forPlayer($player->id, $season)]);
+        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit']);
+    }
+
+    public function historyTab(Team $team, Player $player, Request $request, string $tab)
+    {
+        abort_unless(in_array($tab, ['statistics', 'injuries'], true), 404);
+        $season = $this->editorSeason($request, $team);
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? date('Y'));
+        $team->players()->where('players.id', $player->id)->wherePivot('team_year', $year)->firstOrFail();
+
+        if ($tab === 'statistics') {
+            $statHistory = app(\App\Services\Seasons\SeasonStats::class)->playerHistory($player->id, $season);
+
+            return view('teams.players.stats', compact('statHistory', 'season', 'year'));
+        }
+
+        $injuryHistory = app(\App\Services\Seasons\SeasonInjuries::class)->forPlayer($player->id, $season);
+
+        return view('teams.players.injuries', compact('injuryHistory'));
     }
 
     public function update(Team $team, Player $player, Request $request)

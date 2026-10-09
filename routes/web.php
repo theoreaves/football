@@ -78,6 +78,10 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
             Route::get('teams/{team}/players/{player}/edit', [TeamRosterController::class, 'edit'])
                 ->name('teams.players.edit');
 
+            Route::get('teams/{team}/players/{player}/history/{tab}', [TeamRosterController::class, 'historyTab'])
+                ->whereIn('tab', ['statistics', 'injuries'])
+                ->name('teams.players.history');
+
             Route::put('teams/{team}/players/{player}', [TeamRosterController::class, 'update'])
                 ->name('teams.players.update');
         });
