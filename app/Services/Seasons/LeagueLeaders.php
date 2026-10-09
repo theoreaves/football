@@ -3,6 +3,7 @@
 namespace App\Services\Seasons;
 
 use App\Models\Season;
+use Illuminate\Support\Facades\Cache;
 
 class LeagueLeaders
 {
@@ -21,7 +22,41 @@ class LeagueLeaders
         'Return yards' => ['field' => 'return_yards', 'columns' => ['return_yards', 'returns', 'return_td']],
     ];
 
+    private function key(Season $season): string
+    {
+        return 'season-leaders:'.$season->world_id.':'.$season->id;
+    }
+
+    private function fingerprint(Season $season): string
+    {
+        $fixtures = $season->fixtures()->where('status', 'final');
+
+        return $fixtures->count().':'.($fixtures->max('updated_at') ?? 'none');
+    }
+
+    public function isReady(Season $season): bool
+    {
+        $snapshot = Cache::get($this->key($season));
+
+        return is_array($snapshot) && ($snapshot['fingerprint'] ?? null) === $this->fingerprint($season);
+    }
+
+    /** Read only precomputed results in a web request. Never replay every game here. */
     public function forSeason(Season $season, int $limit = 10): array
+    {
+        $snapshot = Cache::get($this->key($season));
+        if (! is_array($snapshot) || ($snapshot['fingerprint'] ?? null) !== $this->fingerprint($season)) {
+            return [];
+        }
+
+        return array_map(fn ($board) => [
+            'columns' => $board['columns'],
+            'players' => array_slice($board['players'], 0, $limit),
+        ], $snapshot['leaders']);
+    }
+
+    /** Heavy calculation intended for CLI, not a 30-second HTTP request. */
+    public function rebuild(Season $season, int $limit = 100000): array
     {
         $members = $season->settings['members'] ?? [];
         $players = [];
@@ -48,6 +83,12 @@ class LeagueLeaders
             $leaders[$title] = ['columns' => $definition['columns'], 'players' => array_slice($eligible, 0, $limit)];
         }
 
+        Cache::forever($this->key($season), [
+            'fingerprint' => $this->fingerprint($season),
+            'leaders' => $leaders,
+        ]);
+
         return $leaders;
     }
 }
+
