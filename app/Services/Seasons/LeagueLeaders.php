@@ -60,6 +60,14 @@ class LeagueLeaders
         return Cache::get($this->key($season))['teams'] ?? [];
     }
 
+    /** The week covered by the last completed statistics snapshot. */
+    public function publishedThroughWeek(Season $season): ?int
+    {
+        $week = Cache::get($this->key($season))['through_week'] ?? null;
+
+        return $week === null ? null : (int) $week;
+    }
+
     /** Heavy calculation intended for CLI, not a 30-second HTTP request. */
     public function rebuild(Season $season, int $limit = 100000): array
     {
@@ -95,6 +103,7 @@ class LeagueLeaders
             'fingerprint' => $this->fingerprint($season),
             'leaders' => $leaders,
             'teams' => $teams,
+            'through_week' => (int) ($season->fixtures()->where('status', 'final')->max('week') ?? 0),
         ]);
 
         return $leaders;

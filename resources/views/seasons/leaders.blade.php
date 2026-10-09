@@ -1,3 +1,9 @@
+@php($publishedWeek = app(\App\Services\Seasons\LeagueLeaders::class)->publishedThroughWeek($season))
+@if($publishedWeek !== null)
+    <p class="season-notice">Stats through Week {{ $publishedWeek }}.</p>
+@else
+    <p class="season-notice">Statistics snapshot not yet dated. Week labels will appear after the next statistics rebuild.</p>
+@endif
 <p class="season-notice">Top 10 players in each category from completed regular-season games. Exhibitions and games still in progress are excluded.</p>
 @unless(app(\App\Services\Seasons\LeagueLeaders::class)->isReady($season))
     <p class="season-notice">Season leaders are being prepared. Rankings are published when a completed week advances.</p>

@@ -1,5 +1,11 @@
 <section class="season-panel">
     <h2>League team statistics</h2>
+    @php($publishedWeek = app(\App\Services\Seasons\LeagueLeaders::class)->publishedThroughWeek($season))
+    @if($publishedWeek !== null)
+        <p class="season-notice">Stats through Week {{ $publishedWeek }}.</p>
+    @else
+        <p class="season-notice">Statistics snapshot not yet dated. Week labels will appear after the next statistics rebuild.</p>
+    @endif
     <p>Official season totals through the last advanced week. Rankings refresh after you advance a completed week.</p>
     @if(empty($leagueTeamStats))
         <p class="season-notice">No published team statistics yet. Finish and advance the first week to generate them.</p>
