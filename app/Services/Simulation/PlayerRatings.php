@@ -6,15 +6,15 @@ use App\Models\Player;
 
 class PlayerRatings
 {
-    public const FIELDS = ['speed', 'acceleration', 'strength', 'awareness', 'throwing', 'catching', 'blocking', 'coverage', 'tackling', 'ball_security', 'kicking', 'stamina', 'durability'];
+    public const FIELDS = ['speed', 'acceleration', 'strength', 'awareness', 'throwing', 'catching', 'target_preference', 'blocking', 'coverage', 'tackling', 'ball_security', 'kicking', 'stamina', 'durability'];
 
     public function generate(Player $player): array
     {
         $position = strtoupper($player->position ?? '');
         $specialties = match ($position) {
             'QB' => ['throwing', 'awareness', 'ball_security'],
-            'RB', 'FB' => ['speed', 'acceleration', 'ball_security'],
-            'WR', 'TE' => ['speed', 'acceleration', 'catching'],
+            'RB', 'FB' => ['speed', 'acceleration', 'ball_security', 'target_preference'],
+            'WR', 'TE' => ['speed', 'acceleration', 'catching', 'target_preference'],
             'OL', 'C', 'G', 'T', 'LG', 'RG', 'LT', 'RT' => ['strength', 'blocking'],
             'DL', 'DE', 'DT', 'NT' => ['strength', 'tackling'],
             'LB', 'ILB', 'OLB', 'MLB' => ['awareness', 'tackling', 'strength'],

@@ -126,6 +126,7 @@ class PlayTimeline
         $qbSet = $qbStart - 2;
         $handoff = $qbStart - 1;
         $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true) && $play['carrier'] !== 'QB' && ! ($play['throwaway'] ?? false);
+        $receiverRole = $play['receiver_role'] ?? 'WR1';
         $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true);
         $endZ = $pass ? match ($play['call']) {
             'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
@@ -153,7 +154,7 @@ class PlayTimeline
             if ($role === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(.6, $handoff, 26.7), $point(2.2, $qbSet, $qbZ), $point(6, $qbSet, $qbZ)];
             }
-            if ($role === 'WR1' && $pass) {
+            if ($role === $receiverRole && $pass) {
                 $end = $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'];
                 $path = [$point(0, $x, $z), $point(2.2, $play['target'] * .45, $z), $point(3.8, $play['target'], $endZ), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
             }
@@ -214,7 +215,7 @@ class PlayTimeline
             $holders[] = [2.2, null, null];
         } elseif ($pass) {
             $holders[] = [2.2, null, null];
-            $holders[] = [3.8, $play['outcome'] === 'incomplete' ? null : ($play['outcome'] === 'interception' ? 'defense' : 'offense'), $play['outcome'] === 'interception' ? 'CB1' : 'WR1'];
+            $holders[] = [3.8, $play['outcome'] === 'incomplete' ? null : ($play['outcome'] === 'interception' ? 'defense' : 'offense'), $play['outcome'] === 'interception' ? 'CB1' : $receiverRole];
         } elseif ($play['carrier'] === 'RB') {
             $holders[] = [.6, null, null];
             $holders[] = [1, 'offense', 'RB'];

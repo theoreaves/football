@@ -127,9 +127,11 @@ class ExhibitionEngine
         $outcome = 'tackle';
         $target = 0;
         $carrier = 'RB';
+        $targetRole = null;
         $flip = false;
         if (in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)) {
-            $carrier = 'WR1';
+            $targetRole = app(ReceiverTargets::class)->choose($off, $design, $roll());
+            $carrier = $targetRole;
             $pressureChance = max(.01, min(.35, .08 + ($front - $block) * .003 + ($defense === 'blitz' || $blitz ? .12 : 0) + ($offenseFormation === 'singleback' ? .02 : -.01)));
             $pressure = $roll() < min(.65, $pressureChance + .10);
             $escape = max(.15, min(.8, .65 + ($off['QB']['ratings']['speed'] - 50) * .006 + ($off['QB']['ratings']['awareness'] - 50) * .003));
@@ -153,7 +155,9 @@ class ExhibitionEngine
                     default => $yards($roll(), 18, 35),
                 };
                 $target = min($target, 108 - $state['spot']);
-                $complete = max(.15, min(.93, .64 + ($off['QB']['ratings']['throwing'] + $off['WR1']['ratings']['catching'] - 2 * $coverage) * .004
+                $receiverRatings = $off[$targetRole]['ratings'];
+                $complete = max(.15, min(.93, .64 + ($off['QB']['ratings']['throwing'] + $receiverRatings['catching'] - 2 * $coverage) * .004
+                    + (($receiverRatings['awareness'] ?? 60) - 60) * .0006
                     - match ($call) {
                         'deep_pass' => .2, 'medium_pass' => .1, 'short_pass' => -.06, default => 0
                     }
@@ -168,7 +172,7 @@ class ExhibitionEngine
                 } elseif ($roll() > $complete) {
                     $outcome = 'incomplete';
                 } else {
-                    $gain = $target + $yards($roll(), 0, 9) + (int) max(0, ($off['WR1']['ratings']['speed'] - $def['CB1']['ratings']['speed']) / 5);
+                    $gain = $target + $yards($roll(), 0, 9) + (int) max(0, ($off[$targetRole]['ratings']['speed'] - $def['CB1']['ratings']['speed']) / 5);
                 }
             }
         } else {
@@ -190,7 +194,7 @@ class ExhibitionEngine
         }
         $outOfBounds = false;
         if ($clockStrategy === 'sideline' && $clock->lateHalf($before) && $outcome === 'tackle') {
-            $chance = $carrier === 'WR1' ? .75 : ($call === 'outside_run' ? .65 : .3);
+            $chance = $targetRole !== null && ! $scramble ? .75 : ($call === 'outside_run' ? .65 : .3);
             $outOfBounds = $roll() < $chance;
             if ($outOfBounds) {
                 $gain = max(0, $gain - 2);
@@ -210,8 +214,8 @@ class ExhibitionEngine
         $name = fn ($player) => $player['name'].(isset($player['number']) ? ' (#'.$player['number'].')' : '');
         $qb = $name($off['QB']);
         $runner = $name($off[$carrier]);
-        $receiver = $name($off['WR1']);
-        $tackler = $name($def[$carrier === 'WR1' ? 'CB1' : 'LB2']);
+        $receiver = $name($off[$targetRole ?? 'WR1']);
+        $tackler = $name($def[$targetRole !== null && $carrier !== 'QB' ? 'CB1' : 'LB2']);
         $interceptor = $name($def['CB1']);
         $yardage = $gain < 0 ? 'a loss of '.abs($gain).' yards' : "{$gain} yards";
         $completed = "{$qb} completes to {$receiver} for {$yardage}";
@@ -220,9 +224,9 @@ class ExhibitionEngine
         $summary = str_replace('_', ' ', $design).': '.match ($outcome) {
             'incomplete' => $throwaway ? "{$qb} escapes the pocket and throws the ball away" : "{$qb}'s pass intended for {$receiver} is incomplete",
             'interception' => "{$qb}'s pass intended for {$receiver} is intercepted by {$interceptor} {$gain} yards downfield",
-            'fumble' => ($carrier === 'WR1' ? $completed : ($carrier === 'QB' && ! $scramble ? "{$runner} is sacked by {$tackler} for {$yardage}" : $run))."; {$runner} fumbles, recovered by {$tackler}",
+            'fumble' => ($targetRole !== null && $carrier !== 'QB' ? $completed : ($carrier === 'QB' && ! $scramble ? "{$runner} is sacked by {$tackler} for {$yardage}" : $run))."; {$runner} fumbles, recovered by {$tackler}",
             'sack' => "{$qb} is sacked by {$tackler} for {$yardage}",
-            default => ($carrier === 'WR1' ? $completed : $run).$tackle,
+            default => ($targetRole !== null && $carrier !== 'QB' ? $completed : $run).$tackle,
         };
         if ($flip) {
             $state['stats'][$side]['turnovers']++;
@@ -269,7 +273,8 @@ class ExhibitionEngine
         return $this->finish($state, $before, [
             'design' => $design, 'pressure' => $pressure, 'scramble' => $scramble, 'throwaway' => $throwaway, 'expect' => $expect, 'blitz' => $blitz, 'motion' => $motion,
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
-            'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier, 'summary' => $summary,
+            'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier,
+            'receiver_role' => $targetRole, 'receiver_id' => $targetRole !== null ? ($off[$targetRole]['id'] ?? null) : null, 'summary' => $summary,
         ], $rosters, $seconds);
     }
 
