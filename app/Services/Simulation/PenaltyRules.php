@@ -61,7 +61,7 @@ class PenaltyRules
                     $after['down'] = 1;
                     $after['distance'] = min(10, 100 - $after['spot']);
                 } else {
-                    $after['distance'] -= $yards;
+                    $after['distance'] = $before['distance'] - $yards;
                 }
             } elseif ($type === 'defensive_pass_interference') {
                 if ($choice === null && $after['possession'] === $side && $play['gain'] > $play['target'] && $after['down'] === 1) {
@@ -106,6 +106,11 @@ class PenaltyRules
         $play['penalty'] = ['type' => $type, 'team' => $foulSide, 'beneficiary' => $offense ? $other : $side, 'yards' => $yards, 'accepted' => $accepted, 'explanation' => $explanation, 'play_result' => $playResult];
         $play['no_snap'] = $dead;
         $play['summary'] .= ' · FLAG: '.ucwords(str_replace('_', ' ', $type)).' on '.$foulSide.($accepted ? " · {$yards} yards".($type === 'holding' || $type === 'false_start' ? ' · repeat down' : ($type !== 'encroachment' ? ' · automatic first down' : '')) : ($dead ? ' · declined, no snap; down unchanged' : ' · declined, play stands'));
+
+        if ($accepted && $type === 'encroachment') {
+            $distance = $after['distance'] >= 100 - $after['spot'] ? 'Goal' : $after['distance'];
+            $play['summary'] .= ' · Down '.$after['down'].' & '.$distance;
+        }
 
         return ['state' => $after, 'play' => $play];
     }

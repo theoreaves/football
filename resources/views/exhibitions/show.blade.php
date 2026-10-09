@@ -58,7 +58,7 @@
             <span data-possession="{{ $scoreSide }}">{{ $shown['possession'] === $scoreSide ? '●' : '' }}</span>
         </div>
         @endforeach
-        <p data-situation class="game-situation">{{ $shown['status'] === 'final' ? 'Game over' : match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point try', default => (['', '1st', '2nd', '3rd', '4th'][$shown['down']] ?? 'Down '.$shown['down']).' & '.$shown['distance'].' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opp '.(100-$shown['spot'])) } }}</p>
+        <p data-situation class="game-situation">{{ $shown['status'] === 'final' ? 'Game over' : match($shown['phase'] ?? 'scrimmage') { 'kickoff' => 'Kickoff', 'extra_point' => 'Extra point try', default => (['', '1st', '2nd', '3rd', '4th'][$shown['down']] ?? 'Down '.$shown['down']).' & '.($shown['distance'] >= 100 - $shown['spot'] ? 'Goal' : $shown['distance']).' · '.($shown['spot'] <= 50 ? 'Own '.$shown['spot'] : 'Opp '.(100-$shown['spot'])) } }}</p>
         <p data-clock class="score-clock">{{ $shown['status'] === 'final' ? 'FINAL' : ($shown['quarter'] >= 5 ? 'OT'.($shown['quarter'] > 5 ? $shown['quarter'] - 4 : '') : 'Q'.$shown['quarter']).' · '.gmdate('i:s', $shown['clock']) }}</p>
         <h1 data-scoreboard class="sr-only">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1>
     </div>
@@ -187,7 +187,7 @@
                 <form data-penalty-form method="POST" action="{{ route('exhibitions.play', $exhibition) }}">@csrf
                     <input type="hidden" name="version" value="{{ $state['version'] }}"><input type="hidden" name="action" value="penalty"><input type="hidden" name="decision" value="{{ $decision }}">
                     <button class="bg-blue-700 rounded px-5 py-2">{{ $label }}</button>
-                    <span class="ml-2 text-sm">{{ $teamNames[$option['possession']] }} · Down {{ $option['down'] }} & {{ $option['distance'] }} · {{ $option['spot'] <= 50 ? 'Own '.$option['spot'] : 'Opponent '.(100-$option['spot']) }} · Score {{ $option['away_score'] }}–{{ $option['home_score'] }}</span>
+                    <span class="ml-2 text-sm">{{ $teamNames[$option['possession']] }} · Down {{ $option['down'] }} & {{ $option['distance'] >= 100 - $option['spot'] ? 'Goal' : $option['distance'] }} · {{ $option['spot'] <= 50 ? 'Own '.$option['spot'] : 'Opponent '.(100-$option['spot']) }} · Score {{ $option['away_score'] }}–{{ $option['home_score'] }}</span>
                 </form>
             @endforeach
             </div>

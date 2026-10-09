@@ -14,7 +14,9 @@ class SpecialTeamsTimeline
         $point = fn ($t, $x, $y, $z) => [$t, max(0, min(120, $x)), $y, $z];
         $kickoff = $play['call'] === 'kickoff';
         $kick = $absolute($play['before']['spot']) - ($kickoff ? 0 : 7 * $direction);
-        $landing = $absolute($play['landing']);
+        // Older saved touchbacks capped the landing at the goal line.
+        $landingSpot = str_ends_with($play['outcome'], '_touchback') ? max(103, $play['landing']) : $play['landing'];
+        $landing = $absolute($landingSpot);
         $return = $play['return_yards'];
         $end = $landing - $direction * $return;
         $blocked = str_ends_with($play['outcome'], '_blocked');

@@ -53,7 +53,7 @@ class SpecialTeams
             $seconds = $call === 'extra_point' ? 0 : 7;
         } else {
             $gain = $call === 'punt' ? (int) round(28 + $off['P']['ratings']['kicking'] * .2 + $roll() * 12) : (int) round(45 + $off['K']['ratings']['kicking'] * .2 + $roll() * 14);
-            $landing = min(100, $before['spot'] + $gain);
+            $landing = min(110, $before['spot'] + $gain);
             $gain = $landing - $before['spot'];
             $returnCall = in_array($defense, ['punt_return', 'kickoff_return'], true);
             $returner = $def['CB1'];

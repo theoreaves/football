@@ -395,3 +395,15 @@ test('man coverage follows motion while zone coverage holds its assignment even 
         }
     }
 });
+
+test('touchback animations travel into either end zone including older saved plays', function () {
+    foreach (['home', 'away'] as $side) {
+        foreach (['kickoff', 'punt'] as $call) {
+            $play = ['before' => ['possession' => $side, 'spot' => 35, 'distance' => 10], 'call' => $call, 'carrier' => $call === 'punt' ? 'P' : 'K', 'outcome' => $call.'_touchback', 'gain' => 65, 'target' => 0, 'summary' => 'Touchback', 'landing' => 100, 'return_yards' => 0];
+            $animation = app(\App\Services\Simulation\SpecialTeamsTimeline::class)->build($play, engineRosters());
+            $x = $animation['ball'][3][1];
+            expect($side === 'home' ? $x > 110 : $x < 10)->toBeTrue();
+            expect(end($animation['ballHolders']))->toBe([$call === 'kickoff' ? 0 : 1.2, null, null]);
+        }
+    }
+});

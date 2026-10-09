@@ -29,7 +29,7 @@ class GameClock
         }
 
         return match ($tempo) {
-            'hurry' => 3, 'drain' => 38, default => 22
+            'hurry' => 3, 'drain' => 38, default => 34
         };
     }
 

@@ -293,3 +293,41 @@ test('human defensive penalty choices preserve an untimed down or allow the fina
     expect($accepted['stats']['away']['penalties'])->toBe(1);
     expect($declined['stats']['away']['penalties'])->toBe(0);
 });
+
+test('normal pace uses realistic running-clock preparation and stopped clocks have no runoff', function () {
+    $clock = app(\App\Services\Simulation\GameClock::class);
+    expect($clock->runoff(clockState(['clock_running' => true]), 'normal'))->toBe(34);
+    expect($clock->runoff(clockState(['clock_running' => false]), 'normal'))->toBe(0);
+});
+
+test('encroachment preserves the line to gain through engine finish and both human decisions', function () {
+    $engine = app(ExhibitionEngine::class);
+    foreach ([10 => 5, 5 => 10] as $distance => $expected) {
+        $before = clockState(['spot' => 30, 'down' => 1, 'distance' => $distance]);
+        $play = ['call' => 'clock_event', 'defense' => 'man_to_man', 'carrier' => 'RB', 'outcome' => 'penalty', 'gain' => 0, 'target' => 0, 'summary' => 'No snap', 'no_snap' => true];
+        foreach ([true, false] as $accept) {
+            $penalty = app(PenaltyRules::class)->enforce($before, $before, $play, 'encroachment', $accept);
+            $result = $engine->finish($penalty['state'], $before, $penalty['play'], clockRosters(), 0);
+            expect($result['state']['down'])->toBe(1)
+                ->and($result['state']['spot'])->toBe($accept ? 35 : 30)
+                ->and($result['state']['distance'])->toBe($accept ? $expected : $distance);
+        }
+    }
+});
+
+test('a generated human encroachment offers first and five rather than a new first and ten', function () {
+    $engine = app(ExhibitionEngine::class);
+    for ($seed = 1; $seed < 1000; $seed++) {
+        $before = clockState(['seed' => $seed, 'spot' => 30, 'down' => 1, 'distance' => 10, 'rules' => ['penalties' => true], 'controls' => ['home' => 'human', 'away' => 'cpu']]);
+        if (app(PenaltyRules::class)->preSnap($before) !== 'encroachment') {
+            continue;
+        }
+        $result = $engine->resolve($before, clockRosters(), 'inside_run', 'man_to_man');
+        expect($result['state']['distance'])->toBe(5)
+            ->and($result['play']['penalty_options']['accept']['state']['distance'])->toBe(5)
+            ->and($result['play']['penalty_options']['decline']['state']['distance'])->toBe(10);
+
+        return;
+    }
+    throw new RuntimeException('No encroachment seed found.');
+});
