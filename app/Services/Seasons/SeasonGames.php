@@ -80,9 +80,15 @@ class SeasonGames
         if ($game->state['status'] !== 'final' || ($game->state['penalty_pending'] ?? false)) {
             return;
         }
-        SeasonFixture::where('exhibition_id', $game->id)->where('status', '!=', 'final')->update([
+        $fixture = SeasonFixture::where('exhibition_id', $game->id)->where('status', '!=', 'final')->first();
+        if (! $fixture) {
+            return;
+        }
+        $fixture->update([
             'status' => 'final', 'home_score' => $game->state['home_score'], 'away_score' => $game->state['away_score'],
         ]);
+        \App\Jobs\RebuildSeasonLeaders::dispatch((int) $fixture->world_id, (int) $fixture->season_id)
+            ->onConnection('database')->afterCommit();
     }
 
     public function advance(Season $season, int $week): void
