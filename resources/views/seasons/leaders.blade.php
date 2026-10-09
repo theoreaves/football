@@ -1,4 +1,7 @@
-@php($publishedWeek = app(\App\Services\Seasons\LeagueLeaders::class)->publishedThroughWeek($season))
+@php
+    $publishedWeek = app(\App\Services\Seasons\LeagueLeaders::class)
+        ->publishedThroughWeek($season);
+@endphp
 @if($publishedWeek !== null)
     <p class="season-notice">Stats through Week {{ $publishedWeek }}.</p>
 @else
