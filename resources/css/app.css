@@ -265,3 +265,9 @@
 .appearance-choice svg { width: 58px; height: 58px; }
 .appearance-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 @media(max-width:700px) { .appearance-panel { grid-template-columns: 1fr; } .player-body-preview { height: 380px; } }
+
+.standings-division { margin-top: 20px; border: 1px solid #475569; border-radius: 10px; overflow: hidden; background: #0b1423; }
+.standings-division + .standings-division { margin-top: 32px; }
+.standings-division-heading { padding: 14px 18px; background: #223851; color: #bfdbfe; font-size: 20px; font-weight: 700; border-bottom: 1px solid #475569; }
+.standings-division .season-table-scroll { margin-top: 0; }
+.standings-division .season-table tbody tr:last-child td { border-bottom: 0; }
