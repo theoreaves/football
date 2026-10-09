@@ -30,6 +30,7 @@ class SeasonController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'], 'year' => ['required', 'integer', 'between:1900,2200'],
             'league_id' => ['required', 'integer'], 'team_count' => ['required', 'integer', Rule::in(SeasonOptions::SIZES)],
+            'quarter_length' => ['sometimes', 'integer', Rule::in(array_keys(SeasonOptions::QUARTER_LENGTHS))],
             'games' => ['required', 'integer'], 'bye' => ['required', 'boolean'],
             'layout' => ['required', Rule::in(['flat', 'conferences', 'divisions'])],
             'playoffs' => ['required', Rule::in(array_keys(SeasonOptions::PLAYOFFS))],
@@ -109,7 +110,7 @@ class SeasonController extends Controller
                 throw ValidationException::withMessages(['year' => 'This season was already created.']);
             }
             $season->fill(['name' => $data['name'], 'phase' => 'regular_season', 'current_week' => 1,
-                'settings' => ['games' => (int) $data['games'], 'bye' => (bool) $data['bye'], 'layout' => $data['layout'], 'playoffs' => $data['playoffs'], 'members' => $members]])->save();
+                'settings' => ['quarter_length' => (int) ($data['quarter_length'] ?? 900), 'games' => (int) $data['games'], 'bye' => (bool) $data['bye'], 'layout' => $data['layout'], 'playoffs' => $data['playoffs'], 'members' => $members]])->save();
             foreach ($generator->generate($members, (int) $data['games'], (bool) $data['bye']) as $fixture) {
                 $season->fixtures()->create($fixture);
             }
@@ -130,6 +131,20 @@ class SeasonController extends Controller
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])
                 ->filter(fn ($team) => (bool) $team->team_logo)->mapWithKeys(fn ($team) => [$team->id => route('teams.art', ['team' => $team, 'asset' => 'team_logo'])]),
             'fixtures' => $season->fixtures()->orderBy('week')->orderBy('id')->get()]);
+    }
+
+    public function rules(Request $request, Season $season)
+    {
+        $data = $request->validate(['quarter_length' => ['required', 'integer', Rule::in(array_keys(SeasonOptions::QUARTER_LENGTHS))]]);
+        DB::transaction(function () use ($season, $data) {
+            $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            abort_unless($locked->settings, 404);
+            $settings = $locked->settings;
+            $settings['quarter_length'] = (int) $data['quarter_length'];
+            $locked->update(['settings' => $settings]);
+        });
+
+        return redirect()->route('seasons.show', ['season' => $season, 'tab' => 'settings'])->with('status', 'Quarter length updated. New season games use this setting.');
     }
 
     public function controls(Request $request, Season $season)

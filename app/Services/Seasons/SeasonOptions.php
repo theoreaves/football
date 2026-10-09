@@ -4,6 +4,8 @@ namespace App\Services\Seasons;
 
 class SeasonOptions
 {
+    public const QUARTER_LENGTHS = [180 => 3, 300 => 5, 600 => 10, 900 => 15];
+
     public const SIZES = [4, 8, 12, 16, 24, 28, 32];
 
     public const PLAYOFFS = ['none' => 'No playoffs', '2' => '2 teams', '4' => '4 teams', '8' => '8 teams', 'nfl10' => 'Historical NFL · 10 teams', 'nfl12' => 'Classic NFL · 12 teams', 'nfl14' => 'Current NFL · 14 teams'];

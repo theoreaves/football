@@ -40,6 +40,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::post('/seasons/preview', [\App\Http\Controllers\SeasonController::class, 'preview'])->name('seasons.preview');
         Route::post('/seasons', [\App\Http\Controllers\SeasonController::class, 'store'])->name('seasons.store');
         Route::get('/seasons/{season}', [\App\Http\Controllers\SeasonController::class, 'show'])->name('seasons.show');
+        Route::put('/seasons/{season}/rules', [\App\Http\Controllers\SeasonController::class, 'rules'])->name('seasons.rules');
         Route::put('/seasons/{season}/controls', [\App\Http\Controllers\SeasonController::class, 'controls'])->name('seasons.controls');
         Route::get('/seasons/{season}/teams/{team}', [\App\Http\Controllers\SeasonController::class, 'team'])->name('seasons.team');
         Route::put('/seasons/{season}/teams/{team}/depth', [\App\Http\Controllers\SeasonController::class, 'depth'])->name('seasons.depth');

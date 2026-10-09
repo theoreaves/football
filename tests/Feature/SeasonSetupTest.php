@@ -100,3 +100,20 @@ test('season depth charts save ordered eligible players without changing world r
     $this->put($url, ['position' => 'QB', 'players' => [$ids[0], $ids[0]]])->assertSessionHasErrors();
     expect($season->fresh()->settings['depth_charts'][$this->teams[0]->id]['QB'])->toBe(array_reverse($ids));
 });
+
+test('season quarter length is saved at setup and can change without altering other settings or fixtures', function () {
+    $this->post(route('seasons.store'), ['setup' => json_encode($this->setup + ['quarter_length' => 300])])->assertRedirect();
+    $season = Season::withoutGlobalScopes()->firstOrFail();
+    expect($season->settings['quarter_length'])->toBe(300);
+    $settings = $season->settings;
+    $fixtures = $season->fixtures()->get()->toArray();
+    foreach ([180, 300, 600, 900] as $seconds) {
+        $this->put(route('seasons.rules', $season), ['quarter_length' => $seconds])->assertRedirect();
+        expect($season->fresh()->settings)->toBe(array_replace($settings, ['quarter_length' => $seconds]));
+    }
+    expect($season->fixtures()->get()->toArray())->toBe($fixtures);
+    $this->put(route('seasons.rules', $season), ['quarter_length' => 420])->assertSessionHasErrors('quarter_length');
+    expect($season->fresh()->settings['quarter_length'])->toBe(900);
+    $this->get(route('seasons.show', ['season' => $season, 'tab' => 'settings']))->assertOk()->assertSee('Save quarter length');
+    $this->post(route('seasons.preview'), $this->setup + ['quarter_length' => 420])->assertSessionHasErrors('quarter_length');
+});

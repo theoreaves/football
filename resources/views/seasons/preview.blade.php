@@ -1,6 +1,6 @@
 <x-layouts.app>
 <main class="season-page">
-<header class="season-header"><div><p class="season-eyebrow">Schedule preview · {{ $data['year'] }}</p><h1>{{ $data['name'] }}</h1><p>{{ count($members) }} teams · {{ $data['games'] }} games · {{ $data['bye'] ? 'One bye per team' : 'No byes' }}</p></div></header>
+<header class="season-header"><div><p class="season-eyebrow">Schedule preview · {{ $data['year'] }}</p><h1>{{ $data['name'] }}</h1><p>{{ count($members) }} teams · {{ $data['games'] }} games · {{ ($data['quarter_length'] ?? 900) / 60 }}-minute quarters · {{ $data['bye'] ? 'One bye per team' : 'No byes' }}</p></div></header>
 <p class="season-notice">Schedules use rotating opponents, prefer division/conference matchups, and balance home/away games within one. This is a flexible schedule generator, rather than a recreation of the NFL's opponent formula. With byes, one round is split across two weeks.</p>
 <section class="season-panel"><h2>Team balance</h2><div class="season-table-scroll"><table class="season-table"><thead><tr><th>Team</th><th>Group</th><th>Control</th><th>Home / Away</th></tr></thead><tbody>
 @foreach($members as $id => $member)<tr><td>{{ $member['name'] }}</td><td>{{ $member['conference_name'] }} · {{ $member['division'] }}</td><td>{{ strtoupper($member['control']) }}</td><td>{{ collect($fixtures)->where('home_team_id', $id)->count() }} / {{ collect($fixtures)->where('away_team_id', $id)->count() }}</td></tr>@endforeach
