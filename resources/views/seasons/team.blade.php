@@ -30,10 +30,12 @@
     </tbody></table></div><p data-roster-empty hidden>No players match your filters.</p><dialog data-roster-dialog class="roster-editor-dialog"><div class="roster-editor-bar"><h2>Player editor</h2><button type="button" data-roster-close>Close</button></div><iframe title="Player editor" data-roster-frame></iframe></dialog><a class="text-blue-300" href="{{ route('teams.editor.teams.players.index', $team) }}">Open world roster editor →</a></section>
 @elseif($tab === 'stats')
     @include('seasons.team-stats')
+@elseif($tab === 'injuries')
+    @include('seasons.team-injuries')
 @elseif($tab === 'settings')
     <section class="season-panel"><h2>Team settings</h2><p>Season control: {{ strtoupper($member['control']) }}</p><a class="landing-button" href="{{ route('seasons.show', ['season' => $season, 'tab' => 'settings']) }}">Edit team control</a><p class="mt-4"><a class="text-blue-300" href="{{ route('teams.editor.edit', $team) }}">Team colors, logos, and stadium →</a></p></section>
 @else
-    <section class="season-panel"><h2>{{ $tab === 'injuries' ? 'Team Injuries' : 'Team Stats' }}</h2><p>{{ $tab === 'injuries' ? 'Multi-week injuries and recovery will be connected in the roster milestone.' : 'Player and team season statistics will be connected after season game processing.' }}</p></section>
+    <section class="season-panel"><h2>Team information</h2></section>
 @endif
 </main>
 </x-layouts.app>

@@ -231,6 +231,7 @@ class SeasonController extends Controller
         });
 
         return view('seasons.team', ['season' => $season, 'team' => $team, 'tab' => $tab,
+            'injuryEvents' => $tab === 'injuries' ? app(\App\Services\Seasons\SeasonInjuries::class)->forTeam($season, $team->id) : [],
             'member' => $season->settings['members'][$team->id],
             'teamStats' => in_array($tab, ['stats', 'overview']) ? app(\App\Services\Seasons\SeasonStats::class)->team($season, $team->id) : null,
             'record' => app(\App\Services\Seasons\SeasonGames::class)->standings($season)[$team->id],

@@ -10,7 +10,7 @@
         @include('teams.players.appearance')
     @if($mode === 'edit')
     <div data-player-tabs>
-        <div role="tablist" aria-label="Player details" class="player-editor-tabs"><button type="button" role="tab" aria-selected="true" aria-controls="player-attributes" data-player-tab="attributes">Attributes</button><button type="button" role="tab" aria-selected="false" aria-controls="player-statistics" data-player-tab="statistics">Stats</button></div>
+        <div role="tablist" aria-label="Player details" class="player-editor-tabs"><button type="button" role="tab" aria-selected="true" aria-controls="player-attributes" data-player-tab="attributes">Attributes</button><button type="button" role="tab" aria-selected="false" aria-controls="player-statistics" data-player-tab="statistics">Stats</button><button type="button" role="tab" aria-selected="false" aria-controls="player-injuries" data-player-tab="injuries">Injuries</button></div>
     @endif
     <div id="player-attributes" data-player-panel="attributes" role="tabpanel">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -32,6 +32,7 @@
     </div>
     @if($mode === 'edit')
     <div id="player-statistics" data-player-panel="statistics" role="tabpanel" hidden>@include('teams.players.stats')</div>
+    <div id="player-injuries" data-player-panel="injuries" role="tabpanel" hidden>@include('teams.players.injuries')</div>
     </div>
     @endif
     </form>
