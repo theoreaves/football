@@ -14,7 +14,10 @@ function initializePractice() {
             const panel = root.querySelector(`[data-player-panel="${button.dataset.playerTab}"]`);
             if (!panel?.dataset.playerLazyUrl || panel.dataset.loaded === 'true' || panel.dataset.loading === 'true') return;
             panel.dataset.loading = 'true';
-            panel.innerHTML = '<p role="status">Loading player history…</p>';
+            panel.innerHTML = `<div role="status" aria-live="polite" class="flex items-center justify-center gap-3 py-10 text-gray-700">
+                <span aria-hidden="true" class="inline-block h-7 w-7 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></span>
+                <span>Loading player history…</span>
+            </div>`;
             try {
                 const response = await fetch(panel.dataset.playerLazyUrl, {credentials: 'same-origin', headers: {'Accept': 'text/html'}});
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
