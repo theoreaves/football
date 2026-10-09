@@ -6,12 +6,14 @@
 @if($errors->any())<p class="season-notice text-red-300" role="alert">{{ $errors->first() }}</p>@endif
 @if($tab === 'overview')
     <p class="season-notice">{{ $season->phase === 'regular_season' ? 'Play or Quick Sim the current week, then advance after all games are final.' : ($season->phase === 'playoffs_pending' ? 'Regular season complete. Playoff qualification and brackets are the next milestone.' : 'Season complete.') }}</p>
+    @include('seasons.sim-cpu')
     @include('seasons.fixtures', ['fixtures' => $fixtures->where('week', $season->current_week)])
     @if($season->phase === 'regular_season')
     <form method="POST" action="{{ route('seasons.advance', $season) }}" class="season-actions">@csrf<input type="hidden" name="week" value="{{ $season->current_week }}"><button class="landing-button" @disabled($fixtures->where('week', $season->current_week)->isEmpty() || $fixtures->where('week', $season->current_week)->contains(fn($game) => $game->status !== 'final'))>{{ $season->current_week < $fixtures->max('week') ? 'Advance to next week' : 'Finish regular season' }}</button></form>
     @endif
     <div class="season-grid">@foreach(collect($members)->sortBy(fn($member) => $member['control'] === 'human' ? 0 : 1) as $id => $member)<a class="season-panel {{ $member['control'] === 'human' ? 'season-human-team' : '' }}" href="{{ route('seasons.team', [$season, $id]) }}">@if($member['control'] === 'human')<span class="season-human-label">Human controlled</span>@endif<div class="season-team-heading">@if(isset($logos[$id]))<img class="season-card-logo" src="{{ $logos[$id] }}" alt="{{ $member['name'] }} logo" loading="lazy">@endif<h2>{{ $member['name'] }}</h2></div><p>{{ $member['conference_name'] }} · {{ $member['division'] }}</p><span class="text-blue-300">{{ strtoupper($member['control']) }} · Open team hub →</span></a>@endforeach</div>
 @elseif($tab === 'schedule')
+    @include('seasons.sim-cpu')
     @include('seasons.fixtures')
     @if($season->settings['bye'])<section class="season-panel"><h2>Bye weeks</h2>@foreach($members as $id => $member)
         @php

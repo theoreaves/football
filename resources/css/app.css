@@ -284,3 +284,7 @@
 .score-clock-status { display: block; font-size: 10px; line-height: 1.4; color: #bae6fd; }
 
 .wizard-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+.season-table tr.season-human-game { background: rgb(30 64 175 / 22%); }
+.season-table tr.season-human-game td:first-child { border-left: 3px solid #60a5fa; }
+.season-human-game-badge { display: inline-block; padding: 2px 6px; border-radius: 5px; background: #1e3a8a; color: #bfdbfe; font-size: 11px; white-space: nowrap; }

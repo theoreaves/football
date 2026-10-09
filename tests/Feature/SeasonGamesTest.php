@@ -235,3 +235,38 @@ test('box score routes require a started fixture from the requested season and w
     openFootballSave(World::create(['name' => 'Foreign box score']));
     $this->get(route('seasons.box-score', [$this->season, $this->fixture]))->assertNotFound();
 });
+
+test('bulk CPU sim finishes only unstarted CPU games in the current week and is repeatable', function () {
+    $season = $this->season;
+    $members = $season->settings['members'];
+    $current = $season->fixtures()->where('week', 1)->get();
+    $cpu = $current->first(fn ($game) => $members[$game->home_team_id]['control'] === 'cpu' && $members[$game->away_team_id]['control'] === 'cpu');
+    $human = $current->first(fn ($game) => $game->id !== $cpu->id);
+    $this->get(route('seasons.show', $season))->assertOk()->assertSee('season-human-game', false)->assertSee('Human team')->assertSee('Sim all CPU vs CPU Games (1)');
+    $this->post(route('seasons.sim-cpu', $season), ['week' => 1, 'return_tab' => 'schedule'])
+        ->assertRedirect(route('seasons.show', ['season' => $season, 'tab' => 'schedule']))->assertSessionHasNoErrors();
+    expect($cpu->fresh()->status)->toBe('final')->and($human->fresh()->exhibition_id)->toBeNull();
+    expect($season->fixtures()->where('week', '>', 1)->whereNotNull('exhibition_id')->count())->toBe(0);
+    $this->assertDatabaseCount('exhibitions', 1);
+    $this->post(route('seasons.sim-cpu', $season), ['week' => 1])->assertRedirect();
+    $this->assertDatabaseCount('exhibitions', 1);
+    $this->post(route('seasons.sim-cpu', $season), ['week' => 2])->assertStatus(409);
+});
+
+test('bulk CPU sim skips games already underway and respects control changes', function () {
+    $season = $this->season;
+    $members = $season->settings['members'];
+    $cpu = $season->fixtures()->where('week', 1)->get()->first(fn ($game) => $members[$game->home_team_id]['control'] === 'cpu' && $members[$game->away_team_id]['control'] === 'cpu');
+    $game = app(SeasonGames::class)->start($season, $cpu, false);
+    $original = $game->state;
+    $this->post(route('seasons.sim-cpu', $season), ['week' => 1])->assertRedirect();
+    expect($game->fresh()->state)->toBe($original)->and($cpu->fresh()->status)->toBe('playing');
+    $settings = $season->settings;
+    foreach ($settings['members'] as &$member) {
+        $member['control'] = 'human';
+    }
+    unset($member);
+    $season->update(['settings' => $settings]);
+    $this->post(route('seasons.sim-cpu', $season), ['week' => 1])->assertRedirect()->assertSessionHas('status', 'No unstarted CPU vs CPU games remain this week.');
+    $this->assertDatabaseCount('exhibitions', 1);
+});

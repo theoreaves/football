@@ -56,6 +56,25 @@ class SeasonGames
         }, 3);
     }
 
+    public function simCpuWeek(Season $season, int $week): int
+    {
+        return DB::transaction(function () use ($season, $week) {
+            $season = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            abort_unless($season->phase === 'regular_season' && (int) $season->current_week === $week, 409, 'Reload the current season week before simulating.');
+            $count = 0;
+            foreach ($season->fixtures()->where('week', $week)->whereNull('exhibition_id')->where('status', 'scheduled')->orderBy('id')->get() as $fixture) {
+                $members = $season->settings['members'];
+                if (($members[$fixture->home_team_id]['control'] ?? 'human') !== 'cpu' || ($members[$fixture->away_team_id]['control'] ?? 'human') !== 'cpu') {
+                    continue;
+                }
+                $this->start($season, $fixture, true);
+                $count++;
+            }
+
+            return $count;
+        }, 3);
+    }
+
     public function record(Exhibition $game): void
     {
         if ($game->state['status'] !== 'final' || ($game->state['penalty_pending'] ?? false)) {

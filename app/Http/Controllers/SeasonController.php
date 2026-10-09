@@ -150,6 +150,15 @@ class SeasonController extends Controller
         return redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => $game->state['status'] === 'final' ? 1 : 0]);
     }
 
+    public function simCpu(Request $request, Season $season)
+    {
+        $data = $request->validate(['week' => ['required', 'integer', 'min:1'], 'return_tab' => ['sometimes', Rule::in(['overview', 'schedule'])]]);
+        $count = app(\App\Services\Seasons\SeasonGames::class)->simCpuWeek($season, (int) $data['week']);
+
+        return redirect()->route('seasons.show', ['season' => $season, 'tab' => $data['return_tab'] ?? 'overview'])
+            ->with('status', $count ? "Simulated {$count} CPU vs CPU game(s). Results are below." : 'No unstarted CPU vs CPU games remain this week.');
+    }
+
     public function boxScore(Season $season, \App\Models\SeasonFixture $fixture)
     {
         abort_unless((int) $fixture->season_id === (int) $season->id && $fixture->exhibition_id, 404);
