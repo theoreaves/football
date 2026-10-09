@@ -15,11 +15,29 @@ class RosterBuilder
         'CB1' => ['CB', 'DB'], 'CB2' => ['CB', 'DB'], 'S1' => ['S', 'FS', 'SS', 'DB'], 'S2' => ['S', 'SS', 'FS', 'DB'], 'K' => ['K'], 'P' => ['P'], 'LB4' => ['LB', 'OLB', 'ILB', 'MLB'], 'LB5' => ['LB', 'OLB', 'ILB', 'MLB'], 'CB3' => ['CB', 'DB'], 'CB4' => ['CB', 'DB'],
     ];
 
-    public function build(Team $team): array
+    public function build(Team $team, ?string $year = null, array $depth = []): array
     {
-        $year = $team->players()->max('team_players.team_year');
+        $year ??= $team->players()->max('team_players.team_year');
         $players = $team->players()->wherePivot('team_year', $year)->get()
-            ->sortBy(fn ($p) => [preg_replace('/\d+$/', '', $p->pivot->depth_chart_position ?? ''), (int) preg_replace('/\D/', '', $p->pivot->depth_chart_position ?? '99'), $p->id]);
+            ->sortBy(function ($p) use ($depth) {
+                if (! $depth) {
+                    return [preg_replace('/\d+$/', '', $p->pivot->depth_chart_position ?? ''), (int) preg_replace('/\D/', '', $p->pivot->depth_chart_position ?? '99'), $p->id];
+                }
+                $position = $p->pivot->position ?: $p->position;
+                $rank = array_search($p->id, $depth[$position] ?? []);
+
+                return [$rank === false ? 1 : 0, $rank === false ? (int) preg_replace('/\D/', '', $p->pivot->depth_chart_position ?? '99') : $rank, $p->id];
+            });
+        if ($depth) {
+            // Override depth only on the captured pivot; permanent team depth stays intact.
+            foreach ($players as $player) {
+                $position = $player->pivot->position ?: $player->position;
+                if (isset($depth[$position])) {
+                    $rank = array_search($player->id, $depth[$position]);
+                    $player->pivot->depth_chart_position = $position.($rank === false ? count($depth[$position]) + (int) preg_replace('/\D/', '', $player->pivot->depth_chart_position ?? '99') : $rank + 1);
+                }
+            }
+        }
         $groups = self::GROUPS;
         $used = [];
         $roster = [];
@@ -29,7 +47,7 @@ class RosterBuilder
                 continue;
             }
             if (! $player) {
-                throw ValidationException::withMessages(['teams' => "{$team->city} {$team->name} needs a {$role} in its latest roster ({$year}). Add players in Teams before starting."]);
+                throw ValidationException::withMessages(['teams' => "{$team->city} {$team->name} needs a {$role} in roster year {$year}. Add players in Teams before starting."]);
             }
             $used[] = $player->id;
             $roster[$role] = $this->snapshot($player);

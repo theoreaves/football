@@ -17,7 +17,7 @@ class ExhibitionController extends Controller
     public function index()
     {
         // Sort narrow rows: MySQL can otherwise copy large replay JSON into its sort buffer.
-        $games = Exhibition::select('id')->latest()->orderByDesc('id')->paginate(20);
+        $games = Exhibition::select('id')->whereDoesntHave('seasonFixture')->latest()->orderByDesc('id')->paginate(20);
         $summaries = Exhibition::select(['id', 'world_id', 'home_team_id', 'away_team_id', 'state'])
             ->with(['homeTeam', 'awayTeam'])->whereIn('id', $games->getCollection()->pluck('id'))
             ->get()->keyBy('id');
@@ -29,6 +29,7 @@ class ExhibitionController extends Controller
 
     public function destroy(Exhibition $exhibition)
     {
+        abort_if($exhibition->seasonFixture()->exists(), 409, 'Season games cannot be deleted as exhibitions.');
         $exhibition->delete();
 
         return redirect()->route('exhibitions.index')->with('status', 'Exhibition deleted.');
@@ -70,7 +71,7 @@ class ExhibitionController extends Controller
 
     public function show(Exhibition $exhibition)
     {
-        $exhibition->load(['homeTeam', 'awayTeam']);
+        $exhibition->load(['homeTeam', 'awayTeam', 'seasonFixture.season']);
         $appearance = ['home' => app(PracticeController::class)->appearance($exhibition->homeTeam, 'home'),
             'away' => app(PracticeController::class)->appearance($exhibition->awayTeam, 'away')];
         $exhibition->state = app(GameClock::class)->normalize($exhibition->state);
@@ -217,6 +218,7 @@ class ExhibitionController extends Controller
                 $option['play']['penalty']['decided'] = true;
                 $history[$index] = $option['play'];
                 $game->update(['state' => $option['state'], 'history' => $history]);
+                app(\App\Services\Seasons\SeasonGames::class)->record($game);
 
                 return;
             }
@@ -276,6 +278,7 @@ class ExhibitionController extends Controller
             $history = $game->history;
             $history[] = $result['play'];
             $game->update(['state' => $result['state'], 'history' => $history]);
+            app(\App\Services\Seasons\SeasonGames::class)->record($game);
         }, 3);
 
         return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'], true) ? 0 : 1]);

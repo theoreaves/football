@@ -271,3 +271,7 @@
 .standings-division-heading { padding: 14px 18px; background: #223851; color: #bfdbfe; font-size: 20px; font-weight: 700; border-bottom: 1px solid #475569; }
 .standings-division .season-table-scroll { margin-top: 0; }
 .standings-division .season-table tbody tr:last-child td { border-bottom: 0; }
+
+.season-game-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.season-game-actions .landing-button { padding: 8px 12px; font-size: 14px; }
+.season-actions button:disabled { opacity: .4; cursor: not-allowed; }

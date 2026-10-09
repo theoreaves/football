@@ -12,6 +12,11 @@ class Exhibition extends Model
 
     protected $casts = ['state' => 'array', 'rosters' => 'array', 'history' => 'array'];
 
+    public function seasonFixture()
+    {
+        return $this->hasOne(SeasonFixture::class);
+    }
+
     public function homeTeam()
     {
         return $this->belongsTo(Team::class, 'home_team_id');

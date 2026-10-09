@@ -10,6 +10,16 @@ class SeasonFixture extends Model
 
     protected $guarded = [];
 
+    public function season()
+    {
+        return $this->belongsTo(Season::class);
+    }
+
+    public function exhibition()
+    {
+        return $this->belongsTo(Exhibition::class);
+    }
+
     public function homeTeam()
     {
         return $this->belongsTo(Team::class, 'home_team_id');

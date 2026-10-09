@@ -127,10 +127,27 @@ class SeasonController extends Controller
         $tab = $request->query('tab', 'overview');
         abort_unless(in_array($tab, ['overview', 'standings', 'schedule', 'leaders', 'stats', 'injuries', 'playoffs', 'settings'], true), 404);
 
-        return view('seasons.show', ['season' => $season, 'tab' => $tab, 'members' => $season->settings['members'],
+        return view('seasons.show', ['standings' => app(\App\Services\Seasons\SeasonGames::class)->standings($season), 'season' => $season, 'tab' => $tab, 'members' => $season->settings['members'],
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])
                 ->filter(fn ($team) => (bool) $team->team_logo)->mapWithKeys(fn ($team) => [$team->id => route('teams.art', ['team' => $team, 'asset' => 'team_logo'])]),
             'fixtures' => $season->fixtures()->orderBy('week')->orderBy('id')->get()]);
+    }
+
+    public function game(Request $request, Season $season, \App\Models\SeasonFixture $fixture)
+    {
+        abort_unless((int) $fixture->season_id === (int) $season->id, 404);
+        $data = $request->validate(['quick_sim' => ['sometimes', 'boolean']]);
+        $game = app(\App\Services\Seasons\SeasonGames::class)->start($season, $fixture, (bool) ($data['quick_sim'] ?? false));
+
+        return redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => $game->state['status'] === 'final' ? 1 : 0]);
+    }
+
+    public function advance(Request $request, Season $season)
+    {
+        $data = $request->validate(['week' => ['required', 'integer', 'min:1']]);
+        app(\App\Services\Seasons\SeasonGames::class)->advance($season, (int) $data['week']);
+
+        return redirect()->route('seasons.show', $season)->with('status', 'Week completed.');
     }
 
     public function rules(Request $request, Season $season)
