@@ -31,19 +31,19 @@ export function buildChainGang(scene, document) {
     const front = makePole();
     const down = makePole();
     // Make the down box distinctive, taller than the chain poles.
-    makeBox(down, [.56, .56, .36], black, [0, 2.19, 0]);
+    makeBox(down, [.76, .75, .4], black, [0, 2.19, 0]);
     const canvas = document.createElement('canvas');
     canvas.width = 128; canvas.height = 128;
     const context = canvas.getContext('2d');
     const numberTexture = new THREE.CanvasTexture(canvas);
     numberTexture.colorSpace = THREE.SRGBColorSpace;
     const numberMaterial = new THREE.MeshBasicMaterial({map: numberTexture, transparent: false, side: THREE.DoubleSide});
-    const number = new THREE.Mesh(new THREE.PlaneGeometry(.38, .38), numberMaterial);
-    number.position.set(0, 2.19, .190);
+    const number = new THREE.Mesh(new THREE.PlaneGeometry(.57, .57), numberMaterial);
+    number.position.set(0, 2.19, .211);
     number.renderOrder = 10;
     down.add(number);
     const numberBack = number.clone();
-    numberBack.position.z = -.190;
+    numberBack.position.z = -.211;
     numberBack.rotation.y = Math.PI;
     down.add(numberBack);
     let lastDown = null;
@@ -80,7 +80,8 @@ export function buildChainGang(scene, document) {
         return worker;
     };
     const crew = [makeWorker(), makeWorker(), makeWorker()];
-    const sideline = -2.9; // The near sideline sits just outside the playing field.
+    const sideline = -2.9; // Chain stakes remain in their original sideline lane.
+    const downMarkerLane = sideline - 1.7; // A separate near-camera lane prevents overlap at first-and-10.
     const clamp = x => Math.max(0, Math.min(120, Number(x) || 0));
 
     const update = (scrimmage, lineToGain, downNumber, direction = 1, visible = true) => {
@@ -91,7 +92,7 @@ export function buildChainGang(scene, document) {
         const originalSpot = goal == null ? los : clamp(goal - (direction >= 0 ? 10 : -10));
         group.visible = visible;
         setDown(downNumber);
-        down.position.set(los, 0, sideline);
+        down.position.set(los, 0, downMarkerLane);
         // LOS and line to gain are different when the ball has advanced
         // within a series: the chain is anchored to the series markers.
         rear.position.set(originalSpot, 0, sideline + .68);
@@ -105,7 +106,7 @@ export function buildChainGang(scene, document) {
         }
         crew[0].position.set(originalSpot - 1.0, 0, sideline + .72);
         crew[1].position.set((goal ?? los) + 1.0, 0, sideline + .72);
-        crew[2].position.set(los - .9, 0, sideline - .45);
+        crew[2].position.set(los - 1.0, 0, downMarkerLane - .35);
         crew[0].visible = crew[1].visible = goal !== null;
     };
     return { group, update };
