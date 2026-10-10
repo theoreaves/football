@@ -69,6 +69,9 @@ class ExhibitionEngine
             return $this->finish($state, $original, $this->stoppage('Clock expires before the snap', 'clock_expired') + ['runoff_seconds' => $original['clock']], $rosters, 0);
         }
         $state['clock'] -= $runoff;
+        // The ready-for-play restart has now been applied. Do not carry it
+        // through a different type of stoppage on the next play.
+        unset($state['clock_restart_on_ready']);
         $state['_clock_context'] = ['before' => $original, 'runoff' => $runoff, 'tempo' => $tempo, 'strategy' => $clockStrategy];
         $prePenalty = app(PenaltyRules::class)->preSnap($state);
         if ($prePenalty) {

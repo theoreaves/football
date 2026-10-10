@@ -170,10 +170,10 @@ class PlayTimeline
         }
         $runnerPath = null;
         // Contact is visual only. Return plays have their own possession and ball paths.
-        $contactEnabled = in_array($play['outcome'], ['tackle', 'fumble'], true)
+        $contactEnabled = in_array($play['outcome'], ['tackle', 'fumble', 'sack'], true)
             && ! $special && ! ($play['out_of_bounds'] ?? false)
             && ! ($play['defensive_return'] ?? false);
-        $contactTackler = $pass ? 'CB1' : 'LB2';
+        $contactTackler = $play['outcome'] === 'sack' ? 'DE1' : ($pass ? 'CB1' : 'LB2');
         $carrierContact = null;
         $tracks = [];
         foreach ($offense as $role => [$x, $z]) {
@@ -230,7 +230,7 @@ class PlayTimeline
             if ($role === $tackler && ! $special && ($pass || $play['outcome'] !== 'incomplete')) {
                 $path = [$point(0, $x, $z), $point(3.8, $pass ? $play['target'] : $end * .7, $endZ + ($play['outcome'] === 'interception' ? 0 : 1)), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
             }
-            if ($role === 'DE1' && ($play['pressure'] ?? false)) {
+            if ($role === 'DE1' && ($play['pressure'] ?? false) && $play['outcome'] !== 'sack') {
                 $path = [$point(0, $x, $z), $point(1.7, $qbSet + 2, 25), $point(2.2, $qbSet + .7, 26.7), $point(5.3, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ), $point(6, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ)];
             }
             // Phase 2: deterministic support pursuit; keep the existing primary

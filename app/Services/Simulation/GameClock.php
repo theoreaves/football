@@ -26,7 +26,11 @@ class GameClock
 
     public function runoff(array $state, string $tempo): int
     {
-        if (! $state['clock_running'] || $state['untimed_down'] || ($state['phase'] ?? 'scrimmage') !== 'scrimmage') {
+        // The clock stops when the runner goes out, then restarts on the
+        // ready-for-play outside the final 2 minutes of Q2 / 5 minutes of Q4.
+        // Model that restart during the next pre-snap runoff.
+        if (! ($state['clock_running'] || ($state['clock_restart_on_ready'] ?? false))
+            || $state['untimed_down'] || ($state['phase'] ?? 'scrimmage') !== 'scrimmage') {
             return 0;
         }
 
@@ -53,9 +57,17 @@ class GameClock
         $state['clock_running'] = ! ($play['no_snap'] ?? false) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
             && $state['possession'] === $before['possession'] && ! in_array($play['outcome'], ['incomplete', 'interception', 'fumble', 'spike', 'penalty'], true)
             && ! ($play['out_of_bounds'] ?? false);
+        // The ball remains dead/out of bounds for the current play. Whether
+        // the clock resumes at the ready signal is stored for the next snap.
+        $state['clock_restart_on_ready'] = ($play['out_of_bounds'] ?? false)
+            && $state['phase'] === 'scrimmage'
+            && $state['possession'] === $before['possession']
+            && ! (($state['quarter'] === 2 && $state['clock'] <= 120)
+                || ($state['quarter'] === 4 && $state['clock'] <= 300));
         if ($warning || ($play['two_minute_warning'] ?? false)) {
             $state['warnings'][$before['quarter']] = true;
             $state['clock_running'] = false;
+            $state['clock_restart_on_ready'] = false;
             $play['two_minute_warning'] = true;
             $play['summary'] .= ' · TWO-MINUTE WARNING';
         }
