@@ -412,34 +412,16 @@ export function mountPractice(root, onReady = () => {}) {
                 }
             }
 
-            // Joint-based pre-snap stance. Model forward is +Z; a positive
-            // waist X-rotation folds the upper body toward the toes. Avoid
-            // tilting the whole player, which looked like sideways leaning.
+            // Keep the whole player upright; only the articulated waist, hips,
+            // knees and arms determine pre-snap posture. One pose system owns it.
             const centerStance = player.team === 'offense' && role === 'C';
-            const offenseLine = player.team === 'offense' && isOneOf('LG', 'RG', 'LT', 'RT');
+            const offensiveLine = player.team === 'offense' && ['LG', 'RG', 'LT', 'RT'].includes(role);
             const defensiveLine = player.team === 'defense' && isDefFront;
-            const tightEnd = player.team === 'offense' && isOneOf('TE', 'TE1', 'TE2');
-            const readyLB = player.team === 'defense' && isLinebacker;
-            const stanceActive = presnap && (centerStance || offenseLine || defensiveLine || tightEnd || readyLB);
-            if (stanceActive) {
-                const depth = centerStance ? 1 : offenseLine ? .72 : defensiveLine ? .85 : tightEnd ? .38 : .28;
-                // The ankles and ground remain near the same location. Split
-                // hip and knee flexion, and lean from the new waist joint.
-                mesh.position.y -= .13 * depth;
-                mesh.userData.waist.rotation.x = .46 * depth;
-                mesh.userData.legs?.forEach((leg, j) => {
-                    leg.rotation.x = (j ? -.30 : -.23) * depth;
-                });
-                mesh.userData.knees?.forEach(knee => { knee.rotation.x = .72 * depth; });
-                const reach = centerStance ? -1.10 : defensiveLine ? -.87 : -.64;
-                lowerArms(reach, centerStance ? reach : -.28, -.70);
-            }
-            if (presnap && !stanceActive) {
-                if (player.team === 'offense' && isOneOf('QB','RB','RB1','RB2','FB')) {
-                    lowerArms(-.29, -.29, -.36);
-                } else if (player.team === 'defense' && isSecondary) {
-                    lowerArms(-.14, -.14, -.24);
-                }
+            const tightEnd = player.team === 'offense' && ['TE', 'TE1', 'TE2'].includes(role);
+            const linebacker = player.team === 'defense' && isLinebacker;
+            const stanceDepth = centerStance ? .22 : offensiveLine ? .17 : defensiveLine ? .19 : .05;
+            if (presnap && (centerStance || offensiveLine || defensiveLine || tightEnd || linebacker)) {
+                mesh.position.y -= stanceDepth;
             }
 
             // The center bends over the ball, and the QB/RB extend their hands

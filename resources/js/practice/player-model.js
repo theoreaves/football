@@ -283,22 +283,36 @@ export function applyPreSnapStance(group, stance) {
     const waist = group.userData.waist;
     const knees = group.userData.knees;
     if (!waist || !knees) return;
-    if (!stance) { waist.rotation.x = 0; knees.forEach(k => { k.rotation.x = 0; }); return; }
-    const isCenter = stance === 'center';
-    const isThree = isCenter || stance === 'three';
-    const isDefFront = stance === 'def-front';
-    const lean = isCenter ? .52 : isThree ? .34 : isDefFront ? .41 : .16;
-    waist.rotation.x = lean;
-    knees.forEach((knee, i) => { knee.rotation.x = isThree ? -.48 : isDefFront ? -.38 : -.18; });
-    // Bend at the hips to lower the shoulder line while preserving foot height.
-    group.userData.legs?.forEach((leg, i) => { leg.rotation.x = isThree ? .24 : isDefFront ? .20 : .08; });
-    if (isCenter) {
-        group.userData.arms?.forEach(arm => { arm.rotation.x = -.72; });
-        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.54; });
-    } else if (isThree || isDefFront) {
-        const hand = group.userData.arms?.[0];
-        const elbow = group.userData.elbows?.[0];
-        if (hand) hand.rotation.x = -.38;
-        if (elbow) elbow.rotation.x = -.53;
+    if (!stance) {
+        waist.rotation.x = 0;
+        knees.forEach(knee => { knee.rotation.x = 0; });
+        return;
+    }
+    // One authoritative stance pose, applied *after* the normal running pose.
+    // Keep the root upright; articulate the trunk, hips and knees separately.
+    const center = stance === 'center';
+    const threePoint = stance === 'three';
+    const defensiveFront = stance === 'def-front';
+    const ready = stance === 'ready';
+    const depth = center ? 1 : threePoint ? .82 : defensiveFront ? .88 : .36;
+    waist.rotation.x = (center ? .66 : threePoint ? .54 : defensiveFront ? .57 : .19);
+    group.userData.legs?.forEach((leg, i) => {
+        // Both thighs flex together. A slight stagger creates a stable base.
+        leg.rotation.x = (.37 + (i === 0 ? -.04 : .04)) * depth;
+    });
+    knees.forEach(knee => { knee.rotation.x = -.82 * depth; });
+    if (center) {
+        group.userData.arms?.forEach(arm => { arm.rotation.x = -.98; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.74; });
+    } else if (threePoint || defensiveFront) {
+        const supportArm = group.userData.arms?.[0];
+        const supportElbow = group.userData.elbows?.[0];
+        if (supportArm) supportArm.rotation.x = -.82;
+        if (supportElbow) supportElbow.rotation.x = -.70;
+        const freeArm = group.userData.arms?.[1];
+        if (freeArm) freeArm.rotation.x = -.27;
+    } else if (ready) {
+        group.userData.arms?.forEach(arm => { arm.rotation.x = -.22; });
     }
 }
+
