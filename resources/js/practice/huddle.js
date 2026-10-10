@@ -24,9 +24,11 @@ export function sampleHuddle(finalFrame, nextLine, possession, progress, homeDir
             : 26.7 + (number - 5) * (defensiveBack ? 2.6 : 1.7);
         return { ...player, x: player.x + (x - player.x) * blend, z: player.z + (z - player.z) * blend, facingX: center, facingZ: 26.7 };
     });
-    const spot = nextLine + (possession === 'home' ? -1 : 1) * homeDirection;
-    return { ...finalFrame, players, ball: { x: finalFrame.ball.x + (spot - finalFrame.ball.x) * blend,
-        y: finalFrame.ball.y + (.25 - finalFrame.ball.y) * blend, z: finalFrame.ball.z + (26.7 - finalFrame.ball.z) * blend },
+    // The officials spot the football at the next line of scrimmage.
+    // It must not travel to (or follow a player into) the offensive huddle.
+    // Keep this placement independent of the huddle movement interpolation.
+    const spot = Math.max(1, Math.min(119, nextLine));
+    return { ...finalFrame, players, ball: { x: spot, y: .25, z: 26.7 },
         event: fraction < 1 ? 'Teams returning to their huddles' : 'Between plays · Choose formations and a play', huddle: fraction === 1 };
 }
 
