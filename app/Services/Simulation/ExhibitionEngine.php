@@ -59,7 +59,7 @@ class ExhibitionEngine
         $original = $state;
         // Developer-only one-shot snaps bypass pre-snap runoff.
         $debugSnap = app()->environment('local') && config('app.debug')
-            && in_array($devForceResult, ['touchdown', 'turnover', 'flag'], true);
+            && in_array($devForceResult, ['touchdown', 'turnover', 'flag', 'big_play'], true);
         $runoff = $debugSnap ? 0 : $clock->runoff($state, $tempo);
         if ($clock->warningDue($state, $runoff)) {
             $state['clock'] = 120;
@@ -227,6 +227,20 @@ class ExhibitionEngine
             $carrier = $targetRole ?? 'RB';
             $outOfBounds = false;
             $forcedOut = false;
+        } elseif ($debugSnap && $devForceResult === 'big_play') {
+            // A completed 25-yard gain (or the remaining distance to the
+            // goal line) travels through normal scoring/statistics processing.
+            // Choose a scrimmage spot at or behind the opposing 25 for a
+            // non-touchdown 20+ yard test.
+            $gain = min(25, 100 - $before['spot']);
+            $target = min($target, $gain);
+            $outcome = 'tackle';
+            $flip = false;
+            $scramble = false;
+            $throwaway = false;
+            $carrier = $targetRole ?? 'RB';
+            $outOfBounds = false;
+            $forcedOut = false;
         } elseif ($debugSnap && $devForceResult === 'turnover') {
             $outcome = $targetRole !== null ? 'interception' : 'fumble';
             $flip = true;
@@ -238,7 +252,7 @@ class ExhibitionEngine
             $forcedOut = false;
         }
         $gain = max(-$before['spot'], min(100 - $before['spot'], $gain));
-        if (! $outOfBounds && in_array($outcome, ['tackle', 'sack'], true) && $gain < 100 - $before['spot']
+        if (! ($debugSnap && $devForceResult === 'big_play') && ! $outOfBounds && in_array($outcome, ['tackle', 'sack'], true) && $gain < 100 - $before['spot']
             && $roll() < max(.004, .045 - $off[$carrier]['ratings']['ball_security'] * .0004)) {
             $outcome = 'fumble';
             $flip = true;

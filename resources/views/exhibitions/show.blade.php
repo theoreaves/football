@@ -146,6 +146,7 @@
             <label>Force result <select name="dev_force_result" class="bg-gray-900 text-white rounded p-1">
                 <option value="none">Normal</option>
                 <option value="touchdown">Touchdown</option>
+                <option value="big_play">25-yard gain (big play)</option>
                 <option value="turnover">Turnover (INT on pass / fumble on run)</option>
                 <option value="flag">Flag (holding)</option>
             </select></label>

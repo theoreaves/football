@@ -880,6 +880,29 @@ export function mountPractice(root, onReady = () => {}) {
                     }
                 }
             }
+            // Individual reaction after a 20+ yard run or reception.
+            // No group gathers, and no reaction on touchdowns or turnovers.
+            const bigPlay = phase === 'big_play' && animation && !animation.no_snap
+                && !['touchdown', 'interception', 'fumble', 'penalty', 'sack', 'incomplete'].includes(animation.outcome)
+                && (animation.gain ?? 0) >= 20
+                && player.team === 'offense'
+                && player.role === (animation.receiver_role && animation.passing
+                    ? animation.receiver_role : animation.carrier);
+            if (bigPlay) {
+                const t = Math.max(0, Math.min(1, postElapsed / .35));
+                const ease = t * t * (3 - 2 * t);
+                const style = (animation.animation_variant ?? 0) % 3;
+                const wave = Math.sin(postElapsed * 8);
+                mesh.userData.arms?.forEach((arm, side) => {
+                    const reach = style === 0 ? (side === 0 ? -1.8 : -.45)
+                        : style === 1 ? -1.5 : (side === 0 ? -.65 : -1.8);
+                    arm.rotation.x = reach * ease + .08 * wave * ease;
+                    arm.rotation.z = (side === 0 ? -.20 : .20) * ease;
+                });
+                mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.5 * ease; });
+                mesh.userData.legs?.forEach(leg => { leg.rotation.x = .05 * ease; });
+                mesh.position.y += Math.max(0, wave) * .09 * ease;
+            }
             // Pre-snap-only visual breathing room between opposing front lines.
             // Keep the center fixed on the ball and leave recorded paths intact.
             // Ease offsets away at the snap to avoid popping into the play track.
@@ -969,7 +992,7 @@ export function mountPractice(root, onReady = () => {}) {
                 ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .42));
             }
         }
-        if (['play', 'celebration', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
+        if (['play', 'big_play', 'celebration', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         const holder = ballCarrier(frame, phase);
         // The mesh's long axis is local X (ball.scale.x = 1.6).
         // Spin a forward pass around that axis, never around Z (end-over-end).
@@ -1291,6 +1314,10 @@ export function mountPractice(root, onReady = () => {}) {
             running = false; playButton.textContent = 'Replay';
             if (seriousInjury && resultPopup) {
                 phase = 'medical'; postElapsed = 0; resultPopup.hidden = true;
+            } else if (resultPopup && animation && !animation.no_snap
+                && animation.gain >= 20
+                && !['touchdown', 'interception', 'fumble', 'penalty', 'sack', 'incomplete'].includes(animation.outcome)) {
+                phase = 'big_play'; postElapsed = 0; resultPopup.hidden = true;
             } else if (resultPopup && ['touchdown', 'interception', 'fumble'].includes(animation?.outcome)) {
                 // Give the scorer and teammates an unobstructed celebration
                 // before opening the result popup over the playing field.
@@ -1300,6 +1327,12 @@ export function mountPractice(root, onReady = () => {}) {
         } else if (phase === 'medical') {
             postElapsed += delta;
             if (postElapsed >= treatmentDuration) {
+                phase = 'result'; postElapsed = 0;
+                if (resultPopup) resultPopup.hidden = false;
+            }
+        } else if (phase === 'big_play') {
+            postElapsed += delta;
+            if (postElapsed >= 2.1) {
                 phase = 'result'; postElapsed = 0;
                 if (resultPopup) resultPopup.hidden = false;
             }
