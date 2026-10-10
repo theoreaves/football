@@ -178,39 +178,58 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
         const hand = group.userData.throwingHand === 'left' ? 0 : 1;
         const support = 1 - hand;
         const arm = group.userData.arms?.[hand];
-        const other = group.userData.arms?.[support];
         const elbow = group.userData.elbows?.[hand];
+        const other = group.userData.arms?.[support];
         const otherElbow = group.userData.elbows?.[support];
-        const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
-        // Two-hand set -> elevated elbow/ear-level windup -> overhand release.
-        // Mirror shoulder and wrist movement for a left-handed quarterback.
-        const cock = smooth((throwing - 1.42) / .55);
-        const release = smooth((throwing - 2.02) / .18);
-        const recover = smooth((throwing - 2.22) / .65);
         const handed = hand === 0 ? -1 : 1;
-        const supportRelease = smooth((throwing - 1.46) / .35);
-        if (arm) {
-            // Negative local Z lifts the upper arm outward; Y drives a genuine
-            // shoulder turn instead of making the arm swing under the torso.
-            arm.rotation.x = -1.0 + .35 * cock - 1.45 * release * (1 - recover);
-            arm.rotation.y = handed * (-.22 * cock + .55 * release * (1 - recover));
-            arm.rotation.z = handed * (-.12 - .72 * cock + .40 * release * (1 - recover));
+        const smooth = value => {
+            const t = Math.max(0, Math.min(1, value));
+            return t * t * (3 - 2 * t);
+        };
+        const blend = (a, b, t) => a.clone().lerp(b, smooth(t));
+        // Poses are specified as the actual hand location in model-local space.
+        // The renderer already reads this same elbow's hand position for the ball.
+        const ready = new THREE.Vector3(handed * .24, 1.49, .50);
+        const windup = new THREE.Vector3(handed * .90, 1.95, -.08);
+        const highRelease = new THREE.Vector3(handed * .61, 2.12, .32);
+        const followThrough = new THREE.Vector3(-handed * .17, 1.46, .43);
+        let target = ready;
+        if (throwing >= 1.40 && throwing < 1.98) {
+            target = blend(ready, windup, (throwing - 1.40) / .58);
+        } else if (throwing >= 1.98 && throwing < 2.20) {
+            target = blend(windup, highRelease, (throwing - 1.98) / .22);
+        } else if (throwing >= 2.20) {
+            target = blend(highRelease, followThrough, (throwing - 2.20) / .52);
         }
-        if (elbow) {
-            // Bend during the set, draw the forearm back beside the helmet,
-            // then extend rapidly through the high release point.
-            elbow.rotation.x = -.95 - .40 * cock + 1.20 * release * (1 - recover);
-            elbow.rotation.y = handed * (.20 * cock + .25 * release * (1 - recover));
+        // Solve upper arm and forearm toward the target instead of guessing
+        // Euler angles. Keep the elbow outside and raised during the windup.
+        if (arm && elbow) {
+            const shoulder = arm.position.clone();
+            const reach = target.clone().sub(shoulder);
+            const length = reach.length();
+            const upper = .46;
+            const forearm = Math.hypot(.35, .04);
+            const direction = reach.clone().normalize();
+            const distance = Math.min(upper + forearm - .002, Math.max(.12, length));
+            const along = (upper * upper + distance * distance - forearm * forearm) / (2 * distance);
+            const rise = Math.sqrt(Math.max(0, upper * upper - along * along));
+            const hint = new THREE.Vector3(handed * 1, .65, -.35);
+            const outward = hint.addScaledVector(direction, -hint.dot(direction)).normalize();
+            const elbowPoint = shoulder.clone().addScaledVector(direction, along).addScaledVector(outward, rise);
+            const upperDirection = elbowPoint.sub(shoulder).normalize();
+            arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), upperDirection);
+            // The hand is at elbow-local (0,-.35,+.04): match its true axis.
+            const wristDirection = target.clone().sub(shoulder.clone().addScaledVector(upperDirection, upper));
+            wristDirection.applyQuaternion(arm.quaternion.clone().invert()).normalize();
+            elbow.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0, -.35, .04).normalize(), wristDirection
+            );
         }
+        // Opposite hand cups the ball until the windup, then clears the throw.
+        const clear = smooth((throwing - 1.42) / .48);
         if (other) {
-            // Non-throwing hand supports the ball at chest level, then clears.
-            other.rotation.x = -1.05 + .80 * supportRelease;
-            other.rotation.y = -handed * .18 * (1 - supportRelease);
-            other.rotation.z = -handed * (.30 - .12 * supportRelease);
+            other.rotation.set(-1.13 + .90 * clear, -handed * .16 * (1 - clear), -handed * (.28 - .14 * clear));
         }
-        if (otherElbow) {
-            otherElbow.rotation.x = -.9 * (1 - supportRelease) - .15 * supportRelease;
-            otherElbow.rotation.y = 0;
-        }
+        if (otherElbow) otherElbow.rotation.set(-1.03 * (1 - clear) - .15 * clear, 0, 0);
     }
 }
