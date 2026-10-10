@@ -1,13 +1,14 @@
 import {soundSettings} from './sound-cues.js';
 import {recordedCrowd} from './recorded-crowd.js';
 import {recordedPlayerVoices} from './recorded-player-voices.js';
+import {recordedContactEffects} from './recorded-contact-effects.js';
 import {recordedFieldEffects} from './recorded-field-effects.js';
 
 // Recorded crowd ambience/reactions, with the existing synthesized field effects.
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, players, recordings, fieldRecordings, playerRecordings, active = false, ambienceActive = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, players, recordings, fieldRecordings, playerRecordings, contactRecordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const control = root.querySelector('[data-sound-toggle]');
@@ -18,6 +19,7 @@ export function stadiumAudio(root, environment = window) {
         crowd.gain.value = settings.crowd; effects.gain.value = settings.effects; players.gain.value = settings.players;
         recordings?.setActive(settings.enabled && (active || ambienceActive));
         fieldRecordings?.setActive(settings.enabled && active);
+        contactRecordings?.setActive(settings.enabled && active && settings.effects > 0);
         playerRecordings?.setActive(settings.enabled && active && settings.players > 0);
     };
     const track = (source, gain) => {
@@ -52,12 +54,14 @@ export function stadiumAudio(root, environment = window) {
                 recordings.load();
                 fieldRecordings = recordedFieldEffects(context,effects,environment,root.dataset?.refereeAudioBase);
                 fieldRecordings.load();
+                contactRecordings = recordedContactEffects(context,effects,environment,root.dataset?.contactAudioBase);
+                contactRecordings.load();
                 playerRecordings = recordedPlayerVoices(context,players,environment,root.dataset?.playerAudioBase);
                 playerRecordings.load();
                 levels();
             }
             if (context.state === 'suspended') context.resume().then(() => { if (!disposed) levels(); }).catch(() => {});
-            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load()]);
+            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load(),contactRecordings?.load()]);
         } catch { /* Gameplay continues if audio cannot start. */ }
     };
     const play = cue => {
@@ -67,7 +71,9 @@ export function stadiumAudio(root, environment = window) {
             case 'snap': noise(.09,effects,.18,1800); break;
             case 'throw': noise(.2,effects,.11,2400); break;
             case 'kick': noise(.17,effects,.45,350); tone(95,.13); break;
-            case 'tackle': noise(.35,effects,.65,450); tone(65,.22); break;
+            case 'pad':
+            case 'tackle':
+            case 'landing': contactRecordings?.play(cue.type,(Number(root.dataset?.playNumber)||0) + Math.round(cue.time*100)); break;
             case 'whistle': fieldRecordings?.playWhistle(cue.mood || 'short',Number(root.dataset?.playNumber)||0); break;
             case 'crowd': recordings?.play(cue.mood,{variant:Number(root.dataset?.playNumber)||0}); break;
             case 'first_down': [392,494,587].forEach((f,i)=>tone(f,.24,i*.13,.12,'triangle')); break;
@@ -90,6 +96,6 @@ export function stadiumAudio(root, environment = window) {
         stopPlayerVoices() { playerRecordings?.stop(); },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

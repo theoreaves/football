@@ -1,3 +1,5 @@
+import {contactSoundCues} from './contact-sound-cues.js';
+
 export function soundCues(animation, before, after) {
     if (!animation) return [];
     const cues = [], add = (time, type, mood = null) => cues.push({time,type,mood});
@@ -11,7 +13,7 @@ export function soundCues(animation, before, after) {
     }
     const resultAt = animation.reveal_at ?? (noSnap ? .8 : 5.3);
     const summary = animation.events?.at(-1)?.[1]?.toLowerCase() || '';
-    if (!noSnap && !summary.includes('incomplete') && !summary.includes('touchdown') && !['punt','field_goal','extra_point','kickoff','spike','kneel'].includes(call)) add(resultAt,'tackle');
+    cues.push(...contactSoundCues(animation));
     if (call !== 'clock_event') {
         const stoppedAt = animation.contact_at ?? animation.result_at ?? resultAt;
         const at = noSnap ? .48 : stoppedAt + .1;

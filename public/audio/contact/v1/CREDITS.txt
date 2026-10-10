@@ -1,0 +1,23 @@
+WebSports Football - contact foley v1
+
+Padded contact recordings:
+Ephisus - body falls.wav (boxing targets being struck together).
+https://freesound.org/people/Ephisus/sounds/266346/
+https://cdn.freesound.org/previews/266/266346_364527-hq.mp3
+License: Creative Commons Zero (CC0).
+Isolated six different recorded impacts for pad and tackle variations:
+pad-1: 0.355s + 0.58s; pad-2: 3.985s + 0.58s; pad-3: 21.055s + 0.58s.
+hit-1: 27.735s + 0.70s; hit-2: 30.285s + 0.70s; hit-3: 32.145s + 0.70s.
+Edits: 60 Hz high-pass, 4.5 kHz low-pass, peak adjustment/limiting,
+3ms entry and 80ms exit fades. These are padded-object foley recordings,
+not recordings of NFL tackles or actual football shoulder pads.
+
+Grass landing:
+F3ather - object falling on grass.
+https://freesound.org/people/F3ather/sounds/711443/
+https://cdn.freesound.org/previews/711/711443_6401406-hq.mp3
+License: Creative Commons Zero (CC0).
+Edits: 60 Hz high-pass, 5 kHz low-pass, peak limiter, short fades.
+
+All assets: mono 44.1 kHz MP3 at 128 kbps, bundled locally.
+CC0: https://creativecommons.org/publicdomain/zero/1.0/
