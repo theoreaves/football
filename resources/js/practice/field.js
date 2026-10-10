@@ -383,7 +383,7 @@ export function mountPractice(root, onReady = () => {}) {
                     if (role === 'QB') {
                         // After the regular pose is rendered, fold one knee and
                         // bring the forearms toward the raised knee.
-                        const kneel = Math.max(0, Math.min(1, (huddleProgress - .78) / .22));
+                        // Reuse the kneel blend declared above in this QB branch.
                         mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = kneel * (j === 0 ? -1.48 : .95); });
                         mesh.userData.arms?.forEach((arm, j) => { arm.rotation.x = kneel * (j === 0 ? -.90 : -.70); arm.rotation.z = kneel * (j === 0 ? -.10 : .10); });
                         mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.20 - kneel * .62; });
