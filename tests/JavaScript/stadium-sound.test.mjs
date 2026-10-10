@@ -17,7 +17,7 @@ test('crowd favors the home team for scoring and turnover results',()=>{
 test('home first downs and home defensive third downs have stadium cues',()=>{
     assert.ok(soundCues(play,state,{...state,down:1}).some(c=>c.type==='first_down'));
     assert.ok(!soundCues(play,{...state,possession:'away'},{...state,possession:'away',down:1}).some(c=>c.type==='first_down'));
-    assert.ok(soundCues(play,{...state,possession:'away',down:3},state).some(c=>c.type==='third_down' && c.time < 0));
+    assert.ok(soundCues(play,{...state,possession:'away',down:2},{...state,possession:'away',down:3}).some(c=>c.type==='third_down' && c.time > 5.3));
 });
 test('timing follows snap throw and result without cues on seek or duplicate frames',()=>{
     const cues=soundCues(play,state,{...state,home_score:6});

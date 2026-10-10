@@ -41,3 +41,16 @@ test('celebration to result transitions cannot replay crossed cues',()=>{
  assert.equal(presentationSoundTime('set',0,9,0,-2),-1);
  assert.equal(presentationSoundTime('live',3,9,0,2),3);
 });
+
+test('third-down horn follows a settled visiting second-down result between downs',()=>{
+ const after={...state,down:3};
+ const cues=soundCues(animation,state,after);const third=cues.find(c=>c.type==='third_down');
+ assert.equal(third.time,9.6);
+ assert.ok(!crossedCues(cues,-2,9).some(c=>c.type==='third_down'));
+ assert.equal(crossedCues(cues,9,9.7).filter(c=>c.type==='third_down').length,1);
+ assert.ok(!crossedCues(cues,9.7,10).some(c=>c.type==='third_down'));
+ for(const changed of [{...after,penalty_pending:true},{...after,down:1},{...after,down:2},{...after,possession:'home'},{...after,status:'final'},{...after,phase:'extra_point'}])assert.ok(!soundCues(animation,state,changed).some(c=>c.type==='third_down'));
+ assert.ok(!soundCues(animation,{...state,possession:'home'},{...after,possession:'home'}).some(c=>c.type==='third_down'));
+ assert.ok(!soundCues(animation,{...state,down:3},{...after,down:4}).some(c=>c.type==='third_down'));
+ const flagged=soundCues(animation,state,after,{accepted:false}).find(c=>c.type==='third_down');assert.ok(flagged.time>9.6);
+});

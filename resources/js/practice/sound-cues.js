@@ -6,7 +6,6 @@ export function soundCues(animation, before, after, penalty = null) {
     const cues = [], add = (time, type, mood = null) => cues.push({time,type,mood});
     const call = animation.call;
     const noSnap = animation.no_snap || call === 'clock_event';
-    if (before?.phase === 'scrimmage' && before.possession === 'away' && before.down === 3 && !noSnap) add(-1,'third_down');
     if (!noSnap) {
         if (call !== 'kickoff') add(0,'snap');
         if (animation.passing) add(animation.throw_at ?? 2.2,'throw');
@@ -35,6 +34,10 @@ export function soundCues(animation, before, after, penalty = null) {
             if (turnover && goodSide === 'home' && !noSnap) add(reactionAt + .2,'home_turnover');
             if (firstDown && goodSide === 'home') add(reactionAt + .2,'first_down');
         }
+        const visitingThirdDown = before.phase === 'scrimmage' && before.possession === 'away' && before.down === 2
+            && after.phase === 'scrimmage' && after.possession === 'away' && after.down === 3
+            && after.status !== 'final' && homePoints === 0 && awayPoints === 0;
+        if (visitingThirdDown) add(Math.max(reactionAt,animation.duration ?? resultAt) + .6,'third_down');
         if (after.status === 'final') add(reactionAt + .4,'final');
         else if (before.quarter !== after.quarter) add(reactionAt + .4,'quarter');
     }
