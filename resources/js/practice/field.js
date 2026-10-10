@@ -457,6 +457,22 @@ export function mountPractice(root, onReady = () => {}) {
                     : isDefFront ? 'def-front' : isLinebacker ? 'ready' : null)
                 : null;
             applyPreSnapStance(mesh, lineStance);
+            // Pre-snap-only visual breathing room between opposing front lines.
+            // Keep the center fixed on the ball and leave recorded paths intact.
+            // Ease offsets away at the snap to avoid popping into the play track.
+            const frontGapBlend = phase === 'set' ? 1
+                : phase === 'liningup' ? Math.max(0, Math.min(1, (lineupProgress - .78) / .22))
+                : phase === 'play' ? Math.max(0, 1 - elapsed / .24) : 0;
+            if (frontGapBlend > 0) {
+                if (player.team === 'offense' && ['LG', 'RG', 'LT', 'RT'].includes(role)) {
+                    mesh.position.x -= playDirection * .18 * frontGapBlend;
+                } else if (player.team === 'defense' && isDefFront) {
+                    mesh.position.x += playDirection * .48 * frontGapBlend;
+                    // Don't stack defensive helmets directly across the center.
+                    if (/^DT/.test(role)) mesh.position.z += (role === 'DT1' ? -.20 : .20) * frontGapBlend;
+                }
+            }
+
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         // During a real throw, keep the football in the QB's right hand until

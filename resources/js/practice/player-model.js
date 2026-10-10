@@ -294,13 +294,14 @@ export function applyPreSnapStance(group, stance) {
     const threePoint = stance === 'three';
     const defensiveFront = stance === 'def-front';
     const ready = stance === 'ready';
-    const depth = center ? 1 : threePoint ? .82 : defensiveFront ? .88 : .36;
-    waist.rotation.x = (center ? .66 : threePoint ? .54 : defensiveFront ? .57 : .19);
+    const depth = center ? 1 : threePoint ? .87 : defensiveFront ? .91 : .36;
+    // Lower the hips through thigh and shin flexion instead of excessive trunk lean.
+    waist.rotation.x = (center ? .69 : threePoint ? .56 : defensiveFront ? .57 : .19);
     group.userData.legs?.forEach((leg, i) => {
         // Both thighs flex together. A slight stagger creates a stable base.
-        leg.rotation.x = (.37 + (i === 0 ? -.04 : .04)) * depth;
+        leg.rotation.x = (.49 + (i === 0 ? -.035 : .035)) * depth;
     });
-    knees.forEach(knee => { knee.rotation.x = -.82 * depth; });
+    knees.forEach(knee => { knee.rotation.x = -1.03 * depth; });
     if (center) {
         group.userData.arms?.forEach(arm => { arm.rotation.x = -.98; });
         group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.74; });
