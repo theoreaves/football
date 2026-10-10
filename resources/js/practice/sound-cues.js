@@ -12,7 +12,11 @@ export function soundCues(animation, before, after) {
     const resultAt = animation.reveal_at ?? (noSnap ? .8 : 5.3);
     const summary = animation.events?.at(-1)?.[1]?.toLowerCase() || '';
     if (!noSnap && !summary.includes('incomplete') && !summary.includes('touchdown') && !['punt','field_goal','extra_point','kickoff','spike','kneel'].includes(call)) add(resultAt,'tackle');
-    add(resultAt,'whistle');
+    if (call !== 'clock_event') {
+        const stoppedAt = animation.contact_at ?? animation.result_at ?? resultAt;
+        const at = noSnap ? .48 : stoppedAt + .1;
+        add(Number.isFinite(animation.duration) ? Math.min(animation.duration,at) : at,'whistle',noSnap ? 'stop' : 'short');
+    }
     if (before && after && !after.penalty_pending) {
         const homePoints = after.home_score - before.home_score, awayPoints = after.away_score - before.away_score;
         const touchdown = homePoints >= 6 || awayPoints >= 6;

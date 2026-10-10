@@ -1,0 +1,17 @@
+WebSports Football referee whistles v1
+
+Source pages list CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+Verified 2026-10-10. Edited derivatives of publicly linked HQ MP3s.
+Trimmed leading/trailing silence, limited peaks, short endpoint fades,
+converted to 44.1 kHz mono MP3.
+
+whistle-short.mp3
+Referee whistle sound.wav — Rosa-Orenes256
+https://freesound.org/people/Rosa-Orenes256/sounds/538422/
+https://cdn.freesound.org/previews/538/538422_11966684-hq.mp3
+
+whistle-alt.mp3
+Referee whistle blow, gymnasium.wav — SpliceSound
+https://freesound.org/people/SpliceSound/sounds/218318/
+https://cdn.freesound.org/previews/218/218318_1480854-hq.mp3

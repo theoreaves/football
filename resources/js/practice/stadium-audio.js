@@ -1,11 +1,12 @@
 import {soundSettings} from './sound-cues.js';
 import {recordedCrowd} from './recorded-crowd.js';
+import {recordedFieldEffects} from './recorded-field-effects.js';
 
 // Recorded crowd ambience/reactions, with the existing synthesized field effects.
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, recordings, active = false, ambienceActive = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, recordings, fieldRecordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const control = root.querySelector('[data-sound-toggle]');
@@ -15,6 +16,7 @@ export function stadiumAudio(root, environment = window) {
         master.gain.setTargetAtTime(settings.enabled && (active || ambienceActive) ? settings.master : 0,context.currentTime,.04);
         crowd.gain.value = settings.crowd; effects.gain.value = settings.effects;
         recordings?.setActive(settings.enabled && (active || ambienceActive));
+        fieldRecordings?.setActive(settings.enabled && active);
     };
     const track = (source, gain) => {
         voices.add(source); source.onended = () => { voices.delete(source); source.disconnect(); gain.disconnect(); };
@@ -46,10 +48,12 @@ export function stadiumAudio(root, environment = window) {
                 crowd.connect(master); effects.connect(master); master.connect(context.destination);
                 recordings = recordedCrowd(context,crowd,environment,root.dataset?.crowdAudioBase);
                 recordings.load();
+                fieldRecordings = recordedFieldEffects(context,effects,environment,root.dataset?.refereeAudioBase);
+                fieldRecordings.load();
                 levels();
             }
             if (context.state === 'suspended') context.resume().then(() => { if (!disposed) levels(); }).catch(() => {});
-            return recordings?.load();
+            return Promise.all([recordings?.load(),fieldRecordings?.load()]);
         } catch { /* Gameplay continues if audio cannot start. */ }
     };
     const play = cue => {
@@ -59,7 +63,7 @@ export function stadiumAudio(root, environment = window) {
             case 'throw': noise(.2,effects,.11,2400); break;
             case 'kick': noise(.17,effects,.45,350); tone(95,.13); break;
             case 'tackle': noise(.35,effects,.65,450); tone(65,.22); break;
-            case 'whistle': tone(2300,.3,0,.09); tone(2550,.25,.025,.04); break;
+            case 'whistle': fieldRecordings?.playWhistle(cue.mood || 'short',Number(root.dataset?.playNumber)||0); break;
             case 'crowd': recordings?.play(cue.mood,{variant:Number(root.dataset?.playNumber)||0}); break;
             case 'first_down': [392,494,587].forEach((f,i)=>tone(f,.24,i*.13,.12,'triangle')); break;
             case 'touchdown': [392,494,587,784].forEach((f,i)=>tone(f,.45,i*.17,.17,'triangle')); break;
@@ -80,6 +84,6 @@ export function stadiumAudio(root, environment = window) {
         play, prepare,
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

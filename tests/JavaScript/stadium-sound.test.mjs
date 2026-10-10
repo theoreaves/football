@@ -43,7 +43,7 @@ test('audio settings clamp levels and persist mute without requiring audio suppo
     audio.setActive(true);audio.play({type:'whistle'});audio.setActive(false);audio.dispose();
 });
 
-test('pausing stops effects and mute is saved for the next game',()=>{
+test('pausing stops effects and mute is saved for the next game',async()=>{
     let instance, stored, stops=0;
     const node=()=>({connect(){},disconnect(){},gain:{value:0,setTargetAtTime(v){this.value=v;},setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},frequency:{value:0},start(){},stop(){stops++;}});
     class Context {
@@ -51,6 +51,7 @@ test('pausing stops effects and mute is saved for the next game',()=>{
         createGain(){const gain=node();this.gains ??=[];this.gains.push(gain);return gain;}
         createBuffer(c,length){return {getChannelData:()=>new Float32Array(length)};}
         createBufferSource(){return node();}
+        decodeAudioData(){return Promise.resolve({duration:.5});}
         createOscillator(){return node();}
         createBiquadFilter(){return node();}
         close(){return Promise.resolve();}
@@ -58,8 +59,8 @@ test('pausing stops effects and mute is saved for the next game',()=>{
     const callbacks={};
     const button={addEventListener:(type,callback)=>callbacks[type]=callback,setAttribute(){}};
     const root={querySelector:()=>button,querySelectorAll:()=>[],addEventListener(){},removeEventListener(){}};
-    const audio=stadiumAudio(root,{AudioContext:Context,localStorage:{getItem:()=>null,setItem:(key,value)=>stored=JSON.parse(value)}});
-    audio.setActive(true);audio.play({type:'whistle'});
+    const audio=stadiumAudio(root,{AudioContext:Context,fetch:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(8)}),localStorage:{getItem:()=>null,setItem:(key,value)=>stored=JSON.parse(value)}});
+    audio.setActive(true);await audio.prepare();audio.play({type:'whistle'});
     const scheduledStops=stops;audio.setActive(false);
     assert.ok(stops > scheduledStops);
     assert.equal(instance.gains[0].gain.value,0);
