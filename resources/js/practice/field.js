@@ -19,6 +19,7 @@ import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from '
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 import { penaltyMoment, foulMovement, penaltyAlignment, offsideLateralAlignment, buildPenaltyPresentation } from './penalty-presentation.js';
+import { buildPenaltyContact, applyPenaltyContact, resetPenaltyContactPose } from './penalty-contact.js';
 import { buildChainGang } from './chain-gang.js';
 import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } from './referees.js';
 
@@ -308,6 +309,7 @@ export function mountPractice(root, onReady = () => {}) {
     const ruling = refereeSignal(animation, beforeState, afterState);
     const penalty = JSON.parse(root.dataset.penalty || 'null');
     const foul = penaltyMoment(animation, penalty, refereePaths);
+    const penaltyContact = buildPenaltyContact(animation, foul);
     const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending));
     let audioTime = -2;
     const turnover = turnoverMoment(animation);
@@ -346,6 +348,7 @@ export function mountPractice(root, onReady = () => {}) {
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
+            resetPenaltyContactPose(mesh);
             // Reset the articulated stance every frame. Running, throws,
             // tackles, and the QB kneel must never inherit a prior crouch.
             if (mesh.userData.waist) mesh.userData.waist.rotation.x = 0;
@@ -966,6 +969,7 @@ export function mountPractice(root, onReady = () => {}) {
             }
 
         });
+        if (phase === 'play') applyPenaltyContact(penaltyContact, elapsed, frame.players, players);
         medicalCrew.visible = phase === 'medical' && Boolean(seriousInjury);
         if (medicalCrew.visible) {
             const injuredIndex = frame.players.findIndex(p => p.team === seriousInjury.team && p.role === seriousInjury.role);
