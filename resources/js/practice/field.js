@@ -19,6 +19,7 @@ import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from '
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 import { buildChainGang } from './chain-gang.js';
+import { buildReferees, refereeSignal } from './referees.js';
 
 export function mountPractice(root, onReady = () => {}) {
     if (root.dataset.mounted) return;
@@ -168,6 +169,7 @@ export function mountPractice(root, onReady = () => {}) {
     const firstDownLine = addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
     const chainGang = buildChainGang(scene, document);
     chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, JSON.parse(root.dataset.beforeState || '{}').down ?? 1, animation?.direction ?? 1, root.dataset.chainGang !== 'false');
+    const referees = buildReferees(scene);
     const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'));
     scene.add(stadium.group);
     for (const x of [0, 120]) {
@@ -301,6 +303,7 @@ export function mountPractice(root, onReady = () => {}) {
 
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
+    const ruling = refereeSignal(animation, beforeState, afterState);
     let audioTime = -2;
     const turnover = turnoverMoment(animation);
     const liveBanner = document.createElement('div');
@@ -1017,6 +1020,14 @@ export function mountPractice(root, onReady = () => {}) {
                 ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .42));
             }
         }
+        const deadBallAt = animation?.result_at ?? animation?.reveal_at ?? 5.3;
+        const postPlay = ['big_play', 'celebration', 'result', 'medical'].includes(phase);
+        const signalTime = Math.max(0, elapsed - deadBallAt) + (postPlay ? postElapsed : 0);
+        referees.update({line: animation?.line ?? 40,
+            spot: sample(type, duration).ball.x, direction: playDirection,
+            signal: ruling, time: signalTime,
+            active: Boolean(ruling) && (postPlay || (phase === 'play' && elapsed >= deadBallAt)),
+            visible: Boolean(animation)});
         if (['play', 'big_play', 'celebration', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         const holder = ballCarrier(frame, phase);
         // The mesh's long axis is local X (ball.scale.x = 1.6).
