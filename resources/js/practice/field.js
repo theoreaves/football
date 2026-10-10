@@ -216,6 +216,46 @@ export function mountPractice(root, onReady = () => {}) {
     const resultPopup = root.querySelector('[data-result-popup]');
     const beforeState = root.dataset.beforeState ? JSON.parse(root.dataset.beforeState) : null;
     const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
+    // Only a NEW, game-ending injury triggers the sideline medical sequence.
+    // Already-injured season players and brief return-snap injuries do not.
+    const seriousInjury = (() => {
+        if (!animation?.players || !afterState) return null;
+        for (const side of ['home', 'away']) {
+            const previous = beforeState?.injuries?.[side] ?? {};
+            const current = afterState.injuries?.[side] ?? {};
+            for (const [id, injury] of Object.entries(current)) {
+                if (previous[id] || injury?.return_snap != null || injury?.season_injury_id) continue;
+                const track = animation.players.find(p => p.side === side && Number(p.id) === Number(id));
+                if (track) return { team: track.team, role: track.role, side, id, name: injury.name || track.name || 'Player' };
+            }
+        }
+        return null;
+    })();
+    // Low-poly trainer figures, independent from the roster and simulation.
+    const medicalCrew = new THREE.Group();
+    medicalCrew.visible = false;
+    scene.add(medicalCrew);
+    const trainerMaterial = new THREE.MeshStandardMaterial({ color: 0xe9e9e7, roughness: .9 });
+    const trainerPants = new THREE.MeshStandardMaterial({ color: 0x263649, roughness: .9 });
+    const trainerSkin = new THREE.MeshStandardMaterial({ color: 0xb98863, roughness: .95 });
+    const makeTrainer = () => {
+        const figure = new THREE.Group();
+        const part = (geometry, material, x, y, z) => {
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z); figure.add(mesh);
+        };
+        part(new THREE.BoxGeometry(.48, .65, .28), trainerMaterial, 0, 1.26, 0);
+        part(new THREE.SphereGeometry(.18, 9, 7), trainerSkin, 0, 1.77, 0);
+        for (const sign of [-1, 1]) {
+            part(new THREE.BoxGeometry(.17, .62, .2), trainerPants, sign * .14, .57, 0);
+            part(new THREE.BoxGeometry(.15, .58, .2), trainerSkin, sign * .32, 1.21, 0);
+        }
+        medicalCrew.add(figure);
+        return figure;
+    };
+    const trainers = [makeTrainer(), makeTrainer()];
+    const treatmentDuration = 7;
+
     const teamNames = root.dataset.teamNames ? JSON.parse(root.dataset.teamNames) : null;
     let revealed = root.dataset.autoplay !== 'true';
     stadium.updateScoreboard(revealed ? afterState : beforeState, teamNames);
@@ -297,6 +337,11 @@ export function mountPractice(root, onReady = () => {}) {
             mesh.rotation.x = 0; // Clear any previous pre-snap lean before each render.
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
+            if (phase === 'medical' && seriousInjury && player.team === seriousInjury.team && player.role === seriousInjury.role) {
+                // Stay down at the final play position until trainers arrive.
+                mesh.rotation.z = 1.30;
+                mesh.position.y = .17;
+            }
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
@@ -543,6 +588,25 @@ export function mountPractice(root, onReady = () => {}) {
             }
 
         });
+        medicalCrew.visible = phase === 'medical' && Boolean(seriousInjury);
+        if (medicalCrew.visible) {
+            const injuredIndex = frame.players.findIndex(p => p.team === seriousInjury.team && p.role === seriousInjury.role);
+            if (injuredIndex >= 0) {
+                const fallen = players[injuredIndex].position;
+                const sidelineZ = fallen.z < 26.7 ? -3 : 56.4;
+                const progress = Math.min(1, postElapsed / 2.8);
+                const ease = progress * progress * (3 - 2 * progress);
+                trainers.forEach((trainer, index) => {
+                    const targetX = fallen.x + (index === 0 ? -1.05 : 1.05);
+                    const targetZ = fallen.z + (index === 0 ? -.70 : .70);
+                    trainer.position.set(targetX + (index === 0 ? -1 : 1) * (1 - ease),
+                        progress >= 1 ? -.38 : 0,
+                        sidelineZ + (targetZ - sidelineZ) * ease);
+                    trainer.rotation.y = Math.atan2(fallen.x - trainer.position.x, fallen.z - trainer.position.z);
+                    trainer.rotation.z = progress >= 1 ? (index === 0 ? -.23 : .23) : 0;
+                });
+            }
+        }
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         // During a real throw, keep the football in the QB's right hand until
         // release. Blend back to the saved flight path so the handoff is smooth.
@@ -901,8 +965,16 @@ export function mountPractice(root, onReady = () => {}) {
         }
         if (elapsed >= duration && phase === 'play') {
             running = false; playButton.textContent = 'Replay';
-            if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }
+            if (seriousInjury && resultPopup) {
+                phase = 'medical'; postElapsed = 0; resultPopup.hidden = true;
+            } else if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }
             else showQuarter();
+        } else if (phase === 'medical') {
+            postElapsed += delta;
+            if (postElapsed >= treatmentDuration) {
+                phase = 'result'; postElapsed = 0;
+                if (resultPopup) resultPopup.hidden = false;
+            }
         } else if (phase === 'result') {
             postElapsed += delta;
             if (postElapsed >= 3) {
