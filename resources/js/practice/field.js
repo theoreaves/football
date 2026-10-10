@@ -402,12 +402,12 @@ export function mountPractice(root, onReady = () => {}) {
             // paths are unchanged until contact; never mutate saved play animation data.
             if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at
                 && animation.tackle_style && animation.tackler_role
-                && ((player.team === 'offense' && player.role === animation.carrier)
-                    || (player.team === 'defense' && player.role === animation.tackler_role))) {
-                const carrier = frame.players.find(p => p.team === 'offense' && p.role === animation.carrier);
-                const tackler = frame.players.find(p => p.team === 'defense' && p.role === animation.tackler_role);
+                && ((player.team === (animation.contact_carrier_team || 'offense') && player.role === animation.carrier)
+                    || (player.team === (animation.contact_tackler_team || 'defense') && player.role === animation.tackler_role))) {
+                const carrier = frame.players.find(p => p.team === (animation.contact_carrier_team || 'offense') && p.role === animation.carrier);
+                const tackler = frame.players.find(p => p.team === (animation.contact_tackler_team || 'defense') && p.role === animation.tackler_role);
                 if (carrier && tackler) {
-                    const defender = player.team === 'defense';
+                    const defender = player.team === (animation.contact_tackler_team || 'defense');
                     const style = animation.tackle_style;
                     const duration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
                     const timeSinceContact = elapsed - animation.contact_at;

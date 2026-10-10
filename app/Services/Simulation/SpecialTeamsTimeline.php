@@ -91,6 +91,24 @@ class SpecialTeamsTimeline
         if (! $goalKick && ! str_ends_with($play['outcome'], '_touchback')) {
             $base['ballHolders'][] = [3.5, 'defense', 'CB1'];
         }
+        // Kick/punt returns reverse the normal offense/defense relationship:
+        // the returner is CB1 (defense), while TE is on the coverage team
+        // (offense). Enable contact only on an actual, non-scoring return.
+        $returnContact = ! $goalKick && ! $blocked
+            && ! str_ends_with($play['outcome'], '_touchback')
+            && ! str_ends_with($play['outcome'], '_touchdown')
+            && $return > 0;
+        if ($returnContact) {
+            $base['carrier'] = 'CB1';
+            $base['tackler_role'] = 'TE';
+            $base['contact_carrier_team'] = 'defense';
+            $base['contact_tackler_team'] = 'offense';
+            $base['tackle_style'] = ['wrap', 'side', 'lunge'][abs((int) $end) % 3];
+            $base['contact_at'] = 5.3;
+        } else {
+            $base['contact_at'] = null;
+            $base['tackle_style'] = null;
+        }
         $base['firstDown'] = null;
 
         return $base;
