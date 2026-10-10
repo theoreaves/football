@@ -19,7 +19,9 @@ class GameClock
 
     public function lateHalf(array $state): bool
     {
-        return ($state['quarter'] === 2 || $state['quarter'] >= 4) && $state['clock'] <= 120;
+        return ($state['quarter'] === 2 && $state['clock'] <= 120)
+            || ($state['quarter'] === 4 && $state['clock'] <= 300)
+            || ($state['quarter'] >= 5 && $state['clock'] <= 120);
     }
 
     public function runoff(array $state, string $tempo): int

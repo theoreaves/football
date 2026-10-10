@@ -42,7 +42,16 @@ class SpecialTeamsTimeline
                         $point(2.0, $kick + 2.5 * $direction, 0, 26.7),
                         $point(6, $kick + 3 * $direction, 0, 26.7),
                     ]
-                    : [$point(0, $kick - 2 * $direction, 0, 26.7), $point(1.2, $kick, 0, 26.7), $point(6, $kick + $direction, 0, 26.7)];
+                    : [
+                        // A kickoff starts with a run-up to the ball on a tee.
+                        // Do not reuse the stationary punt-style kick motion.
+                        $point(0, $kick - 5 * $direction, 0, 26.7),
+                        $point(.55, $kick - 3.1 * $direction, 0, 26.7),
+                        $point(.95, $kick - 1.25 * $direction, 0, 26.7),
+                        $point(1.2, $kick, 0, 26.7),
+                        $point(1.65, $kick + 1.25 * $direction, 0, 26.7),
+                        $point(6, $kick + 3 * $direction, 0, 26.7),
+                    ];
             }
             if ($player['role'] === 'CB1' && ! $goalKick) {
                 $player['path'] = [$point(0, $landing, 0, 26.7), $point(3.5, $landing, 0, 26.7), $point(5.3, $end, 0, 26.7), $point(6, $end, 0, 26.7)];

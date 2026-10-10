@@ -27,6 +27,7 @@
 .game-camera-controls > span { display: none; }
 .game-actions { bottom: 12px; right: 14px; display: flex; flex-wrap: wrap; gap: 14px; }
 .game-actions button { color: #bfdbfe; }
+.game-actions .game-action-exit { color: #fff; background: #1d4ed8; padding: 6px 12px; border: 1px solid #93c5fd; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .game-status { top: 96px; right: 24px; max-width: 43%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .game-timeouts { top: 176px; left: 14px; }
 .game-cpu-toggle { bottom: 155px; right: 14px; background: #172b48; }

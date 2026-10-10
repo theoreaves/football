@@ -13,15 +13,17 @@ export function sampleHuddle(finalFrame, nextLine, possession, progress, homeDir
         // This arrangement is interpolated from the previous play, so nobody
         // teleports into a different formation at the end of the play.
         const offenseQB = attackSide && player.role === 'QB';
-        const defensiveFront = !attackSide && /^(DE\d?|DT\d?|NT|EDGE\d?|DL\d?)$/.test(player.role ?? '');
-        const defensiveBack = !attackSide && /^(CB\d?|FS|SS|S\d?|NB)$/.test(player.role ?? '');
-        const defensiveLB = !attackSide && /^(LB\d?|MLB|LOLB|ROLB)$/.test(player.role ?? '');
+        // Defense forms a loose circular discussion group, not a marching line.
+        // The radial offset distinguishes individual players while keeping the
+        // group between the hashes. Identical player order gives stable replay.
+        const defenseAngle = (number / 11) * Math.PI * 2 + Math.PI / 11;
+        const defenseRadius = 2.0 + (number % 3) * .27;
         const x = offenseQB ? center
             : attackSide ? center + Math.cos(angle) * 2.4
-            : center + (defensiveFront ? -2 : defensiveLB ? 0 : defensiveBack ? 3.0 : 1) * homeDirection;
+            : center + Math.cos(defenseAngle) * defenseRadius * homeDirection;
         const z = offenseQB ? 26.7
             : attackSide ? 26.7 + Math.sin(angle) * 2.4
-            : 26.7 + (number - 5) * (defensiveBack ? 2.6 : 1.7);
+            : 26.7 + Math.sin(defenseAngle) * defenseRadius;
         return { ...player, x: player.x + (x - player.x) * blend, z: player.z + (z - player.z) * blend, facingX: center, facingZ: 26.7 };
     });
     // The officials spot the football at the next line of scrimmage.
