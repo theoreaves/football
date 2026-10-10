@@ -266,6 +266,11 @@ export function mountPractice(root, onReady = () => {}) {
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
+            // Reset the articulated stance every frame. Running, throws,
+            // tackles, and the QB kneel must never inherit a prior crouch.
+            if (mesh.userData.waist) mesh.userData.waist.rotation.x = 0;
+            mesh.userData.knees?.forEach(knee => { knee.rotation.x = 0; });
+
             const next = future.players[i];
             const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
             mesh.rotation.x = 0; // Clear any previous pre-snap lean before each render.
@@ -407,43 +412,33 @@ export function mountPractice(root, onReady = () => {}) {
                 }
             }
 
-            if (presnap && (isDefFront || (player.team === 'offense' && isOneOf('C','LG','RG','LT','RT')))) {
-                // Lower center of mass and flex both hips for a set football stance.
-                mesh.position.y -= .10;
-
+            // Joint-based pre-snap stance. Model forward is +Z; a positive
+            // waist X-rotation folds the upper body toward the toes. Avoid
+            // tilting the whole player, which looked like sideways leaning.
+            const centerStance = player.team === 'offense' && role === 'C';
+            const offenseLine = player.team === 'offense' && isOneOf('LG', 'RG', 'LT', 'RT');
+            const defensiveLine = player.team === 'defense' && isDefFront;
+            const tightEnd = player.team === 'offense' && isOneOf('TE', 'TE1', 'TE2');
+            const readyLB = player.team === 'defense' && isLinebacker;
+            const stanceActive = presnap && (centerStance || offenseLine || defensiveLine || tightEnd || readyLB);
+            if (stanceActive) {
+                const depth = centerStance ? 1 : offenseLine ? .72 : defensiveLine ? .85 : tightEnd ? .38 : .28;
+                // The ankles and ground remain near the same location. Split
+                // hip and knee flexion, and lean from the new waist joint.
+                mesh.position.y -= .13 * depth;
+                mesh.userData.waist.rotation.x = .46 * depth;
+                mesh.userData.legs?.forEach((leg, j) => {
+                    leg.rotation.x = (j ? -.30 : -.23) * depth;
+                });
+                mesh.userData.knees?.forEach(knee => { knee.rotation.x = .72 * depth; });
+                const reach = centerStance ? -1.10 : defensiveLine ? -.87 : -.64;
+                lowerArms(reach, centerStance ? reach : -.28, -.70);
             }
-            if (presnap) {
-                if (player.team === 'offense') {
-                    if (isOneOf('C')) {
-
-                        lowerArms(-1.00, -1.00, -.88);
-                        mesh.position.y -= .03;
-                    } else if (isOneOf('LG', 'RG', 'LT', 'RT')) {
-
-                        lowerArms(-.72, -.24, -.70);
-                        mesh.position.y -= .02;
-                    } else if (isOneOf('TE', 'TE1', 'TE2')) {
-
-                        lowerArms(-.52, -.20, -.62);
-                    } else if (isOneOf('QB')) {
-
-                        lowerArms(-.35, -.35, -.40);
-                    } else if (isOneOf('RB', 'RB1', 'RB2', 'FB')) {
-
-                        lowerArms(-.20, -.55, -.48);
-                    }
-                } else if (player.team === 'defense') {
-                    if (isDefFront) {
-
-                        lowerArms(-.78, -.34, -.72);
-                        mesh.position.y -= .02;
-                    } else if (isLinebacker) {
-
-                        lowerArms(-.28, -.28, -.42);
-                    } else if (isSecondary) {
-
-                        lowerArms(-.12, -.12, -.25);
-                    }
+            if (presnap && !stanceActive) {
+                if (player.team === 'offense' && isOneOf('QB','RB','RB1','RB2','FB')) {
+                    lowerArms(-.29, -.29, -.36);
+                } else if (player.team === 'defense' && isSecondary) {
+                    lowerArms(-.14, -.14, -.24);
                 }
             }
 
