@@ -317,7 +317,15 @@ export function mountPractice(root, onReady = () => {}) {
                 mesh.position.y = -.45;
                 mesh.rotation.y = playDirection * Math.PI / 2;
             }
-            animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null);
+            // Catch/reach at ball arrival, then tuck the ball while turning upfield.
+            // No pose is applied to sacks, throwaways, or other receivers.
+            const receiving = animation?.receiver_role && player.team === 'offense'
+                && player.role === animation.receiver_role && phase === 'play';
+            const reception = receiving && elapsed >= 3.35 && elapsed < 4.12
+                ? (['incomplete', 'interception'].includes(animation.outcome) ? 'reach' : 'catch')
+                : receiving && elapsed >= 4.12 && elapsed <= 5.3
+                    && !['incomplete', 'interception'].includes(animation.outcome) ? 'tuck' : null;
+            animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);

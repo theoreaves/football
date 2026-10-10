@@ -123,7 +123,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     return group;
 }
 
-export function animateFootballPlayer(group, moving, time, index, throwing = null) {
+export function animateFootballPlayer(group, moving, time, index, throwing = null, reception = null) {
     if (group.userData.holderKneel) {
         group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? -1.55 : 1.1; });
         group.userData.arms?.forEach((arm, i) => { arm.rotation.z = i === 0 ? -.12 : .12; arm.rotation.x = -1.05; });
@@ -157,6 +157,20 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
             arm.rotation.z = i === 0 ? -.25 : .25;
         });
         group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.9; });
+    }
+    // Reach at the actual ball-arrival time. Catch and miss poses use the
+    // existing arm/elbow joints and never change the recorded ball path.
+    if (reception === 'catch' || reception === 'reach') {
+        group.userData.arms?.forEach((arm, i) => {
+            arm.rotation.x = reception === 'catch' ? -1.2 : -1.65;
+            arm.rotation.z = i === 0 ? -.23 : .23;
+        });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.40; });
+    } else if (reception === 'tuck') {
+        const arm = group.userData.arms?.[1];
+        if (arm) { arm.rotation.x = -.88; arm.rotation.z = -.38; }
+        const elbow = group.userData.elbows?.[1];
+        if (elbow) elbow.rotation.x = -1.0;
     }
     if (throwing !== null && throwing >= 1.4 && throwing <= 2.9) {
         const arm = group.userData.arms?.[1];

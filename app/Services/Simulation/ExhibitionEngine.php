@@ -192,16 +192,27 @@ class ExhibitionEngine
                 $gain += $yards($roll(), 8, 25);
             }
         }
+        // Sideline endings also occur during ordinary plays, not only late-half
+        // clock management. A carrier can step out or be forced out by pursuit.
         $outOfBounds = false;
-        if ($clockStrategy === 'sideline' && $clock->lateHalf($before) && $outcome === 'tackle') {
-            $chance = $targetRole !== null && ! $scramble ? .75 : ($call === 'outside_run' ? .65 : .3);
+        $forcedOut = false;
+        if ($outcome === 'tackle') {
+            $lateSideline = $clockStrategy === 'sideline' && $clock->lateHalf($before);
+            $chance = $targetRole !== null && ! $scramble ? .11
+                : ($call === 'outside_run' ? .19 : ($scramble ? .08 : .035));
+            if ($lateSideline) {
+                $chance = $targetRole !== null && ! $scramble ? .75 : ($call === 'outside_run' ? .65 : .3);
+            }
             $outOfBounds = $roll() < $chance;
             if ($outOfBounds) {
-                $gain = max(0, $gain - 2);
+                $forcedOut = $roll() < .42;
+                if ($lateSideline) {
+                    $gain = max(0, $gain - 2);
+                }
             }
         }
         $gain = max(-$before['spot'], min(100 - $before['spot'], $gain));
-        if (in_array($outcome, ['tackle', 'sack'], true) && $gain < 100 - $before['spot']
+        if (! $outOfBounds && in_array($outcome, ['tackle', 'sack'], true) && $gain < 100 - $before['spot']
             && $roll() < max(.004, .045 - $off[$carrier]['ratings']['ball_security'] * .0004)) {
             $outcome = 'fumble';
             $flip = true;
@@ -268,14 +279,14 @@ class ExhibitionEngine
             }
         }
         if ($outOfBounds && $outcome !== 'touchdown') {
-            $summary .= ' · out of bounds, clock stopped';
+            $summary .= $forcedOut ? ' · forced out of bounds, clock stopped' : ' · steps out of bounds, clock stopped';
         }
         $seconds = $yards($roll(), 5, 9);
 
         return $this->finish($state, $before, [
             'design' => $design, 'pressure' => $pressure, 'scramble' => $scramble, 'throwaway' => $throwaway, 'expect' => $expect, 'blitz' => $blitz, 'motion' => $motion,
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
-            'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier,
+            'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'forced_out' => $forcedOut && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier,
             'receiver_role' => $targetRole, 'receiver_id' => $targetRole !== null ? ($off[$targetRole]['id'] ?? null) : null, 'summary' => $summary,
         ], $rosters, $seconds);
     }
