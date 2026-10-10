@@ -130,10 +130,34 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
         group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.85; });
         return;
     }
-    const stride = moving ? Math.sin(time * 16 + index) * .5 : 0;
-    group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? stride : -stride; });
-    group.userData.arms?.forEach((arm, i) => { arm.rotation.z = 0; arm.rotation.x = i === 0 ? -stride * .65 : stride * .65; });
-    group.userData.elbows?.forEach(elbow => { elbow.rotation.x = 0; });
+    // Independent limb joints let the runner pump arms and bend elbows.
+    // Keep this purely visual: no game-state or player-path modifications.
+    const stride = moving ? Math.sin(time * 13.5 + index * .83) : 0;
+    const swing = moving ? .58 * stride : 0;
+    const bend = moving ? Math.max(0, -stride) * .23 : 0;
+    group.userData.legs?.forEach((leg, i) => {
+        leg.rotation.x = (i === 0 ? 1 : -1) * swing + bend;
+    });
+    group.userData.arms?.forEach((arm, i) => {
+        const phase = i === 0 ? -1 : 1;
+        arm.rotation.z = phase * .10;
+        arm.rotation.x = phase * swing * .72 - (moving ? .14 : 0);
+    });
+    group.userData.elbows?.forEach((elbow, i) => {
+        elbow.rotation.x = moving ? -.60 - Math.abs(stride) * .18 : -.12;
+    });
+    // During a tackle, brace with bent arms instead of continuing to sprint.
+    // The tackle direction and whole-body rotation remain owned by field.js.
+    if (Math.abs(group.rotation.z) > .12 && !group.userData.holderKneel) {
+        group.userData.legs?.forEach((leg, i) => {
+            leg.rotation.x = i === 0 ? -.42 : .28;
+        });
+        group.userData.arms?.forEach((arm, i) => {
+            arm.rotation.x = i === 0 ? -.75 : -.95;
+            arm.rotation.z = i === 0 ? -.25 : .25;
+        });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.9; });
+    }
     if (throwing !== null && throwing >= 1.4 && throwing <= 2.9) {
         const arm = group.userData.arms?.[1];
         if (arm) {
