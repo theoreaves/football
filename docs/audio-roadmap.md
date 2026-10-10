@@ -5,13 +5,14 @@ next-play setup, recorded referee whistle variations, QB cadence with a separate
 Players volume, and recorded pad contacts, tackle hits and grass landings. Recorded kicks, catches and ball ground impacts
 follow the saved ball animation. The opening lineup intro includes a recorded
 national anthem, with Stadium volume, skip/fade and once-per-game playback.
+Recorded home touchdown fanfare, home defensive turnover sting and visiting
+offense third-down horn share the Stadium channel.
 
 Next:
 - Player sounds: exertion and occasional short shouts.
 - Field contact: expand recording variations and additional contact animations.
 - Ball/special teams: expand recordings and future visible bounce animations.
-- Stadium audio: music between drives; home touchdown celebrations;
-  home turnovers and defensive third-down prompts; other event effects.
+- Stadium audio: music between drives; expanded event recordings and prompts.
 
 Later:
 - Configurable sound packs per team/stadium, including user-uploaded clips.

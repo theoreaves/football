@@ -19,3 +19,29 @@ Edits: stereo 44.1 kHz MP3 at 160 kbps; gain reduced to 80% and 0.4s entry fade.
 Full performance retained, approximately 78 seconds. Playback does not loop.
 The game fades it on Skip intro/Continue and pauses on mute or hidden tabs.
 This file is bundled locally; no runtime requests to Wikimedia or Navy sites.
+
+HOME STADIUM REACTIONS
+
+touchdown.mp3: Trumpet Fanfare by bevibeldesign
+https://freesound.org/people/bevibeldesign/sounds/350428/
+Uploader lists CC0. Derived from fanfare1.flac by n2p5 (formerly neonaeon):
+https://freesound.org/people/n2p5/sounds/49477/
+Underlying recording licensed Creative Commons Attribution 4.0:
+https://creativecommons.org/licenses/by/4.0/
+Credit: n2p5, fanfare1.flac; arrangement/edit by bevibeldesign.
+Downloaded high-quality MP3 preview, attenuated, short fades, MP3 re-encoded.
+Underlying attribution is preserved despite the derivative's CC0 listing.
+
+turnover.mp3: Tada Fanfare F by plasterbrain (CC0)
+https://freesound.org/people/plasterbrain/sounds/397354/
+https://creativecommons.org/publicdomain/zero/1.0/
+Downloaded high-quality MP3 preview, attenuated, short fades, MP3 re-encoded.
+
+third-down.mp3: Horn #3 by Joseph SARDIN / BigSoundBank (CC0)
+https://bigsoundbank.com/horn-3-s2522.html
+https://bigsoundbank.com/UPLOAD/mp3/2522.mp3
+https://creativecommons.org/publicdomain/zero/1.0/
+Recorded horn, trimmed to 2.8 seconds, attenuated, fades, MP3 re-encoded.
+
+These are starter stadium cues, with no spoken third-down announcement.
+No artist endorsement is implied. All assets are bundled locally.

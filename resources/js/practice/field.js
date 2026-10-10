@@ -7,7 +7,7 @@ import { samplePreSnapMotion } from './motion.js';
 import { mountPlayWizard } from './play-wizard.js';
 import { mobileControls } from './mobile-controls.js';
 import { stadiumAudio } from './stadium-audio.js';
-import { soundCues, crossedCues, cadenceCues } from './sound-cues.js';
+import { soundCues, crossedCues, cadenceCues, presentationSoundTime } from './sound-cues.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -306,7 +306,7 @@ export function mountPractice(root, onReady = () => {}) {
     if (new URLSearchParams(window.location.search).get('debug_replay') === '1') root.classList.add('game-debug-replay');
 
     const audio = stadiumAudio(root);
-    const cues = soundCues(animation, beforeState, afterState);
+    const cues = soundCues(animation, beforeState, afterState, JSON.parse(root.dataset.penalty || 'null'));
     const quarterbackCues = cadenceCues(animation);
     let cadenceTime = -4;
     const ruling = refereeSignal(animation, beforeState, afterState);
@@ -1465,7 +1465,7 @@ export function mountPractice(root, onReady = () => {}) {
             postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
-        const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (running || phase === 'result' || (phase === 'huddle' && huddleProgress < 1));
+        const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
         // Keep the stadium bed under play calling, without enabling stale cues.
         const callingPlay = phase === 'huddle' || !callForm.hidden;
         audio.setAmbienceActive(!document.hidden && callingPlay && afterState?.status !== 'final'
@@ -1481,11 +1481,11 @@ export function mountPractice(root, onReady = () => {}) {
                 .forEach(cue => audio.play(cue));
         }
         cadenceTime = quarterbackTime;
-        const soundTime = phase === 'liningup' || phase === 'set' ? -1 : phase === 'result' ? duration + postElapsed : elapsed;
+        const soundTime = presentationSoundTime(phase,elapsed,duration,postElapsed,audioTime);
         if (audible) {
-            if (running || phase === 'result') crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
+            if (running || ['result','celebration','big_play'].includes(phase)) crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
             audioTime = soundTime;
-        } else if (running || phase === 'result') audioTime = soundTime;
+        } else if (running || ['result','celebration','big_play'].includes(phase)) audioTime = soundTime;
         tickPlayWizard?.({delta, ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         renderState(); controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};

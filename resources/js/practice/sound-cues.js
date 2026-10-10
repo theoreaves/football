@@ -1,7 +1,7 @@
 import {ballSoundCues} from './ball-sound-cues.js';
 import {contactSoundCues} from './contact-sound-cues.js';
 
-export function soundCues(animation, before, after) {
+export function soundCues(animation, before, after, penalty = null) {
     if (!animation) return [];
     const cues = [], add = (time, type, mood = null) => cues.push({time,type,mood});
     const call = animation.call;
@@ -12,6 +12,7 @@ export function soundCues(animation, before, after) {
         if (animation.passing) add(animation.throw_at ?? 2.2,'throw');
     }
     const resultAt = animation.reveal_at ?? (noSnap ? .8 : 5.3);
+    const reactionAt = penalty ? Math.max(resultAt,animation.duration ?? resultAt) + .2 : resultAt;
     const summary = animation.events?.at(-1)?.[1]?.toLowerCase() || '';
     cues.push(...contactSoundCues(animation), ...ballSoundCues(animation));
     if (call !== 'clock_event') {
@@ -26,15 +27,16 @@ export function soundCues(animation, before, after) {
             || summary.includes('turnover on downs');
         const firstDown = before.phase === 'scrimmage' && after.phase === 'scrimmage' && after.possession === before.possession && after.down === 1 && !noSnap && !summary.includes('nullified') && !summary.includes('awaiting');
         if (homePoints > 0 || awayPoints > 0) {
-            add(resultAt,'crowd',homePoints > 0 ? 'cheer' : 'groan');
-            if (touchdown) add(resultAt + .2, homePoints >= 6 ? 'touchdown' : 'away_score');
+            add(reactionAt,'crowd',homePoints > 0 ? 'cheer' : 'groan');
+            if (touchdown) add(reactionAt + .2, homePoints >= 6 ? 'touchdown' : 'away_score');
         } else if (turnover || firstDown || summary.includes('sack') || summary.includes('missed') || summary.includes('blocked')) {
             const goodSide = turnover || summary.includes('sack') || summary.includes('missed') || summary.includes('blocked') ? (before.possession === 'home' ? 'away' : 'home') : before.possession;
-            add(resultAt,'crowd',goodSide === 'home' ? 'cheer' : 'groan');
-            if (firstDown && goodSide === 'home') add(resultAt + .2,'first_down');
+            add(reactionAt,'crowd',goodSide === 'home' ? 'cheer' : 'groan');
+            if (turnover && goodSide === 'home' && !noSnap) add(reactionAt + .2,'home_turnover');
+            if (firstDown && goodSide === 'home') add(reactionAt + .2,'first_down');
         }
-        if (after.status === 'final') add(resultAt + .4,'final');
-        else if (before.quarter !== after.quarter) add(resultAt + .4,'quarter');
+        if (after.status === 'final') add(reactionAt + .4,'final');
+        else if (before.quarter !== after.quarter) add(reactionAt + .4,'quarter');
     }
     return cues.sort((a,b) => a.time - b.time);
 }
@@ -53,4 +55,11 @@ export function soundSettings(value = {}) {
 export function cadenceCues(animation) {
     if (!animation || animation.no_snap || ['clock_event','kickoff','punt','field_goal','extra_point'].includes(animation.call)) return [];
     return [{time:-2,type:'cadence',mood:'ready'}, {time:-1,type:'cadence',mood:'set'}, {time:0,type:'cadence',mood:'hut'}];
+}
+
+// Presentation phases reset their local timers; the audio cursor must not rewind.
+export function presentationSoundTime(phase,elapsed,duration,postElapsed,previous) {
+    if (phase === 'liningup' || phase === 'set') return -1;
+    return ['result','celebration','big_play'].includes(phase)
+        ? Math.max(previous,duration + postElapsed) : elapsed;
 }

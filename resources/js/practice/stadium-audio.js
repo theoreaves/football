@@ -1,3 +1,4 @@
+import {recordedStadiumReactions} from './recorded-stadium-reactions.js';
 import {recordedStadiumMusic} from './recorded-stadium-music.js';
 import {soundSettings} from './sound-cues.js';
 import {recordedCrowd} from './recorded-crowd.js';
@@ -10,7 +11,7 @@ import {recordedFieldEffects} from './recorded-field-effects.js';
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, players, stadium, recordings, fieldRecordings, playerRecordings, contactRecordings, ballRecordings, active = false, ambienceActive = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, players, stadium, recordings, fieldRecordings, playerRecordings, contactRecordings, ballRecordings, stadiumRecordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
@@ -25,6 +26,7 @@ export function stadiumAudio(root, environment = window) {
         fieldRecordings?.setActive(settings.enabled && active);
         contactRecordings?.setActive(settings.enabled && active && settings.effects > 0);
         ballRecordings?.setActive(settings.enabled && active && settings.effects > 0);
+        stadiumRecordings?.setActive(settings.enabled && active && settings.stadium > 0);
         playerRecordings?.setActive(settings.enabled && active && settings.players > 0);
     };
     const track = (source, gain) => {
@@ -63,12 +65,14 @@ export function stadiumAudio(root, environment = window) {
                 contactRecordings.load();
                 ballRecordings = recordedBallEffects(context,effects,environment,root.dataset?.ballAudioBase);
                 ballRecordings.load();
+                stadiumRecordings = recordedStadiumReactions(context,stadium,environment,root.dataset?.stadiumAudioBase);
+                stadiumRecordings.load();
                 playerRecordings = recordedPlayerVoices(context,players,environment,root.dataset?.playerAudioBase);
                 playerRecordings.load();
                 levels();
             }
             if (context.state === 'suspended') context.resume().then(() => { if (!disposed) levels(); }).catch(() => {});
-            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load(),contactRecordings?.load(),ballRecordings?.load()]);
+            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load(),contactRecordings?.load(),ballRecordings?.load(),stadiumRecordings?.load()]);
         } catch { /* Gameplay continues if audio cannot start. */ }
     };
     const play = cue => {
@@ -86,9 +90,10 @@ export function stadiumAudio(root, environment = window) {
             case 'whistle': fieldRecordings?.playWhistle(cue.mood || 'short',Number(root.dataset?.playNumber)||0); break;
             case 'crowd': recordings?.play(cue.mood,{variant:Number(root.dataset?.playNumber)||0}); break;
             case 'first_down': [392,494,587].forEach((f,i)=>tone(f,.24,i*.13,.12,'triangle')); break;
-            case 'touchdown': [392,494,587,784].forEach((f,i)=>tone(f,.45,i*.17,.17,'triangle')); break;
+            case 'touchdown':
+            case 'home_turnover': stadiumRecordings?.play(cue.type); break;
             case 'away_score': tone(220,.4,0,.08,'triangle'); break;
-            case 'third_down': [110,110,165].forEach((f,i)=>tone(f,.25,i*.27,.18,'triangle')); recordings?.play('cheer',{seconds:3.5,level:.65,variant:Number(root.dataset?.playNumber)||0}); break;
+            case 'third_down': stadiumRecordings?.play(cue.type); recordings?.play('cheer',{seconds:3.5,level:.65,variant:Number(root.dataset?.playNumber)||0}); break;
             case 'quarter': tone(750,.55,0,.12); break;
             case 'final': tone(750,.4,0,.12); tone(750,.4,.5,.12); tone(750,.7,1,.12); break;
         }
@@ -107,6 +112,6 @@ export function stadiumAudio(root, environment = window) {
         stopPlayerVoices() { playerRecordings?.stop(); },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; music.dispose(); root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; music.dispose(); root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { stadiumRecordings?.dispose(); ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

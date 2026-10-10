@@ -385,6 +385,7 @@
         @foreach(['master' => 'Master volume', 'crowd' => 'Crowd volume', 'players' => 'Player voices', 'effects' => 'Field effects', 'stadium' => 'Stadium music and cues'] as $channel => $label)
         <label class="block mt-2">{{ $label }}<input data-sound-volume="{{ $channel }}" type="range" min="0" max="100" step="1" class="block w-48 accent-blue-400"></label>
         @endforeach
+        <a href="{{ asset('audio/stadium/v1/CREDITS.txt') }}" target="_blank" rel="noopener" class="block mt-3 text-blue-300 underline">Stadium recording credits</a>
     </details>
     <div class="game-timeline flex items-center gap-4"><label class="sr-only" for="play-timeline">Replay timeline</label><input id="play-timeline" data-timeline type="range" min="0" max="6" step="0.01" value="0" class="flex-1 accent-blue-400"><span data-time class="text-gray-400 text-sm">0.0 / 6.0s</span></div>
     <p data-status aria-live="polite" class="game-status text-blue-300">Loading field…</p>

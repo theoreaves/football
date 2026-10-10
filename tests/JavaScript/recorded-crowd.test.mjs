@@ -85,11 +85,11 @@ test('stadium integration replaces result and third-down noise, retains mute and
         localStorage:{getItem:()=>null,setItem:(key,value)=>values.push(JSON.parse(value))}});
     audio.setActive(true);await audio.prepare();
     audio.play({type:'crowd',mood:'cheer'});audio.play({type:'third_down'});
-    assert.equal(f.sources.filter(source=>source.buffer&&!source.loop).length,2);
+    assert.equal(f.sources.filter(source=>source.buffer&&!source.loop).length,3);
     volume.value=12;callbacks.volume();assert.equal(values.at(-1).crowd,.12);
     callbacks.click();assert.equal(values.at(-1).enabled,false);
     assert.ok(f.sources.every(source=>source.stopped));
-    audio.play({type:'crowd',mood:'groan'});assert.equal(f.sources.filter(source=>source.buffer&&!source.loop).length,2);
+    audio.play({type:'crowd',mood:'groan'});assert.equal(f.sources.filter(source=>source.buffer&&!source.loop).length,3);
     audio.dispose();
 });
 
