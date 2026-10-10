@@ -31,7 +31,7 @@
 @elseif($tab === 'stats')
     @include('seasons.team-stats')
 @elseif($tab === 'injuries')
-    @include('seasons.team-injuries')
+    @include('seasons.active-injuries', ['showTeam' => false])
 @elseif($tab === 'settings')
     <section class="season-panel"><h2>Team settings</h2><p>Season control: {{ strtoupper($member['control']) }}</p><a class="landing-button" href="{{ route('seasons.show', ['season' => $season, 'tab' => 'settings']) }}">Edit team control</a><p class="mt-4"><a class="text-blue-300" href="{{ route('teams.editor.edit', $team) }}">Team colors, logos, and stadium →</a></p></section>
 @else
