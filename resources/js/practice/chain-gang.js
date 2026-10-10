@@ -80,8 +80,11 @@ export function buildChainGang(scene, document) {
         return worker;
     };
     const crew = [makeWorker(), makeWorker(), makeWorker()];
-    const sideline = -2.9; // Chain stakes remain in their original sideline lane.
-    const downMarkerLane = sideline - 1.7; // A separate near-camera lane prevents overlap at first-and-10.
+    // Field of play begins at z=0; the near sideline is at negative z.
+    // A higher z is closer to the field, not closer to the camera.
+    const sideline = -2.9;
+    const chainLane = sideline - 0.65; // Behind the down box, away from the field.
+    const downMarkerLane = sideline + 1.20; // Field-facing lane, clearly in front of chains.
     const clamp = x => Math.max(0, Math.min(120, Number(x) || 0));
 
     const update = (scrimmage, lineToGain, downNumber, direction = 1, visible = true) => {
@@ -95,18 +98,18 @@ export function buildChainGang(scene, document) {
         down.position.set(los, 0, downMarkerLane);
         // LOS and line to gain are different when the ball has advanced
         // within a series: the chain is anchored to the series markers.
-        rear.position.set(originalSpot, 0, sideline + .68);
-        front.position.set(goal ?? los, 0, sideline + .68);
+        rear.position.set(originalSpot, 0, chainLane);
+        front.position.set(goal ?? los, 0, chainLane);
         rear.visible = front.visible = chain.visible = goal !== null;
         if (goal !== null) {
             const distance = Math.abs(goal - originalSpot);
             chain.scale.y = Math.max(.01, distance);
-            chain.position.set((originalSpot + goal) / 2, .055, sideline + .68);
+            chain.position.set((originalSpot + goal) / 2, .055, chainLane);
             chain.rotation.z = Math.PI / 2;
         }
-        crew[0].position.set(originalSpot - 1.0, 0, sideline + .72);
-        crew[1].position.set((goal ?? los) + 1.0, 0, sideline + .72);
-        crew[2].position.set(los - 1.0, 0, downMarkerLane - .35);
+        crew[0].position.set(originalSpot - 1.0, 0, chainLane - .25);
+        crew[1].position.set((goal ?? los) + 1.0, 0, chainLane - .25);
+        crew[2].position.set(los - 1.0, 0, downMarkerLane - .15);
         crew[0].visible = crew[1].visible = goal !== null;
     };
     return { group, update };
