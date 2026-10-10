@@ -759,22 +759,41 @@ export function mountPractice(root, onReady = () => {}) {
                                     mesh.rotation.y = Math.atan2(scorer.x - mesh.position.x, scorer.z - mesh.position.z);
                                 }
                             }
-                            // Wave once the players have reached the scorer.
+                            // Interact only after reaching the scorer. Stable
+                            // role/clock-based variation avoids replay randomness.
+                            const style = (index + (animation.visual_variant ?? 0)) % 4;
                             const raised = arrival * cheer;
+                            const pulse = Math.sin(active * (style === 2 ? 6 : 8));
+                            const reach = style === 0 ? -1.90 : style === 1 ? -1.15 : style === 2 ? -.85 : -1.60;
                             mesh.userData.arms?.forEach((arm, side) => {
-                                arm.rotation.x = -1.70 * raised;
-                                arm.rotation.z = (side === 0 ? -.35 : .35) * raised;
+                                // High-five, helmet tap, chest bump or two-hand cheer.
+                                arm.rotation.x = (style === 0 && side === 0 ? -.25 : reach) * raised
+                                    + .08 * pulse * raised;
+                                arm.rotation.z = (side === 0 ? -.24 : .24) * raised;
                             });
-                            mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.45 * raised; });
-                            mesh.position.y += .09 * Math.max(0, Math.sin(active * 8)) * raised;
+                            mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.55 * raised; });
+                            if (style === 1) mesh.rotation.x -= .06 * raised;
+                            if (style === 2) {
+                                mesh.position.y += Math.max(0, pulse) * .17 * raised;
+                                mesh.rotation.x -= .08 * raised;
+                            } else {
+                                mesh.position.y += .05 * Math.max(0, pulse) * raised;
+                            }
                         } else {
-                            const wave = Math.sin(active * 8);
+                            // Four scorer celebrations, selected deterministically
+                            // from recorded play details, not Math.random().
+                            const style = (animation.visual_variant ?? 0) % 4;
+                            const wave = Math.sin(active * (style === 2 ? 6 : 8));
                             mesh.userData.arms?.forEach((arm, side) => {
-                                arm.rotation.x = (-2.0 + wave * .12) * cheer;
+                                const lifted = style === 0 ? -2.0
+                                    : style === 1 ? (side === 0 ? -1.65 : -.65)
+                                    : style === 2 ? -1.12 : (side === 0 ? -.70 : -1.85);
+                                arm.rotation.x = (lifted + wave * .10) * cheer;
                                 arm.rotation.z = (side === 0 ? -.30 : .30) * cheer;
                             });
                             mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.45 * cheer; });
-                            mesh.position.y += Math.max(0, wave) * .11 * cheer;
+                            if (style === 2) mesh.rotation.x -= .07 * cheer;
+                            mesh.position.y += Math.max(0, wave) * (style === 2 ? .16 : .09) * cheer;
                         }
                     }
                 } else if (player.team === 'defense') {
