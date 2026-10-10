@@ -137,6 +137,23 @@
         @else
         <p class="text-sm">{{ $teamNames[$defenseSide] }} defense: CPU</p>
         @endunless
+        @if(app()->environment('local') && config('app.debug'))
+        <fieldset class="border border-amber-500 rounded p-2 flex flex-wrap gap-2 items-center text-sm">
+            <legend class="text-amber-300">Developer · Next play injury</legend>
+            <label>Severity <select name="dev_force_injury" class="bg-gray-900 text-white rounded p-1">
+                <option value="none">Normal (random)</option>
+                <option value="minor">Minor · 5 snaps</option>
+                <option value="moderate">Moderate · out for game</option>
+                <option value="serious">Serious · trainers / out for game</option>
+            </select></label>
+            <label>Offensive player <select name="dev_injury_role" class="bg-gray-900 text-white rounded p-1">
+                <option value="carrier">Ball carrier</option>
+                @foreach(['QB','RB','WR1','WR2','WR3','TE','C'] as $injuryRole)
+                <option value="{{ $injuryRole }}">{{ $injuryRole }}</option>
+                @endforeach
+            </select></label>
+        </fieldset>
+        @endif
         <button data-snap class="bg-blue-700 rounded px-6 py-2">{{ $cpuOffense && $cpuDefense ? 'Next CPU play' : 'Call play & watch' }}</button><p class="text-xs text-gray-400">{{ $cpuOffense || $cpuDefense ? 'CPU calls are chosen automatically.' : 'You call both teams.' }} Results save at the snap; replaying changes no stats.</p>
     </form>
     @endif

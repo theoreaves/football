@@ -187,8 +187,14 @@ class ExhibitionController extends Controller
         $rules['expect'] = ['sometimes', Rule::in(['balanced', 'run', 'pass'])];
         $rules['blitz'] = ['sometimes', 'boolean'];
         $rules['motion'] = ['sometimes', Rule::in(['none', 'WR1', 'WR2', 'WR3', 'TE', 'RB'])];
+        // Force injuries are available only to local developers, never on deployed servers.
+        $forceInjuryAllowed = app()->environment('local') && (bool) config('app.debug');
+        if ($forceInjuryAllowed && $action === 'play') {
+            $rules['dev_force_injury'] = ['sometimes', Rule::in(['none', 'minor', 'moderate', 'serious'])];
+            $rules['dev_injury_role'] = ['sometimes', Rule::in(['carrier', 'QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'C', 'LB1', 'CB1'])];
+        }
         $data = $request->validate($rules);
-        DB::transaction(function () use ($exhibition, $engine, $data, $request) {
+        DB::transaction(function () use ($exhibition, $engine, $data, $request, $forceInjuryAllowed) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
             if (in_array($request->input('action'), ['ot_call', 'ot_choice'], true)) {
@@ -293,6 +299,45 @@ class ExhibitionController extends Controller
                 }
                 $management = $controls[$side] === 'cpu' ? $coach->management($game->state) : ['tempo' => $data['tempo'] ?? 'normal', 'clock_strategy' => $data['clock_strategy'] ?? 'normal'];
                 $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'));
+            }
+            // Presentation and persistence use the same injury state as natural injuries.
+            // This happens after the engine resolves the play, without altering its outcome.
+            if ($forceInjuryAllowed && $request->input('action', 'play') === 'play'
+                && in_array($data['dev_force_injury'] ?? 'none', ['minor', 'moderate', 'serious'], true)
+                && ! ($result['play']['no_snap'] ?? false)) {
+                $severity = $data['dev_force_injury'];
+                $role = $data['dev_injury_role'] ?? 'carrier';
+                $tracks = $result['play']['animation']['players'] ?? [];
+                $candidate = collect($tracks)->first(function ($track) use ($role, $result) {
+                    return $track['team'] === 'offense'
+                        && $track['role'] === ($role === 'carrier' ? ($result['play']['carrier'] ?? '') : $role);
+                });
+                if ($candidate && ($candidate['id'] ?? 0) > 0) {
+                    $injurySide = $candidate['side'];
+                    $injuryId = $candidate['id'];
+                    if (! isset($result['play']['before']['injuries'][$injurySide][$injuryId])) {
+                        $snap = $result['state']['personnel_snaps'] ?? 1;
+                        $returnSnap = $severity === 'minor' ? $snap + 5 : null;
+                        $injury = [
+                            'name' => $candidate['name'],
+                            'type' => match ($severity) {
+                                'minor' => 'Shaken up',
+                                'moderate' => 'Leg injury',
+                                default => 'Serious leg injury',
+                            },
+                            'return_snap' => $returnSnap,
+                            'occurred_snap' => $snap,
+                        ];
+                        $result['state']['injuries'][$injurySide][$injuryId] = $injury;
+                        $result['play']['after']['injuries'][$injurySide][$injuryId] = $injury;
+                        $replacement = app(\App\Services\Simulation\GamePersonnel::class)
+                            ->active($game->rosters, $result['state'])[$injurySide]['players'][$candidate['role']] ?? null;
+                        $notice = ucfirst($injurySide).' · '.$candidate['name'].' · '.$injury['type'].' · '
+                            .($returnSnap === null ? 'out for the game' : 'out for 5 snaps')
+                            .($replacement ? ' · '.$replacement['name'].' comes in' : '');
+                        $result['play']['personnel_notices'][] = $notice;
+                    }
+                }
             }
             $history = $game->history;
             $history[] = $result['play'];
