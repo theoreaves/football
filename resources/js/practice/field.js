@@ -598,6 +598,39 @@ export function mountPractice(root, onReady = () => {}) {
                     : isDefFront ? 'def-front' : isLinebacker ? 'ready' : null)
                 : null;
             applyPreSnapStance(mesh, lineStance);
+            // Blocking v1: deterministic hand-fighting, shoulder drive and
+            // short lateral steps. This affects meshes only, not play tracks,
+            // the ball, outcomes or replays. Special teams keep their own poses.
+            const blocking = phase === 'play' && animation && !animation.no_snap
+                && !['kickoff', 'punt', 'field_goal', 'extra_point', 'spike', 'kneel'].includes(animation.call)
+                && (offensiveLine || centerStance || defensiveLine);
+            if (blocking) {
+                const engage = Math.min(1, Math.max(0, (elapsed - .22) / .35));
+                const release = Math.min(1, Math.max(0, (5.3 - elapsed) / .5));
+                const intensity = engage * release;
+                const cadence = elapsed * 10.5 + i * 1.87;
+                const stagger = Math.sin(cadence);
+                // Extend both arms into opposing shoulder pads, alternating
+                // quick punches and resets. Keep the elbows bent.
+                mesh.userData.arms?.forEach((arm, index) => {
+                    const alternate = index === 0 ? 1 : -1;
+                    arm.rotation.x = intensity * (-.95 + .25 * stagger * alternate);
+                    arm.rotation.z = (index === 0 ? -.10 : .10)
+                        + intensity * (index === 0 ? -.18 : .18);
+                });
+                mesh.userData.elbows?.forEach((elbow, index) => {
+                    elbow.rotation.x = intensity * (-.80 + .18 * Math.sin(cadence + index * Math.PI));
+                });
+                // Controlled drive and shuffling; the original simulated
+                // blocking position and contact timeline remain authoritative.
+                mesh.rotation.x += intensity * (-.08 + .035 * stagger);
+                mesh.position.z += intensity * .12 * Math.sin(elapsed * 7.5 + i * 2.3);
+                mesh.position.x += playDirection * (player.team === 'offense' ? 1 : -1)
+                    * intensity * (.055 + .025 * Math.sin(cadence * .7));
+                mesh.userData.knees?.forEach((knee, index) => {
+                    knee.rotation.x += intensity * (.11 + .09 * Math.sin(cadence + index * Math.PI));
+                });
+            }
             // Pre-snap-only visual breathing room between opposing front lines.
             // Keep the center fixed on the ball and leave recorded paths intact.
             // Ease offsets away at the snap to avoid popping into the play track.
