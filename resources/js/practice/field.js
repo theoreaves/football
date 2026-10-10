@@ -378,6 +378,23 @@ export function mountPractice(root, onReady = () => {}) {
                 // shoulders squared upfield while the pocket settles.
                 mesh.rotation.y = playDirection * Math.PI / 2;
             }
+            else if (phase === 'play' && animation && !animation.no_snap
+                && !animation.dropback && ['inside_run', 'outside_run', 'draw', 'two_point_run'].includes(animation.call)
+                && player.team === 'defense'
+                && /^(DE\d?|DT\d?|NT|EDGE\d?|DL\d?)$/.test(player.role)) {
+                // Hold the defensive front square to the offensive line.
+                // Turn toward pursuit only after the runner clears the defender.
+                const runner = frame.players.find(p => p.team === 'offense' && p.role === animation.carrier);
+                const past = runner ? (runner.x - player.x) * playDirection : -1;
+                const frontAngle = -playDirection * Math.PI / 2;
+                const pursuitAngle = runner
+                    ? Math.atan2(runner.x - player.x, runner.z - player.z)
+                    : frontAngle;
+                const blend = Math.max(0, Math.min(1, (past - .45) / 1.8));
+                const eased = blend * blend * (3 - 2 * blend);
+                const turn = Math.atan2(Math.sin(pursuitAngle - frontAngle), Math.cos(pursuitAngle - frontAngle));
+                mesh.rotation.y = frontAngle + turn * eased;
+            }
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
             // The QB must receive the snap before turning for a rushing handoff.
