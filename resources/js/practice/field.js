@@ -298,6 +298,31 @@ export function mountPractice(root, onReady = () => {}) {
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
+            // The QB must receive the snap before turning for a rushing handoff.
+            // Only change his presentation rotation; the saved motion path stays intact.
+            if (player.team === 'offense' && player.role === 'QB' && animation
+                && animation.carrier === 'RB' && !animation.passing && !animation.no_snap
+                && ['liningup', 'set', 'play'].includes(phase)) {
+                const facingCenter = playDirection * Math.PI / 2;
+                mesh.rotation.y = facingCenter;
+                if (phase === 'play' && elapsed > .60 && elapsed < 1.35) {
+                    const back = frame.players.find(p => p.team === 'offense' && p.role === 'RB');
+                    if (back) {
+                        const dx = back.x - player.x;
+                        const dz = back.z - player.z;
+                        if (Math.hypot(dx, dz) > .1) {
+                            const towardBack = Math.atan2(dx, dz);
+                            const blend = Math.max(0, Math.min(1, (elapsed - .60) / .24));
+                            const ease = blend * blend * (3 - 2 * blend);
+                            const shortest = Math.atan2(Math.sin(towardBack - facingCenter), Math.cos(towardBack - facingCenter));
+                            mesh.rotation.y = facingCenter + shortest * ease;
+                        }
+                    }
+                } else if (phase === 'play' && elapsed >= 1.35) {
+                    // Let the recorded QB path determine his orientation after exchange.
+                    mesh.rotation.y = moving ? Math.atan2(next.x - player.x, next.z - player.z) : facingCenter;
+                }
+            }
             // Coordinate contact around one shared point and fall direction. Individual
             // paths are unchanged until contact; never mutate saved play animation data.
             if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at
@@ -569,9 +594,13 @@ export function mountPractice(root, onReady = () => {}) {
         }
         if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         const holder = ballCarrier(frame, phase);
-        // While held, the ball should not spin independently like a loose ball.
-        // Hand/torso attachment controls its position; flight still spins.
-        ball.rotation.z = holder ? 0 : elapsed * 6;
+        // The mesh's long axis is local X (ball.scale.x = 1.6).
+        // Spin a forward pass around that axis, never around Z (end-over-end).
+        // Only passes in flight spiral; keep snaps, handoffs and carries steady.
+        const spiralFlight = phase === 'play' && animation?.passing
+            && elapsed >= (animation.throw_at ?? 2.2) && elapsed <= 4.2
+            && !holder;
+        ball.rotation.set(spiralFlight ? (elapsed - (animation.throw_at ?? 2.2)) * 28 : 0, 0, 0);
         // The ball's saved track remains authoritative until tackle contact.
         // After contact, visually follow the offensive ball carrier down.
         // Do not alter loose balls, turnovers, special teams or saved tracks.
