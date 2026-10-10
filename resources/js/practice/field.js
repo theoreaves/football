@@ -888,6 +888,30 @@ export function mountPractice(root, onReady = () => {}) {
                 && player.team === 'offense'
                 && player.role === (animation.receiver_role && animation.passing
                     ? animation.receiver_role : animation.carrier);
+            // After a big gain, only the ballcarrier celebrates.
+            // The other offensive players jog toward their upcoming huddle;
+            // defenders begin heading toward their sideline.
+            if (phase === 'big_play' && animation && !animation.no_snap && !bigPlay) {
+                const t = Math.max(0, postElapsed - .18 - (i % 4) * .08);
+                const huddleX = Math.max(8, Math.min(112, nextLine - nextDirection * 5));
+                const targetX = player.team === 'offense' ? huddleX : player.x;
+                const targetZ = player.team === 'offense' ? 26.7
+                    : (player.z < 26.7 ? -3 : 56.33);
+                const dx = targetX - player.x, dz = targetZ - player.z;
+                const distance = Math.hypot(dx, dz);
+                const travel = Math.min(distance, t * (player.team === 'offense' ? 5 : 4));
+                if (distance > .001 && travel > 0) {
+                    mesh.position.x += dx / distance * travel;
+                    mesh.position.z += dz / distance * travel;
+                    mesh.rotation.y = Math.atan2(dx, dz);
+                    mesh.userData.legs?.forEach((leg, side) => {
+                        leg.rotation.x = (side === 0 ? 1 : -1) * .32 * Math.sin(t * 11 + i);
+                    });
+                    mesh.userData.arms?.forEach((arm, side) => {
+                        arm.rotation.x = (side === 0 ? 1 : -1) * .18 * Math.sin(t * 11 + i);
+                    });
+                }
+            }
             if (bigPlay) {
                 const t = Math.max(0, Math.min(1, postElapsed / .35));
                 const ease = t * t * (3 - 2 * t);
