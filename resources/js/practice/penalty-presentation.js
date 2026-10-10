@@ -60,7 +60,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
     cloth.rotation.x = -Math.PI / 2; flag.add(cloth);
     const weight = new THREE.Mesh(new THREE.SphereGeometry(.11, 8, 6), yellow); flag.add(weight);
     const badge = document.createElement('div'); badge.hidden = true;
-    badge.setAttribute('role','status'); badge.textContent = 'FLAG — ' + (labels[penalty?.type] ?? 'Penalty');
+    badge.setAttribute('role','status'); badge.textContent = 'FLAG';
     badge.style.cssText = 'position:fixed;z-index:45;right:16px;top:90px;max-width:80vw;padding:10px 16px;background:#ffdf00;color:#15191e;font-weight:700;border-radius:8px;';
     root.append(badge);
     const panel = document.createElement('section');
