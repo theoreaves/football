@@ -31,7 +31,7 @@ export function buildChainGang(scene, document) {
     const front = makePole();
     const down = makePole();
     // Make the down box distinctive, taller than the chain poles.
-    makeBox(down, [.55, .16, .36], black, [0, 2.48, 0]);
+    makeBox(down, [.56, .56, .36], black, [0, 2.19, 0]);
     const canvas = document.createElement('canvas');
     canvas.width = 128; canvas.height = 128;
     const context = canvas.getContext('2d');
@@ -39,10 +39,11 @@ export function buildChainGang(scene, document) {
     numberTexture.colorSpace = THREE.SRGBColorSpace;
     const numberMaterial = new THREE.MeshBasicMaterial({map: numberTexture, transparent: false, side: THREE.DoubleSide});
     const number = new THREE.Mesh(new THREE.PlaneGeometry(.38, .38), numberMaterial);
-    number.position.set(0, 2.16, .163);
+    number.position.set(0, 2.19, .190);
+    number.renderOrder = 10;
     down.add(number);
     const numberBack = number.clone();
-    numberBack.position.z = -.163;
+    numberBack.position.z = -.190;
     numberBack.rotation.y = Math.PI;
     down.add(numberBack);
     let lastDown = null;
@@ -50,9 +51,9 @@ export function buildChainGang(scene, document) {
         const shown = Math.max(1, Math.min(4, Number(value) || 1));
         if (shown === lastDown) return;
         lastDown = shown;
-        context.fillStyle = '#151e2b';
+        context.fillStyle = '#ff8a18';
         context.fillRect(0, 0, 128, 128);
-        context.fillStyle = '#ff991f';
+        context.fillStyle = '#101820';
         context.font = 'bold 105px sans-serif';
         context.textAlign = 'center';
         context.textBaseline = 'middle';
@@ -82,24 +83,27 @@ export function buildChainGang(scene, document) {
     const sideline = -2.9; // The near sideline sits just outside the playing field.
     const clamp = x => Math.max(0, Math.min(120, Number(x) || 0));
 
-    const update = (scrimmage, lineToGain, downNumber, visible = true) => {
+    const update = (scrimmage, lineToGain, downNumber, direction = 1, visible = true) => {
         const los = clamp(scrimmage);
         const goal = lineToGain == null ? null : clamp(lineToGain);
+        // Chains mark the original ten-yard series, not the new ball spot.
+        // In goal-to-go, clamp to the playable field edge.
+        const originalSpot = goal == null ? los : clamp(goal - (direction >= 0 ? 10 : -10));
         group.visible = visible;
         setDown(downNumber);
         down.position.set(los, 0, sideline);
         // LOS and line to gain are different when the ball has advanced
         // within a series: the chain is anchored to the series markers.
-        rear.position.set(los, 0, sideline + .68);
+        rear.position.set(originalSpot, 0, sideline + .68);
         front.position.set(goal ?? los, 0, sideline + .68);
         rear.visible = front.visible = chain.visible = goal !== null;
         if (goal !== null) {
-            const distance = Math.abs(goal - los);
+            const distance = Math.abs(goal - originalSpot);
             chain.scale.y = Math.max(.01, distance);
-            chain.position.set((los + goal) / 2, .60, sideline + .68);
+            chain.position.set((originalSpot + goal) / 2, .055, sideline + .68);
             chain.rotation.z = Math.PI / 2;
         }
-        crew[0].position.set(los - 1.0, 0, sideline + .72);
+        crew[0].position.set(originalSpot - 1.0, 0, sideline + .72);
         crew[1].position.set((goal ?? los) + 1.0, 0, sideline + .72);
         crew[2].position.set(los - .9, 0, sideline - .45);
         crew[0].visible = crew[1].visible = goal !== null;

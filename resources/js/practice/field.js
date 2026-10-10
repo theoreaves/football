@@ -167,7 +167,7 @@ export function mountPractice(root, onReady = () => {}) {
     const scrimmageLine = addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
     const firstDownLine = addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
     const chainGang = buildChainGang(scene, document);
-    chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, JSON.parse(root.dataset.beforeState || '{}').down ?? 1, root.dataset.chainGang !== 'false');
+    chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, JSON.parse(root.dataset.beforeState || '{}').down ?? 1, animation?.direction ?? 1, root.dataset.chainGang !== 'false');
     const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'));
     scene.add(stadium.group);
     for (const x of [0, 120]) {
@@ -778,13 +778,13 @@ export function mountPractice(root, onReady = () => {}) {
         moveFocus(animation?.line ?? 40, playDirection);
         scrimmageLine.position.x = animation?.line ?? 40;
         firstDownLine.position.x = animation?.firstDown ?? 50;
-        chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, beforeState?.down ?? 1, root.dataset.chainGang !== 'false');
+        chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, beforeState?.down ?? 1, playDirection, root.dataset.chainGang !== 'false');
     };
     const huddleView = () => {
         moveFocus(nextLine, nextDirection);
         scrimmageLine.position.x = nextLine;
         firstDownLine.position.x = Math.max(10, Math.min(110, nextLine + nextDirection * Number(root.dataset.nextDistance || 10)));
-        chainGang.update(nextLine, firstDownLine.position.x, afterState?.down ?? 1, root.dataset.chainGang !== 'false');
+        chainGang.update(nextLine, firstDownLine.position.x, afterState?.down ?? 1, nextDirection, root.dataset.chainGang !== 'false');
     };
     if (phase === 'huddle') huddleView();
     playButton.addEventListener('click', () => {
