@@ -639,11 +639,17 @@ export function mountPractice(root, onReady = () => {}) {
                 if (passSet) {
                     const entry = Math.max(0, Math.min(1, (elapsed - .20) / 1.20));
                     const smoothEntry = entry * entry * (3 - 2 * entry);
-                    const depth = { C: .72, LG: 1.05, RG: 1.05, LT: 1.65, RT: 1.65 };
-                    const spread = { C: 0, LG: -.30, RG: .30, LT: -.78, RT: .78 };
+                    // The tackles set deep and wide, forming the two visible
+                    // corners of the pocket. Guards bridge those corners back
+                    // toward the center, which keeps the shortest drop.
+                    const depth = { C: .55, LG: 1.10, RG: 1.10, LT: 2.55, RT: 2.55 };
+                    const spread = { C: 0, LG: -.58, RG: .58, LT: -1.85, RT: 1.85 };
                     mesh.position.x -= playDirection * (depth[role] ?? 0) * smoothEntry;
                     mesh.position.z += (spread[role] ?? 0) * smoothEntry;
-                    // Stay square to the rush while shuffling backward.
+                    // The two tackles turn their shoulders toward incoming
+                    // edge rushers instead of remaining in a flat line.
+                    const edgeTurn = { LT: -.23, RT: .23 };
+                    mesh.rotation.y += (edgeTurn[role] ?? 0) * smoothEntry;
                     mesh.rotation.x -= .04 * smoothEntry;
                 }
             }
