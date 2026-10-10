@@ -345,3 +345,52 @@ test('season stats credit a substituted quarterback by player identity', functio
         ->and($stats['players'][$backup['id']]['passer_rating'])->toBe(100.0);
     expect($stats['players'])->not->toHaveKey($game->rosters['home']['players']['QB']['id']);
 });
+
+
+test('persistent injury removes the starter next week and restores eligibility at recovery', function () {
+    $fixture = $this->fixture;
+    $team = $fixture->homeTeam;
+    $qbs = $team->players()->wherePivot('position', 'QB')->orderBy('team_players.depth_chart_position')->get();
+    expect($qbs->count())->toBeGreaterThan(1);
+    $starter = $qbs[0];
+    $backup = $qbs[1];
+    $injuryId = \Illuminate\Support\Facades\DB::table('season_player_injuries')->insertGetId([
+        'season_id' => $this->season->id, 'team_id' => $team->id,
+        'player_id' => $starter->id, 'exhibition_id' => null,
+        'injured_week' => 1, 'return_week' => 7, 'type' => 'Leg injury',
+        'severity' => 'moderate', 'status' => 'active',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $service = app(\App\Services\Seasons\PersistentInjuries::class);
+    $builder = app(\App\Services\Simulation\RosterBuilder::class);
+    $roster = $builder->build($team, '2026');
+    $engine = app(\App\Services\Simulation\ExhibitionEngine::class);
+    $state = $service->seedState($this->season, 5, ['home' => $team->id], $engine->initial(180));
+    expect($state['injuries']['home'][$starter->id]['season_injury_id'])->toBe($injuryId);
+    $active = app(GamePersonnel::class)->active(['home' => $roster], $state);
+    expect($active['home']['players']['QB']['id'])->toBe($backup->id);
+    $service->recover($this->season, 7);
+    expect(\Illuminate\Support\Facades\DB::table('season_player_injuries')->where('id', $injuryId)->value('status'))->toBe('recovered');
+    $next = $service->seedState($this->season, 7, ['home' => $team->id], $engine->initial(180));
+    expect($next['injuries']['home'][$starter->id] ?? null)->toBeNull();
+    $restored = app(GamePersonnel::class)->active(['home' => $roster], $next);
+    expect($restored['home']['players']['QB']['id'])->toBe($starter->id);
+});
+
+test('season and player injury history display persistent recovery status', function () {
+    $team = $this->fixture->homeTeam;
+    $qb = $team->players()->wherePivot('position', 'QB')->firstOrFail();
+    \Illuminate\Support\Facades\DB::table('season_player_injuries')->insert([
+        'season_id' => $this->season->id, 'team_id' => $team->id,
+        'player_id' => $qb->id, 'exhibition_id' => null,
+        'injured_week' => 1, 'return_week' => 5, 'type' => 'Leg injury',
+        'severity' => 'moderate', 'status' => 'active',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $teamHistory = app(\App\Services\Seasons\SeasonInjuries::class)->forTeam($this->season, $team->id);
+    expect($teamHistory[0]['status'])->toBe('Out until Week 5');
+    $this->get(route('seasons.team', [$this->season, $team, 'tab' => 'injuries']))
+        ->assertOk()->assertSee('Out until Week 5')->assertSee('Moderate')->assertSee('Week 5');
+    $this->get(route('teams.editor.teams.players.history', [$team, $qb, 'tab' => 'injuries', 'year' => 2026, 'season' => $this->season->id]))
+        ->assertOk()->assertSee('Out until Week 5')->assertSee('Moderate');
+});
