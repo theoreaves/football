@@ -218,7 +218,8 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
         if (elbow) elbow.rotation.x = -1.0;
     }
     if (throwing !== null && throwing >= .6 && throwing <= 2.9) {
-        const hand = group.userData.throwingHand === 'left' ? 0 : 1;
+        // The visible side of the model is mirrored relative to local X.
+        const hand = group.userData.throwingHand === 'left' ? 1 : 0;
         const support = 1 - hand;
         const arm = group.userData.arms?.[hand];
         const elbow = group.userData.elbows?.[hand];

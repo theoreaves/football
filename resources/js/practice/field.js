@@ -193,7 +193,7 @@ export function mountPractice(root, onReady = () => {}) {
                     quarterback: player.name || player.role,
                     appearance: requested,
                     effectiveHand: group.userData.throwingHand,
-                    armIndex: group.userData.throwingHand === 'left' ? 0 : 1,
+                    armIndex: group.userData.throwingHand === 'left' ? 1 : 0,
                 });
             }
         }
@@ -500,7 +500,7 @@ export function mountPractice(root, onReady = () => {}) {
             && phase === 'play' && elapsed >= .6 && elapsed < (animation.throw_at ?? 2.2)) {
             const quarterbackIndex = frame.players.findIndex(player => player.team === 'offense' && player.role === 'QB');
             const quarterback = players[quarterbackIndex];
-            const handIndex = quarterback?.userData.throwingHand === 'left' ? 0 : 1;
+            const handIndex = quarterback?.userData.throwingHand === 'left' ? 1 : 0;
             const throwingHand = quarterback?.userData.elbows?.[handIndex];
             if (throwingHand) {
                 quarterback.updateMatrixWorld(true);
