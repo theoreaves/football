@@ -390,7 +390,7 @@ test('season and player injury history display persistent recovery status', func
     $teamHistory = app(\App\Services\Seasons\SeasonInjuries::class)->forTeam($this->season, $team->id);
     expect($teamHistory[0]['status'])->toBe('Out until Week 5');
     $this->get(route('seasons.team', [$this->season, $team, 'tab' => 'injuries']))
-        ->assertOk()->assertSee('Out until Week 5')->assertSee('Moderate')->assertSee('Week 5');
+        ->assertOk()->assertSee('Leg injury')->assertSee('Moderate')->assertSee('Week 5');
     $this->get(route('teams.editor.teams.players.history', [$team, $qb, 'tab' => 'injuries', 'year' => 2026, 'season' => $this->season->id]))
         ->assertOk()->assertSee('Out until Week 5')->assertSee('Moderate');
 });
