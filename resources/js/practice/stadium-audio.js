@@ -1,10 +1,11 @@
 import {soundSettings} from './sound-cues.js';
+import {recordedCrowd} from './recorded-crowd.js';
 
-// Original synthesized sounds; no recordings or external downloads are required.
+// Recorded crowd ambience/reactions, with the existing synthesized field effects.
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, ambience, active = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, recordings, active = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const control = root.querySelector('[data-sound-toggle]');
@@ -13,6 +14,7 @@ export function stadiumAudio(root, environment = window) {
         if (!context) return;
         master.gain.setTargetAtTime(settings.enabled && active ? settings.master : 0,context.currentTime,.04);
         crowd.gain.value = settings.crowd; effects.gain.value = settings.effects;
+        recordings?.setActive(settings.enabled && active);
     };
     const track = (source, gain) => {
         voices.add(source); source.onended = () => { voices.delete(source); source.disconnect(); gain.disconnect(); };
@@ -42,12 +44,12 @@ export function stadiumAudio(root, environment = window) {
                 context = new (environment.AudioContext || environment.webkitAudioContext)();
                 master = context.createGain(); master.gain.value = 0; crowd = context.createGain(); effects = context.createGain();
                 crowd.connect(master); effects.connect(master); master.connect(context.destination);
-                const buffer = context.createBuffer(1,context.sampleRate * 4,context.sampleRate), data = buffer.getChannelData(0);
-                let smooth = 0; for (let i=0;i<data.length;i++) { smooth = .96 * smooth + .04 * (Math.random()*2-1); data[i] = smooth * (.65 + .25*Math.sin(i/context.sampleRate*3)); }
-                ambience = context.createBufferSource(); ambience.buffer = buffer; ambience.loop = true; ambience.connect(crowd); ambience.start();
+                recordings = recordedCrowd(context,crowd,environment,root.dataset?.crowdAudioBase);
+                recordings.load();
                 levels();
             }
-            if (context.state === 'suspended') context.resume().catch(() => {});
+            if (context.state === 'suspended') context.resume().then(() => { if (!disposed) levels(); }).catch(() => {});
+            return recordings?.load();
         } catch { /* Gameplay continues if audio cannot start. */ }
     };
     const play = cue => {
@@ -58,11 +60,11 @@ export function stadiumAudio(root, environment = window) {
             case 'kick': noise(.17,effects,.45,350); tone(95,.13); break;
             case 'tackle': noise(.35,effects,.65,450); tone(65,.22); break;
             case 'whistle': tone(2300,.3,0,.09); tone(2550,.25,.025,.04); break;
-            case 'crowd': noise(cue.mood === 'cheer' ? 2.6 : 1.8,crowd,cue.mood === 'cheer' ? 1.6 : .65,cue.mood === 'cheer' ? 2200 : 500); break;
+            case 'crowd': recordings?.play(cue.mood,{variant:Number(root.dataset?.playNumber)||0}); break;
             case 'first_down': [392,494,587].forEach((f,i)=>tone(f,.24,i*.13,.12,'triangle')); break;
             case 'touchdown': [392,494,587,784].forEach((f,i)=>tone(f,.45,i*.17,.17,'triangle')); break;
             case 'away_score': tone(220,.4,0,.08,'triangle'); break;
-            case 'third_down': [110,110,165].forEach((f,i)=>tone(f,.25,i*.27,.18,'triangle')); noise(1.3,crowd,.6,1400); break;
+            case 'third_down': [110,110,165].forEach((f,i)=>tone(f,.25,i*.27,.18,'triangle')); recordings?.play('cheer',{seconds:3.5,level:.65,variant:Number(root.dataset?.playNumber)||0}); break;
             case 'quarter': tone(750,.55,0,.12); break;
             case 'final': tone(750,.4,0,.12); tone(750,.4,.5,.12); tone(750,.7,1,.12); break;
         }
@@ -77,6 +79,6 @@ export function stadiumAudio(root, environment = window) {
     return {
         play, prepare,
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
-        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { ambience?.stop(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

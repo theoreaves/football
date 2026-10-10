@@ -1,0 +1,32 @@
+WebSports Football crowd recordings v1
+
+All three sources are offered by their authors under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+Verified on 2026-10-10. These files are edited derivatives of the publicly
+linked HQ MP3 versions on the sound pages, not the original WAV downloads.
+No game-time requests to Freesound or another external service are required.
+
+ambience.mp3
+Stadium Crowd — stomachache
+https://freesound.org/people/stomachache/sounds/274516/
+https://cdn.freesound.org/previews/274/274516_177850-hq.mp3
+Source: small section of general crowd noise at a sports stadium.
+Edits: 0.65-second loop crossfade, loudness normalization, 128 kbps stereo MP3.
+
+cheer.mp3
+Crowd Cheer — FoolBoyMedia
+https://freesound.org/people/FoolBoyMedia/sounds/397434/
+https://cdn.freesound.org/previews/397/397434_4019029-hq.mp3
+Source: recorded crowd celebrating a football/sports match win.
+Edits: trimmed to 20 seconds, short endpoint fades, loudness normalization,
+128 kbps stereo MP3.
+
+boo.mp3
+Booing Crowd — NeoSpica
+https://freesound.org/people/NeoSpica/sounds/504621/
+https://cdn.freesound.org/previews/504/504621_7704891-hq.mp3
+Source: audience booing, mixed by its author from CC0 sounds.
+Edits: 12-second excerpt from 00:02, short endpoint fades, loudness
+normalization, 128 kbps stereo MP3. Used for the home crowd's disappointment.
+
+CC0 sources remain CC0. Credits are retained for provenance.
