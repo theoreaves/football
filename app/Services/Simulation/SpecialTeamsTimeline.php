@@ -24,6 +24,7 @@ class SpecialTeamsTimeline
         $missed = str_ends_with($play['outcome'], '_missed');
         $endZ = $missed ? 40 : 26.7;
         foreach ($base['players'] as $i => &$player) {
+            $initial = $player['path'][0];
             if ($kickoff) {
                 $z = 3 + ($i % 11) * 4.7;
                 $x = $player['team'] === 'offense' ? $absolute($play['before']['spot']) - 1 * $direction : $absolute(65 + ($i % 3) * 8);
