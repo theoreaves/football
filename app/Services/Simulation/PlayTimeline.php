@@ -217,6 +217,34 @@ class PlayTimeline
             if ($role === 'DE1' && ($play['pressure'] ?? false)) {
                 $path = [$point(0, $x, $z), $point(1.7, $qbSet + 2, 25), $point(2.2, $qbSet + .7, 26.7), $point(5.3, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ), $point(6, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ)];
             }
+            // Phase 2: deterministic support pursuit; keep the existing primary
+            // tackler's track and all ball/receiver tracks exactly as recorded.
+            // Defensive returns and special teams use their dedicated paths.
+            if (! $special && ! ($play['defensive_return'] ?? false)
+                && ! in_array($play['outcome'], ['incomplete', 'sack'], true)
+                && ! ($play['throwaway'] ?? false) && $role !== $tackler
+                && ! ($role === 'DE1' && ($play['pressure'] ?? false))) {
+                $supportRoles = $pass
+                    ? (in_array($receiverRole, ['WR2', 'TE'], true) ? ['CB2', 'S2', 'LB3'] : ['S1', 'CB2', 'LB1'])
+                    : ['LB1', 'LB3', 'S1', 'S2', 'CB1', 'CB2'];
+                $supportIndex = array_search($role, $supportRoles, true);
+                if ($supportIndex !== false && $supportIndex < 3) {
+                    // Support defenders converge toward, but do not overlap,
+                    // the carrier. Offset and reaction vary per saved play.
+                    $laneSign = ($supportIndex % 2 === 0) ? 1 : -1;
+                    $lag = 0.56 + (($visualVariant + $supportIndex) % 3) * 0.22;
+                    $offsetZ = $laneSign * (2.5 + $supportIndex * 1.65);
+                    $offsetX = $supportIndex === 0 ? -1.4 : (1.2 + $supportIndex);
+                    $pursuitX = $pass ? $play['target'] : $end;
+                    $path = [
+                        $point(0, $x, $z),
+                        $point(1.3 + $lag, $x + (($pursuitX - $x) * .13), $z),
+                        $point(3.5 + $lag * .4, $x + (($pursuitX - $x) * .62), $z + (($endZ + $offsetZ - $z) * .57)),
+                        $point(5.3, $end + $offsetX, $endZ + $offsetZ),
+                        $point(6, $end + $offsetX, $endZ + $offsetZ),
+                    ];
+                }
+            }
             $tracks[] = array_merge(array_intersect_key($rosters[$other]['players'][$role], array_flip(['id', 'name', 'lastname', 'number', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance'])), ['role' => $role, 'team' => 'defense', 'side' => $other, 'path' => $path]);
         }
         $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35 / .6, 26.7, 1), $point(.6, $handoff, 26.7, 1)];
