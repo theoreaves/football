@@ -383,13 +383,13 @@ export function mountPractice(root, onReady = () => {}) {
                     if (role === 'QB') {
                         // After the regular pose is rendered, fold one knee and
                         // bring the forearms toward the raised knee.
-                        // Reuse the kneel blend declared above in this QB branch.
+                        // Initialize the blend before using it: otherwise a huddle frame throws.
+                        const kneel = Math.max(0, Math.min(1, (huddleProgress - .78) / .22));
                         mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = kneel * (j === 0 ? -1.48 : .95); });
                         mesh.userData.arms?.forEach((arm, j) => { arm.rotation.x = kneel * (j === 0 ? -.90 : -.70); arm.rotation.z = kneel * (j === 0 ? -.10 : .10); });
                         mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.20 - kneel * .62; });
                         // Keep the QB upright while walking into the huddle;
                         // kneel only after the players have arrived.
-                        const kneel = Math.max(0, Math.min(1, (huddleProgress - .78) / .22));
                         mesh.position.y -= .34 * kneel;
                         mesh.rotation.x = -.12 * kneel;
                     } else {
@@ -415,15 +415,15 @@ export function mountPractice(root, onReady = () => {}) {
             if (presnap) {
                 if (player.team === 'offense') {
                     if (isOneOf('C')) {
-                        mesh.rotation.x = -.42;
+                        mesh.rotation.x = -.08;
                         lowerArms(-1.00, -1.00, -.88);
                         mesh.position.y -= .03;
                     } else if (isOneOf('LG', 'RG', 'LT', 'RT')) {
-                        mesh.rotation.x = -.28;
+                        mesh.rotation.x = -.06;
                         lowerArms(-.72, -.24, -.70);
                         mesh.position.y -= .02;
                     } else if (isOneOf('TE', 'TE1', 'TE2')) {
-                        mesh.rotation.x = -.18;
+                        mesh.rotation.x = -.04;
                         lowerArms(-.52, -.20, -.62);
                     } else if (isOneOf('QB')) {
                         mesh.rotation.x = -.10;
@@ -434,11 +434,11 @@ export function mountPractice(root, onReady = () => {}) {
                     }
                 } else if (player.team === 'defense') {
                     if (isDefFront) {
-                        mesh.rotation.x = -.34;
+                        mesh.rotation.x = -.07;
                         lowerArms(-.78, -.34, -.72);
                         mesh.position.y -= .02;
                     } else if (isLinebacker) {
-                        mesh.rotation.x = -.14;
+                        mesh.rotation.x = -.04;
                         lowerArms(-.28, -.28, -.42);
                     } else if (isSecondary) {
                         mesh.rotation.x = -.05;
@@ -456,7 +456,7 @@ export function mountPractice(root, onReady = () => {}) {
                 if (player.team === 'offense' && player.role === 'C'
                     && (phase === 'set' || (phase === 'liningup' && lineupProgress >= .85)
                         || (phase === 'play' && elapsed < .38))) {
-                    mesh.rotation.x = -.52;
+                    mesh.rotation.x = -.09;
                     mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.90; });
                     mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.75; });
                 }
