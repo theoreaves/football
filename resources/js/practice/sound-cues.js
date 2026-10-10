@@ -1,3 +1,4 @@
+import {ballSoundCues} from './ball-sound-cues.js';
 import {contactSoundCues} from './contact-sound-cues.js';
 
 export function soundCues(animation, before, after) {
@@ -7,13 +8,12 @@ export function soundCues(animation, before, after) {
     const noSnap = animation.no_snap || call === 'clock_event';
     if (before?.phase === 'scrimmage' && before.possession === 'away' && before.down === 3 && !noSnap) add(-1,'third_down');
     if (!noSnap) {
-        add(call === 'kickoff' ? 1.2 : 0,call === 'kickoff' ? 'kick' : 'snap');
-        if (['punt','field_goal','extra_point'].includes(call)) add(1.2,'kick');
-        if (animation.passing) add(2.2,'throw');
+        if (call !== 'kickoff') add(0,'snap');
+        if (animation.passing) add(animation.throw_at ?? 2.2,'throw');
     }
     const resultAt = animation.reveal_at ?? (noSnap ? .8 : 5.3);
     const summary = animation.events?.at(-1)?.[1]?.toLowerCase() || '';
-    cues.push(...contactSoundCues(animation));
+    cues.push(...contactSoundCues(animation), ...ballSoundCues(animation));
     if (call !== 'clock_event') {
         const stoppedAt = animation.contact_at ?? animation.result_at ?? resultAt;
         const at = noSnap ? .48 : stoppedAt + .1;

@@ -1,6 +1,7 @@
 import {soundSettings} from './sound-cues.js';
 import {recordedCrowd} from './recorded-crowd.js';
 import {recordedPlayerVoices} from './recorded-player-voices.js';
+import {recordedBallEffects} from './recorded-ball-effects.js';
 import {recordedContactEffects} from './recorded-contact-effects.js';
 import {recordedFieldEffects} from './recorded-field-effects.js';
 
@@ -8,7 +9,7 @@ import {recordedFieldEffects} from './recorded-field-effects.js';
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, players, recordings, fieldRecordings, playerRecordings, contactRecordings, active = false, ambienceActive = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, players, recordings, fieldRecordings, playerRecordings, contactRecordings, ballRecordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const control = root.querySelector('[data-sound-toggle]');
@@ -20,6 +21,7 @@ export function stadiumAudio(root, environment = window) {
         recordings?.setActive(settings.enabled && (active || ambienceActive));
         fieldRecordings?.setActive(settings.enabled && active);
         contactRecordings?.setActive(settings.enabled && active && settings.effects > 0);
+        ballRecordings?.setActive(settings.enabled && active && settings.effects > 0);
         playerRecordings?.setActive(settings.enabled && active && settings.players > 0);
     };
     const track = (source, gain) => {
@@ -56,12 +58,14 @@ export function stadiumAudio(root, environment = window) {
                 fieldRecordings.load();
                 contactRecordings = recordedContactEffects(context,effects,environment,root.dataset?.contactAudioBase);
                 contactRecordings.load();
+                ballRecordings = recordedBallEffects(context,effects,environment,root.dataset?.ballAudioBase);
+                ballRecordings.load();
                 playerRecordings = recordedPlayerVoices(context,players,environment,root.dataset?.playerAudioBase);
                 playerRecordings.load();
                 levels();
             }
             if (context.state === 'suspended') context.resume().then(() => { if (!disposed) levels(); }).catch(() => {});
-            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load(),contactRecordings?.load()]);
+            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load(),contactRecordings?.load(),ballRecordings?.load()]);
         } catch { /* Gameplay continues if audio cannot start. */ }
     };
     const play = cue => {
@@ -70,7 +74,9 @@ export function stadiumAudio(root, environment = window) {
             case 'cadence': playerRecordings?.play(cue.mood); break;
             case 'snap': noise(.09,effects,.18,1800); break;
             case 'throw': noise(.2,effects,.11,2400); break;
-            case 'kick': noise(.17,effects,.45,350); tone(95,.13); break;
+            case 'kick':
+            case 'catch':
+            case 'ball_ground': ballRecordings?.play(cue.type,(Number(root.dataset?.playNumber)||0) + Math.round(cue.time*100)); break;
             case 'pad':
             case 'tackle':
             case 'landing': contactRecordings?.play(cue.type,(Number(root.dataset?.playNumber)||0) + Math.round(cue.time*100)); break;
@@ -96,6 +102,6 @@ export function stadiumAudio(root, environment = window) {
         stopPlayerVoices() { playerRecordings?.stop(); },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

@@ -1,0 +1,27 @@
+WebSports Football - recorded ball effects v1
+
+Catch clips: trevornau22fv, palming football.wav.
+Recording of an American football being thrown, caught and handled indoors.
+https://freesound.org/people/trevornau22fv/sounds/94647/
+https://cdn.freesound.org/previews/94/94647_1481393-hq.mp3
+Creative Commons Zero (CC0).
+Isolated handling/catch impacts: source offsets 0.305s, 13.615s, 19.965s;
+length 0.34s each.
+
+Kick clip: musita182, Soccer Kick.wav.
+Recorded soccer ball strike, used as kick foley for football.
+https://freesound.org/people/musita182/sounds/261267/
+https://cdn.freesound.org/previews/261/261267_2399519-hq.mp3
+Creative Commons Zero (CC0). First 0.45s.
+
+Ground clips: NathanaelBray, Bouncy Ball Bouncing on Dry Grass.
+Recorded bouncy-ball grass impacts, used as soft turf-impact foley.
+https://freesound.org/people/NathanaelBray/sounds/650976/
+https://cdn.freesound.org/previews/650/650976_13791619-hq.mp3
+Creative Commons Zero (CC0).
+Isolated impacts: 0.855s + 0.38s; 1.435s + 0.32s.
+
+All edits: mono 44.1 kHz MP3, 128 kbps; 70 Hz high-pass, 5 kHz low-pass,
+peak adjustment/limiting, 3ms entry and 60ms exit fades.
+CC0: https://creativecommons.org/publicdomain/zero/1.0/
+These are local recorded foley assets, not NFL broadcast recordings.

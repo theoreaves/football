@@ -2,12 +2,13 @@
 
 Current: recorded crowd ambience and reactions, continuous ambience during
 next-play setup, recorded referee whistle variations, QB cadence with a separate
-Players volume, and recorded pad contacts, tackle hits and grass landings.
+Players volume, and recorded pad contacts, tackle hits and grass landings. Recorded kicks, catches and ball ground impacts
+follow the saved ball animation.
 
 Next:
 - Player sounds: exertion and occasional short shouts.
 - Field contact: expand recording variations and additional contact animations.
-- Special teams: kicks, punts, catches.
+- Ball/special teams: expand recordings and future visible bounce animations.
 - Stadium audio: music between drives; home touchdown celebrations;
   home turnovers and defensive third-down prompts; other event effects.
 
@@ -18,4 +19,4 @@ Later:
 
 Keep event cues separate from asset selection. Audio must not alter the game
 clock, simulation outcomes, statistics or saved play paths. Uploaded sounds
-and team configuration are a later feature, not part of the contact-audio patch.
+and team configuration are a later feature, not part of the ball-audio patch.
