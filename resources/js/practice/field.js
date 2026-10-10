@@ -210,6 +210,9 @@ export function mountPractice(root, onReady = () => {}) {
     scene.add(carrierRing);
     const ballGlow = new THREE.Mesh(new THREE.SphereGeometry(.5, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffdf00, transparent: true, opacity: .28, depthWrite: false }));
     scene.add(ballGlow);
+    const showCarrierArrow = root.dataset.showCarrierArrow === 'true';
+    const showCarrierCircle = root.dataset.showCarrierCircle !== 'false';
+    const showBallGlow = root.dataset.showBallGlow === 'true';
     const resultPopup = root.querySelector('[data-result-popup]');
     const beforeState = root.dataset.beforeState ? JSON.parse(root.dataset.beforeState) : null;
     const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
@@ -644,12 +647,13 @@ export function mountPractice(root, onReady = () => {}) {
                 ball.position.lerp(tuckPosition, eased);
             }
         }
-        carrierArrow.visible = carrierRing.visible = Boolean(holder);
+        carrierArrow.visible = showCarrierArrow && Boolean(holder);
+        carrierRing.visible = showCarrierCircle && Boolean(holder);
         if (holder) {
             carrierArrow.position.set(holder.x, 3.2, holder.z);
             carrierRing.position.set(holder.x, .12, holder.z);
         }
-        ballGlow.visible = !holder && ['play', 'result'].includes(phase);
+        ballGlow.visible = showBallGlow && !holder && ['play', 'result'].includes(phase);
         ballGlow.position.copy(ball.position);
         const eventMessage = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
         const message = holder ? `${eventMessage} · ${carrierLabel(holder)}` : eventMessage;
