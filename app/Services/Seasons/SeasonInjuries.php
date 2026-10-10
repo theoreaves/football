@@ -4,6 +4,7 @@ namespace App\Services\Seasons;
 
 use App\Models\Exhibition;
 use App\Models\Season;
+use Illuminate\Support\Facades\DB;
 
 /** Injury events recorded by completed or in-progress season games. */
 class SeasonInjuries
@@ -61,6 +62,43 @@ class SeasonInjuries
                 }
             }
         }
+
+        // Preserve the existing game-event history, but enrich entries that
+        // have a persistent season injury with a real recovery schedule.
+        $persistent = DB::table('season_player_injuries')
+            ->where('season_id', $season->id)->where('team_id', $teamId)
+            ->get()->keyBy(fn ($row) => $row->exhibition_id.':'.$row->player_id);
+        $seen = [];
+        foreach ($events as &$event) {
+            $row = $persistent->get($event['game_id'].':'.$event['player_id']);
+            if (! $row) {
+                continue;
+            }
+            $seen[$row->id] = true;
+            $event['severity'] = $row->severity;
+            $event['return_week'] = $row->return_week;
+            $event['status'] = $row->status === 'recovered' ? 'Recovered'
+                : ($row->return_week === null ? 'Season-ending' : 'Out until Week '.$row->return_week);
+        }
+        unset($event);
+        // Also surface records when a game's history is unavailable/empty.
+        foreach ($persistent as $row) {
+            if (isset($seen[$row->id])) {
+                continue;
+            }
+            $player = \App\Models\Player::find($row->player_id);
+            $events[] = [
+                'player_id' => (int) $row->player_id,
+                'name' => $player ? trim($player->firstname.' '.$player->lastname) : 'Unknown player',
+                'number' => null, 'position' => $player->position ?? '—',
+                'type' => $row->type, 'week' => $row->injured_week,
+                'game_id' => $row->exhibition_id,
+                'status' => $row->status === 'recovered' ? 'Recovered'
+                    : ($row->return_week === null ? 'Season-ending' : 'Out until Week '.$row->return_week),
+                'severity' => $row->severity, 'return_week' => $row->return_week,
+            ];
+        }
+        usort($events, fn ($a, $b) => ($a['week'] <=> $b['week']) ?: ($a['game_id'] <=> $b['game_id']));
 
         return array_reverse($events);
     }

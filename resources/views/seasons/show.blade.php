@@ -45,6 +45,8 @@
     <button class="landing-button">Save team control</button></form></section>
 @elseif($tab === 'leaders')
     @include('seasons.leaders')
+@elseif($tab === 'injuries')
+    @include('seasons.active-injuries', ['showTeam' => true])
 @elseif($tab === 'playoffs')
     <section class="season-panel"><h2>Playoff format</h2><p>{{ \App\Services\Seasons\SeasonOptions::PLAYOFFS[$season->settings['playoffs']] }}</p><p>Qualification, seeding, and the bracket will be connected after regular-season game processing.</p></section>
 @else

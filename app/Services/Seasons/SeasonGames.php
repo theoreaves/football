@@ -31,6 +31,10 @@ class SeasonGames
                 $controls[$side] = $season->settings['members'][$team->id]['control'];
             }
             $state = app(ExhibitionEngine::class)->initial($season->settings['quarter_length'] ?? 900);
+            $state = app(PersistentInjuries::class)->seedState($season, (int) $fixture->week, [
+                'home' => (int) $fixture->home_team_id,
+                'away' => (int) $fixture->away_team_id,
+            ], $state);
             $coin = random_int(0, 1) ? 'heads' : 'tails';
             $winner = $coin === 'heads' ? 'away' : 'home';
             $pending = ! $quick && $controls[$winner] === 'human';
@@ -84,6 +88,7 @@ class SeasonGames
         if (! $fixture) {
             return;
         }
+        app(PersistentInjuries::class)->record($fixture, $game);
         $fixture->update([
             'status' => 'final', 'home_score' => $game->state['home_score'], 'away_score' => $game->state['away_score'],
         ]);
@@ -99,6 +104,7 @@ class SeasonGames
                 throw ValidationException::withMessages(['week' => 'Finish every game in this week before advancing.']);
             }
             if ($season->fixtures()->where('week', '>', $week)->exists()) {
+                app(PersistentInjuries::class)->recover($season, $week + 1);
                 $season->update(['current_week' => $week + 1]);
             } else {
                 $season->update(['phase' => $season->settings['playoffs'] === 'none' ? 'completed' : 'playoffs_pending']);

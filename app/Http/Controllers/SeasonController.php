@@ -127,7 +127,8 @@ class SeasonController extends Controller
         $tab = $request->query('tab', 'overview');
         abort_unless(in_array($tab, ['overview', 'standings', 'schedule', 'leaders', 'stats', 'injuries', 'playoffs', 'settings'], true), 404);
 
-        return view('seasons.show', ['leaders' => $tab === 'leaders' ? app(\App\Services\Seasons\LeagueLeaders::class)->forSeason($season) : [],
+        return view('seasons.show', ['activeInjuries' => $tab === 'injuries' ? app(\App\Services\Seasons\ActiveSeasonInjuries::class)->forSeason($season) : [],
+            'leaders' => $tab === 'leaders' ? app(\App\Services\Seasons\LeagueLeaders::class)->forSeason($season) : [],
             'standings' => app(\App\Services\Seasons\SeasonGames::class)->standings($season), 'season' => $season, 'tab' => $tab, 'members' => $season->settings['members'],
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])
                 ->filter(fn ($team) => (bool) $team->team_logo)->mapWithKeys(fn ($team) => [$team->id => route('teams.art', ['team' => $team, 'asset' => 'team_logo'])]),
@@ -232,7 +233,7 @@ class SeasonController extends Controller
         });
 
         return view('seasons.team', ['season' => $season, 'team' => $team, 'tab' => $tab,
-            'injuryEvents' => $tab === 'injuries' ? app(\App\Services\Seasons\SeasonInjuries::class)->forTeam($season, $team->id) : [],
+            'activeInjuries' => $tab === 'injuries' ? app(\App\Services\Seasons\ActiveSeasonInjuries::class)->forSeason($season, $team->id) : [],
             'member' => $season->settings['members'][$team->id],
             'teamStats' => in_array($tab, ['stats', 'overview']) ? app(\App\Services\Seasons\SeasonStats::class)->team($season, $team->id) : null,
             'record' => app(\App\Services\Seasons\SeasonGames::class)->standings($season)[$team->id],

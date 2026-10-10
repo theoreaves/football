@@ -5,7 +5,10 @@
     $shown = $watching ? $last['before'] : $state;
     $teamNames = ['home' => $exhibition->homeTeam->name, 'away' => $exhibition->awayTeam->name];
 @endphp
-<div data-show-highlights="{{ request()->boolean('highlights') && !$replayOnly ? 'true' : 'false' }}" data-summary="{{ request()->boolean('summary') && !$replayOnly && $state['status'] === 'final' ? 'true' : 'false' }}" data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ \App\Services\Simulation\FieldOrientation::line($state) }}" data-next-possession="{{ $state['possession'] }}" data-next-direction="{{ \App\Services\Simulation\FieldOrientation::direction($state) }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' || $replayOnly ? 'true' : 'false' }}" class="game-stage text-white">
+<div data-show-highlights="{{ request()->boolean('highlights') && !$replayOnly ? 'true' : 'false' }}" data-summary="{{ request()->boolean('summary') && !$replayOnly && $state['status'] === 'final' ? 'true' : 'false' }}" data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ \App\Services\Simulation\FieldOrientation::line($state) }}" data-next-possession="{{ $state['possession'] }}" data-next-direction="{{ \App\Services\Simulation\FieldOrientation::direction($state) }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode(array_replace_recursive($appearance, [
+            'home' => ['medical_home_shirt' => $exhibition->homeTeam->uniform_home_shirt ?: ($exhibition->homeTeam->team_color1 ?: '#e9e9e7')],
+            'away' => ['medical_home_shirt' => $exhibition->awayTeam->uniform_home_shirt ?: ($exhibition->awayTeam->team_color1 ?: '#e9e9e7')],
+        ])) }}" data-autoplay="{{ request('watch') === '1' || $replayOnly ? 'true' : 'false' }}" class="game-stage text-white">
     @if(!$replayOnly && !request()->boolean('summary'))
     <dialog data-pregame-dialog class="game-dialog" style="width:min(94vw,1050px);max-width:1050px;max-height:90vh;overflow:auto;background:#101827;color:#f9fafb;border:1px solid #36537b;border-radius:16px;padding:24px;">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -137,6 +140,23 @@
         @else
         <p class="text-sm">{{ $teamNames[$defenseSide] }} defense: CPU</p>
         @endunless
+        @if(app()->environment('local') && config('app.debug'))
+        <fieldset class="border border-amber-500 rounded p-2 flex flex-wrap gap-2 items-center text-sm">
+            <legend class="text-amber-300">Developer · Next play injury</legend>
+            <label>Severity <select name="dev_force_injury" class="bg-gray-900 text-white rounded p-1">
+                <option value="none">Normal (random)</option>
+                <option value="minor">Minor · 5 snaps</option>
+                <option value="moderate">Moderate · out for game</option>
+                <option value="serious">Serious · trainers / out for game</option>
+            </select></label>
+            <label>Offensive player <select name="dev_injury_role" class="bg-gray-900 text-white rounded p-1">
+                <option value="carrier">Ball carrier</option>
+                @foreach(['QB','RB','WR1','WR2','WR3','TE','C'] as $injuryRole)
+                <option value="{{ $injuryRole }}">{{ $injuryRole }}</option>
+                @endforeach
+            </select></label>
+        </fieldset>
+        @endif
         <button data-snap class="bg-blue-700 rounded px-6 py-2">{{ $cpuOffense && $cpuDefense ? 'Next CPU play' : 'Call play & watch' }}</button><p class="text-xs text-gray-400">{{ $cpuOffense || $cpuDefense ? 'CPU calls are chosen automatically.' : 'You call both teams.' }} Results save at the snap; replaying changes no stats.</p>
     </form>
     @endif
@@ -223,7 +243,23 @@
                 @if($appearance[$noticeSide]['team_logo'] ?? null)<img src="{{ $appearance[$noticeSide]['team_logo'] }}" alt="{{ $teamNames[$noticeSide] }} logo" class="w-14 h-14 object-contain">@endif
                 <h3 class="text-xl font-semibold">{{ $teamNames[$noticeSide] }}</h3>
             </div>
-            @foreach($teamNotices as $notice)<p class="mt-3">{{ substr($notice, strlen(ucfirst($noticeSide).' · ')) }}</p>@endforeach
+            @foreach($teamNotices as $notice)
+                @php
+                    // Injury notices are formatted as: Team · Player name · Injury ...
+                    // Resolve against the frozen game roster; don't load mutable
+                    // player records or infer a portrait from the displayed name.
+                    $noticeText = substr($notice, strlen(ucfirst($noticeSide).' · '));
+                    $noticePlayerName = trim(explode(' · ', $noticeText, 2)[0]);
+                    $noticePlayer = collect($exhibition->rosters[$noticeSide]['pool'] ?? $exhibition->rosters[$noticeSide]['players'] ?? [])
+                        ->first(fn ($candidate) => ($candidate['name'] ?? '') === $noticePlayerName);
+                @endphp
+                <div class="flex items-center gap-3 mt-3">
+                    @if($noticePlayer && !str_contains($notice, 'cleared to return'))
+                        @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $noticePlayer, 'portraitSide' => $noticeSide])
+                    @endif
+                    <p>{{ $noticeText }}</p>
+                </div>
+            @endforeach
             @endif
         @endforeach
         <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">OK</button></form>
