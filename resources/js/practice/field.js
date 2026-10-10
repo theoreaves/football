@@ -274,23 +274,41 @@ export function mountPractice(root, onReady = () => {}) {
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
-            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at && ((player.team === 'offense' && player.role === animation.carrier) || (player.team === 'defense' && player.role === (animation.tackler_role ?? (animation.carrier === 'WR1' ? 'CB1' : 'LB2'))))) {
-                const defender = player.team === 'defense';
-                const style = animation.tackle_style ?? 'legacy';
-                const duration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
-                const fall = Math.min(1, Math.max(0, (elapsed - animation.contact_at) / duration));
-                if (style === 'wrap') {
-                    // A slower wrap-up: defender stays more upright while the carrier goes down.
-                    mesh.rotation.z = fall * (defender ? Math.PI * .22 : Math.PI * .43);
-                    mesh.position.y = fall * (defender ? .06 : .13);
-                } else if (style === 'lunge') {
-                    // Quick forward lunge by the defender; the carrier falls after contact.
-                    mesh.rotation.z = fall * (defender ? Math.PI * .64 : Math.PI * .5);
-                    mesh.position.y = fall * (defender ? .12 : .15);
-                } else {
-                    // Side tackle and legacy saved-game animation.
-                    mesh.rotation.z = fall * Math.PI / 2;
-                    mesh.position.y = fall * .15;
+            // Coordinate contact around one shared point and fall direction. Individual
+            // paths are unchanged until contact; never mutate saved play animation data.
+            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at
+                && animation.tackle_style && animation.tackler_role
+                && ((player.team === 'offense' && player.role === animation.carrier)
+                    || (player.team === 'defense' && player.role === animation.tackler_role))) {
+                const carrier = frame.players.find(p => p.team === 'offense' && p.role === animation.carrier);
+                const tackler = frame.players.find(p => p.team === 'defense' && p.role === animation.tackler_role);
+                if (carrier && tackler) {
+                    const defender = player.team === 'defense';
+                    const style = animation.tackle_style;
+                    const duration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
+                    const timeSinceContact = elapsed - animation.contact_at;
+                    const contact = Math.min(1, timeSinceContact / .12);
+                    // Delay the carrier's fall slightly behind the tackler's initial hit.
+                    const fall = Math.min(1, Math.max(0, (timeSinceContact - (defender ? 0 : .08)) / duration));
+                    const midX = (carrier.x + tackler.x) / 2;
+                    const midZ = (carrier.z + tackler.z) / 2;
+                    const approachX = carrier.x - tackler.x;
+                    const approachZ = carrier.z - tackler.z;
+                    const magnitude = Math.hypot(approachX, approachZ);
+                    // If positions coincide, use offense direction for a stable fall axis.
+                    const dirX = magnitude > .01 ? approachX / magnitude : playDirection;
+                    const dirZ = magnitude > .01 ? approachZ / magnitude : 0;
+                    const offset = defender ? -.33 : .33;
+                    const targetX = midX + dirX * offset;
+                    const targetZ = midZ + dirZ * offset;
+                    mesh.position.x += (targetX - mesh.position.x) * contact;
+                    mesh.position.z += (targetZ - mesh.position.z) * contact;
+                    // Both players share a facing/lean axis instead of independent
+                    // local rotations that send them in opposite directions.
+                    mesh.rotation.y = Math.atan2(dirX, dirZ);
+                    const lean = style === 'wrap' ? Math.PI * .35 : style === 'lunge' ? Math.PI * .53 : Math.PI * .46;
+                    mesh.rotation.z = fall * lean;
+                    mesh.position.y = fall * (defender ? .08 : .12);
                 }
             }
             const kneelingHolder = animation?.players?.[i]?.pose === 'holder-kneel' && ['set', 'play', 'result'].includes(phase);
