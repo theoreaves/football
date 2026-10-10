@@ -54,6 +54,11 @@ class PlayAnnouncement
         if ($outcome === 'extra_point_blocked') {
             return ['EXTRA POINT BLOCKED'];
         }
+        // A called pass can become a QB rushing attempt. Classify the result,
+        // not the original play call, before handling pass completions.
+        if (! empty($play['scramble'])) {
+            return ['QB SCRAMBLE: '.$yardage];
+        }
         if ($outcome === 'sack') {
             return ['SACK: '.$yardage];
         }
