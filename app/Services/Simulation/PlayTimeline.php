@@ -126,10 +126,31 @@ class PlayTimeline
         $qbSet = $qbStart - 2;
         $handoff = $qbStart - 1;
         $pass = in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true) && $play['carrier'] !== 'QB' && ! ($play['throwaway'] ?? false);
+        $receiverRole = $play['receiver_role'] ?? 'WR1';
+        // Select a reproducible animation style from immutable play details. No extra
+        // random calls: simulation outcomes, RNG sequence and saved replays stay intact.
+        $visualSeed = (int) sprintf('%u', crc32(implode(':', [
+            $play['before']['quarter'] ?? 1, $play['before']['clock'] ?? 0,
+            $play['before']['spot'] ?? 0, $play['before']['down'] ?? 1,
+            $play['call'] ?? '', $play['outcome'] ?? '', $play['gain'] ?? 0,
+            $receiverRole, $play['receiver_id'] ?? 0,
+        ])));
+        $visualVariant = $visualSeed % 12;
         $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true);
-        $endZ = $pass ? match ($play['call']) {
-            'deep_pass' => 9, 'short_pass' => 8, 'medium_pass' => 14, default => 20
-        } : ($play['call'] === 'outside_run' ? 42 : 27);
+        // Run toward a catch point near the actual receiver, not WR1's fixed sideline.
+        $receiverZ = $offense[$receiverRole][1] ?? $offense['WR1'][1];
+        $inside = $receiverZ < 26.7 ? 1 : -1;
+        $routeStyle = $visualVariant % 6;
+        $routeBreak = [0, 3.5, -3.5, 6, -6, 1.5][$routeStyle] * $inside;
+        $endZ = $pass ? max(3, min(50, $receiverZ + $inside * match ($play['call']) {
+            'slant' => 6, 'medium_pass' => 3, 'deep_pass' => 2, default => 1,
+        } + $routeBreak)) : ($play['call'] === 'outside_run' ? 42 : 27);
+        // Running lanes vary while remaining within the hash marks and sideline.
+        if (! $pass && ! $special && in_array($play['call'], ['inside_run', 'outside_run', 'draw', 'two_point_run'], true)) {
+            $endZ = $play['call'] === 'outside_run'
+                ? [7, 12, 17, 36, 42, 47][$visualVariant % 6]
+                : [21, 24, 26, 28, 30, 33][$visualVariant % 6];
+        }
         if ($play['out_of_bounds'] ?? false) {
             $endZ = $endZ < 26.7 ? 0 : 53.33;
         }
@@ -147,18 +168,37 @@ class PlayTimeline
             $defense['CB1'][0] = 6;
             $defense['CB2'][0] = 6;
         }
+        $runnerPath = null;
+        // Contact is visual only. Return plays have their own possession and ball paths.
+        $contactEnabled = in_array($play['outcome'], ['tackle', 'fumble'], true)
+            && ! $special && ! ($play['out_of_bounds'] ?? false)
+            && ! ($play['defensive_return'] ?? false);
+        $contactTackler = $pass ? 'CB1' : 'LB2';
+        $carrierContact = null;
         $tracks = [];
         foreach ($offense as $role => [$x, $z]) {
             $path = [$point(0, $x, $z), $point(1, $x + ($role === 'QB' ? -2 : 1), $z), $point(6, $x + 2, $z)];
             if ($role === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(.6, $handoff, 26.7), $point(2.2, $qbSet, $qbZ), $point(6, $qbSet, $qbZ)];
             }
-            if ($role === 'WR1' && $pass) {
+            if ($role === $receiverRole && $pass) {
                 $end = $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'];
-                $path = [$point(0, $x, $z), $point(2.2, $play['target'] * .45, $z), $point(3.8, $play['target'], $endZ), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
+                $breakX = $play['target'] * [.32, .42, .5, .6][$visualVariant % 4];
+                $breakZ = max(2, min(51, $z + ($endZ - $z) * [.15, .35, .65, .85][$visualVariant % 4]));
+                $path = [$point(0, $x, $z), $point(1.35, $breakX * .55, $z),
+                    $point(2.2, $breakX, $breakZ), $point(3.8, $play['target'], $endZ),
+                    $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
             }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
-                $path = [$point(0, $x, $z), $point(1, $handoff, 27), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+                $cutZ = [22, 25, 29, 32, 35, 39][$visualVariant % 6];
+                $path = [$point(0, $x, $z), $point(1, $handoff, 27),
+                    $point(2.4, max(0, $play['gain'] * .25), $cutZ),
+                    $point(4.1, $play['gain'] * .72, $endZ + ($cutZ - $endZ) * .25),
+                    $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+            }
+            if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
+                // Keep the ball on the exact RB track once the handoff completes.
+                $runnerPath = $path;
             }
             if ($role === 'QB' && $play['carrier'] === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(2, $qbSet, 26.7), $point(5.3, $play['gain'], 26.7), $point(6, $play['gain'], 26.7)];
@@ -168,10 +208,20 @@ class PlayTimeline
                 $path = [$point(0, $x, $z), $point(1.2, .3, $z), $point(5.3, $pass ? .3 : 2, $z), $point(6, $pass ? .3 : 2, $z)];
             }
             $person = $rosters[$side]['players'][$special && $role === 'QB' ? $play['carrier'] : $role];
+            // Read the carrier's actual route, not an assumed running lane.
+            // All active ball carriers have a 5.3-second waypoint here.
+            if ($contactEnabled && $role === $play['carrier']) {
+                foreach ($path as $waypoint) {
+                    if (abs($waypoint[0] - 5.3) < 0.001) {
+                        $carrierContact = $waypoint;
+                        break;
+                    }
+                }
+            }
             $tracks[] = array_merge(array_intersect_key($person, array_flip(['id', 'name', 'lastname', 'number', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance'])), ['role' => $role, 'team' => 'offense', 'side' => $side, 'path' => $path]);
         }
         foreach ($defense as $role => [$x, $z]) {
-            $tackler = $pass ? 'CB1' : 'LB2';
+            $tackler = $contactTackler;
             $end = $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'];
             $path = [$point(0, $x, $z), $point(3, $x + ($pass ? 5 : -1), $z), $point(6, $x + 3, $z)];
             if (in_array($role, ['DE1', 'DT1', 'DT2', 'DE2'], true)) {
@@ -182,6 +232,48 @@ class PlayTimeline
             }
             if ($role === 'DE1' && ($play['pressure'] ?? false)) {
                 $path = [$point(0, $x, $z), $point(1.7, $qbSet + 2, 25), $point(2.2, $qbSet + .7, 26.7), $point(5.3, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ), $point(6, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ)];
+            }
+            // Phase 2: deterministic support pursuit; keep the existing primary
+            // tackler's track and all ball/receiver tracks exactly as recorded.
+            // Defensive returns and special teams use their dedicated paths.
+            if (! $special && ! ($play['defensive_return'] ?? false)
+                && ! in_array($play['outcome'], ['incomplete', 'sack'], true)
+                && ! ($play['throwaway'] ?? false) && $role !== $tackler
+                && ! ($role === 'DE1' && ($play['pressure'] ?? false))) {
+                $supportRoles = $pass
+                    ? (in_array($receiverRole, ['WR2', 'TE'], true) ? ['CB2', 'S2', 'LB3'] : ['S1', 'CB2', 'LB1'])
+                    : ['LB1', 'LB3', 'S1', 'S2', 'CB1', 'CB2'];
+                $supportIndex = array_search($role, $supportRoles, true);
+                if ($supportIndex !== false && $supportIndex < 3) {
+                    // Support defenders converge toward, but do not overlap,
+                    // the carrier. Offset and reaction vary per saved play.
+                    $laneSign = ($supportIndex % 2 === 0) ? 1 : -1;
+                    $lag = 0.56 + (($visualVariant + $supportIndex) % 3) * 0.22;
+                    $offsetZ = $laneSign * (2.5 + $supportIndex * 1.65);
+                    $offsetX = $supportIndex === 0 ? -1.4 : (1.2 + $supportIndex);
+                    $pursuitX = $pass ? $play['target'] : $end;
+                    $path = [
+                        $point(0, $x, $z),
+                        $point(1.3 + $lag, $x + (($pursuitX - $x) * .13), $z),
+                        $point(3.5 + $lag * .4, $x + (($pursuitX - $x) * .62), $z + (($endZ + $offsetZ - $z) * .57)),
+                        $point(5.3, $end + $offsetX, $endZ + $offsetZ),
+                        $point(6, $end + $offsetX, $endZ + $offsetZ),
+                    ];
+                }
+            }
+            if ($contactEnabled && $role === $contactTackler && $carrierContact !== null) {
+                // Bring this defender within one yard of the carrier at contact.
+                // Use world coordinates from the carrier to avoid left/right team drift.
+                $contactX = $carrierContact[1];
+                $contactZ = $carrierContact[3];
+                $approach = $point(4.55, $end - 1.9, $endZ + ($z < $endZ ? -1.8 : 1.8));
+                $path = [
+                    $path[0],
+                    $point(3.4, $end * .55, $z + ($endZ - $z) * .6),
+                    $approach,
+                    [5.3, $contactX, 0, max(0, min(53.33, $contactZ + ($z < $endZ ? -.65 : .65)))],
+                    [6, $contactX, 0, max(0, min(53.33, $contactZ + ($z < $endZ ? -.65 : .65)))],
+                ];
             }
             $tracks[] = array_merge(array_intersect_key($rosters[$other]['players'][$role], array_flip(['id', 'name', 'lastname', 'number', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance'])), ['role' => $role, 'team' => 'defense', 'side' => $other, 'path' => $path]);
         }
@@ -203,6 +295,18 @@ class PlayTimeline
                 $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35, 26.7, 1), $point(2, $qbSet, 26.7, 1), $point(5.3, $play['gain'], 26.7, 1), $point(6, $play['gain'], 26.7, 1)];
             }
         }
+        // The runner may cut multiple times. Use the same sampled waypoints for
+        // ball and runner instead of drawing a straight ball-only line.
+        // Keep the snap-to-handoff keyframes (0-.6s), then synchronize at 1s.
+        if ($runnerPath !== null) {
+            $ball = array_merge(
+                array_values(array_filter($ball, fn ($frame) => $frame[0] < 1)),
+                array_map(
+                    fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]],
+                    array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= 1))
+                )
+            );
+        }
         $events = [[0, 'Snap'], [.6, $special ? 'Kick setup' : ($pass || ($play['throwaway'] ?? false) || $play['carrier'] === 'QB' ? 'Dropback' : 'Handoff')], [2.2, $special ? 'Kick in flight' : ($pass || ($play['throwaway'] ?? false) ? 'Pass in flight' : (($play['scramble'] ?? false) ? 'QB scramble' : 'Run'))], [3.8, $pass ? match ($play['outcome']) {
             'incomplete' => 'Incomplete pass', 'interception' => 'Intercepted', default => 'Catch'
         } : (($play['throwaway'] ?? false) ? 'Thrown away' : 'Pursuit')], [5.3, $play['summary']]];
@@ -214,7 +318,7 @@ class PlayTimeline
             $holders[] = [2.2, null, null];
         } elseif ($pass) {
             $holders[] = [2.2, null, null];
-            $holders[] = [3.8, $play['outcome'] === 'incomplete' ? null : ($play['outcome'] === 'interception' ? 'defense' : 'offense'), $play['outcome'] === 'interception' ? 'CB1' : 'WR1'];
+            $holders[] = [3.8, $play['outcome'] === 'incomplete' ? null : ($play['outcome'] === 'interception' ? 'defense' : 'offense'), $play['outcome'] === 'interception' ? 'CB1' : $receiverRole];
         } elseif ($play['carrier'] === 'RB') {
             $holders[] = [.6, null, null];
             $holders[] = [1, 'offense', 'RB'];
@@ -248,7 +352,17 @@ class PlayTimeline
             $holders[] = [3.8, 'defense', $returner];
         }
 
-        return ['motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => in_array($play['outcome'], ['tackle', 'sack', 'fumble'], true) && ! ($play['out_of_bounds'] ?? false) ? 5.3 : null, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
-            'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])), 'possession' => $side];
+        // Visual-only contact style. Recorded outcomes and ball paths are unchanged.
+        $contactStyle = $contactEnabled && $carrierContact !== null
+            ? ['wrap', 'side', 'lunge'][$visualVariant % 3]
+            : null;
+        $contactDefender = $contactTackler;
+        $contactAt = $contactStyle !== null ? 5.3 : null;
+
+        return ['tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+            'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])),
+            'possession' => $side, 'animation_variant' => $visualVariant,
+            'receiver_role' => $pass ? $receiverRole : null, 'outcome' => $play['outcome'],
+            'out_of_bounds' => (bool) ($play['out_of_bounds'] ?? false), 'forced_out' => (bool) ($play['forced_out'] ?? false)];
     }
 }

@@ -12,7 +12,7 @@ class SeasonStats
     public const CATEGORIES = [
         'Passing' => ['pass_attempts', 'completions', 'passing_yards', 'passing_td', 'interceptions', 'sacks'],
         'Rushing' => ['rushes', 'rushing_yards', 'rushing_td', 'fumbles_lost'],
-        'Receiving' => ['receptions', 'receiving_yards', 'receiving_td'],
+        'Receiving' => ['targets', 'receptions', 'receiving_yards', 'receiving_td'],
         'Defense' => ['tackles', 'defensive_sacks', 'defensive_interceptions', 'fumble_recoveries'],
         'Kicking' => ['fg_made', 'fg_attempts', 'xp_made', 'xp_attempts'],
         'Punting' => ['punts', 'punt_yards'],

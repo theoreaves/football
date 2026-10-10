@@ -6,6 +6,57 @@
     $teamNames = ['home' => $exhibition->homeTeam->name, 'away' => $exhibition->awayTeam->name];
 @endphp
 <div data-show-highlights="{{ request()->boolean('highlights') && !$replayOnly ? 'true' : 'false' }}" data-summary="{{ request()->boolean('summary') && !$replayOnly && $state['status'] === 'final' ? 'true' : 'false' }}" data-practice data-crowd="{{ json_encode($state['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id]) }}" data-exhibition data-cpu-special="{{ $cpuPlan && in_array($cpuPlan['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true) ? 'true' : 'false' }}" data-cpu-only="{{ $cpuOffense && $cpuDefense ? 'true' : 'false' }}" data-before-state="{{ json_encode($last['before'] ?? $state) }}" data-after-state="{{ json_encode($state) }}" data-team-names="{{ json_encode($teamNames) }}" data-coach-offense="{{ json_encode($coachSuggestion) }}" data-coach-defense="{{ json_encode($coachDefense) }}" data-defense-options="{{ json_encode($defenseOptions) }}" data-next-line="{{ \App\Services\Simulation\FieldOrientation::line($state) }}" data-next-possession="{{ $state['possession'] }}" data-next-direction="{{ \App\Services\Simulation\FieldOrientation::direction($state) }}" data-next-distance="{{ $state['distance'] }}" data-camera-key="football-camera-{{ $exhibition->world_id }}-{{ $exhibition->id }}" data-play-number="{{ $state['version'] }}" data-animation="{{ json_encode($animation) }}" data-appearance="{{ json_encode($appearance) }}" data-autoplay="{{ request('watch') === '1' || $replayOnly ? 'true' : 'false' }}" class="game-stage text-white">
+    @if(!$replayOnly && !request()->boolean('summary'))
+    <dialog data-pregame-dialog class="game-dialog" style="width:min(94vw,1050px);max-width:1050px;max-height:90vh;overflow:auto;background:#101827;color:#f9fafb;border:1px solid #36537b;border-radius:16px;padding:24px;">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div><p class="text-blue-300 text-sm tracking-widest uppercase">Game Day</p><h2 class="text-2xl font-bold">Starting Lineups</h2></div>
+            <button type="button" data-pregame-close class="bg-blue-700 hover:bg-blue-600 rounded px-5 py-2">Continue to Coin Toss →</button>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-5" role="tablist" aria-label="Lineup group">
+            <button type="button" data-lineup-tab="offense" aria-selected="true" class="rounded px-4 py-2 bg-blue-700">Offense</button>
+            <button type="button" data-lineup-tab="defense" aria-selected="false" class="rounded px-4 py-2 bg-gray-700">Defense</button>
+            <button type="button" data-lineup-tab="special" aria-selected="false" class="rounded px-4 py-2 bg-gray-700">Special Teams</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            @foreach(['away', 'home'] as $lineupSide)
+                <section class="rounded-lg p-3" style="background:#1a2840;">
+                    <div class="flex gap-3 items-center mb-4">
+                        @if($appearance[$lineupSide]['team_logo'] ?? null)<img src="{{ $appearance[$lineupSide]['team_logo'] }}" alt="" loading="lazy" class="w-12 h-12 object-contain">@endif
+                        <div><p class="text-xs uppercase tracking-wider text-blue-300">{{ ucfirst($lineupSide) }} team</p><h3 class="font-bold text-lg">{{ $teamNames[$lineupSide] }}</h3></div>
+                    </div>
+                    @foreach(['offense' => ['QB','RB','WR1','WR2','WR3','TE','C','LG','RG','LT','RT'], 'defense' => ['DE1','DT1','DT2','DE2','LB1','LB2','LB3','CB1','CB2','S1','S2'], 'special' => ['K','P']] as $lineupGroup => $lineupRoles)
+                        <div data-lineup-group="{{ $lineupGroup }}" style="{{ $lineupGroup === 'offense' ? 'display:grid' : 'display:none' }}" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        @foreach($lineupRoles as $lineupRole)
+                            @php
+                                $starter = $exhibition->rosters[$lineupSide]['players'][$lineupRole] ?? null;
+                            @endphp
+                            @if($starter)
+                                @php
+                                    $skin = $starter['skin_tone'] ?? '#bd906f';
+                                @endphp
+                                @php
+                                    $hair = $starter['appearance']['hair_color'] ?? '#29241f';
+                                    $hairStyle = $starter['appearance']['hair'] ?? 'short';
+                                    $headShape = $starter['appearance']['head_shape'] ?? 'round';
+                                    $beardStyle = $starter['appearance']['beard'] ?? 'none';
+                                    $browStyle = $starter['appearance']['brow'] ?? 'straight';
+                                    $eyeColor = $starter['appearance']['eye_color'] ?? '#17202b';
+                                @endphp
+                                <div class="flex gap-2 items-center rounded p-2" style="background:#223552;min-width:0;">
+                                    @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $starter, 'portraitSide' => $lineupSide])
+                                    <div class="min-w-0"><p class="text-xs text-blue-300">{{ $lineupRole }} · #{{ $starter['number'] ?? '—' }}</p><p class="text-sm font-semibold truncate" title="{{ $starter['name'] }}">{{ $starter['name'] }}</p></div>
+                                </div>
+                            @endif
+                        @endforeach
+                        </div>
+                    @endforeach
+                </section>
+            @endforeach
+        </div>
+        <p class="mt-4 text-xs text-gray-400">Portraits are lightweight illustrations based on player appearance. Custom player photos can be supported later.</p>
+        <button type="button" data-pregame-close class="mt-4 bg-blue-700 hover:bg-blue-600 rounded px-5 py-2">Start Game →</button>
+    </dialog>
+    @endif
     @if($state['version'] === 0 && isset($state['coin_toss']))
     <dialog data-coin-dialog data-pending="{{ ($state['coin_toss']['pending'] ?? false) ? 'true' : 'false' }}" class="game-dialog text-center">
         <h2 class="game-event-title text-blue-300">COIN TOSS</h2>
@@ -104,9 +155,58 @@
     @if($last && !$replayOnly)
     <div data-result-popup hidden role="status" class="fixed z-50 bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white border border-blue-400 rounded-xl shadow-xl p-5 w-full max-w-lg text-center">
         @foreach(\App\Support\PlayAnnouncement::titles($last) as $title)
-        <h2 class="game-event-title {{ $title === 'FLAG!' ? 'text-yellow-300' : 'text-blue-300' }}">{{ $title }}</h2>
+        <h2 class="game-event-title {{ !empty($last['penalty']) ? 'text-yellow-300' : 'text-blue-300' }}">
+            @if(!empty($last['penalty']))<svg role="img" aria-label="Yellow penalty flag" title="Penalty flag" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="23" height="23" style="display:inline-block;vertical-align:middle;margin-right:6px"><path d="M5 3v18" stroke="#facc15" stroke-width="2"/><path d="M6 4h13l-3 5 3 5H6Z" fill="#facc15" stroke="#eab308" stroke-width="1"/></svg> @endif{{ $title }}
+        </h2>
         @endforeach
         <p class="mt-2">{{ $last['summary'] }}</p>
+        @php
+            $resultSide = $last['before']['possession'] ?? 'home';
+            $otherSide = $resultSide === 'home' ? 'away' : 'home';
+            $resultCall = $last['call'] ?? '';
+            $resultOutcome = $last['outcome'] ?? '';
+            $resultReceiver = $last['receiver_role'] ?? null;
+            $resultCarrier = $last['carrier'] ?? 'RB';
+            $resultPlayers = [];
+            $addResultPlayer = function (string $side, string $role, string $label) use (&$resultPlayers, $exhibition) {
+                $person = $exhibition->rosters[$side]['players'][$role] ?? null;
+                if (!$person) return;
+                foreach ($resultPlayers as $existing) {
+                    if (($existing['player']['id'] ?? null) === ($person['id'] ?? null)) return;
+                }
+                $resultPlayers[] = ['player' => $person, 'side' => $side, 'role' => $role, 'label' => $label];
+            };
+            if (in_array($resultCall, ['field_goal', 'extra_point'], true)) {
+                $addResultPlayer($resultSide, 'K', 'Kicker');
+            } elseif ($resultCall === 'punt') {
+                $addResultPlayer($resultSide, 'P', 'Punter');
+            } elseif (in_array($resultCall, ['kickoff'], true)) {
+                $addResultPlayer($resultSide, 'K', 'Kicker');
+            } elseif ($resultReceiver !== null && isset($exhibition->rosters[$resultSide]['players'][$resultReceiver])) {
+                $addResultPlayer($resultSide, 'QB', 'Quarterback');
+                $addResultPlayer($resultSide, $resultReceiver, 'Target');
+                if ($resultOutcome === 'interception') $addResultPlayer($otherSide, 'CB1', 'Interception');
+                elseif ($resultOutcome !== 'incomplete') $addResultPlayer($otherSide, 'CB1', 'Defense');
+            } elseif ($resultCarrier === 'QB' && in_array($resultOutcome, ['sack', 'fumble'], true)) {
+                $addResultPlayer($resultSide, 'QB', 'Quarterback');
+                $addResultPlayer($otherSide, 'LB2', 'Defense');
+            } else {
+                $addResultPlayer($resultSide, $resultCarrier, 'Ball carrier');
+                $addResultPlayer($otherSide, 'LB2', 'Defense');
+            }
+        @endphp
+        @if(count($resultPlayers))
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Players involved in this play">
+                @foreach(array_slice($resultPlayers, 0, 3) as $resultEntry)
+                    <div class="rounded-lg bg-gray-700 p-2 flex flex-col items-center gap-1 min-w-0">
+                        @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $resultEntry['player'], 'portraitSide' => $resultEntry['side']])
+                        <span class="text-xs text-blue-200">{{ $resultEntry['label'] }} · {{ $resultEntry['role'] }}</span>
+                        <span class="text-sm font-medium truncate w-full">{{ $resultEntry['player']['name'] ?? 'Player' }}</span>
+                        <span class="text-xs text-gray-300">#{{ $resultEntry['player']['number'] ?? '—' }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
         <button type="button" data-result-ok class="bg-blue-700 rounded px-5 py-2 mt-3">OK · Continue</button>
         <p class="mt-2 text-sm text-gray-400">{{ $exhibition->awayTeam->name }} {{ $state['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $state['home_score'] }}</p>
     </div>
@@ -239,7 +339,7 @@
     @if($last)<p data-hidden-result @if($watching) hidden @endif class="game-last-result">Last play: {{ $last['summary'] }}</p>@endif
     <p class="game-help text-sm text-gray-400">Home offense moves toward the right end zone; away offense toward the left. The scoreboard updates when the replay reveals the result.</p>
     <div class="game-stats grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
-    <div class="game-actions">@if(!$replayOnly && ($state['status'] === 'playing' || ($state['penalty_pending'] ?? false)))<form method="POST" action="{{ route('exhibitions.finish', $exhibition) }}" data-finish-sim-form>@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><button type="submit">Finish with Quick Sim</button></form>@endif@unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-log>Play log (<span data-log-count>{{ count($exhibition->history) - ($watching && !$replayOnly ? 1 : 0) }}</span>)</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-open-box>Box score</button><button type="button" data-fullscreen>Full screen</button></div>
+    <div class="game-actions">@if(!$replayOnly && ($state['status'] === 'playing' || ($state['penalty_pending'] ?? false)))<form method="POST" action="{{ route('exhibitions.finish', $exhibition) }}" data-finish-sim-form>@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><button type="submit">Finish with Quick Sim</button></form>@endif@unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-log>Play log (<span data-log-count>{{ count($exhibition->history) - ($watching && !$replayOnly ? 1 : 0) }}</span>)</button><button type="button" data-open-lineups>Lineups</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-open-box>Box score</button><button type="button" data-fullscreen>Full screen</button></div>
     <dialog data-log-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Play log</h2>
 <ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · {{ $play['before']['quarter'] >= 5 ? 'OT'.($play['before']['quarter'] > 5 ? $play['before']['quarter'] - 4 : '') : 'Q'.$play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
 @if(isset($play['animation']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $play['number'], 'watch' => 1]) }}">Replay{{ \App\Support\PlayHighlights::saved($play) ? ' · Highlight' : '' }}</a>@endif</li>@endforeach</ol>

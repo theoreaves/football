@@ -1,4 +1,4 @@
-<?php
+152G<?php
 
 use App\Services\Simulation\ExhibitionEngine;
 use App\Services\Simulation\PlayerRatings;
@@ -149,7 +149,26 @@ test('the ball and tackler finish at the engine dead-ball spot for both directio
                 $animation = $play['animation'];
                 $ball = end($animation['ball']);
                 $spot = $state['spot'] + ($play['outcome'] === 'incomplete' ? $play['target'] : $play['gain']);
-                expect($ball[1])->toBe($side === 'home' ? 10 + $spot : 110 - $spot);
+
+                if ($play['throwaway'] ?? false) {
+                    // A throwaway deliberately travels toward the sideline,
+                    // not to the intended receiver's target yard line.
+                    expect($play['outcome'])->toBe('incomplete');
+                    expect($ball[2])->toBe(0);
+
+                    continue;
+                }
+
+                expect($ball[1])->toBe(
+                    $side === 'home' ? 10 + $spot : 110 - $spot,
+                    "Side: {$side}, Call: {$call}, Seed: {$seed}, "
+                    ."Outcome: {$play['outcome']}, "
+                    ."Throwaway: ".json_encode($play['throwaway'] ?? false).", "
+                    ."Defensive return: ".json_encode($play['defensive_return'] ?? false)
+                );
+
+
+//                expect($ball[1])->toBe($side === 'home' ? 10 + $spot : 110 - $spot);
                 if ($play['outcome'] === 'incomplete') {
                     expect($ball[2])->toBe(0);
 

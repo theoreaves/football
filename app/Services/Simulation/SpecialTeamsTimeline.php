@@ -33,7 +33,16 @@ class SpecialTeamsTimeline
             if ($player['role'] === 'QB') {
                 $person = $rosters[$side]['players'][$play['carrier']];
                 $player = array_merge($player, array_intersect_key($person, array_flip(['id', 'name', 'number', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance'])));
-                $player['path'] = [$point(0, $kick - 2 * $direction, 0, 26.7), $point(1.2, $kick, 0, 26.7), $point(6, $kick + $direction, 0, 26.7)];
+                $player['path'] = $goalKick
+                    ? [
+                        $point(0, $kick - 5 * $direction, 0, 26.7),
+                        $point(.45, $kick - 3.5 * $direction, 0, 26.7),
+                        $point(.85, $kick - 1.8 * $direction, 0, 26.7),
+                        $point(1.2, $kick + .55 * $direction, 0, 26.7),
+                        $point(2.0, $kick + 2.5 * $direction, 0, 26.7),
+                        $point(6, $kick + 3 * $direction, 0, 26.7),
+                    ]
+                    : [$point(0, $kick - 2 * $direction, 0, 26.7), $point(1.2, $kick, 0, 26.7), $point(6, $kick + $direction, 0, 26.7)];
             }
             if ($player['role'] === 'CB1' && ! $goalKick) {
                 $player['path'] = [$point(0, $landing, 0, 26.7), $point(3.5, $landing, 0, 26.7), $point(5.3, $end, 0, 26.7), $point(6, $end, 0, 26.7)];
@@ -45,6 +54,24 @@ class SpecialTeamsTimeline
                 $player['path'] = [$initial, $point(1.2, $kick + $direction, 0, 26.7), $point(6, $landing, 0, 26.7)];
             }
         } unset($player);
+        if ($goalKick) {
+            // The QB track is repurposed as the kicker above. Use the RB track for
+            // the holder, retaining its own player identity and uniform.
+            foreach ($base['players'] as &$player) {
+                if ($player['team'] !== 'offense' || $player['role'] !== 'RB') {
+                    continue;
+                }
+                $player['pose'] = 'holder-kneel';
+                $player['path'] = [
+                    $point(0, $kick - .95 * $direction, 0, 27.65),
+                    $point(.7, $kick - .95 * $direction, 0, 27.65),
+                    $point(1.2, $kick - .95 * $direction, 0, 27.65),
+                    $point(6, $kick - .95 * $direction, 0, 27.65),
+                ];
+                break;
+            }
+            unset($player);
+        }
         $height = $goalKick && str_ends_with($play['outcome'], '_good') ? 5 : ($goalKick || str_ends_with($play['outcome'], '_touchback') ? .25 : 1);
         $base['ball'] = [$point(0, $kickoff ? $kick : $absolute($play['before']['spot']) - $direction, $kickoff ? .25 : 1, 26.7),
             $point(1.2, $kick, .5, 26.7), $point(2.4, ($kick + $landing) / 2, $blocked ? 1 : 14, (26.7 + $endZ) / 2),

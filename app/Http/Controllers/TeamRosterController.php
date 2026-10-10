@@ -100,9 +100,25 @@ class TeamRosterController extends Controller
         $pivot = $attached->pivot->toArray();
         $ratings = app(PlayerRatings::class)->forPlayer($player);
 
-        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit',
-            'statHistory' => app(\App\Services\Seasons\SeasonStats::class)->playerHistory($player->id, $season),
-            'injuryHistory' => app(\App\Services\Seasons\SeasonInjuries::class)->forPlayer($player->id, $season)]);
+        return view('teams.players.form', compact('team', 'year', 'player', 'pivot', 'ratings', 'season') + ['mode' => 'edit']);
+    }
+
+    public function historyTab(Team $team, Player $player, Request $request, string $tab)
+    {
+        abort_unless(in_array($tab, ['statistics', 'injuries'], true), 404);
+        $season = $this->editorSeason($request, $team);
+        $year = (string) ($request->get('year') ?? $team->players()->max('team_players.team_year') ?? date('Y'));
+        $team->players()->where('players.id', $player->id)->wherePivot('team_year', $year)->firstOrFail();
+
+        if ($tab === 'statistics') {
+            $statHistory = app(\App\Services\Seasons\SeasonStats::class)->playerHistory($player->id, $season);
+
+            return view('teams.players.stats', compact('statHistory', 'season', 'year'));
+        }
+
+        $injuryHistory = app(\App\Services\Seasons\SeasonInjuries::class)->forPlayer($player->id, $season);
+
+        return view('teams.players.injuries', compact('injuryHistory'));
     }
 
     public function update(Team $team, Player $player, Request $request)
@@ -141,7 +157,7 @@ class TeamRosterController extends Controller
             'height_inches' => ['nullable', 'integer', 'between:48,96'], 'weight_pounds' => ['nullable', 'integer', 'between:90,450'],
             'skin_tone' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'depth_chart_position' => ['required', 'string', 'max:10'], 'jersey_number' => ['nullable', 'integer', 'between:0,99'],
-            'appearance' => ['sometimes', 'array:head_shape,eye_color,hair_color,hair,brow,nose,mouth,beard'],
+            'appearance' => ['sometimes', 'array:head_shape,eye_color,hair_color,hair,brow,nose,mouth,beard,throwing_hand'],
             'appearance.eye_color' => ['sometimes', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'appearance.hair_color' => ['sometimes', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'appearance.head_shape' => ['sometimes', \Illuminate\Validation\Rule::in(['round', 'oval', 'square', 'wide', 'long'])],
@@ -150,6 +166,7 @@ class TeamRosterController extends Controller
             'appearance.nose' => ['sometimes', \Illuminate\Validation\Rule::in(['standard', 'small', 'wide', 'long'])],
             'appearance.mouth' => ['sometimes', \Illuminate\Validation\Rule::in(['neutral', 'wide', 'thin', 'smile'])],
             'appearance.beard' => ['sometimes', \Illuminate\Validation\Rule::in(['none', 'stubble', 'moustache', 'goatee', 'full'])],
+            'appearance.throwing_hand' => ['sometimes', \Illuminate\Validation\Rule::in(['right', 'left'])],
             'ratings' => ['required', 'array'],
         ];
         foreach (PlayerRatings::FIELDS as $field) {

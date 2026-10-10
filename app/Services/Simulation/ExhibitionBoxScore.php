@@ -15,7 +15,7 @@ class ExhibitionBoxScore
         foreach (['home', 'away'] as $side) {
             $teams[$side] = ['plays' => 0, 'yards' => 0, 'rushing_yards' => 0, 'passing_yards' => 0, 'first_downs' => 0, 'turnovers' => 0, 'penalties' => 0, 'penalty_yards' => 0, 'possession_seconds' => 0];
             foreach ($game->rosters[$side]['players'] as $role => $person) {
-                $players[$side][$role] = array_merge(array_intersect_key($person, array_flip(['id', 'name', 'number'])), ['role' => $role, 'pass_attempts' => 0, 'completions' => 0, 'passing_yards' => 0, 'passing_td' => 0, 'interceptions' => 0, 'rushes' => 0, 'rushing_yards' => 0, 'rushing_td' => 0, 'receptions' => 0, 'receiving_yards' => 0, 'receiving_td' => 0, 'sacks' => 0, 'fg_attempts' => 0, 'fg_made' => 0, 'xp_attempts' => 0, 'xp_made' => 0, 'punts' => 0, 'punt_yards' => 0, 'returns' => 0, 'return_yards' => 0, 'return_td' => 0, 'tackles' => 0, 'defensive_sacks' => 0, 'defensive_interceptions' => 0, 'fumble_recoveries' => 0, 'fumbles_lost' => 0]);
+                $players[$side][$role] = array_merge(array_intersect_key($person, array_flip(['id', 'name', 'number'])), ['role' => $role, 'pass_attempts' => 0, 'completions' => 0, 'passing_yards' => 0, 'passing_td' => 0, 'interceptions' => 0, 'rushes' => 0, 'rushing_yards' => 0, 'rushing_td' => 0, 'targets' => 0, 'receptions' => 0, 'receiving_yards' => 0, 'receiving_td' => 0, 'sacks' => 0, 'fg_attempts' => 0, 'fg_made' => 0, 'xp_attempts' => 0, 'xp_made' => 0, 'punts' => 0, 'punt_yards' => 0, 'returns' => 0, 'return_yards' => 0, 'return_td' => 0, 'tackles' => 0, 'defensive_sacks' => 0, 'defensive_interceptions' => 0, 'fumble_recoveries' => 0, 'fumbles_lost' => 0]);
             }
         }
         foreach ($game->history as $play) {
@@ -66,6 +66,9 @@ class ExhibitionBoxScore
                         $qb['sacks']++;
                     } else {
                         $qb['pass_attempts']++;
+                        if (! ($play['throwaway'] ?? false) && $call !== 'spike' && isset($players[$side][$carrier])) {
+                            $players[$side][$carrier]['targets']++;
+                        }
                         if (! in_array($outcome, ['incomplete', 'interception', 'spike'], true)) {
                             $qb['completions']++;
                             $qb['passing_yards'] += $gain;

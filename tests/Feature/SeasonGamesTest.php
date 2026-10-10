@@ -298,8 +298,31 @@ test('team and player season stats include completed games and keep previous sea
     $oldFixture->save();
     $rows = app(\App\Services\Seasons\SeasonStats::class)->playerHistory($playerId, $this->season);
     expect(collect($rows)->pluck('season.year')->all())->toBe([2026, 2025]);
-    $this->get(route('teams.editor.teams.players.edit', [$team, $playerId, 'year' => 2026, 'season' => $this->season->id, 'embedded' => 1]))
-        ->assertOk()->assertSee('data-player-tab="statistics"', false)->assertSee('Current season')->assertSee('Previous seasons')->assertSee('Previous season');
+//    $this->get(route('teams.editor.teams.players.edit', [$team, $playerId, 'year' => 2026, 'season' => $this->season->id, 'embedded' => 1]))
+//        ->assertOk()->assertSee('data-player-tab="statistics"', false)->assertSee('Current season')->assertSee('Previous seasons')->assertSee('Previous season');
+    $this->get(route('teams.editor.teams.players.edit', [
+        $team,
+        $playerId,
+        'year' => 2026,
+        'season' => $this->season->id,
+        'embedded' => 1,
+    ]))
+        ->assertOk()
+        ->assertSee('data-player-tab="statistics"', false)
+        ->assertSee('data-player-lazy-url', false);
+
+// Statistics are loaded separately when the Stats tab is selected.
+    $this->get(route('teams.editor.teams.players.history', [
+        $team,
+        $playerId,
+        'tab' => 'statistics',
+        'year' => 2026,
+        'season' => $this->season->id,
+    ]))
+        ->assertOk()
+        ->assertSee('Current season')
+        ->assertSee('Previous seasons')
+        ->assertSee('Previous season');
 });
 
 test('season stats credit a substituted quarterback by player identity', function () {

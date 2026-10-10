@@ -19,6 +19,15 @@
             @endforeach
 
             <label>Jersey number<input type="number" name="jersey_number" min="0" max="99" value="{{ old('jersey_number', $pivot['jersey_number']) }}" class="block w-full border rounded p-2"></label>
+            @if(strtoupper(old('position', $player->position ?? '')) === 'QB')
+            <label>Throwing hand
+                <select name="appearance[throwing_hand]" class="block w-full border rounded p-2">
+                    <option value="right" @selected(old('appearance.throwing_hand', $player->appearance['throwing_hand'] ?? 'right') === 'right')>Right</option>
+                    <option value="left" @selected(old('appearance.throwing_hand', $player->appearance['throwing_hand'] ?? 'right') === 'left')>Left</option>
+                </select>
+            </label>
+            @endif
+
             <p class="text-sm text-gray-600">Depth order: QB1 starts before QB2; WR1–WR3 fill receiver slots. Stamina controls fatigue and recovery; durability controls injury risk. Higher ratings are better. Changes apply to new games.</p>
             <label>Roster depth<input name="depth_chart_position" value="{{ old('depth_chart_position', $pivot['depth_chart_position']) }}" placeholder="QB1, WR2, LB3…" class="block w-full border rounded p-2"></label>
         </div>
@@ -31,8 +40,8 @@
         <button class="bg-blue-600 text-white rounded px-5 py-2">Save player</button>
     </div>
     @if($mode === 'edit')
-    <div id="player-statistics" data-player-panel="statistics" role="tabpanel" hidden>@include('teams.players.stats')</div>
-    <div id="player-injuries" data-player-panel="injuries" role="tabpanel" hidden>@include('teams.players.injuries')</div>
+    <div id="player-statistics" data-player-panel="statistics" data-player-lazy-url="{{ route('teams.editor.teams.players.history', [$team, $player, 'tab' => 'statistics', 'year' => $year, 'season' => $season?->id]) }}" role="tabpanel" hidden><p role="status">Statistics will load when this tab is selected.</p></div>
+    <div id="player-injuries" data-player-panel="injuries" data-player-lazy-url="{{ route('teams.editor.teams.players.history', [$team, $player, 'tab' => 'injuries', 'year' => $year, 'season' => $season?->id]) }}" role="tabpanel" hidden><p role="status">Injuries will load when this tab is selected.</p></div>
     </div>
     @endif
     </form>

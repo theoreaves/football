@@ -120,25 +120,201 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     arms.forEach((arm, i) => { arm.position.x = (i === 0 ? -1 : 1) * .57 * Math.pow(bulk, .6); arm.scale.set(Math.pow(bulk,.35),1,Math.pow(bulk,.35)); });
     legs.forEach(leg => { leg.scale.x = Math.pow(bulk,.4); leg.scale.z = Math.pow(bulk,.4); });
     group.userData.legs = legs; group.userData.arms = arms; group.userData.elbows = elbows;
+    // Saved in appearance JSON; existing quarterbacks default to right-handed.
+    group.userData.throwingHand = player.appearance?.throwing_hand === 'left' ? 'left' : 'right';
+    // Articulated waist: preserve every part's rest position while moving it
+    // under a common pivot. Arms remain attached to the upper body, so the QB
+    // hand-target solver and football attachment retain the same coordinates.
+    const waist = new THREE.Group();
+    waist.position.y = .83;
+    for (const part of [...group.children]) {
+        if (part === hips || legs.includes(part)) continue;
+        part.position.y -= .83;
+        waist.add(part);
+    }
+    group.add(waist);
+    group.userData.waist = waist;
+    // Articulated knee/shin joint; upper-leg pieces stay at hip level.
+    const knees = legs.map(leg => {
+        const knee = new THREE.Group();
+        knee.position.y = -.40;
+        for (const part of [...leg.children]) {
+            if (part.position.y >= -.45) continue;
+            part.position.y += .40;
+            knee.add(part);
+        }
+        leg.add(knee);
+        return knee;
+    });
+    group.userData.knees = knees;
+
     return group;
 }
 
-export function animateFootballPlayer(group, moving, time, index, throwing = null) {
-    const stride = moving ? Math.sin(time * 16 + index) * .5 : 0;
-    group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? stride : -stride; });
-    group.userData.arms?.forEach((arm, i) => { arm.rotation.z = 0; arm.rotation.x = i === 0 ? -stride * .65 : stride * .65; });
-    group.userData.elbows?.forEach(elbow => { elbow.rotation.x = 0; });
-    if (throwing !== null && throwing >= 1.4 && throwing <= 2.9) {
-        const arm = group.userData.arms?.[1];
+export function animateFootballPlayer(group, moving, time, index, throwing = null, reception = null) {
+    if (group.userData.holderKneel) {
+        group.userData.legs?.forEach((leg, i) => { leg.rotation.x = i === 0 ? -1.55 : 1.1; });
+        group.userData.arms?.forEach((arm, i) => { arm.rotation.z = i === 0 ? -.12 : .12; arm.rotation.x = -1.05; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.85; });
+        return;
+    }
+    // Independent limb joints let the runner pump arms and bend elbows.
+    // Keep this purely visual: no game-state or player-path modifications.
+    const stride = moving ? Math.sin(time * 13.5 + index * .83) : 0;
+    const swing = moving ? .58 * stride : 0;
+    const bend = moving ? Math.max(0, -stride) * .23 : 0;
+    group.userData.legs?.forEach((leg, i) => {
+        leg.rotation.x = (i === 0 ? 1 : -1) * swing + bend;
+    });
+    group.userData.arms?.forEach((arm, i) => {
+        const phase = i === 0 ? -1 : 1;
+        arm.rotation.z = phase * .10;
+        arm.rotation.x = phase * swing * .72 - (moving ? .14 : 0);
+    });
+    group.userData.elbows?.forEach((elbow, i) => {
+        elbow.rotation.x = moving ? -.60 - Math.abs(stride) * .18 : -.12;
+    });
+    // High-and-tight carry: one elbow stays close to the ribs, its forearm
+    // crosses the football; the free arm keeps its running pump.
+    // Arm selection matches the renderer's RB-left / receiver-right tuck side.
+    if (group.userData.cradlingBall) {
+        const carryArm = group.userData.carryingArm ?? 0;
+        const arm = group.userData.arms?.[carryArm];
+        const elbow = group.userData.elbows?.[carryArm];
         if (arm) {
-            const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
-            const cock = smooth((throwing - 1.4) / .55);
-            const release = smooth((throwing - 2.1) / .1);
-            const recover = smooth((throwing - 2.3) / .6);
-            arm.rotation.x = (-1.5 * cock - .8 * release) * (1 - recover);
-            arm.rotation.z = -.45 * cock * (1 - recover);
-            group.userData.elbows[1].rotation.x = -1.5 * cock * (1 - release) * (1 - recover);
-            if (group.userData.arms[0]) group.userData.arms[0].rotation.x = -.6 * cock * (1 - recover);
+            arm.rotation.x = -.67;
+            arm.rotation.y = carryArm === 0 ? -.25 : .25;
+            arm.rotation.z = carryArm === 0 ? -.18 : .18;
+        }
+        if (elbow) {
+            elbow.rotation.x = -1.30;
+            elbow.rotation.y = carryArm === 0 ? -.20 : .20;
         }
     }
+    // During a tackle, brace with bent arms instead of continuing to sprint.
+    // The tackle direction and whole-body rotation remain owned by field.js.
+    if (Math.abs(group.rotation.z) > .12 && !group.userData.holderKneel) {
+        group.userData.legs?.forEach((leg, i) => {
+            leg.rotation.x = i === 0 ? -.42 : .28;
+        });
+        group.userData.arms?.forEach((arm, i) => {
+            arm.rotation.x = i === 0 ? -.75 : -.95;
+            arm.rotation.z = i === 0 ? -.25 : .25;
+        });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.9; });
+    }
+    // Reach at the actual ball-arrival time. Catch and miss poses use the
+    // existing arm/elbow joints and never change the recorded ball path.
+    if (reception === 'catch' || reception === 'reach') {
+        group.userData.arms?.forEach((arm, i) => {
+            arm.rotation.x = reception === 'catch' ? -1.2 : -1.65;
+            arm.rotation.z = i === 0 ? -.23 : .23;
+        });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.40; });
+    } else if (reception === 'tuck') {
+        const arm = group.userData.arms?.[1];
+        if (arm) { arm.rotation.x = -.88; arm.rotation.z = -.38; }
+        const elbow = group.userData.elbows?.[1];
+        if (elbow) elbow.rotation.x = -1.0;
+    }
+    if (throwing !== null && throwing >= .6 && throwing <= 2.9) {
+        // The visible side of the model is mirrored relative to local X.
+        const hand = group.userData.throwingHand === 'left' ? 1 : 0;
+        const support = 1 - hand;
+        const arm = group.userData.arms?.[hand];
+        const elbow = group.userData.elbows?.[hand];
+        const other = group.userData.arms?.[support];
+        const otherElbow = group.userData.elbows?.[support];
+        const handed = hand === 0 ? -1 : 1;
+        const smooth = value => {
+            const t = Math.max(0, Math.min(1, value));
+            return t * t * (3 - 2 * t);
+        };
+        const blend = (a, b, t) => a.clone().lerp(b, smooth(t));
+        // Poses are specified as the actual hand location in model-local space.
+        // The renderer already reads this same elbow's hand position for the ball.
+        const ready = new THREE.Vector3(handed * .24, 1.49, .50);
+        const windup = new THREE.Vector3(handed * .90, 1.95, -.08);
+        const highRelease = new THREE.Vector3(handed * .61, 2.12, .32);
+        const followThrough = new THREE.Vector3(-handed * .17, 1.46, .43);
+        let target = ready;
+        if (throwing >= 1.40 && throwing < 1.98) {
+            target = blend(ready, windup, (throwing - 1.40) / .58);
+        } else if (throwing >= 1.98 && throwing < 2.20) {
+            target = blend(windup, highRelease, (throwing - 1.98) / .22);
+        } else if (throwing >= 2.20) {
+            target = blend(highRelease, followThrough, (throwing - 2.20) / .52);
+        }
+        // Solve upper arm and forearm toward the target instead of guessing
+        // Euler angles. Keep the elbow outside and raised during the windup.
+        if (arm && elbow) {
+            const shoulder = arm.position.clone();
+            const reach = target.clone().sub(shoulder);
+            const length = reach.length();
+            const upper = .46;
+            const forearm = Math.hypot(.35, .04);
+            const direction = reach.clone().normalize();
+            const distance = Math.min(upper + forearm - .002, Math.max(.12, length));
+            const along = (upper * upper + distance * distance - forearm * forearm) / (2 * distance);
+            const rise = Math.sqrt(Math.max(0, upper * upper - along * along));
+            const hint = new THREE.Vector3(handed * 1, .65, -.35);
+            const outward = hint.addScaledVector(direction, -hint.dot(direction)).normalize();
+            const elbowPoint = shoulder.clone().addScaledVector(direction, along).addScaledVector(outward, rise);
+            const upperDirection = elbowPoint.sub(shoulder).normalize();
+            arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), upperDirection);
+            // The hand is at elbow-local (0,-.35,+.04): match its true axis.
+            const wristDirection = target.clone().sub(shoulder.clone().addScaledVector(upperDirection, upper));
+            wristDirection.applyQuaternion(arm.quaternion.clone().invert()).normalize();
+            elbow.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0, -.35, .04).normalize(), wristDirection
+            );
+        }
+        // Opposite hand cups the ball until the windup, then clears the throw.
+        const clear = smooth((throwing - 1.42) / .48);
+        if (other) {
+            other.rotation.set(-1.13 + .90 * clear, -handed * .16 * (1 - clear), -handed * (.28 - .14 * clear));
+        }
+        if (otherElbow) otherElbow.rotation.set(-1.03 * (1 - clear) - .15 * clear, 0, 0);
+    }
 }
+
+// Pre-snap stance uses the waist and knee joints instead of tipping the whole
+// model sideways. This is purely visual and does not touch play physics.
+export function applyPreSnapStance(group, stance) {
+    const waist = group.userData.waist;
+    const knees = group.userData.knees;
+    if (!waist || !knees) return;
+    if (!stance) {
+        waist.rotation.x = 0;
+        knees.forEach(knee => { knee.rotation.x = 0; });
+        return;
+    }
+    // One authoritative stance pose, applied *after* the normal running pose.
+    // Keep the root upright; articulate the trunk, hips and knees separately.
+    const center = stance === 'center';
+    const threePoint = stance === 'three';
+    const defensiveFront = stance === 'def-front';
+    const ready = stance === 'ready';
+    const depth = center ? 1 : threePoint ? .87 : defensiveFront ? .91 : .36;
+    // Lower the hips through thigh and shin flexion instead of excessive trunk lean.
+    waist.rotation.x = (center ? .69 : threePoint ? .56 : defensiveFront ? .57 : .19);
+    group.userData.legs?.forEach((leg, i) => {
+        // Both thighs flex together. A slight stagger creates a stable base.
+        leg.rotation.x = (.49 + (i === 0 ? -.035 : .035)) * depth;
+    });
+    knees.forEach(knee => { knee.rotation.x = -1.03 * depth; });
+    if (center) {
+        group.userData.arms?.forEach(arm => { arm.rotation.x = -.98; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.74; });
+    } else if (threePoint || defensiveFront) {
+        const supportArm = group.userData.arms?.[0];
+        const supportElbow = group.userData.elbows?.[0];
+        if (supportArm) supportArm.rotation.x = -.82;
+        if (supportElbow) supportElbow.rotation.x = -.70;
+        const freeArm = group.userData.arms?.[1];
+        if (freeArm) freeArm.rotation.x = -.27;
+    } else if (ready) {
+        group.userData.arms?.forEach(arm => { arm.rotation.x = -.22; });
+    }
+}
+

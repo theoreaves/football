@@ -15,7 +15,7 @@ import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor } from './camera-state.js';
 import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
-import { buildFootballPlayer, animateFootballPlayer } from './player-model.js';
+import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
@@ -179,6 +179,24 @@ export function mountPractice(root, onReady = () => {}) {
         const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
         const group = buildFootballPlayer(player, kit, document, textureFor);
         group.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
+        // Temporary QB handedness diagnostic. By default, do not override
+        // saved player appearance. Compare ?qb_hand=right and ?qb_hand=left
+        // on the SAME quarterback to confirm model-side orientation.
+        if (player.team === 'offense' && player.role === 'QB') {
+            const qbHandOverride = new URLSearchParams(window.location.search).get('qb_hand');
+            if (qbHandOverride === 'left' || qbHandOverride === 'right') {
+                group.userData.throwingHand = qbHandOverride;
+            }
+            if (new URLSearchParams(window.location.search).has('qb_hand')) {
+                const requested = player.appearance?.throwing_hand ?? '(default right)';
+                console.info('[WebSports QB handedness]', {
+                    quarterback: player.name || player.role,
+                    appearance: requested,
+                    effectiveHand: group.userData.throwingHand,
+                    armIndex: group.userData.throwingHand === 'left' ? 1 : 0,
+                });
+            }
+        }
         scene.add(group);
         return group;
     });
@@ -192,6 +210,9 @@ export function mountPractice(root, onReady = () => {}) {
     scene.add(carrierRing);
     const ballGlow = new THREE.Mesh(new THREE.SphereGeometry(.5, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffdf00, transparent: true, opacity: .28, depthWrite: false }));
     scene.add(ballGlow);
+    const showCarrierArrow = root.dataset.showCarrierArrow === 'true';
+    const showCarrierCircle = root.dataset.showCarrierCircle !== 'false';
+    const showBallGlow = root.dataset.showBallGlow === 'true';
     const resultPopup = root.querySelector('[data-result-popup]');
     const beforeState = root.dataset.beforeState ? JSON.parse(root.dataset.beforeState) : null;
     const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
@@ -266,30 +287,373 @@ export function mountPractice(root, onReady = () => {}) {
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
+            // Reset the articulated stance every frame. Running, throws,
+            // tackles, and the QB kneel must never inherit a prior crouch.
+            if (mesh.userData.waist) mesh.userData.waist.rotation.x = 0;
+            mesh.userData.knees?.forEach(knee => { knee.rotation.x = 0; });
+
             const next = future.players[i];
             const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
+            mesh.rotation.x = 0; // Clear any previous pre-snap lean before each render.
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
-            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at && ((player.team === 'offense' && player.role === animation.carrier) || (player.team === 'defense' && player.role === (animation.carrier === 'WR1' ? 'CB1' : 'LB2')))) {
-                const fall = Math.min(1, (elapsed - animation.contact_at) / .55);
-                mesh.rotation.z = fall * Math.PI / 2; mesh.position.y = fall * .15;
+            // The QB must receive the snap before turning for a rushing handoff.
+            // Only change his presentation rotation; the saved motion path stays intact.
+            if (player.team === 'offense' && player.role === 'QB' && animation
+                && animation.carrier === 'RB' && !animation.passing && !animation.no_snap
+                && ['liningup', 'set', 'play'].includes(phase)) {
+                const facingCenter = playDirection * Math.PI / 2;
+                mesh.rotation.y = facingCenter;
+                if (phase === 'play' && elapsed > .60 && elapsed < 1.35) {
+                    const back = frame.players.find(p => p.team === 'offense' && p.role === 'RB');
+                    if (back) {
+                        const dx = back.x - player.x;
+                        const dz = back.z - player.z;
+                        if (Math.hypot(dx, dz) > .1) {
+                            const towardBack = Math.atan2(dx, dz);
+                            const blend = Math.max(0, Math.min(1, (elapsed - .60) / .24));
+                            const ease = blend * blend * (3 - 2 * blend);
+                            const shortest = Math.atan2(Math.sin(towardBack - facingCenter), Math.cos(towardBack - facingCenter));
+                            mesh.rotation.y = facingCenter + shortest * ease;
+                        }
+                    }
+                } else if (phase === 'play' && elapsed >= 1.35) {
+                    // Let the recorded QB path determine his orientation after exchange.
+                    mesh.rotation.y = moving ? Math.atan2(next.x - player.x, next.z - player.z) : facingCenter;
+                }
             }
-            animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null);
+            // Coordinate contact around one shared point and fall direction. Individual
+            // paths are unchanged until contact; never mutate saved play animation data.
+            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at
+                && animation.tackle_style && animation.tackler_role
+                && ((player.team === 'offense' && player.role === animation.carrier)
+                    || (player.team === 'defense' && player.role === animation.tackler_role))) {
+                const carrier = frame.players.find(p => p.team === 'offense' && p.role === animation.carrier);
+                const tackler = frame.players.find(p => p.team === 'defense' && p.role === animation.tackler_role);
+                if (carrier && tackler) {
+                    const defender = player.team === 'defense';
+                    const style = animation.tackle_style;
+                    const duration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
+                    const timeSinceContact = elapsed - animation.contact_at;
+                    const contact = Math.min(1, timeSinceContact / .12);
+                    // Delay the carrier's fall slightly behind the tackler's initial hit.
+                    const fall = Math.min(1, Math.max(0, (timeSinceContact - (defender ? 0 : .08)) / duration));
+                    const midX = (carrier.x + tackler.x) / 2;
+                    const midZ = (carrier.z + tackler.z) / 2;
+                    const approachX = carrier.x - tackler.x;
+                    const approachZ = carrier.z - tackler.z;
+                    const magnitude = Math.hypot(approachX, approachZ);
+                    // If positions coincide, use offense direction for a stable fall axis.
+                    const dirX = magnitude > .01 ? approachX / magnitude : playDirection;
+                    const dirZ = magnitude > .01 ? approachZ / magnitude : 0;
+                    const offset = defender ? -.33 : .33;
+                    const targetX = midX + dirX * offset;
+                    const targetZ = midZ + dirZ * offset;
+                    mesh.position.x += (targetX - mesh.position.x) * contact;
+                    mesh.position.z += (targetZ - mesh.position.z) * contact;
+                    // Both players share a facing/lean axis instead of independent
+                    // local rotations that send them in opposite directions.
+                    mesh.rotation.y = Math.atan2(dirX, dirZ);
+                    const lean = style === 'wrap' ? Math.PI * .35 : style === 'lunge' ? Math.PI * .53 : Math.PI * .46;
+                    mesh.rotation.z = fall * lean;
+                    mesh.position.y = fall * (defender ? .08 : .12);
+                }
+            }
+            const kneelingHolder = animation?.players?.[i]?.pose === 'holder-kneel' && ['set', 'play', 'result'].includes(phase);
+            mesh.userData.holderKneel = kneelingHolder;
+            if (kneelingHolder) {
+                mesh.position.y = -.45;
+                mesh.rotation.y = playDirection * Math.PI / 2;
+            }
+            // Catch/reach at ball arrival, then tuck the ball while turning upfield.
+            // No pose is applied to sacks, throwaways, or other receivers.
+            const receiving = animation?.receiver_role && player.team === 'offense'
+                && player.role === animation.receiver_role && phase === 'play';
+            const reception = receiving && elapsed >= 3.35 && elapsed < 4.12
+                ? (['incomplete', 'interception'].includes(animation.outcome) ? 'reach' : 'catch')
+                : receiving && elapsed >= 4.12 && elapsed <= 5.3
+                    && !['incomplete', 'interception'].includes(animation.outcome) ? 'tuck' : null;
+            // The arm pose and the football use the same saved possession timeline.
+            // Don't cradle a ball during the catch itself or after a fumble.
+            const heldOnOffense = phase === 'play' && animation && !animation.no_snap
+                && frame.ballHolder?.team === 'offense'
+                && frame.ballHolder.role === player.role && player.team === 'offense';
+            const eligibleCarrier = player.role === 'RB'
+                || (animation?.receiver_role && player.role === animation.receiver_role);
+            const possessionAt = player.role === 'RB' ? 1 : 3.8;
+            mesh.userData.carryingArm = player.role === 'RB' ? 0 : 1;
+            mesh.userData.cradlingBall = Boolean(heldOnOffense && eligibleCarrier
+                && elapsed >= possessionAt + .16
+                && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
+            animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
+
+            // Pre-snap realism: offense huddles around a kneeling QB, defenses
+            // communicate in a looser cluster facing the offense, and both lines
+            // use more believable stances before the snap.
+            const role = player.role ?? '';
+            const isOneOf = (...roles) => roles.includes(role);
+            const isDefFront = /^(DE\d?|DT\d?|NT|EDGE\d?|DL\d?)$/.test(role);
+            const isLinebacker = /^(LB\d?|MLB|LOLB|ROLB)$/.test(role);
+            const isSecondary = /^(CB\d?|FS|SS|S\d?|NB)$/.test(role);
+            const teamGroup = frame.players.filter(p => p.team === player.team);
+            const offenseGroup = frame.players.filter(p => p.team === 'offense');
+            const averagePoint = list => {
+                const total = list.reduce((sum, p) => {
+                    sum.x += p.x ?? 0;
+                    sum.y += p.y ?? 0;
+                    sum.z += p.z ?? 0;
+                    return sum;
+                }, { x: 0, y: 0, z: 0 });
+                const count = Math.max(1, list.length);
+                return new THREE.Vector3(total.x / count, total.y / count, total.z / count);
+            };
+            const teamCenter = averagePoint(teamGroup);
+            const offenseCenter = averagePoint(offenseGroup);
+            const earlySnap = phase === 'play' && elapsed < .28;
+            // Crouch only after the break-huddle jog, not while travelling.
+            const presnap = phase === 'set' || earlySnap || (phase === 'liningup' && lineupProgress >= .85);
+            const huddlePhase = phase === 'huddle';
+            const setFacing = target => {
+                const dx = (target.x ?? 0) - mesh.position.x;
+                const dz = (target.z ?? 0) - mesh.position.z;
+                if (Math.abs(dx) + Math.abs(dz) > .001) mesh.rotation.y = Math.atan2(dx, dz);
+            };
+            const lowerArms = (leftX, rightX, elbowX = -.95) => {
+                if (mesh.userData.arms?.[0]) mesh.userData.arms[0].rotation.x = leftX;
+                if (mesh.userData.arms?.[1]) mesh.userData.arms[1].rotation.x = rightX;
+                if (mesh.userData.elbows?.[0]) mesh.userData.elbows[0].rotation.x = elbowX;
+                if (mesh.userData.elbows?.[1]) mesh.userData.elbows[1].rotation.x = elbowX;
+            };
+
+            if (huddlePhase) {
+                if (player.team === 'offense') {
+                    if (role === 'QB') {
+                        // After the regular pose is rendered, fold one knee and
+                        // bring the forearms toward the raised knee.
+                        // Initialize the blend before using it: otherwise a huddle frame throws.
+                        const kneel = Math.max(0, Math.min(1, (huddleProgress - .78) / .22));
+                        mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = kneel * (j === 0 ? -1.48 : .95); });
+                        mesh.userData.arms?.forEach((arm, j) => { arm.rotation.x = kneel * (j === 0 ? -.90 : -.70); arm.rotation.z = kneel * (j === 0 ? -.10 : .10); });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.20 - kneel * .62; });
+                        // Keep the QB upright while walking into the huddle;
+                        // kneel only after the players have arrived.
+                        mesh.position.y -= .34 * kneel;
+                        mesh.rotation.x = -.12 * kneel;
+                    } else {
+                        setFacing(teamCenter);
+                        mesh.rotation.x = -.04;
+                    }
+                } else if (player.team === 'defense') {
+                    // sampleHuddle now owns the defensive spacing/transition.
+                    setFacing(offenseCenter);
+                    if (isDefFront) {
+                        mesh.rotation.x = -.12;
+                    } else if (isLinebacker) {
+                        mesh.rotation.x = -.06;
+                    }
+                }
+            }
+
+            // Keep the whole player upright; only the articulated waist, hips,
+            // knees and arms determine pre-snap posture. One pose system owns it.
+            const centerStance = player.team === 'offense' && role === 'C';
+            const offensiveLine = player.team === 'offense' && ['LG', 'RG', 'LT', 'RT'].includes(role);
+            const defensiveLine = player.team === 'defense' && isDefFront;
+            const tightEnd = player.team === 'offense' && ['TE', 'TE1', 'TE2'].includes(role);
+            const linebacker = player.team === 'defense' && isLinebacker;
+            const stanceDepth = centerStance ? .22 : offensiveLine ? .17 : defensiveLine ? .19 : .05;
+            if (presnap && (centerStance || offensiveLine || defensiveLine || tightEnd || linebacker)) {
+                mesh.position.y -= stanceDepth;
+            }
+
+            // The center bends over the ball, and the QB/RB extend their hands
+            // briefly for the transfer. All three poses reset each render.
+            // Do not reset rotation.x here: that erased the linemen's stances
+            // that were just applied above. Only override the center during
+            // the actual snap, when the line must leave its stance.
+            if (['liningup', 'set', 'play'].includes(phase) && animation && !animation.no_snap) {
+                if (player.team === 'offense' && player.role === 'C'
+                    && (phase === 'set' || (phase === 'liningup' && lineupProgress >= .85)
+                        || (phase === 'play' && elapsed < .38))) {
+                    mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.90; });
+                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.75; });
+                }
+                // Snap & Handoff v2: hands meet the ball's presentation-only
+                // path. Keep the QB's throw arm solver free after snap.
+                const runExchange = animation.carrier === 'RB' && !animation.passing;
+                const snapPhase = phase === 'play' && elapsed >= .25 && elapsed < .61;
+                const exchangePhase = phase === 'play' && elapsed >= .61 && elapsed < 1.05;
+                if (player.team === 'offense' && player.role === 'QB') {
+                    if (snapPhase) {
+                        // Receive with both hands below the chest.
+                        mesh.userData.arms?.forEach((arm, j) => {
+                            arm.rotation.x = -.83;
+                            arm.rotation.z = j === 0 ? -.20 : .20;
+                        });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -1.04; });
+                    } else if (runExchange && exchangePhase) {
+                        // Present the football at the RB's midsection. The QB
+                        // remains facing the play until the exchange completes.
+                        mesh.userData.arms?.forEach((arm, j) => {
+                            arm.rotation.x = -1.09;
+                            arm.rotation.z = j === 0 ? -.18 : .18;
+                        });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.80; });
+                    }
+                }
+                if (player.team === 'offense' && player.role === 'RB' && runExchange
+                    && exchangePhase) {
+                    // Form the receiving pocket, then leave the existing
+                    // high-and-tight carrying animation in charge after 1.05s.
+                    mesh.userData.arms?.forEach((arm, j) => {
+                        arm.rotation.x = -.95;
+                        arm.rotation.z = j === 0 ? -.15 : .15;
+                    });
+                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -1.00; });
+                }
+            }
+            // Drive the dedicated joints after all legacy arm/snap poses, so
+            // no older pose assignment can silently cancel the stance.
+            const lineStance = presnap
+                ? (player.team === 'offense'
+                    ? role === 'C' ? 'center'
+                        : ['LG', 'RG', 'LT', 'RT'].includes(role) ? 'three'
+                            : ['TE', 'TE1', 'TE2'].includes(role) ? 'ready' : null
+                    : isDefFront ? 'def-front' : isLinebacker ? 'ready' : null)
+                : null;
+            applyPreSnapStance(mesh, lineStance);
+            // Pre-snap-only visual breathing room between opposing front lines.
+            // Keep the center fixed on the ball and leave recorded paths intact.
+            // Ease offsets away at the snap to avoid popping into the play track.
+            const frontGapBlend = phase === 'set' ? 1
+                : phase === 'liningup' ? Math.max(0, Math.min(1, (lineupProgress - .78) / .22))
+                : phase === 'play' ? Math.max(0, 1 - elapsed / .24) : 0;
+            if (frontGapBlend > 0) {
+                if (player.team === 'offense' && ['LG', 'RG', 'LT', 'RT'].includes(role)) {
+                    mesh.position.x -= playDirection * .18 * frontGapBlend;
+                } else if (player.team === 'defense' && isDefFront) {
+                    mesh.position.x += playDirection * .48 * frontGapBlend;
+                    // Don't stack defensive helmets directly across the center.
+                    if (/^DT/.test(role)) mesh.position.z += (role === 'DT1' ? -.20 : .20) * frontGapBlend;
+                }
+            }
+
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
-        if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);
-        ball.rotation.z = elapsed * 6;
+        // During a real throw, keep the football in the QB's right hand until
+        // release. Blend back to the saved flight path so the handoff is smooth.
+        // This is presentation-only: do not edit frame.ball or animation paths.
+        if (animation?.passing && animation?.dropback && animation?.carrier !== 'QB'
+            && phase === 'play' && elapsed >= .6 && elapsed < (animation.throw_at ?? 2.2)) {
+            const quarterbackIndex = frame.players.findIndex(player => player.team === 'offense' && player.role === 'QB');
+            const quarterback = players[quarterbackIndex];
+            const handIndex = quarterback?.userData.throwingHand === 'left' ? 1 : 0;
+            const throwingHand = quarterback?.userData.elbows?.[handIndex];
+            if (throwingHand) {
+                quarterback.updateMatrixWorld(true);
+                const handPosition = throwingHand.localToWorld(new THREE.Vector3(0, -.35, .04));
+                const release = animation.throw_at ?? 2.2;
+                const blend = Math.max(0, Math.min(1, (elapsed - (release - .20)) / .20));
+                const eased = blend * blend * (3 - 2 * blend);
+                ball.position.lerpVectors(handPosition, ball.position, eased);
+            }
+        }
+        // Player-relative snap and handoff: animate the visible ball without
+        // modifying recorded movement paths, holder events or game outcomes.
+        // During the snap, the center presents the ball low between his legs.
+        // The ball then moves directly to the QB; on runs he gives it to the RB.
+        if (['set', 'play'].includes(phase) && animation && !animation.no_snap
+            && (phase !== 'play' || elapsed < 1.02)) {
+            const getOffense = role => {
+                const index = frame.players.findIndex(p => p.team === 'offense' && p.role === role);
+                return index < 0 ? null : players[index];
+            };
+            const center = getOffense('C');
+            const quarterback = getOffense('QB');
+            const runningBack = animation.carrier === 'RB' && !animation.passing ? getOffense('RB') : null;
+            const at = (mesh, x, y, z) => {
+                if (!mesh) return null;
+                mesh.updateMatrixWorld(true);
+                return mesh.localToWorld(new THREE.Vector3(x, y, z));
+            };
+            // The center handles the ball only once the line is set. Once
+            // snapped, follow one continuous hand-to-hand trajectory rather
+            // than interpolating between unrelated saved track positions.
+            const centerSnap = at(center, 0, .48, -.30);
+            const qbHands = at(quarterback, 0, 1.19, .43);
+            const rbHands = at(runningBack, -.12, 1.14, .42);
+            const smooth = t => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
+            if ((phase !== 'play' || elapsed < .32) && centerSnap) {
+                ball.position.copy(centerSnap);
+            } else if (elapsed < .6 && centerSnap && qbHands) {
+                ball.position.copy(centerSnap).lerp(qbHands, smooth((elapsed - .32) / .28));
+            } else if (runningBack && elapsed < 1.02 && qbHands && rbHands) {
+                ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .42));
+            }
+        }
+        if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         const holder = ballCarrier(frame, phase);
-        carrierArrow.visible = carrierRing.visible = Boolean(holder);
+        // The mesh's long axis is local X (ball.scale.x = 1.6).
+        // Spin a forward pass around that axis, never around Z (end-over-end).
+        // Only passes in flight spiral; keep snaps, handoffs and carries steady.
+        const spiralFlight = phase === 'play' && animation?.passing
+            && elapsed >= (animation.throw_at ?? 2.2) && elapsed <= 4.2
+            && !holder;
+        ball.rotation.set(spiralFlight ? (elapsed - (animation.throw_at ?? 2.2)) * 28 : 0, 0, 0);
+        // The ball's saved track remains authoritative until tackle contact.
+        // After contact, visually follow the offensive ball carrier down.
+        // Do not alter loose balls, turnovers, special teams or saved tracks.
+        if (phase === 'play' && animation?.contact_at != null
+            && elapsed >= animation.contact_at && holder?.team === 'offense'
+            && holder.role === animation.carrier && animation?.tackle_style) {
+            const carrierIndex = frame.players.findIndex(player => player.team === 'offense' && player.role === animation.carrier);
+            if (carrierIndex !== -1) {
+                const carrierMesh = players[carrierIndex];
+                const style = animation.tackle_style;
+                const fallDuration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
+                const delay = .09;
+                const progress = Math.min(1, Math.max(0, (elapsed - animation.contact_at - delay) / fallDuration));
+                // Ball is held against the falling player, not hovering at its
+                // standing-height timeline coordinate. This is visual only.
+                ball.position.x = carrierMesh.position.x;
+                ball.position.z = carrierMesh.position.z;
+                ball.position.y = Math.max(.27, 1 - .73 * progress);
+            }
+        }
+        // Visual attachment for a carried football. The saved timeline remains
+        // authoritative for throws, handoffs, loose balls and interceptions.
+        // Read the timeline's current holder instead of inferring possession.
+        if (phase === 'play' && animation && !animation.no_snap && holder?.team === 'offense'
+            && (holder.role === 'RB' || (animation.receiver_role && holder.role === animation.receiver_role))
+            && !(animation.outcome === 'fumble' && elapsed >= 5.3)) {
+            const carrierIndex = frame.players.findIndex(player =>
+                player.team === holder.team && player.role === holder.role);
+            const carrierMesh = carrierIndex >= 0 ? players[carrierIndex] : null;
+            if (carrierMesh) {
+                // This point is on the torso in model-local coordinates, so it
+                // follows the player as the whole model turns or falls.
+                carrierMesh.updateMatrixWorld(true);
+                const tuckSide = holder.role === 'RB' ? -1 : 1;
+                const tuckPosition = carrierMesh.localToWorld(new THREE.Vector3(tuckSide * .40, 1.28, .29));
+                // Blend briefly after the handoff/catch so the football never
+                // teleports between its recorded track and the carried position.
+                const pickupAt = holder.role === 'RB' ? 1 : 3.8;
+                const blend = Math.max(0, Math.min(1, (elapsed - pickupAt) / .22));
+                const eased = blend * blend * (3 - 2 * blend);
+                ball.position.lerp(tuckPosition, eased);
+            }
+        }
+        carrierArrow.visible = showCarrierArrow && Boolean(holder);
+        carrierRing.visible = showCarrierCircle && Boolean(holder);
         if (holder) {
             carrierArrow.position.set(holder.x, 3.2, holder.z);
             carrierRing.position.set(holder.x, .12, holder.z);
         }
-        ballGlow.visible = !holder && ['play', 'result'].includes(phase);
+        ballGlow.visible = showBallGlow && !holder && ['play', 'result'].includes(phase);
         ballGlow.position.copy(ball.position);
         const eventMessage = animation ? frame.event : `${type === 'pass' ? 'Slant pass' : 'Inside run'} · ${frame.event}`;
         const message = holder ? `${eventMessage} · ${carrierLabel(holder)}` : eventMessage;
@@ -425,7 +789,38 @@ export function mountPractice(root, onReady = () => {}) {
     let injuryShown = false;
     try { injuryShown = sessionStorage.getItem(injuryKey) === 'shown'; } catch { /* Optional persistence. */ }
     const coinDialog = root.querySelector('[data-coin-dialog]');
-    coinDialog?.showModal();
+    const pregameDialog = root.querySelector('[data-pregame-dialog]');
+    const pregameKey = `${root.dataset.cameraKey}:pregame-shown`;
+    let showPregame = Boolean(pregameDialog && root.dataset.playNumber === '0');
+    try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
+    let openingPregame = showPregame;
+    if (showPregame) pregameDialog.showModal();
+    else coinDialog?.showModal();
+    const pregameCloseButtons = pregameDialog?.querySelectorAll('[data-pregame-close]');
+    root.querySelector('[data-open-lineups]')?.addEventListener('click', () => {
+        if (!pregameDialog || pregameDialog.open) return;
+        openingPregame = false;
+        pregameCloseButtons?.forEach((button, index) => {
+            button.textContent = index === 0 ? 'Close Lineups' : 'Return to Game';
+        });
+        pregameDialog.showModal();
+    });
+    pregameCloseButtons?.forEach(button => button.addEventListener('click', () => pregameDialog.close()));
+    pregameDialog?.addEventListener('close', () => {
+        if (!openingPregame) return;
+        openingPregame = false;
+        try { sessionStorage.setItem(pregameKey, 'yes'); } catch { /* Storage optional */ }
+        coinDialog?.showModal();
+    });
+    pregameDialog?.querySelectorAll('[data-lineup-tab]').forEach(button => button.addEventListener('click', () => {
+        pregameDialog.querySelectorAll('[data-lineup-tab]').forEach(tab => {
+            const active = tab === button;
+            tab.setAttribute('aria-selected', String(active));
+            tab.classList.toggle('bg-blue-700', active);
+            tab.classList.toggle('bg-gray-700', !active);
+        });
+        pregameDialog.querySelectorAll('[data-lineup-group]').forEach(panel => { panel.style.display = panel.dataset.lineupGroup === button.dataset.lineupTab ? 'grid' : 'none'; });
+    }));
     coinDialog?.addEventListener('cancel', event => { if (coinDialog.dataset.pending === 'true') event.preventDefault(); });
     const otDialog = root.querySelector('[data-ot-dialog]');
     otDialog?.addEventListener('cancel', event => event.preventDefault());
@@ -529,7 +924,7 @@ export function mountPractice(root, onReady = () => {}) {
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);
