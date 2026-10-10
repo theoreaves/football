@@ -630,6 +630,22 @@ export function mountPractice(root, onReady = () => {}) {
                 mesh.userData.knees?.forEach((knee, index) => {
                     knee.rotation.x += intensity * (.11 + .09 * Math.sin(cadence + index * Math.PI));
                 });
+                // Pass protection: the offensive five retreat together and
+                // fan outward into a shallow U-shaped pocket around the QB.
+                // Keep run blocking exactly as it was. Mesh-only offsets are
+                // deterministic and do not affect engine paths or saved plays.
+                const passSet = animation.dropback && player.team === 'offense'
+                    && (offensiveLine || centerStance);
+                if (passSet) {
+                    const entry = Math.max(0, Math.min(1, (elapsed - .20) / 1.20));
+                    const smoothEntry = entry * entry * (3 - 2 * entry);
+                    const depth = { C: .72, LG: 1.05, RG: 1.05, LT: 1.65, RT: 1.65 };
+                    const spread = { C: 0, LG: -.30, RG: .30, LT: -.78, RT: .78 };
+                    mesh.position.x -= playDirection * (depth[role] ?? 0) * smoothEntry;
+                    mesh.position.z += (spread[role] ?? 0) * smoothEntry;
+                    // Stay square to the rush while shuffling backward.
+                    mesh.rotation.x -= .04 * smoothEntry;
+                }
             }
             // Pre-snap-only visual breathing room between opposing front lines.
             // Keep the center fixed on the ball and leave recorded paths intact.
