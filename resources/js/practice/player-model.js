@@ -148,6 +148,23 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
     group.userData.elbows?.forEach((elbow, i) => {
         elbow.rotation.x = moving ? -.60 - Math.abs(stride) * .18 : -.12;
     });
+    // High-and-tight carry: one elbow stays close to the ribs, its forearm
+    // crosses the football; the free arm keeps its running pump.
+    // Arm selection matches the renderer's RB-left / receiver-right tuck side.
+    if (group.userData.cradlingBall) {
+        const carryArm = group.userData.carryingArm ?? 0;
+        const arm = group.userData.arms?.[carryArm];
+        const elbow = group.userData.elbows?.[carryArm];
+        if (arm) {
+            arm.rotation.x = -.67;
+            arm.rotation.y = carryArm === 0 ? -.25 : .25;
+            arm.rotation.z = carryArm === 0 ? -.18 : .18;
+        }
+        if (elbow) {
+            elbow.rotation.x = -1.30;
+            elbow.rotation.y = carryArm === 0 ? -.20 : .20;
+        }
+    }
     // During a tackle, brace with bent arms instead of continuing to sprint.
     // The tackle direction and whole-body rotation remain owned by field.js.
     if (Math.abs(group.rotation.z) > .12 && !group.userData.holderKneel) {

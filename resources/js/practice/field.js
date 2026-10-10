@@ -325,6 +325,18 @@ export function mountPractice(root, onReady = () => {}) {
                 ? (['incomplete', 'interception'].includes(animation.outcome) ? 'reach' : 'catch')
                 : receiving && elapsed >= 4.12 && elapsed <= 5.3
                     && !['incomplete', 'interception'].includes(animation.outcome) ? 'tuck' : null;
+            // The arm pose and the football use the same saved possession timeline.
+            // Don't cradle a ball during the catch itself or after a fumble.
+            const heldOnOffense = phase === 'play' && animation && !animation.no_snap
+                && frame.ballHolder?.team === 'offense'
+                && frame.ballHolder.role === player.role && player.team === 'offense';
+            const eligibleCarrier = player.role === 'RB'
+                || (animation?.receiver_role && player.role === animation.receiver_role);
+            const possessionAt = player.role === 'RB' ? 1 : 3.8;
+            mesh.userData.carryingArm = player.role === 'RB' ? 0 : 1;
+            mesh.userData.cradlingBall = Boolean(heldOnOffense && eligibleCarrier
+                && elapsed >= possessionAt + .16
+                && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
@@ -385,7 +397,7 @@ export function mountPractice(root, onReady = () => {}) {
                 // follows the player as the whole model turns or falls.
                 carrierMesh.updateMatrixWorld(true);
                 const tuckSide = holder.role === 'RB' ? -1 : 1;
-                const tuckPosition = carrierMesh.localToWorld(new THREE.Vector3(tuckSide * .34, 1.19, .38));
+                const tuckPosition = carrierMesh.localToWorld(new THREE.Vector3(tuckSide * .40, 1.28, .29));
                 // Blend briefly after the handoff/catch so the football never
                 // teleports between its recorded track and the carried position.
                 const pickupAt = holder.role === 'RB' ? 1 : 3.8;
