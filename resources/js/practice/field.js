@@ -338,6 +338,28 @@ export function mountPractice(root, onReady = () => {}) {
                 && elapsed >= possessionAt + .16
                 && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
+
+            // The center bends over the ball, and the QB/RB extend their hands
+            // briefly for the transfer. All three poses reset each render.
+            mesh.rotation.x = 0;
+            if (['liningup', 'set', 'play'].includes(phase) && animation && !animation.no_snap) {
+                if (player.team === 'offense' && player.role === 'C'
+                    && (phase !== 'play' || elapsed < .38)) {
+                    mesh.rotation.x = -.33;
+                    mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.90; });
+                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.75; });
+                }
+                if (player.team === 'offense' && player.role === 'QB' && animation.carrier === 'RB'
+                    && elapsed >= .56 && elapsed < 1.02) {
+                    mesh.userData.arms?.forEach(arm => { arm.rotation.x = -1.05; });
+                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.70; });
+                }
+                if (player.team === 'offense' && player.role === 'RB' && animation.carrier === 'RB'
+                    && elapsed >= .74 && elapsed < 1.07) {
+                    mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.95; });
+                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.95; });
+                }
+            }
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         // During a real throw, keep the football in the QB's right hand until
@@ -356,6 +378,36 @@ export function mountPractice(root, onReady = () => {}) {
                 const blend = Math.max(0, Math.min(1, (elapsed - (release - .20)) / .20));
                 const eased = blend * blend * (3 - 2 * blend);
                 ball.position.lerpVectors(handPosition, ball.position, eased);
+            }
+        }
+        // Player-relative snap and handoff: animate the visible ball without
+        // modifying recorded movement paths, holder events or game outcomes.
+        // During the snap, the center presents the ball low between his legs.
+        // The ball then moves directly to the QB; on runs he gives it to the RB.
+        if (['liningup', 'set', 'play'].includes(phase) && animation && !animation.no_snap
+            && (phase !== 'play' || elapsed < 1.02)) {
+            const getOffense = role => {
+                const index = frame.players.findIndex(p => p.team === 'offense' && p.role === role);
+                return index < 0 ? null : players[index];
+            };
+            const center = getOffense('C');
+            const quarterback = getOffense('QB');
+            const runningBack = animation.carrier === 'RB' && !animation.passing ? getOffense('RB') : null;
+            const at = (mesh, x, y, z) => {
+                if (!mesh) return null;
+                mesh.updateMatrixWorld(true);
+                return mesh.localToWorld(new THREE.Vector3(x, y, z));
+            };
+            const centerSnap = at(center, 0, .48, -.30);
+            const qbHands = at(quarterback, 0, 1.24, .38);
+            const rbHands = at(runningBack, -.18, 1.18, .37);
+            const smooth = t => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
+            if ((phase !== 'play' || elapsed < .32) && centerSnap) {
+                ball.position.copy(centerSnap);
+            } else if (elapsed < .6 && centerSnap && qbHands) {
+                ball.position.copy(centerSnap).lerp(qbHands, smooth((elapsed - .32) / .28));
+            } else if (runningBack && elapsed < 1 && qbHands && rbHands) {
+                ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .4));
             }
         }
         if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
