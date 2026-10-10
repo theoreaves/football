@@ -322,7 +322,14 @@ class PlayTimeline
             $holders[] = [3.8, 'defense', $returner];
         }
 
-        return ['motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => in_array($play['outcome'], ['tackle', 'sack', 'fumble'], true) && ! ($play['out_of_bounds'] ?? false) ? 5.3 : null, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        // Visual-only contact style. Recorded outcomes and ball paths are unchanged.
+        $contactStyle = in_array($play['outcome'], ['tackle', 'fumble'], true)
+            && ! ($play['out_of_bounds'] ?? false)
+            ? ['wrap', 'side', 'lunge'][$visualVariant % 3]
+            : null;
+        $contactDefender = $pass ? 'CB1' : 'LB2';
+
+        return ['tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => in_array($play['outcome'], ['tackle', 'sack', 'fumble'], true) && ! ($play['out_of_bounds'] ?? false) ? 5.3 : null, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])),
             'possession' => $side, 'animation_variant' => $visualVariant];
     }

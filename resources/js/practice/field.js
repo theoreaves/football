@@ -274,9 +274,24 @@ export function mountPractice(root, onReady = () => {}) {
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
-            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at && ((player.team === 'offense' && player.role === animation.carrier) || (player.team === 'defense' && player.role === (animation.carrier === 'WR1' ? 'CB1' : 'LB2')))) {
-                const fall = Math.min(1, (elapsed - animation.contact_at) / .55);
-                mesh.rotation.z = fall * Math.PI / 2; mesh.position.y = fall * .15;
+            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at && ((player.team === 'offense' && player.role === animation.carrier) || (player.team === 'defense' && player.role === (animation.tackler_role ?? (animation.carrier === 'WR1' ? 'CB1' : 'LB2'))))) {
+                const defender = player.team === 'defense';
+                const style = animation.tackle_style ?? 'legacy';
+                const duration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
+                const fall = Math.min(1, Math.max(0, (elapsed - animation.contact_at) / duration));
+                if (style === 'wrap') {
+                    // A slower wrap-up: defender stays more upright while the carrier goes down.
+                    mesh.rotation.z = fall * (defender ? Math.PI * .22 : Math.PI * .43);
+                    mesh.position.y = fall * (defender ? .06 : .13);
+                } else if (style === 'lunge') {
+                    // Quick forward lunge by the defender; the carrier falls after contact.
+                    mesh.rotation.z = fall * (defender ? Math.PI * .64 : Math.PI * .5);
+                    mesh.position.y = fall * (defender ? .12 : .15);
+                } else {
+                    // Side tackle and legacy saved-game animation.
+                    mesh.rotation.z = fall * Math.PI / 2;
+                    mesh.position.y = fall * .15;
+                }
             }
             const kneelingHolder = animation?.players?.[i]?.pose === 'holder-kneel' && ['set', 'play', 'result'].includes(phase);
             mesh.userData.holderKneel = kneelingHolder;
