@@ -462,6 +462,17 @@ export function mountPractice(root, onReady = () => {}) {
                 && elapsed >= possessionAt + .16
                 && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
+            // Pass linemen do not cycle through a running gait while protecting.
+            // Their pocket drop is rendered separately below.
+            const passLineman = phase === 'play' && animation?.dropback && !animation.no_snap
+                && player.team === 'offense' && ['C', 'LG', 'RG', 'LT', 'RT'].includes(player.role);
+            if (passLineman) {
+                const setting = Math.max(0, Math.min(1, (elapsed - .22) / .65));
+                mesh.userData.legs?.forEach((leg, side) => {
+                    leg.rotation.x = (side === 0 ? -.13 : .13) * (1 - setting) + .06 * setting;
+                });
+                mesh.userData.knees?.forEach(knee => { knee.rotation.x = .12; });
+            }
 
             // Pre-snap realism: offense huddles around a kneeling QB, defenses
             // communicate in a looser cluster facing the offense, and both lines
@@ -624,12 +635,14 @@ export function mountPractice(root, onReady = () => {}) {
                 // Controlled drive and shuffling; the original simulated
                 // blocking position and contact timeline remain authoritative.
                 mesh.rotation.x += intensity * (-.08 + .035 * stagger);
-                mesh.position.z += intensity * .12 * Math.sin(elapsed * 7.5 + i * 2.3);
-                mesh.position.x += playDirection * (player.team === 'offense' ? 1 : -1)
-                    * intensity * (.055 + .025 * Math.sin(cadence * .7));
-                mesh.userData.knees?.forEach((knee, index) => {
-                    knee.rotation.x += intensity * (.11 + .09 * Math.sin(cadence + index * Math.PI));
-                });
+                if (!passLineman) {
+                    mesh.position.z += intensity * .12 * Math.sin(elapsed * 7.5 + i * 2.3);
+                    mesh.position.x += playDirection * (player.team === 'offense' ? 1 : -1)
+                        * intensity * (.055 + .025 * Math.sin(cadence * .7));
+                    mesh.userData.knees?.forEach((knee, index) => {
+                        knee.rotation.x += intensity * (.11 + .09 * Math.sin(cadence + index * Math.PI));
+                    });
+                }
                 // Pass protection: the offensive five retreat together and
                 // fan outward into a shallow U-shaped pocket around the QB.
                 // Keep run blocking exactly as it was. Mesh-only offsets are
