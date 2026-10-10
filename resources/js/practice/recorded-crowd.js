@@ -36,13 +36,16 @@ export function recordedCrowd(context, destination, environment, base = '/audio/
         }));
         return loading;
     };
+    const stopReactions = () => {
+        for (const source of reactions) { try { source.stop(); } catch { /* Already stopped. */ } }
+        reactions.clear();
+    };
     const setActive = value => {
         active=Boolean(value) && !disposed;
         if (active) startAmbience();
         else {
             stopAmbience();
-            for (const source of reactions) { try { source.stop(); } catch { /* Already stopped. */ } }
-            reactions.clear();
+            stopReactions();
         }
     };
     const play = (mood, {seconds = mood === 'groan' ? 3.4 : 5, level = mood === 'groan' ? .7 : 1, variant = 0} = {}) => {
@@ -68,5 +71,5 @@ export function recordedCrowd(context, destination, environment, base = '/audio/
         }
         source.start(start,offset,duration);
     };
-    return {load,setActive,play,dispose(){disposed=true;abort?.abort();setActive(false);buffers.clear();}};
+    return {load,setActive,play,stopReactions,dispose(){disposed=true;abort?.abort();setActive(false);buffers.clear();}};
 }

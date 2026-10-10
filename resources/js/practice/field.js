@@ -1352,7 +1352,7 @@ export function mountPractice(root, onReady = () => {}) {
     penaltyDialog?.addEventListener('close', showQuarter);
     injuryDialog?.addEventListener('close', showQuarter);
     if ((otDialog || quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
-    const silenceHidden = () => { if (document.hidden) audio.setActive(false); };
+    const silenceHidden = () => { if (document.hidden) { audio.setActive(false); audio.setAmbienceActive(false); } };
     document.addEventListener('visibilitychange', silenceHidden);
     const animate = now => {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
@@ -1453,6 +1453,10 @@ export function mountPractice(root, onReady = () => {}) {
             if (huddleProgress === 1) showQuarter();
         }
         const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (running || phase === 'result' || (phase === 'huddle' && huddleProgress < 1));
+        // Keep the stadium bed under play calling, without enabling stale cues.
+        const callingPlay = phase === 'huddle' || !callForm.hidden;
+        audio.setAmbienceActive(!document.hidden && callingPlay && afterState?.status !== 'final'
+            && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open);
         audio.setActive(audible);
         const soundTime = phase === 'liningup' || phase === 'set' ? -1 : phase === 'result' ? duration + postElapsed : elapsed;
         if (audible) {

@@ -100,3 +100,29 @@ test('bundled MP3s are nonempty and credits identify all three CC0 source author
     for(const author of ['stomachache','FoolBoyMedia','NeoSpica']) assert.ok(credits.includes(author));
     assert.ok(credits.includes('CC0 1.0'));
 });
+
+
+test('play setup keeps the same crowd bed alive while disabling effects and reactions', async()=>{
+    const f=fixture(), callbacks={};
+    const button={addEventListener:(name,callback)=>callbacks[name]=callback,setAttribute(){}};
+    const root={dataset:{},querySelector:()=>button,querySelectorAll:()=>[],addEventListener(){},removeEventListener(){}};
+    const audio=stadiumAudio(root,{...f.environment,AudioContext:class{constructor(){return f.context;}},
+        localStorage:{getItem:()=>null,setItem(){}}});
+    audio.setActive(true);await audio.prepare();audio.play({type:'crowd',mood:'cheer'});
+    const bed=f.sources.find(source=>source.loop), reaction=f.sources.find(source=>source.buffer&&!source.loop);
+    audio.setAmbienceActive(true);audio.setActive(false);
+    assert.equal(bed.stopped,undefined);assert.equal(reaction.stopped,true);
+    const count=f.sources.length;
+    audio.play({type:'whistle'});audio.play({type:'crowd',mood:'cheer'});
+    assert.equal(f.sources.length,count);
+    assert.ok(f.gains[0].gain.value>0);
+    // Resume a snap without restarting the loop, then mute during play setup.
+    audio.setActive(true);audio.setAmbienceActive(false);assert.equal(f.sources.length,count);
+    audio.setAmbienceActive(true);audio.setActive(false);callbacks.click();
+    assert.equal(bed.stopped,true);assert.equal(f.gains[0].gain.value,0);
+    callbacks.click();await audio.prepare();
+    assert.equal(f.sources.length,count+1);
+    const resumed=f.sources.at(-1);
+    audio.setAmbienceActive(false);assert.equal(resumed.stopped,true);
+    audio.dispose();
+});

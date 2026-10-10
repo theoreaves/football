@@ -5,16 +5,16 @@ import {recordedCrowd} from './recorded-crowd.js';
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, recordings, active = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, recordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const control = root.querySelector('[data-sound-toggle]');
     const label = () => { if (control) { control.textContent = !supported ? 'Sound unavailable' : settings.enabled ? 'Sound on' : 'Sound muted'; control.setAttribute('aria-pressed',String(settings.enabled)); control.disabled = !supported; } };
     const levels = () => {
         if (!context) return;
-        master.gain.setTargetAtTime(settings.enabled && active ? settings.master : 0,context.currentTime,.04);
+        master.gain.setTargetAtTime(settings.enabled && (active || ambienceActive) ? settings.master : 0,context.currentTime,.04);
         crowd.gain.value = settings.crowd; effects.gain.value = settings.effects;
-        recordings?.setActive(settings.enabled && active);
+        recordings?.setActive(settings.enabled && (active || ambienceActive));
     };
     const track = (source, gain) => {
         voices.add(source); source.onended = () => { voices.delete(source); source.disconnect(); gain.disconnect(); };
@@ -78,7 +78,8 @@ export function stadiumAudio(root, environment = window) {
     const unlock = () => prepare(); root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
     return {
         play, prepare,
-        setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
+        setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
+        setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
         dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }
