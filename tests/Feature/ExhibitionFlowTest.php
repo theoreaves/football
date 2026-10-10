@@ -73,6 +73,10 @@ test('formation choices persist and quarter halftime and final notices are rende
         $state = $game->state;
         $state['quarter'] = $quarter;
         $state['clock'] = 1;
+        // This test targets formation persistence and quarter notices, not
+        // the pre-snap clock runoff. Ensure the requested play actually snaps.
+        $state['clock_running'] = false;
+        $state['clock_restart_on_ready'] = false;
         $state['status'] = 'playing';
         $state['phase'] = 'scrimmage';
         $state['rules']['penalties'] = false;
