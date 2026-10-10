@@ -359,10 +359,12 @@ class PlayTimeline
         $contactDefender = $contactTackler;
         $contactAt = $contactStyle !== null ? 5.3 : null;
 
-        return ['tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        $animation = ['tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])),
             'possession' => $side, 'animation_variant' => $visualVariant,
             'receiver_role' => $pass ? $receiverRole : null, 'outcome' => $play['outcome'], 'gain' => $play['gain'],
             'out_of_bounds' => (bool) ($play['out_of_bounds'] ?? false), 'forced_out' => (bool) ($play['forced_out'] ?? false)];
+
+        return RushingAnimationTiming::apply($animation, $rosters[$side]['players']['RB']['ratings'] ?? [], $play);
     }
 }

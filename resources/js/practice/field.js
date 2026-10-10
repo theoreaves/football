@@ -484,7 +484,7 @@ export function mountPractice(root, onReady = () => {}) {
             mesh.userData.carryingArm = player.role === 'RB' ? 0 : 1;
             mesh.userData.cradlingBall = Boolean(heldOnOffense && eligibleCarrier
                 && elapsed >= possessionAt + .16
-                && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
+                && !(animation?.outcome === 'fumble' && elapsed >= (animation.result_at ?? 5.3)));
             // Small pocket positioning changes should not trigger the
             // full running gait. Run plays and every other player are unchanged.
             const plantedPassBlocker = phase === 'play' && animation?.dropback
@@ -646,7 +646,7 @@ export function mountPractice(root, onReady = () => {}) {
                 && (offensiveLine || centerStance || defensiveLine);
             if (blocking) {
                 const engage = Math.min(1, Math.max(0, (elapsed - .22) / .35));
-                const release = Math.min(1, Math.max(0, (5.3 - elapsed) / .5));
+                const release = Math.min(1, Math.max(0, ((animation.result_at ?? 5.3) - elapsed) / .5));
                 const intensity = engage * release;
                 const cadence = elapsed * 10.5 + i * 1.87;
                 const stagger = Math.sin(cadence);
@@ -1062,7 +1062,7 @@ export function mountPractice(root, onReady = () => {}) {
         // Read the timeline's current holder instead of inferring possession.
         if (phase === 'play' && animation && !animation.no_snap && holder?.team === 'offense'
             && (holder.role === 'RB' || (animation.receiver_role && holder.role === animation.receiver_role))
-            && !(animation.outcome === 'fumble' && elapsed >= 5.3)) {
+            && !(animation.outcome === 'fumble' && elapsed >= (animation.result_at ?? 5.3))) {
             const carrierIndex = frame.players.findIndex(player =>
                 player.team === holder.team && player.role === holder.role);
             const carrierMesh = carrierIndex >= 0 ? players[carrierIndex] : null;
