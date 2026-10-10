@@ -44,5 +44,11 @@ export function crossedCues(cues, previous, current) {
 export function soundSettings(value = {}) {
     if (!value || typeof value !== 'object') value = {};
     const volume = (key, fallback) => Number.isFinite(Number(value[key])) ? Math.max(0,Math.min(1,Number(value[key]))) : fallback;
-    return { enabled: value.enabled !== false, master: volume('master',.6), crowd: volume('crowd',.35), effects: volume('effects',.7) };
+    return { enabled: value.enabled !== false, master: volume('master',.6), crowd: volume('crowd',.35), effects: volume('effects',.7), players: volume('players',.75) };
+}
+
+// The set phase runs in real seconds, independently of replay speed.
+export function cadenceCues(animation) {
+    if (!animation || animation.no_snap || ['clock_event','kickoff','punt','field_goal','extra_point'].includes(animation.call)) return [];
+    return [{time:-2,type:'cadence',mood:'ready'}, {time:-1,type:'cadence',mood:'set'}, {time:0,type:'cadence',mood:'hut'}];
 }

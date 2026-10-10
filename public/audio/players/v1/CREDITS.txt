@@ -1,0 +1,21 @@
+WebSports Football - starter QB cadence, version 1
+
+Ready and Set: Kenney, Voiceover Pack (40+ lines), male voice.
+https://opengameart.org/content/voiceover-pack-40-lines
+https://opengameart.org/sites/default/files/Voiceover%20Pack.zip
+License: Creative Commons Zero (CC0).
+
+Hut: Veridiansunrise, Drillsarge_PresentArms_TenHut.wav.
+https://freesound.org/people/Veridiansunrise/sounds/162010/
+https://cdn.freesound.org/previews/162/162010_46808-hq.mp3
+License: Creative Commons Zero (CC0).
+Isolated the final Hut from the original military voice performance:
+source offset 11.03 seconds, length 0.55 seconds.
+
+CC0: https://creativecommons.org/publicdomain/zero/1.0/
+All three files are edited recordings, not generated speech.
+Edits: mono 44.1 kHz MP3, 128 kbps; 120 Hz high-pass / 4.2 kHz low-pass,
+normalized voice level, short entry/exit fades.
+These are two different performers arranged as a starter football cadence;
+this is not an NFL player recording or an authentic single QB performance.
+Future custom voice packs can replace these named assets.

@@ -1,12 +1,13 @@
 import {soundSettings} from './sound-cues.js';
 import {recordedCrowd} from './recorded-crowd.js';
+import {recordedPlayerVoices} from './recorded-player-voices.js';
 import {recordedFieldEffects} from './recorded-field-effects.js';
 
 // Recorded crowd ambience/reactions, with the existing synthesized field effects.
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, recordings, fieldRecordings, active = false, ambienceActive = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, players, recordings, fieldRecordings, playerRecordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const control = root.querySelector('[data-sound-toggle]');
@@ -14,9 +15,10 @@ export function stadiumAudio(root, environment = window) {
     const levels = () => {
         if (!context) return;
         master.gain.setTargetAtTime(settings.enabled && (active || ambienceActive) ? settings.master : 0,context.currentTime,.04);
-        crowd.gain.value = settings.crowd; effects.gain.value = settings.effects;
+        crowd.gain.value = settings.crowd; effects.gain.value = settings.effects; players.gain.value = settings.players;
         recordings?.setActive(settings.enabled && (active || ambienceActive));
         fieldRecordings?.setActive(settings.enabled && active);
+        playerRecordings?.setActive(settings.enabled && active && settings.players > 0);
     };
     const track = (source, gain) => {
         voices.add(source); source.onended = () => { voices.delete(source); source.disconnect(); gain.disconnect(); };
@@ -44,21 +46,24 @@ export function stadiumAudio(root, environment = window) {
         try {
             if (!context) {
                 context = new (environment.AudioContext || environment.webkitAudioContext)();
-                master = context.createGain(); master.gain.value = 0; crowd = context.createGain(); effects = context.createGain();
-                crowd.connect(master); effects.connect(master); master.connect(context.destination);
+                master = context.createGain(); master.gain.value = 0; crowd = context.createGain(); effects = context.createGain(); players = context.createGain();
+                crowd.connect(master); effects.connect(master); players.connect(master); master.connect(context.destination);
                 recordings = recordedCrowd(context,crowd,environment,root.dataset?.crowdAudioBase);
                 recordings.load();
                 fieldRecordings = recordedFieldEffects(context,effects,environment,root.dataset?.refereeAudioBase);
                 fieldRecordings.load();
+                playerRecordings = recordedPlayerVoices(context,players,environment,root.dataset?.playerAudioBase);
+                playerRecordings.load();
                 levels();
             }
             if (context.state === 'suspended') context.resume().then(() => { if (!disposed) levels(); }).catch(() => {});
-            return Promise.all([recordings?.load(),fieldRecordings?.load()]);
+            return Promise.all([recordings?.load(),fieldRecordings?.load(),playerRecordings?.load()]);
         } catch { /* Gameplay continues if audio cannot start. */ }
     };
     const play = cue => {
         if (!active || !settings.enabled || context?.state !== 'running') return;
         switch (cue.type) {
+            case 'cadence': playerRecordings?.play(cue.mood); break;
             case 'snap': noise(.09,effects,.18,1800); break;
             case 'throw': noise(.2,effects,.11,2400); break;
             case 'kick': noise(.17,effects,.45,350); tone(95,.13); break;
@@ -82,8 +87,9 @@ export function stadiumAudio(root, environment = window) {
     const unlock = () => prepare(); root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
     return {
         play, prepare,
+        stopPlayerVoices() { playerRecordings?.stop(); },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

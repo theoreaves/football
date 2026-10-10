@@ -36,7 +36,7 @@ test('pending penalty choices do not announce a provisional score or final resul
     assert.ok(stop.some(c=>c.type==='quarter'));
 });
 test('audio settings clamp levels and persist mute without requiring audio support',()=>{
-    assert.deepEqual(soundSettings({master:9,crowd:-1,effects:'bad',enabled:false}),{master:1,crowd:0,effects:.7,enabled:false});
+    assert.deepEqual(soundSettings({master:9,crowd:-1,effects:'bad',enabled:false}),{master:1,crowd:0,effects:.7,players:.75,enabled:false});
     const saved = [];
     const root={querySelector:()=>null,querySelectorAll:()=>[],addEventListener(){},removeEventListener(){}};
     const audio=stadiumAudio(root,{localStorage:{getItem:()=>'{invalid',setItem:(...v)=>saved.push(v)}});

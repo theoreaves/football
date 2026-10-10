@@ -1,10 +1,10 @@
 # WebSports Football audio roadmap
 
 Current: recorded crowd ambience and reactions, continuous ambience during
-next-play setup, and recorded referee whistle variations.
+next-play setup, recorded referee whistle variations, and QB cadence with a separate Players volume.
 
 Next:
-- Player sounds: QB cadence, exertion, occasional short shouts.
+- Player sounds: exertion and occasional short shouts.
 - Field contact: pads, blocks, tackles, turf landings.
 - Special teams: kicks, punts, catches.
 - Stadium audio: music between drives; home touchdown celebrations;
@@ -17,4 +17,4 @@ Later:
 
 Keep event cues separate from asset selection. Audio must not alter the game
 clock, simulation outcomes, statistics or saved play paths. Uploaded sounds
-and team configuration are a later feature, not part of the whistle patch.
+and team configuration are a later feature, not part of the cadence patch.

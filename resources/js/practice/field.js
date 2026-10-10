@@ -6,7 +6,7 @@ import { samplePreSnapMotion } from './motion.js';
 import { mountPlayWizard } from './play-wizard.js';
 import { mobileControls } from './mobile-controls.js';
 import { stadiumAudio } from './stadium-audio.js';
-import { soundCues, crossedCues } from './sound-cues.js';
+import { soundCues, crossedCues, cadenceCues } from './sound-cues.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -306,6 +306,8 @@ export function mountPractice(root, onReady = () => {}) {
 
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
+    const quarterbackCues = cadenceCues(animation);
+    let cadenceTime = -4;
     const ruling = refereeSignal(animation, beforeState, afterState);
     const penalty = JSON.parse(root.dataset.penalty || 'null');
     const foul = penaltyMoment(animation, penalty, refereePaths);
@@ -1152,6 +1154,7 @@ export function mountPractice(root, onReady = () => {}) {
         moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
+        cadenceTime = 0; audio.stopPlayerVoices();
         clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
         showState(false);
@@ -1178,7 +1181,7 @@ export function mountPractice(root, onReady = () => {}) {
         running = !running; playButton.textContent = running ? 'Pause' : 'Play';
     });
     root.querySelector('[data-reset]').addEventListener('click', () => { setCpuAuto(false); replayView(); elapsed = 0; running = false; playButton.textContent = 'Play'; });
-    root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; audioTime = -2; running = false; playButton.textContent = 'Play'; });
+    root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; audioTime = -2; cadenceTime = 0; audio.stopPlayerVoices(); running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
@@ -1458,6 +1461,16 @@ export function mountPractice(root, onReady = () => {}) {
         audio.setAmbienceActive(!document.hidden && callingPlay && afterState?.status !== 'final'
             && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open);
         audio.setActive(audible);
+        // A separate cursor keeps pre-snap voices out of result/third-down cues.
+        // Replay and seeking begin at the snap and never backfill a cadence.
+        const quarterbackTime = phase === 'liningup' ? -setDuration : phase === 'set' ? setElapsed - setDuration : 0;
+        if (audible && running) {
+            // After a stalled frame, skip old words; the snap still gets its hut.
+            crossedCues(quarterbackCues, cadenceTime, quarterbackTime)
+                .filter(cue => quarterbackTime - cue.time < .25)
+                .forEach(cue => audio.play(cue));
+        }
+        cadenceTime = quarterbackTime;
         const soundTime = phase === 'liningup' || phase === 'set' ? -1 : phase === 'result' ? duration + postElapsed : elapsed;
         if (audible) {
             if (running || phase === 'result') crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
