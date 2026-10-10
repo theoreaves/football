@@ -709,6 +709,55 @@ export function mountPractice(root, onReady = () => {}) {
                     mesh.rotation.x -= .04 * smoothEntry;
                 }
             }
+            // Touchdown celebration v1. Use the existing three-second result
+            // window, never the underlying recorded play tracks. The scorer
+            // reacts first; four nearest teammates join without teleporting.
+            if (animation?.outcome === 'touchdown' && phase === 'result'
+                && player.team === 'offense' && !animation.no_snap) {
+                const scorerRole = animation.receiver_role && animation.passing
+                    ? animation.receiver_role : animation.carrier;
+                const scorer = frame.players.find(p => p.team === 'offense' && p.role === scorerRole);
+                if (scorer) {
+                    const isScorer = role === scorerRole;
+                    const teammates = frame.players
+                        .filter(p => p.team === 'offense' && p.role !== scorerRole)
+                        .sort((a, b) => {
+                            const da = Math.hypot(a.x - scorer.x, a.z - scorer.z);
+                            const db = Math.hypot(b.x - scorer.x, b.z - scorer.z);
+                            return da - db || a.role.localeCompare(b.role);
+                        }).slice(0, 4);
+                    const teammateIndex = teammates.findIndex(p => p.role === role);
+                    if (isScorer || teammateIndex !== -1) {
+                        const delay = isScorer ? 0 : .35 + teammateIndex * .14;
+                        const t = Math.max(0, Math.min(1, (postElapsed - delay) / .85));
+                        const ease = t * t * (3 - 2 * t);
+                        const wave = Math.sin((postElapsed - delay) * 9 + teammateIndex * 1.3);
+                        if (!isScorer) {
+                            // Approach the scorer but never shift more than 3 yards
+                            // from the authoritative final position.
+                            const dx = scorer.x - player.x, dz = scorer.z - player.z;
+                            const distance = Math.hypot(dx, dz);
+                            const travel = Math.min(3, Math.max(0, distance - 1.5)) * ease;
+                            if (distance > .001) {
+                                mesh.position.x += dx / distance * travel;
+                                mesh.position.z += dz / distance * travel;
+                            }
+                            mesh.rotation.y = Math.atan2(scorer.x - mesh.position.x, scorer.z - mesh.position.z);
+                        }
+                        // Raise hands, bend elbows and bounce at the knees.
+                        mesh.userData.arms?.forEach((arm, side) => {
+                            arm.rotation.x = -2.10 * ease + .12 * wave * ease;
+                            arm.rotation.z = (side === 0 ? -.35 : .35) * ease;
+                        });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.38 * ease; });
+                        mesh.userData.legs?.forEach((leg, side) => {
+                            leg.rotation.x = (side === 0 ? 1 : -1) * .10 * wave * ease;
+                        });
+                        mesh.userData.knees?.forEach(knee => { knee.rotation.x = .14 * ease; });
+                        mesh.position.y += Math.max(0, Math.sin((postElapsed - delay) * 9)) * .10 * ease;
+                    }
+                }
+            }
             // Pre-snap-only visual breathing room between opposing front lines.
             // Keep the center fixed on the ball and leave recorded paths intact.
             // Ease offsets away at the snap to avoid popping into the play track.
