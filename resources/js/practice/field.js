@@ -179,6 +179,24 @@ export function mountPractice(root, onReady = () => {}) {
         const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
         const group = buildFootballPlayer(player, kit, document, textureFor);
         group.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
+        // Temporary QB handedness diagnostic. By default, do not override
+        // saved player appearance. Compare ?qb_hand=right and ?qb_hand=left
+        // on the SAME quarterback to confirm model-side orientation.
+        if (player.team === 'offense' && player.role === 'QB') {
+            const qbHandOverride = new URLSearchParams(window.location.search).get('qb_hand');
+            if (qbHandOverride === 'left' || qbHandOverride === 'right') {
+                group.userData.throwingHand = qbHandOverride;
+            }
+            if (new URLSearchParams(window.location.search).has('qb_hand')) {
+                const requested = player.appearance?.throwing_hand ?? '(default right)';
+                console.info('[WebSports QB handedness]', {
+                    quarterback: player.name || player.role,
+                    appearance: requested,
+                    effectiveHand: group.userData.throwingHand,
+                    armIndex: group.userData.throwingHand === 'left' ? 0 : 1,
+                });
+            }
+        }
         scene.add(group);
         return group;
     });
