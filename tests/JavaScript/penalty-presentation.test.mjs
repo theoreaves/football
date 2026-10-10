@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildRefereePaths, buildReferees, refereeFormation} from '../../resources/js/practice/referees.js';
-import {penaltyMoment, flagPosition, foulMovement, penaltyText, penaltyAlignment, illegalFormationRoles} from '../../resources/js/practice/penalty-presentation.js';
+import {penaltyMoment, flagPosition, foulMovement, penaltyText, penaltyAlignment, offsideLateralAlignment, illegalFormationRoles} from '../../resources/js/practice/penalty-presentation.js';
 const animation = {line: 40, direction: 1, duration: 6, catch_at: 3.4, result_at: 5.3, contact_at: 5.1,
     receiver_role: 'WR1', tackler_role: 'LB2',
     players: [{team:'offense',role:'LG',path:[[0,40,0,23],[6,42,0,23]]},
@@ -74,7 +74,7 @@ test('new live fouls throw at the snap and use the existing signal families', ()
     }
 });
 
-test('illegal formation has six players on the line and offside crosses at the snap', () => {
+test('illegal formation has six players on the line and offside keeps its feet on defense', () => {
     for (const direction of [-1,1]) {
         const roles = ['C','LG','RG','LT','RT','TE','WR1','WR2'];
         const players = roles.map((role,i)=>({team:'offense',role,path:[[0,40-direction,0,5+i*5],[6,45,0,5+i*5]]}));
@@ -86,7 +86,54 @@ test('illegal formation has six players on the line and offside crosses at the s
         assert.equal(onLine.length,6);
         const offside = penaltyMoment(play,{type:'defensive_offside'},paths), defender = players.at(-1);
         const x = defender.path[0][1]+penaltyAlignment(offside,defender,0,direction);
-        assert.ok((x-40)*direction < 0);
+        assert.ok((x-40)*direction > .6);
         assert.equal(penaltyAlignment(offside,defender,.8,direction),0);
+    }
+});
+
+
+test('offside helmet barely crosses the line without intersecting an offensive lineman', async () => {
+    const {buildFootballPlayer, applyPreSnapStance} = await import('../../resources/js/practice/player-model.js');
+    const document = {createElement: () => ({getContext: () => ({strokeText() {}, fillText() {}})})};
+    for (const direction of [-1,1]) for (const noseZ of [25,27]) {
+        const players = ['LT','LG','C','RG','RT'].map((role,i) =>
+            ({team:'offense',role,path:[[0,40-direction,0,22.3+i*2.2],[6,40-direction,0,22.3+i*2.2]]}));
+        players.push({team:'defense',role:'DT1',path:[[0,40+direction,0,noseZ],[6,40+direction,0,noseZ]]});
+        const play = {...animation,direction,players}, before = JSON.stringify(play);
+        const moment = penaltyMoment(play,{type:'defensive_offside'},buildRefereePaths(play));
+        const defender = players.at(-1);
+        const mesh = buildFootballPlayer({}, {}, document);
+        mesh.rotation.y = -direction*Math.PI/2;
+        applyPreSnapStance(mesh,'def-front');
+        mesh.position.set(40+direction*1.48+penaltyAlignment(moment,defender,0,direction),0,
+            noseZ-.20+offsideLateralAlignment(moment,defender,0));
+        mesh.updateMatrixWorld(true);
+        const helmet = new THREE.Box3().setFromObject(mesh.getObjectByName('helmet-shell'));
+        const crossing = direction === 1 ? 40-helmet.min.x : helmet.max.x-40;
+        assert.ok(crossing > 0 && crossing < .15, `helmet crossing: ${crossing}`);
+        for (const player of players.slice(0,-1)) {
+            const lineman = buildFootballPlayer({}, {}, document);
+            lineman.rotation.y = direction*Math.PI/2;
+            applyPreSnapStance(lineman,player.role==='C'?'center':'three');
+            lineman.position.set(player.path[0][1]-(player.role==='C'?0:direction*.18),0,player.path[0][3]);
+            lineman.updateMatrixWorld(true);
+            lineman.traverse(part => {
+                if (!part.isMesh) return;
+                const bounds = part.geometry.boundingBox ?? (part.geometry.computeBoundingBox(), part.geometry.boundingBox);
+                assert.equal(helmet.intersectsBox(bounds.clone().applyMatrix4(part.matrixWorld)),false,player.role);
+            });
+        }
+        for (const t of [0,.06,.12,.18,.24,.8,2]) {
+            const gap = Math.max(0,1-t/.24);
+            // The penalty never pushes feet across the line as spacing fades.
+            const center = 1+.48*gap+direction*penaltyAlignment(moment,defender,t,direction);
+            assert.ok(center >= 1);
+            if (t >= .24) {
+                assert.equal(penaltyAlignment(moment,defender,t,direction),0);
+                assert.equal(offsideLateralAlignment(moment,defender,t),0);
+            }
+        }
+        assert.equal(offsideLateralAlignment(moment,players[0],0),0);
+        assert.equal(JSON.stringify(play),before);
     }
 });

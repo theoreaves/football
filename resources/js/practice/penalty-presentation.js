@@ -26,7 +26,8 @@ export function penaltyMoment(animation, penalty, paths) {
     const source = poses[official];
     return {at, dead, team, role: culprit?.role, official, point: {x: point.x, z: point.z},
         origin: {x: source.x, y: 1.55, z: source.z}, type: penalty.type,
-        alignmentRoles: illegalFormationRoles(animation)};
+        alignmentRoles: illegalFormationRoles(animation),
+        offsideLateral: penalty.type === 'defensive_offside' ? offsideGap(frame.players, point.z) : 0};
 }
 
 export function flagPosition(moment, time) {
@@ -117,9 +118,32 @@ export function illegalFormationRoles(animation) {
 
 export function penaltyAlignment(moment, player, elapsed, direction) {
     if (!moment) return 0;
+    // Only the helmet edges into the neutral zone; keep the feet on defense.
+    // Release together with the front-line spacing, before blocking takes over.
+    if (moment.type==='defensive_offside' && player.team==='defense' && player.role===moment.role) {
+        const blend = offsideBlend(elapsed);
+        return blend === 0 ? 0 : -direction * .36 * blend;
+    }
     const t = Math.max(0,Math.min(1,elapsed/.8)), blend = 1-t*t*(3-2*t);
     if (blend === 0) return 0;
-    if (moment.type==='defensive_offside' && player.team==='defense' && player.role===moment.role) return -direction*1.65*blend;
     if (moment.type==='illegal_formation' && player.team==='offense' && moment.alignmentRoles.includes(player.role)) return -direction*2.2*blend;
     return 0;
+}
+
+function offsideBlend(elapsed) {
+    return Math.max(0, Math.min(1, 1 - elapsed / .24));
+}
+
+function offsideGap(players, z) {
+    const line = players.filter(p => p.team === 'offense' && ['C','LG','RG','LT','RT'].includes(p.role))
+        .map(p => p.z).sort((a,b) => a-b);
+    const gaps = line.slice(1).map((value,i) => (value + line[i]) / 2)
+        .sort((a,b) => Math.abs(a-z)-Math.abs(b-z) || a-b);
+    // DT1 already receives -.20 yards of ordinary pre-snap lateral spacing.
+    return gaps.length ? gaps[0] - z + .20 : 0;
+}
+
+export function offsideLateralAlignment(moment, player, elapsed) {
+    if (moment?.type !== 'defensive_offside' || player.team !== 'defense' || player.role !== moment.role) return 0;
+    return (moment.offsideLateral ?? 0) * offsideBlend(elapsed);
 }

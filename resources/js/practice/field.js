@@ -18,7 +18,7 @@ import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
-import { penaltyMoment, foulMovement, penaltyAlignment, buildPenaltyPresentation } from './penalty-presentation.js';
+import { penaltyMoment, foulMovement, penaltyAlignment, offsideLateralAlignment, buildPenaltyPresentation } from './penalty-presentation.js';
 import { buildChainGang } from './chain-gang.js';
 import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } from './referees.js';
 
@@ -954,7 +954,9 @@ export function mountPractice(root, onReady = () => {}) {
             }
             if (['liningup','set','play'].includes(phase)) {
                 const blend = phase === 'liningup' ? Math.max(0,Math.min(1,(lineupProgress-.75)/.25)) : 1;
-                mesh.position.x += penaltyAlignment(foul, player, phase === 'play' ? elapsed : 0, playDirection) * blend;
+                const alignmentTime = phase === 'play' ? elapsed : 0;
+                mesh.position.x += penaltyAlignment(foul, player, alignmentTime, playDirection) * blend;
+                mesh.position.z += offsideLateralAlignment(foul, player, alignmentTime) * blend;
             }
             if (['play','penalty','result','medical'].includes(phase) && foul?.dead && player.team === foul.team && player.role === foul.role) {
                 const movement = foulMovement(foul, elapsed, playDirection);
