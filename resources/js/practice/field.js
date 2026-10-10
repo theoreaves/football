@@ -339,6 +339,109 @@ export function mountPractice(root, onReady = () => {}) {
                 && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
 
+            // Pre-snap realism: offense huddles around a kneeling QB, defenses
+            // communicate in a looser cluster facing the offense, and both lines
+            // use more believable stances before the snap.
+            const role = player.role ?? '';
+            const isOneOf = (...roles) => roles.includes(role);
+            const isDefFront = /^(DE\d?|DT\d?|NT|EDGE\d?|DL\d?)$/.test(role);
+            const isLinebacker = /^(LB\d?|MLB|LOLB|ROLB)$/.test(role);
+            const isSecondary = /^(CB\d?|FS|SS|S\d?|NB)$/.test(role);
+            const teamGroup = frame.players.filter(p => p.team === player.team);
+            const offenseGroup = frame.players.filter(p => p.team === 'offense');
+            const averagePoint = list => {
+                const total = list.reduce((sum, p) => {
+                    sum.x += p.x ?? 0;
+                    sum.y += p.y ?? 0;
+                    sum.z += p.z ?? 0;
+                    return sum;
+                }, { x: 0, y: 0, z: 0 });
+                const count = Math.max(1, list.length);
+                return new THREE.Vector3(total.x / count, total.y / count, total.z / count);
+            };
+            const teamCenter = averagePoint(teamGroup);
+            const offenseCenter = averagePoint(offenseGroup);
+            const earlySnap = phase === 'play' && elapsed < .28;
+            const presnap = ['liningup', 'set'].includes(phase) || earlySnap;
+            const huddlePhase = phase === 'huddle';
+            const setFacing = target => {
+                const dx = (target.x ?? 0) - mesh.position.x;
+                const dz = (target.z ?? 0) - mesh.position.z;
+                if (Math.abs(dx) + Math.abs(dz) > .001) mesh.rotation.y = Math.atan2(dx, dz);
+            };
+            const lowerArms = (leftX, rightX, elbowX = -.95) => {
+                if (mesh.userData.arms?.[0]) mesh.userData.arms[0].rotation.x = leftX;
+                if (mesh.userData.arms?.[1]) mesh.userData.arms[1].rotation.x = rightX;
+                if (mesh.userData.elbows?.[0]) mesh.userData.elbows[0].rotation.x = elbowX;
+                if (mesh.userData.elbows?.[1]) mesh.userData.elbows[1].rotation.x = elbowX;
+            };
+
+            if (huddlePhase) {
+                if (player.team === 'offense') {
+                    if (role === 'QB') {
+                        // After the regular pose is rendered, fold one knee and
+                        // bring the forearms toward the raised knee.
+                        mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = j === 0 ? -1.48 : .95; });
+                        mesh.userData.arms?.forEach((arm, j) => { arm.rotation.x = j === 0 ? -.90 : -.70; arm.rotation.z = j === 0 ? -.10 : .10; });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.82; });
+                        mesh.position.lerp(teamCenter, .42);
+                        mesh.position.y -= .06;
+                        mesh.rotation.x = -.12;
+                    } else {
+                        setFacing(teamCenter);
+                        mesh.rotation.x = -.04;
+                    }
+                } else if (player.team === 'defense') {
+                    const offset = mesh.position.clone().sub(teamCenter);
+                    const spreadX = isSecondary ? 1.55 : isLinebacker ? 1.30 : 1.08;
+                    const compressZ = isSecondary ? .48 : isLinebacker ? .58 : .68;
+                    mesh.position.x = teamCenter.x + offset.x * spreadX;
+                    mesh.position.z = teamCenter.z + offset.z * compressZ;
+                    mesh.position.y += isSecondary ? 0 : -.01;
+                    setFacing(offenseCenter);
+                    if (isDefFront) {
+                        mesh.rotation.x = -.12;
+                    } else if (isLinebacker) {
+                        mesh.rotation.x = -.06;
+                    }
+                }
+            }
+
+            if (presnap) {
+                if (player.team === 'offense') {
+                    if (isOneOf('C')) {
+                        mesh.rotation.x = -.42;
+                        lowerArms(-1.00, -1.00, -.88);
+                        mesh.position.y -= .03;
+                    } else if (isOneOf('LG', 'RG', 'LT', 'RT')) {
+                        mesh.rotation.x = -.28;
+                        lowerArms(-.72, -.24, -.70);
+                        mesh.position.y -= .02;
+                    } else if (isOneOf('TE', 'TE1', 'TE2')) {
+                        mesh.rotation.x = -.18;
+                        lowerArms(-.52, -.20, -.62);
+                    } else if (isOneOf('QB')) {
+                        mesh.rotation.x = -.10;
+                        lowerArms(-.35, -.35, -.40);
+                    } else if (isOneOf('RB', 'RB1', 'RB2', 'FB')) {
+                        mesh.rotation.x = -.10;
+                        lowerArms(-.20, -.55, -.48);
+                    }
+                } else if (player.team === 'defense') {
+                    if (isDefFront) {
+                        mesh.rotation.x = -.34;
+                        lowerArms(-.78, -.34, -.72);
+                        mesh.position.y -= .02;
+                    } else if (isLinebacker) {
+                        mesh.rotation.x = -.14;
+                        lowerArms(-.28, -.28, -.42);
+                    } else if (isSecondary) {
+                        mesh.rotation.x = -.05;
+                        lowerArms(-.12, -.12, -.25);
+                    }
+                }
+            }
+
             // The center bends over the ball, and the QB/RB extend their hands
             // briefly for the transfer. All three poses reset each render.
             mesh.rotation.x = 0;
