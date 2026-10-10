@@ -712,7 +712,7 @@ export function mountPractice(root, onReady = () => {}) {
             // Touchdown celebration v1. Use the existing three-second result
             // window, never the underlying recorded play tracks. The scorer
             // reacts first; four nearest teammates join without teleporting.
-            if (animation?.outcome === 'touchdown' && phase === 'result'
+            if (animation?.outcome === 'touchdown' && ['celebration', 'result'].includes(phase)
                 && player.team === 'offense' && !animation.no_snap) {
                 const scorerRole = animation.receiver_role && animation.passing
                     ? animation.receiver_role : animation.carrier;
@@ -847,7 +847,7 @@ export function mountPractice(root, onReady = () => {}) {
                 ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .42));
             }
         }
-        if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
+        if (['play', 'celebration', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         const holder = ballCarrier(frame, phase);
         // The mesh's long axis is local X (ball.scale.x = 1.6).
         // Spin a forward pass around that axis, never around Z (end-over-end).
@@ -1169,11 +1169,21 @@ export function mountPractice(root, onReady = () => {}) {
             running = false; playButton.textContent = 'Replay';
             if (seriousInjury && resultPopup) {
                 phase = 'medical'; postElapsed = 0; resultPopup.hidden = true;
+            } else if (resultPopup && animation?.outcome === 'touchdown') {
+                // Give the scorer and teammates an unobstructed celebration
+                // before opening the result popup over the playing field.
+                phase = 'celebration'; postElapsed = 0; resultPopup.hidden = true;
             } else if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }
             else showQuarter();
         } else if (phase === 'medical') {
             postElapsed += delta;
             if (postElapsed >= treatmentDuration) {
+                phase = 'result'; postElapsed = 0;
+                if (resultPopup) resultPopup.hidden = false;
+            }
+        } else if (phase === 'celebration') {
+            postElapsed += delta;
+            if (postElapsed >= 2.6) {
                 phase = 'result'; postElapsed = 0;
                 if (resultPopup) resultPopup.hidden = false;
             }
