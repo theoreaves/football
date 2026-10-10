@@ -15,10 +15,12 @@ export function stadiumAudio(root, environment = window) {
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
+    let breakMusic;
     const music = recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/anthem.mp3`);
     const label = () => { for (const control of controls) { control.textContent = !supported ? 'Sound unavailable' : settings.enabled ? 'Sound on' : 'Sound muted'; control.setAttribute('aria-pressed',String(settings.enabled)); control.disabled = !supported; } };
     const levels = () => {
         music.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
+        breakMusic?.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
         if (!context) return;
         master.gain.setTargetAtTime(settings.enabled && (active || ambienceActive) ? settings.master : 0,context.currentTime,.04);
         crowd.gain.value = settings.crowd; effects.gain.value = settings.effects; players.gain.value = settings.players; stadium.gain.value = settings.stadium;
@@ -26,7 +28,7 @@ export function stadiumAudio(root, environment = window) {
         fieldRecordings?.setActive(settings.enabled && active);
         contactRecordings?.setActive(settings.enabled && active && settings.effects > 0);
         ballRecordings?.setActive(settings.enabled && active && settings.effects > 0);
-        stadiumRecordings?.setActive(settings.enabled && active && settings.stadium > 0);
+        stadiumRecordings?.setActive(settings.enabled && (active || ambienceActive) && settings.stadium > 0);
         playerRecordings?.setActive(settings.enabled && active && settings.players > 0);
     };
     const track = (source, gain) => {
@@ -104,14 +106,24 @@ export function stadiumAudio(root, environment = window) {
         input.value = Math.round(settings[input.dataset.soundVolume] * 100);
         input.addEventListener('input', () => { settings[input.dataset.soundVolume] = Number(input.value)/100; save(); prepare(); });
     });
-    const unlock = () => { prepare(); music.unlock(); }; root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
+    const unlock = () => { prepare(); music.unlock(); breakMusic?.unlock(); }; root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
     return {
         play, prepare,
+        whenReactionFinished() { return stadiumRecordings?.whenFinished() ?? Promise.resolve(); },
+        startBreakMusic(kind) {
+            breakMusic?.dispose();
+            const file = {drive:'drive-break.mp3',quarter:'quarter-break.mp3',halftime:'halftime-break.mp3'}[kind];
+            if(!file)return;
+            breakMusic = recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/${file}`);
+            levels();breakMusic.request();
+        },
+        unlockBreakMusic() { breakMusic?.unlock(); },
+        finishBreakMusic(seconds=.6) { return breakMusic?.finish(seconds) ?? Promise.resolve(); },
         startAnthem(callbacks) { levels(); music.request(callbacks); },
         finishAnthem(seconds) { return music.finish(seconds); },
         stopPlayerVoices() { playerRecordings?.stop(); },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; music.dispose(); root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { stadiumRecordings?.dispose(); ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; music.dispose(); breakMusic?.dispose(); root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { stadiumRecordings?.dispose(); ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

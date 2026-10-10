@@ -309,3 +309,5 @@
 
 /* The anthem panel is nested inside the pregame dialog. */
 [data-anthem-panel][hidden] { display: none !important; }
+
+[data-drive-side][hidden] { display: none !important; }

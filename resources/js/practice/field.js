@@ -1,3 +1,4 @@
+import {mountBreakDialogs} from './break-dialogs.js';
 import {mountPregameAnthem} from './pregame-anthem.js';
 import { showSimProgress } from '../sim-progress.js';
 import { gameNavigation } from './game-navigation.js';
@@ -1316,6 +1317,11 @@ export function mountPractice(root, onReady = () => {}) {
     const otDialog = root.querySelector('[data-ot-dialog]');
     otDialog?.addEventListener('cancel', event => event.preventDefault());
     const quarterDialog = root.querySelector('[data-quarter-dialog]');
+    const breakDialogs = mountBreakDialogs(root,audio);
+    const driveDialog = breakDialogs.driveDialog;
+    const driveKey = `${cameraKey}:drive:${root.dataset.playNumber}`;
+    let driveShown=false,breakWaiting=false,breakReady=false;
+    try {driveShown=sessionStorage.getItem(driveKey)==='shown';}catch{/* Optional persistence. */}
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
     let penaltyShown = false;
     penaltyDialog?.addEventListener('cancel', event => event.preventDefault());
@@ -1337,10 +1343,23 @@ export function mountPractice(root, onReady = () => {}) {
             return;
         }
         if (injuryDialog?.open) return;
+        if (driveDialog?.open) return;
+        const pendingBreak = (driveDialog && !driveShown) || (quarterDialog && !quarterShown && quarterDialog.dataset.breakKind);
+        if (pendingBreak && !breakReady) {
+            if(!breakWaiting){breakWaiting=true;audio.whenReactionFinished().then(()=>{breakWaiting=false;breakReady=true;showQuarter();});}
+            return;
+        }
+        if (driveDialog && !driveShown) {
+            driveShown=true;driveDialog.showModal();breakDialogs.startDrive();
+            driveDialog.querySelector('form button')?.focus();
+            try{sessionStorage.setItem(driveKey,'shown');}catch{/* Optional persistence. */}
+            return;
+        }
         if (otDialog) { if (!otDialog.open) otDialog.showModal(); return; }
         if (!quarterDialog || quarterShown) return;
         quarterShown = true;
         quarterDialog.showModal();
+        breakDialogs.startQuarter();
         quarterDialog.querySelector('button')?.focus();
         try { sessionStorage.setItem(quarterKey, 'shown'); } catch { /* Optional persistence. */ }
     };
@@ -1360,11 +1379,12 @@ export function mountPractice(root, onReady = () => {}) {
 
     coinDialog?.addEventListener('close', () => { if (snapButton) snapButton.disabled = false; });
     if (coinDialog?.open && snapButton) snapButton.disabled = true;
-    if (quarterDialog && !quarterShown && snapButton) snapButton.disabled = true;
+    if (((quarterDialog && !quarterShown) || (driveDialog && !driveShown)) && snapButton) snapButton.disabled = true;
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
+    driveDialog?.addEventListener('close',()=>{if(snapButton && (!quarterDialog || quarterShown))snapButton.disabled=false;showQuarter();});
     penaltyDialog?.addEventListener('close', showQuarter);
     injuryDialog?.addEventListener('close', showQuarter);
-    if ((otDialog || quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
+    if ((driveDialog || otDialog || quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const silenceHidden = () => { if (document.hidden) { audio.setActive(false); audio.setAmbienceActive(false); } };
     document.addEventListener('visibilitychange', silenceHidden);
     const animate = now => {
@@ -1465,11 +1485,11 @@ export function mountPractice(root, onReady = () => {}) {
             postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
-        const audible = !document.hidden && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
+        const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
         // Keep the stadium bed under play calling, without enabling stale cues.
         const callingPlay = phase === 'huddle' || !callForm.hidden;
         audio.setAmbienceActive(!document.hidden && callingPlay && afterState?.status !== 'final'
-            && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open);
+            && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open);
         audio.setActive(audible);
         // A separate cursor keeps pre-snap voices out of result/third-down cues.
         // Replay and seeking begin at the snap and never backfill a cadence.
@@ -1491,7 +1511,7 @@ export function mountPractice(root, onReady = () => {}) {
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

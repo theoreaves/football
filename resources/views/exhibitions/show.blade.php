@@ -349,8 +349,37 @@
         @endif
     </dialog>
     @endif
+    @if(!request()->boolean('summary') && !$replayOnly && $last)
+    @php
+        $breakHistory = collect($exhibition->history)->map(function ($play) {
+            $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap']);
+            foreach (['before', 'after'] as $when) {
+                $item[$when] = \Illuminate\Support\Arr::only($play[$when] ?? [], ['stats', 'quarter', 'clock', 'phase', 'possession', 'status', 'home_score', 'away_score', 'penalty_pending']);
+            }
+            return $item;
+        })->values();
+    @endphp
+    <script type="application/json" data-break-history>@json($breakHistory)</script>
+    <dialog data-drive-dialog class="game-dialog m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-lg backdrop:bg-black/70">
+        <h2 class="text-2xl font-semibold">Drive summary</h2>
+        <div data-drive-team class="flex items-center gap-3 mt-4">
+            @foreach(['away', 'home'] as $driveSide)
+            <div data-drive-side="{{ $driveSide }}" hidden>
+                @if($appearance[$driveSide]['team_logo'] ?? null)<img src="{{ $appearance[$driveSide]['team_logo'] }}" alt="" class="w-12 h-12 object-contain inline-block mr-2">@endif
+                <strong>{{ $teamNames[$driveSide] }}</strong>
+            </div>
+            @endforeach
+        </div>
+        <p data-drive-result class="mt-3 text-xl"></p>
+        <dl data-drive-stats class="grid grid-cols-2 gap-3 mt-4"></dl>
+        <p class="mt-3 text-xs text-gray-400">Saved offensive stats · possession time includes game-clock runoff.</p>
+        <label class="block mt-4">Stadium volume<input data-sound-volume="stadium" type="range" min="0" max="100" step="1" class="block w-48 accent-blue-400"></label>
+        <button type="button" data-break-play class="text-blue-300 underline mt-3">Play music</button>
+        <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">Continue</button></form>
+    </dialog>
+    @endif
     @if(!request()->boolean('summary') && !$replayOnly && $last && (($last['two_minute_warning'] ?? false) || $last['before']['quarter'] !== $last['after']['quarter'] || $last['after']['status'] === 'final'))
-    <dialog data-quarter-dialog class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-md backdrop:bg-black/70">
+    <dialog data-quarter-dialog data-break-kind="{{ ($last['two_minute_warning'] ?? false) || $last['after']['status'] === 'final' ? '' : ($last['before']['quarter'] === 2 ? 'halftime' : 'quarter') }}" data-break-quarter="{{ $last['before']['quarter'] }}" class="m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-md backdrop:bg-black/70">
         <h2 class="text-2xl font-semibold">{{ $state['status'] === 'final' ? 'Final whistle' : (($last['two_minute_warning'] ?? false) ? 'Two-minute warning' : ($state['quarter'] === 5 && $last['before']['quarter'] === 4 ? 'OVERTIME' : ($last['before']['quarter'] === 2 ? 'Halftime' : ($last['before']['quarter'] >= 5 ? 'End of overtime '.($last['before']['quarter'] - 4) : 'End of quarter '.$last['before']['quarter'])))) }}</h2>
         @if($state['quarter'] === 5 && $last['before']['quarter'] === 4 && !app(\App\Services\Simulation\Overtime::class)->pending($state))
         <p class="mt-3">Overtime toss: {{ $teamNames[$state['overtime']['toss']['winner']] }} wins and chooses to {{ $state['overtime']['toss']['choice'] }}. {{ $teamNames[$state['overtime']['receiver']] }} receives.</p>
@@ -366,6 +395,14 @@
         @else{{ $state['quarter'] >= 5 ? 'Overtime '.($state['quarter'] - 4) : 'Quarter '.$state['quarter'] }} is ready. Possession and field position carry over.
         @endif
         </p>
+        @unless($last['two_minute_warning'] ?? false)
+        <h3 data-period-heading class="mt-5 font-semibold"></h3>
+        <table data-period-stats class="w-full mt-3 text-sm"><thead><tr><th class="text-left">Stat</th><th>{{ $teamNames['away'] }}</th><th>{{ $teamNames['home'] }}</th></tr></thead><tbody></tbody></table>
+        @endunless
+        @if($last['after']['status'] !== 'final' && !($last['two_minute_warning'] ?? false))
+        <label class="block mt-4">Stadium volume<input data-sound-volume="stadium" type="range" min="0" max="100" step="1" class="block w-48 accent-blue-400"></label>
+        <button type="button" data-break-play class="text-blue-300 underline mt-3">Play music</button>
+        @endif
         <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">{{ $last['after']['status'] === 'final' ? 'View final result' : 'Continue' }}</button></form>
     </dialog>
     @endif

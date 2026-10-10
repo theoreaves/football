@@ -45,3 +45,18 @@ Recorded horn, trimmed to 2.8 seconds, attenuated, fades, MP3 re-encoded.
 
 These are starter stadium cues, with no spoken third-down announcement.
 No artist endorsement is implied. All assets are bundled locally.
+
+BREAK MUSIC (CC0 1.0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+drive-break.mp3: Hard Rock Loop.wav by BaDoink
+https://freesound.org/people/BaDoink/sounds/524240/
+First 16 seconds of the high-quality MP3 preview.
+quarter-break.mp3: Pop Guitar Loop Thing by Seth_Makes_Sounds
+https://freesound.org/people/Seth_Makes_Sounds/sounds/680113/
+First 22 seconds of the high-quality MP3 preview.
+halftime-break.mp3: Easy Going Music Loop by Seth_Makes_Sounds
+https://freesound.org/people/Seth_Makes_Sounds/sounds/691837/
+First 45 seconds of the high-quality MP3 preview.
+All clips attenuated, fade-in/out added, re-encoded as 160kbps MP3.
+No vocals, looping or external runtime downloads.

@@ -6,13 +6,14 @@ Players volume, and recorded pad contacts, tackle hits and grass landings. Recor
 follow the saved ball animation. The opening lineup intro includes a recorded
 national anthem, with Stadium volume, skip/fade and once-per-game playback.
 Recorded home touchdown fanfare, home defensive turnover sting and visiting
-offense third-down horn share the Stadium channel.
+offense third-down horn share the Stadium channel. Drive, quarter and halftime
+recap dialogs play recorded instrumental clips with fade-on-Continue.
 
 Next:
 - Player sounds: exertion and occasional short shouts.
 - Field contact: expand recording variations and additional contact animations.
 - Ball/special teams: expand recordings and future visible bounce animations.
-- Stadium audio: music between drives; expanded event recordings and prompts.
+- Stadium audio: expanded event recordings and prompts.
 
 Later:
 - Configurable sound packs per team/stadium, including user-uploaded clips.
