@@ -331,3 +331,83 @@ test('a generated human encroachment offers first and five rather than a new fir
     }
     throw new RuntimeException('No encroachment seed found.');
 });
+
+test('new live penalties enforce five yards and preserve declined plays for either team', function () {
+    $rules = app(PenaltyRules::class);
+    foreach (['home', 'away'] as $side) {
+        $before = clockState(['possession' => $side, 'spot' => 40, 'down' => 2, 'distance' => 8]);
+        $after = $before;
+        $after['spot'] = 60;
+        $after['down'] = 1;
+        $after['stats'][$side]['plays'] = 1;
+        $after['stats'][$side]['yards'] = 20;
+        $play = ['call' => 'inside_run', 'carrier' => 'RB', 'outcome' => 'tackle', 'gain' => 20, 'target' => 20, 'summary' => 'Gain of 20'];
+        foreach (['defensive_offside', 'illegal_formation'] as $type) {
+            $accepted = $rules->enforce($before, $after, $play, $type, true);
+            expect($accepted['play']['no_snap'])->toBeFalse()
+                ->and($accepted['play']['penalty']['yards'])->toBe(5)
+                ->and($accepted['state']['spot'])->toBe($type === 'defensive_offside' ? 45 : 35)
+                ->and($accepted['state']['down'])->toBe(2)
+                ->and($accepted['state']['distance'])->toBe($type === 'defensive_offside' ? 3 : 13)
+                ->and($accepted['state']['stats'][$side]['plays'])->toBe(0)
+                ->and($accepted['state']['stats'][$side]['yards'])->toBe(0);
+            $foulSide = $type === 'illegal_formation' ? $side : ($side === 'home' ? 'away' : 'home');
+            expect($accepted['play']['penalty']['team'])->toBe($foulSide)
+                ->and($accepted['state']['stats'][$foulSide]['penalties'])->toBe(1)
+                ->and($accepted['state']['stats'][$foulSide]['penalty_yards'])->toBe(5);
+            $declined = $rules->enforce($before, $after, $play, $type, false);
+            expect($declined['state'])->toBe($after)->and($declined['play']['outcome'])->toBe('tackle');
+        }
+        expect($rules->enforce($before, $after, $play, 'defensive_offside')['play']['penalty']['accepted'])->toBeFalse();
+        $short = array_merge($before, ['distance' => 3]);
+        expect($rules->enforce($short, $after, $play, 'defensive_offside', true)['state']['down'])->toBe(1);
+        $nearGoal = array_merge($before, ['spot' => 96, 'distance' => 4]);
+        expect($rules->enforce($nearGoal, $after, $play, 'defensive_offside', true)['play']['penalty']['yards'])->toBe(2);
+        $nearOwnGoal = array_merge($before, ['spot' => 6]);
+        expect($rules->enforce($nearOwnGoal, $after, $play, 'illegal_formation', true)['play']['penalty']['yards'])->toBe(3);
+    }
+});
+
+test('both new penalties occur naturally and use repeatable rolls', function () {
+    $rules = app(PenaltyRules::class);
+    $play = ['call' => 'inside_run', 'carrier' => 'RB', 'outcome' => 'tackle'];
+    $counts = ['defensive_offside' => 0, 'illegal_formation' => 0];
+    foreach (range(1, 1000) as $seed) {
+        $state = clockState(['seed' => $seed, 'rules' => ['penalties' => true]]);
+        $foul = $rules->live($state, $play);
+        expect($rules->live($state, $play))->toBe($foul);
+        if (isset($counts[$foul ?? ''])) {
+            $counts[$foul]++;
+        }
+    }
+    expect($counts['defensive_offside'])->toBeGreaterThan(0)->and($counts['illegal_formation'])->toBeGreaterThan(0);
+    expect($rules->live(clockState(), $play + ['dev_force_result' => 'defensive_offside']))->toBeNull();
+});
+
+test('new toolbox penalties are local-only live snaps with human decisions and elapsed clock', function () {
+    $engine = app(ExhibitionEngine::class);
+    config(['app.debug' => true]);
+    app()->detectEnvironment(fn () => 'local');
+    try {
+        foreach (['defensive_offside', 'illegal_formation'] as $type) {
+            $state = clockState(['rules' => ['penalties' => true], 'controls' => ['home' => 'human', 'away' => 'human']]);
+            $result = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man', devForceResult: $type);
+            expect($result['play']['penalty']['type'])->toBe($type)
+                ->and($result['play']['no_snap'])->toBeFalse()
+                ->and($result['play']['animation']['no_snap'] ?? false)->toBeFalse()
+                ->and($result['state']['penalty_pending'])->toBeTrue()
+                ->and($result['state']['clock'])->toBeLessThan(900)
+                ->and($result['play']['runoff_seconds'])->toBe(0)
+                ->and($result['play'])->toHaveKey('penalty_options');
+            $again = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man', devForceResult: $type);
+            expect($again)->toBe($result);
+        }
+    } finally {
+        app()->detectEnvironment(fn () => 'testing');
+    }
+    foreach (['defensive_offside', 'illegal_formation'] as $type) {
+        $state = clockState();
+        expect($engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man', devForceResult: $type))
+            ->toBe($engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man'));
+    }
+});

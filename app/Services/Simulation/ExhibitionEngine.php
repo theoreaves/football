@@ -59,7 +59,7 @@ class ExhibitionEngine
         $original = $state;
         // Developer-only one-shot snaps bypass pre-snap runoff.
         $debugSnap = app()->environment('local') && config('app.debug')
-            && in_array($devForceResult, ['touchdown', 'turnover', 'flag', 'big_play'], true);
+            && in_array($devForceResult, ['touchdown', 'turnover', 'flag', 'big_play', 'defensive_offside', 'illegal_formation'], true);
         $runoff = $debugSnap ? 0 : $clock->runoff($state, $tempo);
         if ($clock->warningDue($state, $runoff)) {
             $state['clock'] = 120;

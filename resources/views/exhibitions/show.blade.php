@@ -149,6 +149,8 @@
                 <option value="big_play">25-yard gain (big play)</option>
                 <option value="turnover">Turnover (INT on pass / fumble on run)</option>
                 <option value="flag">Flag (holding)</option>
+                <option value="defensive_offside">Flag (defensive offside)</option>
+                <option value="illegal_formation">Flag (offensive illegal formation)</option>
             </select></label>
             <label>Severity <select name="dev_force_injury" class="bg-gray-900 text-white rounded p-1">
                 <option value="none">Normal (random)</option>

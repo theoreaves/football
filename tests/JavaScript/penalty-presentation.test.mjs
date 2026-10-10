@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildRefereePaths, buildReferees, refereeFormation} from '../../resources/js/practice/referees.js';
-import {penaltyMoment, flagPosition, foulMovement, penaltyText} from '../../resources/js/practice/penalty-presentation.js';
+import {penaltyMoment, flagPosition, foulMovement, penaltyText, penaltyAlignment, illegalFormationRoles} from '../../resources/js/practice/penalty-presentation.js';
 const animation = {line: 40, direction: 1, duration: 6, catch_at: 3.4, result_at: 5.3, contact_at: 5.1,
     receiver_role: 'WR1', tackler_role: 'LB2',
     players: [{team:'offense',role:'LG',path:[[0,40,0,23],[6,42,0,23]]},
@@ -62,4 +62,31 @@ test('referee gestures animate and reset without inheriting the prior penalty', 
     refs.update({poses,active:false});
     assert.ok(arms.every(arm=>arm.rotation.x===0&&arm.rotation.z===0));
     assert.ok(arms.every(arm=>arm.children.at(-1).rotation.x===0&&arm.children.at(-1).rotation.z===0));
+});
+
+test('new live fouls throw at the snap and use the existing signal families', () => {
+    const paths = buildRefereePaths(animation);
+    for (const type of ['defensive_offside','illegal_formation']) {
+        const moment = penaltyMoment(animation,{type},paths);
+        assert.equal(moment.at,0); assert.equal(moment.dead,false);
+        assert.ok(flagPosition(moment,0));
+        assert.match(penaltyText({type,team:'home',yards:5,accepted:true},{home:'Warriors'}),/5 yards/);
+    }
+});
+
+test('illegal formation has six players on the line and offside crosses at the snap', () => {
+    for (const direction of [-1,1]) {
+        const roles = ['C','LG','RG','LT','RT','TE','WR1','WR2'];
+        const players = roles.map((role,i)=>({team:'offense',role,path:[[0,40-direction,0,5+i*5],[6,45,0,5+i*5]]}));
+        players.push({team:'defense',role:'DT1',path:[[0,40+direction,0,25],[6,45,0,25]]});
+        const play = {...animation,direction,players};
+        const paths = buildRefereePaths(play), formation = penaltyMoment(play,{type:'illegal_formation'},paths);
+        assert.equal(illegalFormationRoles(play).length,2);
+        const onLine = players.filter(p=>p.team==='offense' && penaltyAlignment(formation,p,0,direction)===0);
+        assert.equal(onLine.length,6);
+        const offside = penaltyMoment(play,{type:'defensive_offside'},paths), defender = players.at(-1);
+        const x = defender.path[0][1]+penaltyAlignment(offside,defender,0,direction);
+        assert.ok((x-40)*direction < 0);
+        assert.equal(penaltyAlignment(offside,defender,.8,direction),0);
+    }
 });

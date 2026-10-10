@@ -2,18 +2,19 @@ import * as THREE from 'three';
 import { sampleEnginePlay } from './engine-timeline.js';
 import { buildReferees, refereeFormation } from './referees.js';
 
-const labels = {false_start: 'False start', encroachment: 'Encroachment', holding: 'Holding',
+const labels = {defensive_offside: 'Defensive offside', illegal_formation: 'Illegal formation', false_start: 'False start', encroachment: 'Encroachment', holding: 'Holding',
     defensive_pass_interference: 'Defensive pass interference', face_mask: 'Face mask'};
 export function penaltyMoment(animation, penalty, paths) {
     if (!animation || !penalty || !labels[penalty.type]) return null;
     const dead = ['false_start', 'encroachment'].includes(penalty.type);
-    const at = dead ? .48 : penalty.type === 'holding' ? Math.min(1.25, animation.duration * .3)
+    const at = ['defensive_offside','illegal_formation'].includes(penalty.type) ? 0 : dead ? .48 : penalty.type === 'holding' ? Math.min(1.25, animation.duration * .3)
         : penalty.type === 'defensive_pass_interference' ? Math.max(.3, (animation.catch_at ?? 3.8) - .2)
         : animation.contact_at ?? animation.result_at ?? animation.reveal_at ?? 5.3;
     const frame = sampleEnginePlay(animation, at);
-    const team = ['false_start', 'holding'].includes(penalty.type) ? 'offense' : 'defense';
+    const team = ['false_start', 'holding', 'illegal_formation'].includes(penalty.type) ? 'offense' : 'defense';
     const role = penalty.type === 'false_start' ? 'LG' : penalty.type === 'encroachment' ? 'DT1'
-        : penalty.type === 'holding' ? 'LT' : penalty.type === 'face_mask' ? animation.tackler_role : null;
+        : penalty.type === 'holding' ? 'LT' : penalty.type === 'defensive_offside' ? 'DT1'
+        : penalty.type === 'illegal_formation' ? 'TE' : penalty.type === 'face_mask' ? animation.tackler_role : null;
     const receiver = frame.players.find(p => p.team === 'offense' && p.role === animation.receiver_role);
     const target = receiver ?? frame.ball;
     const culprit = frame.players.find(p => p.team === team && p.role === role)
@@ -24,7 +25,8 @@ export function penaltyMoment(animation, penalty, paths) {
         .sort((a,b) => a.distance-b.distance || a.index-b.index)[0].index;
     const source = poses[official];
     return {at, dead, team, role: culprit?.role, official, point: {x: point.x, z: point.z},
-        origin: {x: source.x, y: 1.55, z: source.z}, type: penalty.type};
+        origin: {x: source.x, y: 1.55, z: source.z}, type: penalty.type,
+        alignmentRoles: illegalFormationRoles(animation)};
 }
 
 export function flagPosition(moment, time) {
@@ -48,7 +50,7 @@ export function foulMovement(moment, time, direction) {
 export function penaltyText(penalty, names, pending = false) {
     const team = names[penalty.team] ?? penalty.team;
     const ruling = pending ? 'Awaiting accept / decline decision' : penalty.accepted
-        ? `${penalty.yards} yards · ${['holding','false_start'].includes(penalty.type) ? 'Repeat down' : penalty.type === 'encroachment' ? 'Enforced' : 'Automatic first down'}`
+        ? `${penalty.yards} yards · ${['holding','false_start','illegal_formation'].includes(penalty.type) ? 'Repeat down' : ['encroachment','defensive_offside'].includes(penalty.type) ? 'Enforced'  : 'Automatic first down'}`
         : 'Declined · ' + (['false_start','encroachment'].includes(penalty.type) ? 'No snap; down unchanged' : 'Play stands');
     return `${labels[penalty.type] ?? 'Penalty'} — ${team}. ${ruling}.`;
 }
@@ -102,4 +104,22 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
         renderer?.dispose(); renderer?.forceContextLoss();
     };
     return {update,dispose};
+}
+
+export function illegalFormationRoles(animation) {
+    const frame = sampleEnginePlay(animation,0), center = frame.players.find(p=>p.team==='offense' && p.role==='C');
+    if (!center) return [];
+    const onLine = frame.players.filter(p=>p.team==='offense' && Math.abs(p.x-center.x)<.3);
+    const eligible = onLine.filter(p=>!['C','LG','RG','LT','RT'].includes(p.role))
+        .sort((a,b)=>(a.role==='TE'?-1:b.role==='TE'?1:a.role.localeCompare(b.role)));
+    return eligible.slice(0,Math.max(1,onLine.length-6)).map(p=>p.role);
+}
+
+export function penaltyAlignment(moment, player, elapsed, direction) {
+    if (!moment) return 0;
+    const t = Math.max(0,Math.min(1,elapsed/.8)), blend = 1-t*t*(3-2*t);
+    if (blend === 0) return 0;
+    if (moment.type==='defensive_offside' && player.team==='defense' && player.role===moment.role) return -direction*1.65*blend;
+    if (moment.type==='illegal_formation' && player.team==='offense' && moment.alignmentRoles.includes(player.role)) return -direction*2.2*blend;
+    return 0;
 }

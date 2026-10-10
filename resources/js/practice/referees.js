@@ -170,10 +170,10 @@ export function applyPenaltySignal(ref, type, time) {
     const blend = signalProgress(time), arms = ref.arms, elbows = ref.elbows;
     arms.forEach(arm => arm.rotation.set(0,0,0));
     elbows.forEach(elbow => elbow.rotation.set(0,0,0));
-    if (type === 'false_start') {
+    if (['false_start','illegal_formation'].includes(type)) {
         arms.forEach((arm,i) => { arm.rotation.x = -1.05 * blend; arm.rotation.z = (i === 0 ? -.45 : .45) * blend; });
         elbows.forEach((elbow,i) => { elbow.rotation.x = -1.3 * blend; elbow.rotation.z = Math.sin(time*7+i*Math.PI) * .65 * blend; });
-    } else if (type === 'encroachment') {
+    } else if (['encroachment','defensive_offside'].includes(type)) {
         arms[0].rotation.z = -.48*blend; arms[1].rotation.z = .48*blend;
         elbows[0].rotation.z = 1.5*blend; elbows[1].rotation.z = -1.5*blend;
     } else if (type === 'holding') {

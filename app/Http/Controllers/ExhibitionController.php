@@ -190,7 +190,7 @@ class ExhibitionController extends Controller
         // Force injuries are available only to local developers, never on deployed servers.
         $forceInjuryAllowed = app()->environment('local') && (bool) config('app.debug');
         if ($forceInjuryAllowed && $action === 'play') {
-            $rules['dev_force_result'] = ['sometimes', Rule::in(['none', 'touchdown', 'turnover', 'flag', 'big_play'])];
+            $rules['dev_force_result'] = ['sometimes', Rule::in(['none', 'touchdown', 'turnover', 'flag', 'big_play', 'defensive_offside', 'illegal_formation'])];
             $rules['dev_force_injury'] = ['sometimes', Rule::in(['none', 'minor', 'moderate', 'serious'])];
             $rules['dev_injury_role'] = ['sometimes', Rule::in(['carrier', 'QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'C', 'LB1', 'CB1'])];
         }
