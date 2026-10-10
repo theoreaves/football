@@ -235,7 +235,13 @@ export function mountPractice(root, onReady = () => {}) {
     const medicalCrew = new THREE.Group();
     medicalCrew.visible = false;
     scene.add(medicalCrew);
-    const trainerMaterial = new THREE.MeshStandardMaterial({ color: 0xe9e9e7, roughness: .9 });
+    // Medical staff wear their team's HOME shirt color, even on the road.
+    // The server supplies this from uniform_home_shirt, independent of the
+    // current game's home/away uniform assignment.
+    const injuredTeamHomeColor = seriousInjury
+        ? (appearance?.[seriousInjury.side]?.medical_home_shirt || '#e9e9e7')
+        : '#e9e9e7';
+    const trainerMaterial = new THREE.MeshStandardMaterial({ color: injuredTeamHomeColor, roughness: .9 });
     const trainerPants = new THREE.MeshStandardMaterial({ color: 0x263649, roughness: .9 });
     const trainerSkin = new THREE.MeshStandardMaterial({ color: 0xb98863, roughness: .95 });
     const makeTrainer = () => {
@@ -337,10 +343,27 @@ export function mountPractice(root, onReady = () => {}) {
             mesh.rotation.x = 0; // Clear any previous pre-snap lean before each render.
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
-            if (phase === 'medical' && seriousInjury && player.team === seriousInjury.team && player.role === seriousInjury.role) {
-                // Stay down at the final play position until trainers arrive.
-                mesh.rotation.z = 1.30;
-                mesh.position.y = .17;
+            if (phase === 'medical' && seriousInjury) {
+                if (player.team === seriousInjury.team && player.role === seriousInjury.role) {
+                    // Injured player remains at the dead-ball position.
+                    mesh.rotation.z = 1.30;
+                    mesh.position.y = .17;
+                } else {
+                    // Clear the treatment area. Each team gathers loosely on
+                    // its own side of the injured player, leaving a central
+                    // corridor for medical staff. Purely visual: tracks stay intact.
+                    const clearProgress = Math.max(0, Math.min(1, postElapsed / 2.4));
+                    const clearEase = clearProgress * clearProgress * (3 - 2 * clearProgress);
+                    const teammateSide = player.team === seriousInjury.team ? -1 : 1;
+                    const lane = (i % 5) - 2;
+                    const rank = Math.floor(i / 5) % 3;
+                    const destinationX = frame.ball.x + teammateSide * (8 + rank * 1.4);
+                    const destinationZ = Math.max(3, Math.min(50.3, 26.7 + lane * 2.3 + teammateSide * 5));
+                    mesh.position.x += (destinationX - mesh.position.x) * clearEase;
+                    mesh.position.z += (destinationZ - mesh.position.z) * clearEase;
+                    mesh.position.y = 0;
+                    mesh.rotation.y = Math.atan2(frame.ball.x - mesh.position.x, frame.ball.z - mesh.position.z);
+                }
             }
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
