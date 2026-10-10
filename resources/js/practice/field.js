@@ -335,7 +335,8 @@ export function mountPractice(root, onReady = () => {}) {
             && phase === 'play' && elapsed >= .6 && elapsed < (animation.throw_at ?? 2.2)) {
             const quarterbackIndex = frame.players.findIndex(player => player.team === 'offense' && player.role === 'QB');
             const quarterback = players[quarterbackIndex];
-            const throwingHand = quarterback?.userData.elbows?.[1];
+            const handIndex = quarterback?.userData.throwingHand === 'left' ? 0 : 1;
+            const throwingHand = quarterback?.userData.elbows?.[handIndex];
             if (throwingHand) {
                 quarterback.updateMatrixWorld(true);
                 const handPosition = throwingHand.localToWorld(new THREE.Vector3(0, -.35, .04));

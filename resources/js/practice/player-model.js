@@ -120,6 +120,8 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     arms.forEach((arm, i) => { arm.position.x = (i === 0 ? -1 : 1) * .57 * Math.pow(bulk, .6); arm.scale.set(Math.pow(bulk,.35),1,Math.pow(bulk,.35)); });
     legs.forEach(leg => { leg.scale.x = Math.pow(bulk,.4); leg.scale.z = Math.pow(bulk,.4); });
     group.userData.legs = legs; group.userData.arms = arms; group.userData.elbows = elbows;
+    // Saved in appearance JSON; existing quarterbacks default to right-handed.
+    group.userData.throwingHand = player.appearance?.throwing_hand === 'left' ? 'left' : 'right';
     return group;
 }
 
@@ -172,17 +174,30 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
         const elbow = group.userData.elbows?.[1];
         if (elbow) elbow.rotation.x = -1.0;
     }
-    if (throwing !== null && throwing >= 1.4 && throwing <= 2.9) {
-        const arm = group.userData.arms?.[1];
+    if (throwing !== null && throwing >= .6 && throwing <= 2.9) {
+        const hand = group.userData.throwingHand === 'left' ? 0 : 1;
+        const support = 1 - hand;
+        const arm = group.userData.arms?.[hand];
+        const other = group.userData.arms?.[support];
+        const elbow = group.userData.elbows?.[hand];
+        const otherElbow = group.userData.elbows?.[support];
+        const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
+        // Both hands support the ball at chest height until the throwing windup.
+        const cock = smooth((throwing - 1.45) / .50);
+        const release = smooth((throwing - 2.02) / .18);
+        const recover = smooth((throwing - 2.25) / .65);
+        const handed = hand === 0 ? -1 : 1;
         if (arm) {
-            const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
-            const cock = smooth((throwing - 1.4) / .55);
-            const release = smooth((throwing - 2.1) / .1);
-            const recover = smooth((throwing - 2.3) / .6);
-            arm.rotation.x = (-1.5 * cock - .8 * release) * (1 - recover);
-            arm.rotation.z = -.45 * cock * (1 - recover);
-            group.userData.elbows[1].rotation.x = -1.5 * cock * (1 - release) * (1 - recover);
-            if (group.userData.arms[0]) group.userData.arms[0].rotation.x = -.6 * cock * (1 - recover);
+            arm.rotation.x = -1.10 + .40 * cock - 1.45 * release * (1 - recover);
+            // Raise the elbow above the shoulder for an overhand throw.
+            arm.rotation.z = handed * (-.20 - .45 * cock + .25 * release);
         }
+        if (elbow) elbow.rotation.x = -.95 + .55 * cock - .45 * release;
+        if (other) {
+            const supportRelease = smooth((throwing - 1.45) / .40);
+            other.rotation.x = -1.05 + .85 * supportRelease;
+            other.rotation.z = -handed * .30;
+        }
+        if (otherElbow) otherElbow.rotation.x = -.9 * (1 - cock);
     }
 }
