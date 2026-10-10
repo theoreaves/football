@@ -1,0 +1,21 @@
+WebSports Football - opening national anthem v1
+
+The Star-Spangled Banner, instrumental performance by the United States Navy Band.
+Recording from the 1990s album Music For Honors and Ceremonies.
+Composer: John Stafford Smith. No sung lyrics are present.
+
+Source and recording/composition public-domain notices:
+https://commons.wikimedia.org/wiki/File:%22The_Star-Spangled_Banner%22_performed_by_the_United_States_Navy_Band.mp3
+Original recording:
+https://upload.wikimedia.org/wikipedia/commons/2/25/%22The_Star-Spangled_Banner%22_performed_by_the_United_States_Navy_Band.mp3
+Archived original Navy source listed on that page:
+https://web.archive.org/web/20041019005037/http://www.navyband.navy.mil/anthems/ANTHEMS/United%20States.mp3
+
+The Navy performance is identified as a U.S. federal government work in the
+public domain in the United States. The composition is also public domain.
+Public Domain Mark: https://creativecommons.org/publicdomain/mark/1.0/
+
+Edits: stereo 44.1 kHz MP3 at 160 kbps; gain reduced to 80% and 0.4s entry fade.
+Full performance retained, approximately 78 seconds. Playback does not loop.
+The game fades it on Skip intro/Continue and pauses on mute or hidden tabs.
+This file is bundled locally; no runtime requests to Wikimedia or Navy sites.

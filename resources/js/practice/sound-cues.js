@@ -46,7 +46,7 @@ export function crossedCues(cues, previous, current) {
 export function soundSettings(value = {}) {
     if (!value || typeof value !== 'object') value = {};
     const volume = (key, fallback) => Number.isFinite(Number(value[key])) ? Math.max(0,Math.min(1,Number(value[key]))) : fallback;
-    return { enabled: value.enabled !== false, master: volume('master',.6), crowd: volume('crowd',.35), effects: volume('effects',.7), players: volume('players',.75) };
+    return { enabled: value.enabled !== false, master: volume('master',.6), crowd: volume('crowd',.35), effects: volume('effects',.7), players: volume('players',.75), stadium: volume('stadium',.5) };
 }
 
 // The set phase runs in real seconds, independently of replay speed.

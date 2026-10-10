@@ -306,3 +306,6 @@
 [data-player-panel="statistics"] .season-notice { color: #334155; }
 
 [data-player-panel="statistics"] .season-table th { color: #1e40af; }
+
+/* The anthem panel is nested inside the pregame dialog. */
+[data-anthem-panel][hidden] { display: none !important; }

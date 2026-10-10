@@ -1,3 +1,4 @@
+import {recordedStadiumMusic} from './recorded-stadium-music.js';
 import {soundSettings} from './sound-cues.js';
 import {recordedCrowd} from './recorded-crowd.js';
 import {recordedPlayerVoices} from './recorded-player-voices.js';
@@ -9,15 +10,17 @@ import {recordedFieldEffects} from './recorded-field-effects.js';
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
-    let settings = soundSettings(saved), context, master, crowd, effects, players, recordings, fieldRecordings, playerRecordings, contactRecordings, ballRecordings, active = false, ambienceActive = false, disposed = false;
+    let settings = soundSettings(saved), context, master, crowd, effects, players, stadium, recordings, fieldRecordings, playerRecordings, contactRecordings, ballRecordings, active = false, ambienceActive = false, disposed = false;
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
-    const control = root.querySelector('[data-sound-toggle]');
-    const label = () => { if (control) { control.textContent = !supported ? 'Sound unavailable' : settings.enabled ? 'Sound on' : 'Sound muted'; control.setAttribute('aria-pressed',String(settings.enabled)); control.disabled = !supported; } };
+    const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
+    const music = recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/anthem.mp3`);
+    const label = () => { for (const control of controls) { control.textContent = !supported ? 'Sound unavailable' : settings.enabled ? 'Sound on' : 'Sound muted'; control.setAttribute('aria-pressed',String(settings.enabled)); control.disabled = !supported; } };
     const levels = () => {
+        music.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
         if (!context) return;
         master.gain.setTargetAtTime(settings.enabled && (active || ambienceActive) ? settings.master : 0,context.currentTime,.04);
-        crowd.gain.value = settings.crowd; effects.gain.value = settings.effects; players.gain.value = settings.players;
+        crowd.gain.value = settings.crowd; effects.gain.value = settings.effects; players.gain.value = settings.players; stadium.gain.value = settings.stadium;
         recordings?.setActive(settings.enabled && (active || ambienceActive));
         fieldRecordings?.setActive(settings.enabled && active);
         contactRecordings?.setActive(settings.enabled && active && settings.effects > 0);
@@ -43,15 +46,15 @@ export function stadiumAudio(root, environment = window) {
         const source = context.createOscillator(), gain = context.createGain(), start = context.currentTime + delay;
         source.type = type; source.frequency.value = frequency;
         gain.gain.setValueAtTime(.001,start); gain.gain.linearRampToValueAtTime(intensity,start+.015); gain.gain.exponentialRampToValueAtTime(.001,start+seconds);
-        source.connect(gain); gain.connect(effects); track(source,gain); source.start(start); source.stop(start+seconds);
+        source.connect(gain); gain.connect(stadium); track(source,gain); source.start(start); source.stop(start+seconds);
     };
     const prepare = () => {
         if (!supported || disposed || !settings.enabled) return;
         try {
             if (!context) {
                 context = new (environment.AudioContext || environment.webkitAudioContext)();
-                master = context.createGain(); master.gain.value = 0; crowd = context.createGain(); effects = context.createGain(); players = context.createGain();
-                crowd.connect(master); effects.connect(master); players.connect(master); master.connect(context.destination);
+                master = context.createGain(); master.gain.value = 0; crowd = context.createGain(); effects = context.createGain(); players = context.createGain(); stadium = context.createGain();
+                crowd.connect(master); effects.connect(master); players.connect(master); stadium.connect(master); master.connect(context.destination);
                 recordings = recordedCrowd(context,crowd,environment,root.dataset?.crowdAudioBase);
                 recordings.load();
                 fieldRecordings = recordedFieldEffects(context,effects,environment,root.dataset?.refereeAudioBase);
@@ -90,18 +93,20 @@ export function stadiumAudio(root, environment = window) {
             case 'final': tone(750,.4,0,.12); tone(750,.4,.5,.12); tone(750,.7,1,.12); break;
         }
     };
-    const save = () => { try { environment.localStorage.setItem(key,JSON.stringify(settings)); } catch { /* Optional persistence. */ } levels(); label(); };
-    control?.addEventListener('click', () => { settings.enabled = !settings.enabled; save(); if (settings.enabled) prepare(); });
+    const save = () => { try { environment.localStorage.setItem(key,JSON.stringify(settings)); } catch { /* Optional persistence. */ } levels(); label(); root.querySelectorAll('[data-sound-volume]').forEach(input => { input.value = Math.round(settings[input.dataset.soundVolume] * 100); }); };
+    controls.forEach(control => control.addEventListener('click', () => { settings.enabled = !settings.enabled; save(); if (settings.enabled) prepare(); }));
     root.querySelectorAll('[data-sound-volume]').forEach(input => {
         input.value = Math.round(settings[input.dataset.soundVolume] * 100);
         input.addEventListener('input', () => { settings[input.dataset.soundVolume] = Number(input.value)/100; save(); prepare(); });
     });
-    const unlock = () => prepare(); root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
+    const unlock = () => { prepare(); music.unlock(); }; root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
     return {
         play, prepare,
+        startAnthem(callbacks) { levels(); music.request(callbacks); },
+        finishAnthem(seconds) { return music.finish(seconds); },
         stopPlayerVoices() { playerRecordings?.stop(); },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose() { disposed = true; music.dispose(); root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
     };
 }

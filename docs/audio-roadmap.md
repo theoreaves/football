@@ -3,7 +3,8 @@
 Current: recorded crowd ambience and reactions, continuous ambience during
 next-play setup, recorded referee whistle variations, QB cadence with a separate
 Players volume, and recorded pad contacts, tackle hits and grass landings. Recorded kicks, catches and ball ground impacts
-follow the saved ball animation.
+follow the saved ball animation. The opening lineup intro includes a recorded
+national anthem, with Stadium volume, skip/fade and once-per-game playback.
 
 Next:
 - Player sounds: exertion and occasional short shouts.

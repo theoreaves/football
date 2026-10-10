@@ -1,3 +1,4 @@
+import {mountPregameAnthem} from './pregame-anthem.js';
 import { showSimProgress } from '../sim-progress.js';
 import { gameNavigation } from './game-navigation.js';
 import { turnoverMoment, crossedTurnover } from './live-announcement.js';
@@ -1275,6 +1276,7 @@ export function mountPractice(root, onReady = () => {}) {
     let showPregame = Boolean(pregameDialog && root.dataset.playNumber === '0');
     try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
     let openingPregame = showPregame;
+    const anthemIntro = mountPregameAnthem(root,pregameDialog,audio,showPregame);
     if (showPregame) pregameDialog.showModal();
     else coinDialog?.showModal();
     const pregameCloseButtons = pregameDialog?.querySelectorAll('[data-pregame-close]');
@@ -1286,8 +1288,16 @@ export function mountPractice(root, onReady = () => {}) {
         });
         pregameDialog.showModal();
     });
-    pregameCloseButtons?.forEach(button => button.addEventListener('click', () => pregameDialog.close()));
+    const closePregame = async () => {
+        pregameCloseButtons?.forEach(button => { button.disabled = true; });
+        await anthemIntro.finish();
+        pregameDialog.close();
+        pregameCloseButtons?.forEach(button => { button.disabled = false; });
+    };
+    pregameCloseButtons?.forEach(button => button.addEventListener('click', closePregame));
+    pregameDialog?.addEventListener('cancel', event => { event.preventDefault(); closePregame(); });
     pregameDialog?.addEventListener('close', () => {
+        anthemIntro.closed();
         if (!openingPregame) return;
         openingPregame = false;
         try { sessionStorage.setItem(pregameKey, 'yes'); } catch { /* Storage optional */ }
