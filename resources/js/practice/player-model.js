@@ -122,6 +122,32 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     group.userData.legs = legs; group.userData.arms = arms; group.userData.elbows = elbows;
     // Saved in appearance JSON; existing quarterbacks default to right-handed.
     group.userData.throwingHand = player.appearance?.throwing_hand === 'left' ? 'left' : 'right';
+    // Articulated waist: preserve every part's rest position while moving it
+    // under a common pivot. Arms remain attached to the upper body, so the QB
+    // hand-target solver and football attachment retain the same coordinates.
+    const waist = new THREE.Group();
+    waist.position.y = .83;
+    for (const part of [...group.children]) {
+        if (part === hips || legs.includes(part)) continue;
+        part.position.y -= .83;
+        waist.add(part);
+    }
+    group.add(waist);
+    group.userData.waist = waist;
+    // Articulated knee/shin joint; upper-leg pieces stay at hip level.
+    const knees = legs.map(leg => {
+        const knee = new THREE.Group();
+        knee.position.y = -.40;
+        for (const part of [...leg.children]) {
+            if (part.position.y >= -.45) continue;
+            part.position.y += .40;
+            knee.add(part);
+        }
+        leg.add(knee);
+        return knee;
+    });
+    group.userData.knees = knees;
+
     return group;
 }
 
@@ -248,5 +274,31 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
             other.rotation.set(-1.13 + .90 * clear, -handed * .16 * (1 - clear), -handed * (.28 - .14 * clear));
         }
         if (otherElbow) otherElbow.rotation.set(-1.03 * (1 - clear) - .15 * clear, 0, 0);
+    }
+}
+
+// Pre-snap stance uses the waist and knee joints instead of tipping the whole
+// model sideways. This is purely visual and does not touch play physics.
+export function applyPreSnapStance(group, stance) {
+    const waist = group.userData.waist;
+    const knees = group.userData.knees;
+    if (!waist || !knees) return;
+    if (!stance) { waist.rotation.x = 0; knees.forEach(k => { k.rotation.x = 0; }); return; }
+    const isCenter = stance === 'center';
+    const isThree = isCenter || stance === 'three';
+    const isDefFront = stance === 'def-front';
+    const lean = isCenter ? .52 : isThree ? .34 : isDefFront ? .41 : .16;
+    waist.rotation.x = lean;
+    knees.forEach((knee, i) => { knee.rotation.x = isThree ? -.48 : isDefFront ? -.38 : -.18; });
+    // Bend at the hips to lower the shoulder line while preserving foot height.
+    group.userData.legs?.forEach((leg, i) => { leg.rotation.x = isThree ? .24 : isDefFront ? .20 : .08; });
+    if (isCenter) {
+        group.userData.arms?.forEach(arm => { arm.rotation.x = -.72; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.54; });
+    } else if (isThree || isDefFront) {
+        const hand = group.userData.arms?.[0];
+        const elbow = group.userData.elbows?.[0];
+        if (hand) hand.rotation.x = -.38;
+        if (elbow) elbow.rotation.x = -.53;
     }
 }

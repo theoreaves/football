@@ -15,7 +15,7 @@ import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor } from './camera-state.js';
 import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
-import { buildFootballPlayer, animateFootballPlayer } from './player-model.js';
+import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 
@@ -409,39 +409,39 @@ export function mountPractice(root, onReady = () => {}) {
 
             if (presnap && (isDefFront || (player.team === 'offense' && isOneOf('C','LG','RG','LT','RT')))) {
                 // Lower center of mass and flex both hips for a set football stance.
-                mesh.position.y -= .16;
-                mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = j === 0 ? -.48 : .40; });
+                mesh.position.y -= .10;
+
             }
             if (presnap) {
                 if (player.team === 'offense') {
                     if (isOneOf('C')) {
-                        mesh.rotation.x = -.08;
+
                         lowerArms(-1.00, -1.00, -.88);
                         mesh.position.y -= .03;
                     } else if (isOneOf('LG', 'RG', 'LT', 'RT')) {
-                        mesh.rotation.x = -.06;
+
                         lowerArms(-.72, -.24, -.70);
                         mesh.position.y -= .02;
                     } else if (isOneOf('TE', 'TE1', 'TE2')) {
-                        mesh.rotation.x = -.04;
+
                         lowerArms(-.52, -.20, -.62);
                     } else if (isOneOf('QB')) {
-                        mesh.rotation.x = -.10;
+
                         lowerArms(-.35, -.35, -.40);
                     } else if (isOneOf('RB', 'RB1', 'RB2', 'FB')) {
-                        mesh.rotation.x = -.10;
+
                         lowerArms(-.20, -.55, -.48);
                     }
                 } else if (player.team === 'defense') {
                     if (isDefFront) {
-                        mesh.rotation.x = -.07;
+
                         lowerArms(-.78, -.34, -.72);
                         mesh.position.y -= .02;
                     } else if (isLinebacker) {
-                        mesh.rotation.x = -.04;
+
                         lowerArms(-.28, -.28, -.42);
                     } else if (isSecondary) {
-                        mesh.rotation.x = -.05;
+
                         lowerArms(-.12, -.12, -.25);
                     }
                 }
@@ -456,7 +456,6 @@ export function mountPractice(root, onReady = () => {}) {
                 if (player.team === 'offense' && player.role === 'C'
                     && (phase === 'set' || (phase === 'liningup' && lineupProgress >= .85)
                         || (phase === 'play' && elapsed < .38))) {
-                    mesh.rotation.x = -.09;
                     mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.90; });
                     mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.75; });
                 }
@@ -471,6 +470,16 @@ export function mountPractice(root, onReady = () => {}) {
                     mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.95; });
                 }
             }
+            // Drive the dedicated joints after all legacy arm/snap poses, so
+            // no older pose assignment can silently cancel the stance.
+            const lineStance = presnap
+                ? (player.team === 'offense'
+                    ? role === 'C' ? 'center'
+                        : ['LG', 'RG', 'LT', 'RT'].includes(role) ? 'three'
+                            : ['TE', 'TE1', 'TE2'].includes(role) ? 'ready' : null
+                    : isDefFront ? 'def-front' : isLinebacker ? 'ready' : null)
+                : null;
+            applyPreSnapStance(mesh, lineStance);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
         // During a real throw, keep the football in the QB's right hand until
