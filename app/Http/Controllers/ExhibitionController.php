@@ -190,6 +190,7 @@ class ExhibitionController extends Controller
         // Force injuries are available only to local developers, never on deployed servers.
         $forceInjuryAllowed = app()->environment('local') && (bool) config('app.debug');
         if ($forceInjuryAllowed && $action === 'play') {
+            $rules['dev_force_result'] = ['sometimes', Rule::in(['none', 'touchdown', 'turnover', 'flag'])];
             $rules['dev_force_injury'] = ['sometimes', Rule::in(['none', 'minor', 'moderate', 'serious'])];
             $rules['dev_injury_role'] = ['sometimes', Rule::in(['carrier', 'QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'C', 'LB1', 'CB1'])];
         }
@@ -298,7 +299,7 @@ class ExhibitionController extends Controller
                     $defense = ['call' => $human['defense'], 'formation' => $human['defense_formation'] ?? 'base_4_3'];
                 }
                 $management = $controls[$side] === 'cpu' ? $coach->management($game->state) : ['tempo' => $data['tempo'] ?? 'normal', 'clock_strategy' => $data['clock_strategy'] ?? 'normal'];
-                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'));
+                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'), $forceInjuryAllowed ? ($data['dev_force_result'] ?? 'none') : 'none');
             }
             // Presentation and persistence use the same injury state as natural injuries.
             // This happens after the engine resolves the play, without altering its outcome.

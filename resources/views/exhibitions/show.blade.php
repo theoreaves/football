@@ -142,7 +142,13 @@
         @endunless
         @if(app()->environment('local') && config('app.debug'))
         <fieldset class="border border-amber-500 rounded p-2 flex flex-wrap gap-2 items-center text-sm">
-            <legend class="text-amber-300">Developer · Next play injury</legend>
+            <legend class="text-amber-300">Developer · Next play injury / result</legend>
+            <label>Force result <select name="dev_force_result" class="bg-gray-900 text-white rounded p-1">
+                <option value="none">Normal</option>
+                <option value="touchdown">Touchdown</option>
+                <option value="turnover">Turnover (INT on pass / fumble on run)</option>
+                <option value="flag">Flag (holding)</option>
+            </select></label>
             <label>Severity <select name="dev_force_injury" class="bg-gray-900 text-white rounded p-1">
                 <option value="none">Normal (random)</option>
                 <option value="minor">Minor · 5 snaps</option>

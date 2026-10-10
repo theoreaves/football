@@ -23,6 +23,8 @@ class PenaltyRules
         if (! ($before['rules']['penalties'] ?? false) || isset($play['penalty']) || ($play['no_snap'] ?? false) || in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'spike', 'kneel'], true)) {
             return null;
         }
+        if (($play['dev_force_flag'] ?? false) === true) return 'holding';
+        if (in_array($play['dev_force_result'] ?? 'none', ['touchdown', 'turnover'], true)) return null;
         $roll = $this->roll($before, 'live');
         if ($roll < 6) {
             return 'holding';

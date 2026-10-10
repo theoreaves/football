@@ -23,7 +23,7 @@ class ExhibitionEngine
             'stats' => ['home' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0], 'away' => ['plays' => 0, 'yards' => 0, 'turnovers' => 0]]];
     }
 
-    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation = 'shotgun', string $defenseFormation = 'base_4_3', string $tempo = 'normal', string $clockStrategy = 'normal', string $expect = 'balanced', bool $blitz = false, string $motion = 'none'): array
+    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation = 'shotgun', string $defenseFormation = 'base_4_3', string $tempo = 'normal', string $clockStrategy = 'normal', string $expect = 'balanced', bool $blitz = false, string $motion = 'none', string $devForceResult = 'none'): array
     {
         if ($state['status'] !== 'playing' || ! in_array($call, self::OFFENSE, true) || ! in_array($defense, self::DEFENSE, true) || ! array_key_exists($offenseFormation, self::OFFENSE_FORMATIONS) || ! array_key_exists($defenseFormation, self::DEFENSE_FORMATIONS)) {
             throw new LogicException('This game cannot accept that play.');
@@ -57,7 +57,10 @@ class ExhibitionEngine
         $clock = app(GameClock::class);
         $state = $clock->normalize($state);
         $original = $state;
-        $runoff = $clock->runoff($state, $tempo);
+        // Developer-only one-shot snaps bypass pre-snap runoff.
+        $debugSnap = app()->environment('local') && config('app.debug')
+            && in_array($devForceResult, ['touchdown', 'turnover', 'flag'], true);
+        $runoff = $debugSnap ? 0 : $clock->runoff($state, $tempo);
         if ($clock->warningDue($state, $runoff)) {
             $state['clock'] = 120;
 
@@ -73,7 +76,7 @@ class ExhibitionEngine
         // through a different type of stoppage on the next play.
         unset($state['clock_restart_on_ready']);
         $state['_clock_context'] = ['before' => $original, 'runoff' => $runoff, 'tempo' => $tempo, 'strategy' => $clockStrategy];
-        $prePenalty = app(PenaltyRules::class)->preSnap($state);
+        $prePenalty = $debugSnap ? null : app(PenaltyRules::class)->preSnap($state);
         if ($prePenalty) {
             $result = app(PenaltyRules::class)->enforce($state, $state, $this->stoppage('No snap', 'penalty'), $prePenalty);
 
@@ -214,6 +217,26 @@ class ExhibitionEngine
                 }
             }
         }
+        // Force the football result before scoring, possession, statistics and replay.
+        if ($debugSnap && $devForceResult === 'touchdown') {
+            $gain = 100 - $before['spot'];
+            $outcome = 'tackle';
+            $flip = false;
+            $scramble = false;
+            $throwaway = false;
+            $carrier = $targetRole ?? 'RB';
+            $outOfBounds = false;
+            $forcedOut = false;
+        } elseif ($debugSnap && $devForceResult === 'turnover') {
+            $outcome = $targetRole !== null ? 'interception' : 'fumble';
+            $flip = true;
+            $scramble = false;
+            $throwaway = false;
+            $carrier = $targetRole ?? 'RB';
+            $gain = $targetRole !== null ? max(1, $target) : max(0, min(6, $gain));
+            $outOfBounds = false;
+            $forcedOut = false;
+        }
         $gain = max(-$before['spot'], min(100 - $before['spot'], $gain));
         if (! $outOfBounds && in_array($outcome, ['tackle', 'sack'], true) && $gain < 100 - $before['spot']
             && $roll() < max(.004, .045 - $off[$carrier]['ratings']['ball_security'] * .0004)) {
@@ -290,7 +313,7 @@ class ExhibitionEngine
             'design' => $design, 'pressure' => $pressure, 'scramble' => $scramble, 'throwaway' => $throwaway, 'expect' => $expect, 'blitz' => $blitz, 'motion' => $motion,
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
             'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'forced_out' => $forcedOut && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier,
-            'receiver_role' => $targetRole, 'receiver_id' => $targetRole !== null ? ($off[$targetRole]['id'] ?? null) : null, 'summary' => $summary,
+            'receiver_role' => $targetRole, 'receiver_id' => $targetRole !== null ? ($off[$targetRole]['id'] ?? null) : null, 'summary' => $summary, 'dev_force_result' => $debugSnap ? $devForceResult : 'none', 'dev_force_flag' => $debugSnap && $devForceResult === 'flag',
         ], $rosters, $seconds);
     }
 
