@@ -49,15 +49,17 @@ export function buildReferees(scene) {
         head.position.set(0, 1.84, 0); body.add(head);
         box(body, [.45, .1, .38], cap, [0, 2.02, .025]);
         box(body, [.32, .035, .18], cap, [0, 1.99, .24]);
+        const elbows = [];
         const arms = [-1, 1].map(sign => {
             const arm = new THREE.Group(); arm.position.set(sign * .34, 1.52, 0); body.add(arm);
             box(arm, [.19, .28, .23], white, [0, -.14, 0]);
             box(arm, [.08, .28, .012], black, [0, -.14, .12]);
-            box(arm, [.15, .32, .17], skin, [0, -.43, 0]);
-            box(arm, [.17, .14, .19], skin, [0, -.64, 0]);
+            const elbow = new THREE.Group(); elbow.position.y = -.28; arm.add(elbow); elbows.push(elbow);
+            box(elbow, [.15, .32, .17], skin, [0, -.15, 0]);
+            box(elbow, [.17, .14, .19], skin, [0, -.36, 0]);
             return arm;
         });
-        return {body, arms, legs};
+        return {body, arms, legs, elbows};
     };
     const roles = ['R', 'U', 'DJ', 'LJ', 'FJ', 'SJ', 'BJ'];
     const crew = roles.map((role, index) => {
@@ -65,7 +67,7 @@ export function buildReferees(scene) {
         ref.body.name = role;
         return ref;
     });
-    const update = ({poses, signal = null, time = 0, active = false, visible = true, direction = 1}) => {
+    const update = ({poses, signal = null, time = 0, active = false, visible = true, direction = 1, penalty = null, penaltyTime = 0, flagThrow = null}) => {
         group.visible = visible;
         crew.forEach((ref, index) => {
             const pose = poses[index];
@@ -80,6 +82,7 @@ export function buildReferees(scene) {
             const stride = Math.sin(pose.travel * 3.8) * Math.min(1, Math.abs(pose.velocity) / 3);
             ref.body.position.y = moving ? Math.abs(Math.sin(pose.travel * 3.8)) * .035 : 0;
             ref.legs.forEach((leg, i) => leg.rotation.x = (i === 0 ? 1 : -1) * stride * .48);
+            ref.elbows.forEach(elbow => elbow.rotation.set(0,0,0));
             ref.arms.forEach((arm, i) => {
                 arm.rotation.set((i === 0 ? -1 : 1) * stride * .35, 0, 0);
                 if (canSignal) {
@@ -88,6 +91,14 @@ export function buildReferees(scene) {
                     if (signal === 'first_down' && i === (direction > 0 ? 1 : 0)) arm.rotation.z = direction * Math.PI / 2 * progress;
                 }
             });
+            if (flagThrow?.official === index && flagThrow.time >= -.18 && flagThrow.time < .45) {
+                ref.arms[1].rotation.x = -1.1 * Math.sin(Math.PI * (flagThrow.time + .18) / .63);
+                ref.arms[1].rotation.z = .3;
+            }
+            if (penalty && active && index === 0) {
+                ref.body.rotation.y = 0;
+                applyPenaltySignal(ref, penalty, penaltyTime);
+            }
         });
     };
     return {group, update};
@@ -152,4 +163,27 @@ export function buildRefereePaths(animation) {
         };
     };
     return {sample, reset};
+}
+
+// NFL signals, with articulated forearms for rolling and wrist gestures.
+export function applyPenaltySignal(ref, type, time) {
+    const blend = signalProgress(time), arms = ref.arms, elbows = ref.elbows;
+    arms.forEach(arm => arm.rotation.set(0,0,0));
+    elbows.forEach(elbow => elbow.rotation.set(0,0,0));
+    if (type === 'false_start') {
+        arms.forEach((arm,i) => { arm.rotation.x = -1.05 * blend; arm.rotation.z = (i === 0 ? -.45 : .45) * blend; });
+        elbows.forEach((elbow,i) => { elbow.rotation.x = -1.3 * blend; elbow.rotation.z = Math.sin(time*7+i*Math.PI) * .65 * blend; });
+    } else if (type === 'encroachment') {
+        arms[0].rotation.z = -.48*blend; arms[1].rotation.z = .48*blend;
+        elbows[0].rotation.z = 1.5*blend; elbows[1].rotation.z = -1.5*blend;
+    } else if (type === 'holding') {
+        arms[0].rotation.x = -1.3*blend; elbows[0].rotation.x = -1.1*blend;
+        arms[1].rotation.x = -.9*blend; arms[1].rotation.z = .8*blend; elbows[1].rotation.z = -1.6*blend;
+    } else if (type === 'defensive_pass_interference') {
+        arms.forEach(arm => arm.rotation.x = -Math.PI/2*blend);
+    } else if (type === 'face_mask') {
+        arms[1].rotation.x = -1.4*blend; elbows[1].rotation.x = -1.5*blend;
+        arms[0].rotation.x = -1.1*blend; arms[0].rotation.z = -.4*blend;
+        elbows[0].rotation.x = -1.3*blend;
+    }
 }

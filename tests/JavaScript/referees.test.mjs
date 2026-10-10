@@ -32,7 +32,7 @@ test('seven officials signal and reset poses in both directions', () => {
         for (const judge of refs.group.children.slice(2)) {
             judge.updateMatrixWorld(true);
             const arms = judge.children.filter(child => child.isGroup).slice(2);
-            for (const arm of arms) assert.ok(arm.children.at(-1).getWorldPosition(new THREE.Vector3()).y > 2);
+            for (const arm of arms) assert.ok(arm.children.at(-1).children.at(-1).getWorldPosition(new THREE.Vector3()).y > 2);
         }
     }
 });

@@ -18,6 +18,7 @@ import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
+import { penaltyMoment, foulMovement, buildPenaltyPresentation } from './penalty-presentation.js';
 import { buildChainGang } from './chain-gang.js';
 import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } from './referees.js';
 
@@ -305,6 +306,9 @@ export function mountPractice(root, onReady = () => {}) {
     const audio = stadiumAudio(root);
     const cues = soundCues(animation, beforeState, afterState);
     const ruling = refereeSignal(animation, beforeState, afterState);
+    const penalty = JSON.parse(root.dataset.penalty || 'null');
+    const foul = penaltyMoment(animation, penalty, refereePaths);
+    const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending));
     let audioTime = -2;
     const turnover = turnoverMoment(animation);
     const liveBanner = document.createElement('div');
@@ -948,6 +952,12 @@ export function mountPractice(root, onReady = () => {}) {
                     if (/^DT/.test(role)) mesh.position.z += (role === 'DT1' ? -.20 : .20) * frontGapBlend;
                 }
             }
+            if (['play','penalty','result','medical'].includes(phase) && foul?.dead && player.team === foul.team && player.role === foul.role) {
+                const movement = foulMovement(foul, elapsed, playDirection);
+                mesh.position.x += movement.x; mesh.position.y += movement.y;
+                if (mesh.userData.waist) mesh.userData.waist.rotation.x += movement.lean;
+                mesh.userData.arms?.forEach(arm => arm.rotation.x = -.5 * Math.sin(Math.PI * Math.min(1,elapsed/.48)));
+            }
 
         });
         medicalCrew.visible = phase === 'medical' && Boolean(seriousInjury);
@@ -1023,15 +1033,19 @@ export function mountPractice(root, onReady = () => {}) {
             }
         }
         const deadBallAt = animation?.result_at ?? animation?.reveal_at ?? 5.3;
-        const postPlay = ['big_play', 'celebration', 'result', 'medical'].includes(phase);
+        const postPlay = ['big_play', 'celebration', 'result', 'medical', 'penalty'].includes(phase);
         const refereeTime = elapsed + refereePostTime;
         const signalTime = Math.max(0, refereeTime - deadBallAt);
         const poses = phase === 'huddle'
             ? refereeResetPath ? refereeResetPath(refereeHuddleTime) : refereeFormation(nextLine, nextDirection)
             : refereePaths.sample(['liningup', 'set'].includes(phase) ? 0 : refereeTime);
         referees.update({poses, direction: playDirection, signal: ruling, time: signalTime,
-            active: Boolean(ruling) && (postPlay || (phase === 'play' && elapsed >= deadBallAt)),
-            visible: Boolean(animation)});
+            active: phase === 'penalty' || Boolean(ruling) && (postPlay || (phase === 'play' && elapsed >= deadBallAt)),
+            visible: Boolean(animation), penalty: phase === 'penalty' ? penalty?.type : null,
+            penaltyTime: postElapsed, flagThrow: foul && !['huddle','liningup','set'].includes(phase)
+                ? {official: foul.official, time: refereeTime - foul.at} : null});
+        penaltyPresentation.update({moment: foul, time: ['huddle','liningup','set'].includes(phase) ? -1 : refereeTime,
+            announcing: phase === 'penalty', announcementTime: postElapsed});
         if (['play', 'big_play', 'celebration', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         const holder = ballCarrier(frame, phase);
         // The mesh's long axis is local X (ball.scale.x = 1.6).
@@ -1339,7 +1353,7 @@ export function mountPractice(root, onReady = () => {}) {
             setElapsed = Math.min(setDuration, setElapsed + delta);
             if (setElapsed === setDuration) { phase = 'play'; elapsed = 0; }
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
-        if (['medical', 'big_play', 'celebration', 'result'].includes(phase)) refereePostTime += Math.min(delta, .1);
+        if (['medical', 'big_play', 'celebration', 'result', 'penalty'].includes(phase)) refereePostTime += Math.min(delta, .1);
         if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1);
         lastTime = now;
         if (bannerRemaining > 0) {
@@ -1357,7 +1371,9 @@ export function mountPractice(root, onReady = () => {}) {
         }
         if (elapsed >= duration && phase === 'play') {
             running = false; playButton.textContent = 'Replay';
-            if (seriousInjury && resultPopup) {
+            if (foul && resultPopup) {
+                phase = 'penalty'; postElapsed = 0; resultPopup.hidden = true;
+            } else if (seriousInjury && resultPopup) {
                 phase = 'medical'; postElapsed = 0; resultPopup.hidden = true;
             } else if (resultPopup && animation && !animation.no_snap
                 && animation.gain >= 20
@@ -1369,6 +1385,16 @@ export function mountPractice(root, onReady = () => {}) {
                 phase = 'celebration'; postElapsed = 0; resultPopup.hidden = true;
             } else if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }
             else showQuarter();
+        } else if (phase === 'penalty') {
+            postElapsed += Math.min(delta, .1);
+            if (postElapsed >= 4.5) {
+                const playStands = penalty?.accepted === false && !afterState?.penalty_pending;
+                phase = seriousInjury ? 'medical' : playStands && ruling === 'touchdown' ? 'celebration'
+                    : playStands && ['interception','fumble'].includes(animation?.outcome) ? 'celebration'
+                        : playStands && animation?.gain >= 20 && !['penalty','sack','incomplete'].includes(animation?.outcome) ? 'big_play' : 'result';
+                postElapsed = 0;
+                if (resultPopup) resultPopup.hidden = phase !== 'result';
+            }
         } else if (phase === 'medical') {
             postElapsed += delta;
             if (postElapsed >= treatmentDuration) {
@@ -1442,6 +1468,7 @@ export function mountPractice(root, onReady = () => {}) {
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();
         audio.dispose();
+        penaltyPresentation.dispose();
         saveCamera();
         controls.removeEventListener('end', saveCamera);
         document.removeEventListener('livewire:navigating', cleanup);
