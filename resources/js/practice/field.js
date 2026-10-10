@@ -323,6 +323,26 @@ export function mountPractice(root, onReady = () => {}) {
         if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);
         ball.rotation.z = elapsed * 6;
         const holder = ballCarrier(frame, phase);
+        // The ball's saved track remains authoritative until tackle contact.
+        // After contact, visually follow the offensive ball carrier down.
+        // Do not alter loose balls, turnovers, special teams or saved tracks.
+        if (phase === 'play' && animation?.contact_at != null
+            && elapsed >= animation.contact_at && holder?.team === 'offense'
+            && holder.role === animation.carrier && animation?.tackle_style) {
+            const carrierIndex = frame.players.findIndex(player => player.team === 'offense' && player.role === animation.carrier);
+            if (carrierIndex !== -1) {
+                const carrierMesh = players[carrierIndex];
+                const style = animation.tackle_style;
+                const fallDuration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
+                const delay = .09;
+                const progress = Math.min(1, Math.max(0, (elapsed - animation.contact_at - delay) / fallDuration));
+                // Ball is held against the falling player, not hovering at its
+                // standing-height timeline coordinate. This is visual only.
+                ball.position.x = carrierMesh.position.x;
+                ball.position.z = carrierMesh.position.z;
+                ball.position.y = Math.max(.27, 1 - .73 * progress);
+            }
+        }
         carrierArrow.visible = carrierRing.visible = Boolean(holder);
         if (holder) {
             carrierArrow.position.set(holder.x, 3.2, holder.z);
