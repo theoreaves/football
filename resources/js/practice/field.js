@@ -495,7 +495,7 @@ export function mountPractice(root, onReady = () => {}) {
         // modifying recorded movement paths, holder events or game outcomes.
         // During the snap, the center presents the ball low between his legs.
         // The ball then moves directly to the QB; on runs he gives it to the RB.
-        if (['liningup', 'set', 'play'].includes(phase) && animation && !animation.no_snap
+        if (['set', 'play'].includes(phase) && animation && !animation.no_snap
             && (phase !== 'play' || elapsed < 1.02)) {
             const getOffense = role => {
                 const index = frame.players.findIndex(p => p.team === 'offense' && p.role === role);
