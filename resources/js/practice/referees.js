@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { sampleTrack } from './engine-timeline.js';
 
 // Use committed results, never infer a ruling from an animated ball position.
 export function refereeSignal(animation, before, after) {
@@ -38,10 +39,12 @@ export function buildReferees(scene) {
             box(body, [.065, .65, .012], black, [x, 1.27, -.156]);
         }
         box(body, [.46, .24, .3], black, [0, .83, 0]);
-        for (const sign of [-1, 1]) {
-            box(body, [.18, .7, .22], black, [sign * .14, .42, 0]);
-            box(body, [.2, .12, .33], black, [sign * .14, .06, .06]);
-        }
+        const legs = [-1, 1].map(sign => {
+            const leg = new THREE.Group(); leg.position.set(sign * .14, .77, 0); body.add(leg);
+            box(leg, [.18, .7, .22], black, [0, -.35, 0]);
+            box(leg, [.2, .12, .33], black, [0, -.71, .06]);
+            return leg;
+        });
         const head = new THREE.Mesh(new THREE.SphereGeometry(.21, 12, 10), skin);
         head.position.set(0, 1.84, 0); body.add(head);
         box(body, [.45, .1, .38], cap, [0, 2.02, .025]);
@@ -54,30 +57,99 @@ export function buildReferees(scene) {
             box(arm, [.17, .14, .19], skin, [0, -.64, 0]);
             return arm;
         });
-        return {body, arms};
+        return {body, arms, legs};
     };
-    const crew = [official(white), official(black), official(black)];
-    const update = ({line = 40, spot = line, direction = 1, signal = null, time = 0, active = false, visible = true}) => {
+    const roles = ['R', 'U', 'DJ', 'LJ', 'FJ', 'SJ', 'BJ'];
+    const crew = roles.map((role, index) => {
+        const ref = official(index === 0 ? white : black);
+        ref.body.name = role;
+        return ref;
+    });
+    const update = ({poses, signal = null, time = 0, active = false, visible = true, direction = 1}) => {
         group.visible = visible;
-        const clamp = x => Math.max(10, Math.min(110, x));
-        const progress = active ? signalProgress(time) : 0;
-        // Sideline judges stay outside the field and follow the dead-ball spot.
-        const x = clamp(line + (spot - line) * (active ? 1 : 0));
-        crew[0].body.position.set(clamp(line - direction * 8), 0, 15);
-        crew[1].body.position.set(x, 0, -1.25);
-        crew[2].body.position.set(x, 0, 54.58);
         crew.forEach((ref, index) => {
-            ref.body.rotation.y = index === 2 ? Math.PI : 0;
-            ref.arms.forEach((arm, armIndex) => {
-                arm.rotation.set(0, 0, 0);
-                if (signal === 'touchdown' && index > 0) arm.rotation.z = (armIndex === 0 ? -1 : 1) * Math.PI * progress;
-                // Facing the near sideline makes local +X the offense's direction.
-                if (signal === 'first_down' && index === 0 && armIndex === (direction > 0 ? 1 : 0)) {
-                    arm.rotation.z = (direction > 0 ? 1 : -1) * Math.PI / 2 * progress;
+            const pose = poses[index];
+            ref.body.position.set(pose.x, 0, pose.z);
+            const moving = Math.abs(pose.velocity) > .1;
+            const canSignal = active && !moving && (signal === 'first_down' ? index === 0
+                : index >= 2 && Math.abs(pose.x - (direction > 0 ? 110 : 10)) < 2);
+            const progress = canSignal ? signalProgress(time) : 0;
+            ref.body.rotation.y = canSignal && signal === 'first_down' ? 0
+                : moving ? (pose.velocity > 0 ? Math.PI / 2 : -Math.PI / 2)
+                : pose.z > 26.7 ? Math.PI : 0;
+            const stride = Math.sin(pose.travel * 3.8) * Math.min(1, Math.abs(pose.velocity) / 3);
+            ref.body.position.y = moving ? Math.abs(Math.sin(pose.travel * 3.8)) * .035 : 0;
+            ref.legs.forEach((leg, i) => leg.rotation.x = (i === 0 ? 1 : -1) * stride * .48);
+            ref.arms.forEach((arm, i) => {
+                arm.rotation.set((i === 0 ? -1 : 1) * stride * .35, 0, 0);
+                if (canSignal) {
+                    arm.rotation.x = 0;
+                    if (signal === 'touchdown') arm.rotation.z = (i === 0 ? -1 : 1) * Math.PI * progress;
+                    if (signal === 'first_down' && i === (direction > 0 ? 1 : 0)) arm.rotation.z = direction * Math.PI / 2 * progress;
                 }
             });
-            if (active && signal === 'first_down' && index === 0) ref.body.position.set(clamp(spot - direction * 4), 0, 15);
         });
     };
     return {group, update};
+}
+
+// Fixed-step paths make seeking/replaying independent of render frame rate.
+export function refereeFormation(line, direction) {
+    const offsets = [-8, -8, 0, 0, 20, 20, 25];
+    const lanes = [15, 38, -1.25, 54.58, -1.25, 54.58, 26.7];
+    return offsets.map((offset, i) => ({x: Math.max(2, Math.min(118, line + direction * offset)),
+        z: lanes[i], velocity: 0, travel: 0}));
+}
+
+function advance(previous, target, step) {
+    const distance = target - previous.x;
+    const desired = Math.sign(distance) * Math.min(6, Math.sqrt(2 * 3.5 * Math.abs(distance)));
+    const velocity = previous.velocity + Math.max(-3.5 * step, Math.min(3.5 * step, desired - previous.velocity));
+    let move = velocity * step;
+    if (Math.sign(move) === Math.sign(distance) && Math.abs(move) > Math.abs(distance)) move = distance;
+    return {...previous, x: previous.x + move, velocity: Math.abs(distance) < .02 && Math.abs(previous.velocity) <= 3.5 * step ? 0 : velocity,
+        travel: previous.travel + Math.abs(move)};
+}
+
+export function buildRefereePaths(animation) {
+    const line = animation?.line ?? 40, direction = animation?.direction ?? 1;
+    const duration = animation?.duration ?? 6, deadAt = animation?.result_at ?? animation?.reveal_at ?? duration;
+    const initial = refereeFormation(line, direction);
+    const paths = [initial];
+    const step = .05;
+    const targets = time => {
+        const ball = animation?.ball?.length ? sampleTrack(animation.ball, Math.min(time, deadAt)).x : line;
+        const final = animation?.ball?.length ? sampleTrack(animation.ball, deadAt).x : line;
+        const dead = time >= deadAt;
+        const offsets = dead ? [-4, -6, 0, 0, 0, 0, 0] : [-8, -8, -1, -1, 20, 20, 25];
+        return offsets.map((offset, i) => Math.max(i < 2 ? 2 : 10, Math.min(i < 2 ? 118 : 110,
+            (dead ? final : ball) + direction * offset)));
+    };
+    for (let tick = 1; tick <= Math.ceil((duration + 40) / step); tick++) {
+        const time = tick * step, desired = targets(time);
+        paths.push(paths.at(-1).map((pose, i) => advance(pose, time < .6 ? pose.x : desired[i], step)));
+    }
+    const sample = time => {
+        const tick = Math.max(0, Math.min(paths.length - 1, time / step));
+        const low = Math.floor(tick), high = Math.min(paths.length - 1, low + 1), fraction = tick - low;
+        return paths[low].map((a, i) => {
+            const b = paths[high][i];
+            return {...a, x: a.x + (b.x - a.x) * fraction,
+                velocity: a.velocity + (b.velocity - a.velocity) * fraction,
+                travel: a.travel + (b.travel - a.travel) * fraction};
+        });
+    };
+    const reset = (start, nextLine, nextDirection) => {
+        const formation = refereeFormation(nextLine, nextDirection), resetPaths = [sample(start)];
+        for (let tick = 1; tick <= 800; tick++) resetPaths.push(resetPaths.at(-1).map((pose, i) => advance(pose, formation[i].x, step)));
+        return time => {
+            const tick = Math.max(0, Math.min(800, time / step)), low = Math.floor(tick), high = Math.min(800, low + 1);
+            return resetPaths[low].map((a, i) => {
+                const b = resetPaths[high][i], f = tick - low;
+                return {...a, x: a.x + (b.x - a.x) * f, velocity: a.velocity + (b.velocity - a.velocity) * f,
+                    travel: a.travel + (b.travel - a.travel) * f};
+            });
+        };
+    };
+    return {sample, reset};
 }

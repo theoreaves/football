@@ -19,7 +19,7 @@ import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from '
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
 import { buildChainGang } from './chain-gang.js';
-import { buildReferees, refereeSignal } from './referees.js';
+import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } from './referees.js';
 
 export function mountPractice(root, onReady = () => {}) {
     if (root.dataset.mounted) return;
@@ -170,6 +170,7 @@ export function mountPractice(root, onReady = () => {}) {
     const chainGang = buildChainGang(scene, document);
     chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, JSON.parse(root.dataset.beforeState || '{}').down ?? 1, animation?.direction ?? 1, root.dataset.chainGang !== 'false');
     const referees = buildReferees(scene);
+    const refereePaths = buildRefereePaths(animation);
     const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'));
     scene.add(stadium.group);
     for (const x of [0, 120]) {
@@ -320,6 +321,7 @@ export function mountPractice(root, onReady = () => {}) {
     let lineupProgress = 0;
     const setDuration = 4;
     let setElapsed = 0;
+    let refereePostTime = 0, refereeHuddleTime = 0, refereeResetPath = null;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
     let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     const renderState = () => {
@@ -1022,10 +1024,12 @@ export function mountPractice(root, onReady = () => {}) {
         }
         const deadBallAt = animation?.result_at ?? animation?.reveal_at ?? 5.3;
         const postPlay = ['big_play', 'celebration', 'result', 'medical'].includes(phase);
-        const signalTime = Math.max(0, elapsed - deadBallAt) + (postPlay ? postElapsed : 0);
-        referees.update({line: animation?.line ?? 40,
-            spot: sample(type, duration).ball.x, direction: playDirection,
-            signal: ruling, time: signalTime,
+        const refereeTime = elapsed + refereePostTime;
+        const signalTime = Math.max(0, refereeTime - deadBallAt);
+        const poses = phase === 'huddle'
+            ? refereeResetPath ? refereeResetPath(refereeHuddleTime) : refereeFormation(nextLine, nextDirection)
+            : refereePaths.sample(['liningup', 'set'].includes(phase) ? 0 : refereeTime);
+        referees.update({poses, direction: playDirection, signal: ruling, time: signalTime,
             active: Boolean(ruling) && (postPlay || (phase === 'play' && elapsed >= deadBallAt)),
             visible: Boolean(animation)});
         if (['play', 'big_play', 'celebration', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
@@ -1127,6 +1131,7 @@ export function mountPractice(root, onReady = () => {}) {
         clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
         showState(false);
+        refereePostTime = 0; refereeHuddleTime = 0; refereeResetPath = null;
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
         if (resultPopup) resultPopup.hidden = true;
         moveFocus(animation?.line ?? 40, playDirection);
@@ -1206,6 +1211,8 @@ export function mountPractice(root, onReady = () => {}) {
     });
     const finishResult = () => {
         if (phase !== 'result') return;
+        refereeResetPath = refereePaths.reset(duration + refereePostTime, nextLine, nextDirection);
+        refereeHuddleTime = 0;
         resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
     };
     root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
@@ -1332,6 +1339,8 @@ export function mountPractice(root, onReady = () => {}) {
             setElapsed = Math.min(setDuration, setElapsed + delta);
             if (setElapsed === setDuration) { phase = 'play'; elapsed = 0; }
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
+        if (['medical', 'big_play', 'celebration', 'result'].includes(phase)) refereePostTime += Math.min(delta, .1);
+        if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1);
         lastTime = now;
         if (bannerRemaining > 0) {
             bannerRemaining = Math.max(0, bannerRemaining - delta);
