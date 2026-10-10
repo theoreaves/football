@@ -268,6 +268,7 @@ export function mountPractice(root, onReady = () => {}) {
             const mesh = players[i];
             const next = future.players[i];
             const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
+            mesh.rotation.x = 0; // Clear any previous pre-snap lean before each render.
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
@@ -362,7 +363,8 @@ export function mountPractice(root, onReady = () => {}) {
             const teamCenter = averagePoint(teamGroup);
             const offenseCenter = averagePoint(offenseGroup);
             const earlySnap = phase === 'play' && elapsed < .28;
-            const presnap = ['liningup', 'set'].includes(phase) || earlySnap;
+            // Crouch only after the break-huddle jog, not while travelling.
+            const presnap = phase === 'set' || earlySnap || (phase === 'liningup' && lineupProgress >= .85);
             const huddlePhase = phase === 'huddle';
             const setFacing = target => {
                 const dx = (target.x ?? 0) - mesh.position.x;
@@ -381,23 +383,21 @@ export function mountPractice(root, onReady = () => {}) {
                     if (role === 'QB') {
                         // After the regular pose is rendered, fold one knee and
                         // bring the forearms toward the raised knee.
-                        mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = j === 0 ? -1.48 : .95; });
-                        mesh.userData.arms?.forEach((arm, j) => { arm.rotation.x = j === 0 ? -.90 : -.70; arm.rotation.z = j === 0 ? -.10 : .10; });
-                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.82; });
-                        mesh.position.lerp(teamCenter, .42);
-                        mesh.position.y -= .06;
-                        mesh.rotation.x = -.12;
+                        const kneel = Math.max(0, Math.min(1, (huddleProgress - .78) / .22));
+                        mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = kneel * (j === 0 ? -1.48 : .95); });
+                        mesh.userData.arms?.forEach((arm, j) => { arm.rotation.x = kneel * (j === 0 ? -.90 : -.70); arm.rotation.z = kneel * (j === 0 ? -.10 : .10); });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.20 - kneel * .62; });
+                        // Keep the QB upright while walking into the huddle;
+                        // kneel only after the players have arrived.
+                        const kneel = Math.max(0, Math.min(1, (huddleProgress - .78) / .22));
+                        mesh.position.y -= .34 * kneel;
+                        mesh.rotation.x = -.12 * kneel;
                     } else {
                         setFacing(teamCenter);
                         mesh.rotation.x = -.04;
                     }
                 } else if (player.team === 'defense') {
-                    const offset = mesh.position.clone().sub(teamCenter);
-                    const spreadX = isSecondary ? 1.55 : isLinebacker ? 1.30 : 1.08;
-                    const compressZ = isSecondary ? .48 : isLinebacker ? .58 : .68;
-                    mesh.position.x = teamCenter.x + offset.x * spreadX;
-                    mesh.position.z = teamCenter.z + offset.z * compressZ;
-                    mesh.position.y += isSecondary ? 0 : -.01;
+                    // sampleHuddle now owns the defensive spacing/transition.
                     setFacing(offenseCenter);
                     if (isDefFront) {
                         mesh.rotation.x = -.12;
@@ -407,6 +407,11 @@ export function mountPractice(root, onReady = () => {}) {
                 }
             }
 
+            if (presnap && (isDefFront || (player.team === 'offense' && isOneOf('C','LG','RG','LT','RT')))) {
+                // Lower center of mass and flex both hips for a set football stance.
+                mesh.position.y -= .16;
+                mesh.userData.legs?.forEach((leg, j) => { leg.rotation.x = j === 0 ? -.48 : .40; });
+            }
             if (presnap) {
                 if (player.team === 'offense') {
                     if (isOneOf('C')) {
@@ -444,11 +449,14 @@ export function mountPractice(root, onReady = () => {}) {
 
             // The center bends over the ball, and the QB/RB extend their hands
             // briefly for the transfer. All three poses reset each render.
-            mesh.rotation.x = 0;
+            // Do not reset rotation.x here: that erased the linemen's stances
+            // that were just applied above. Only override the center during
+            // the actual snap, when the line must leave its stance.
             if (['liningup', 'set', 'play'].includes(phase) && animation && !animation.no_snap) {
                 if (player.team === 'offense' && player.role === 'C'
-                    && (phase !== 'play' || elapsed < .38)) {
-                    mesh.rotation.x = -.33;
+                    && (phase === 'set' || (phase === 'liningup' && lineupProgress >= .85)
+                        || (phase === 'play' && elapsed < .38))) {
+                    mesh.rotation.x = -.52;
                     mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.90; });
                     mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.75; });
                 }
