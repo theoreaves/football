@@ -369,6 +369,29 @@ export function mountPractice(root, onReady = () => {}) {
                 ball.position.y = Math.max(.27, 1 - .73 * progress);
             }
         }
+        // Visual attachment for a carried football. The saved timeline remains
+        // authoritative for throws, handoffs, loose balls and interceptions.
+        // Read the timeline's current holder instead of inferring possession.
+        if (phase === 'play' && animation && !animation.no_snap && holder?.team === 'offense'
+            && (holder.role === 'RB' || (animation.receiver_role && holder.role === animation.receiver_role))
+            && !(animation.outcome === 'fumble' && elapsed >= 5.3)) {
+            const carrierIndex = frame.players.findIndex(player =>
+                player.team === holder.team && player.role === holder.role);
+            const carrierMesh = carrierIndex >= 0 ? players[carrierIndex] : null;
+            if (carrierMesh) {
+                // This point is on the torso in model-local coordinates, so it
+                // follows the player as the whole model turns or falls.
+                carrierMesh.updateMatrixWorld(true);
+                const tuckSide = holder.role === 'RB' ? -1 : 1;
+                const tuckPosition = carrierMesh.localToWorld(new THREE.Vector3(tuckSide * .34, 1.19, .38));
+                // Blend briefly after the handoff/catch so the football never
+                // teleports between its recorded track and the carried position.
+                const pickupAt = holder.role === 'RB' ? 1 : 3.8;
+                const blend = Math.max(0, Math.min(1, (elapsed - pickupAt) / .22));
+                const eased = blend * blend * (3 - 2 * blend);
+                ball.position.lerp(tuckPosition, eased);
+            }
+        }
         carrierArrow.visible = carrierRing.visible = Boolean(holder);
         if (holder) {
             carrierArrow.position.set(holder.x, 3.2, holder.z);
