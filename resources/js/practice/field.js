@@ -650,6 +650,20 @@ export function mountPractice(root, onReady = () => {}) {
                     // edge rushers instead of remaining in a flat line.
                     const edgeTurn = { LT: -.23, RT: .23 };
                     mesh.rotation.y += (edgeTurn[role] ?? 0) * smoothEntry;
+                    // Once the pass set finishes, hold the feet in a blocking
+                    // stance instead of using the generic running leg cycle.
+                    const settle = Math.max(0, Math.min(1, (elapsed - .35) / .85));
+                    const settleEase = settle * settle * (3 - 2 * settle);
+                    mesh.userData.legs?.forEach((leg, index) => {
+                        leg.rotation.x *= 1 - settleEase;
+                        leg.rotation.x += (index === 0 ? -.07 : .07) * settleEase;
+                    });
+                    mesh.userData.knees?.forEach(knee => {
+                        knee.rotation.x = .09 * settleEase;
+                    });
+                    // Cancel the run-blocking side shuffle for pass protection.
+                    // The drop/spread offsets above still form the pocket.
+                    mesh.position.z -= intensity * .12 * Math.sin(elapsed * 7.5 + i * 2.3);
                     mesh.rotation.x -= .04 * smoothEntry;
                 }
             }
