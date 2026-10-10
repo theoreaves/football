@@ -182,22 +182,35 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
         const elbow = group.userData.elbows?.[hand];
         const otherElbow = group.userData.elbows?.[support];
         const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
-        // Both hands support the ball at chest height until the throwing windup.
-        const cock = smooth((throwing - 1.45) / .50);
+        // Two-hand set -> elevated elbow/ear-level windup -> overhand release.
+        // Mirror shoulder and wrist movement for a left-handed quarterback.
+        const cock = smooth((throwing - 1.42) / .55);
         const release = smooth((throwing - 2.02) / .18);
-        const recover = smooth((throwing - 2.25) / .65);
+        const recover = smooth((throwing - 2.22) / .65);
         const handed = hand === 0 ? -1 : 1;
+        const supportRelease = smooth((throwing - 1.46) / .35);
         if (arm) {
-            arm.rotation.x = -1.10 + .40 * cock - 1.45 * release * (1 - recover);
-            // Raise the elbow above the shoulder for an overhand throw.
-            arm.rotation.z = handed * (-.20 - .45 * cock + .25 * release);
+            // Negative local Z lifts the upper arm outward; Y drives a genuine
+            // shoulder turn instead of making the arm swing under the torso.
+            arm.rotation.x = -1.0 + .35 * cock - 1.45 * release * (1 - recover);
+            arm.rotation.y = handed * (-.22 * cock + .55 * release * (1 - recover));
+            arm.rotation.z = handed * (-.12 - .72 * cock + .40 * release * (1 - recover));
         }
-        if (elbow) elbow.rotation.x = -.95 + .55 * cock - .45 * release;
+        if (elbow) {
+            // Bend during the set, draw the forearm back beside the helmet,
+            // then extend rapidly through the high release point.
+            elbow.rotation.x = -.95 - .40 * cock + 1.20 * release * (1 - recover);
+            elbow.rotation.y = handed * (.20 * cock + .25 * release * (1 - recover));
+        }
         if (other) {
-            const supportRelease = smooth((throwing - 1.45) / .40);
-            other.rotation.x = -1.05 + .85 * supportRelease;
-            other.rotation.z = -handed * .30;
+            // Non-throwing hand supports the ball at chest level, then clears.
+            other.rotation.x = -1.05 + .80 * supportRelease;
+            other.rotation.y = -handed * .18 * (1 - supportRelease);
+            other.rotation.z = -handed * (.30 - .12 * supportRelease);
         }
-        if (otherElbow) otherElbow.rotation.x = -.9 * (1 - cock);
+        if (otherElbow) {
+            otherElbow.rotation.x = -.9 * (1 - supportRelease) - .15 * supportRelease;
+            otherElbow.rotation.y = 0;
+        }
     }
 }
