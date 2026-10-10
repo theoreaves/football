@@ -469,9 +469,10 @@ export function mountPractice(root, onReady = () => {}) {
             // No pose is applied to sacks, throwaways, or other receivers.
             const receiving = animation?.receiver_role && player.team === 'offense'
                 && player.role === animation.receiver_role && phase === 'play';
-            const reception = receiving && elapsed >= 3.35 && elapsed < 4.12
+            const catchAt = animation?.catch_at ?? 3.8;
+            const reception = receiving && elapsed >= catchAt - .45 && elapsed < catchAt + .32
                 ? (['incomplete', 'interception'].includes(animation.outcome) ? 'reach' : 'catch')
-                : receiving && elapsed >= 4.12 && elapsed <= 5.3
+                : receiving && elapsed >= catchAt + .32 && elapsed <= (animation.result_at ?? 5.3)
                     && !['incomplete', 'interception'].includes(animation.outcome) ? 'tuck' : null;
             // The arm pose and the football use the same saved possession timeline.
             // Don't cradle a ball during the catch itself or after a fumble.
@@ -480,7 +481,7 @@ export function mountPractice(root, onReady = () => {}) {
                 && frame.ballHolder.role === player.role && player.team === 'offense';
             const eligibleCarrier = player.role === 'RB'
                 || (animation?.receiver_role && player.role === animation.receiver_role);
-            const possessionAt = player.role === 'RB' ? 1 : 3.8;
+            const possessionAt = animation?.receiver_role === player.role ? (animation.catch_at ?? 3.8) : 1;
             mesh.userData.carryingArm = player.role === 'RB' ? 0 : 1;
             mesh.userData.cradlingBall = Boolean(heldOnOffense && eligibleCarrier
                 && elapsed >= possessionAt + .16
@@ -490,7 +491,7 @@ export function mountPractice(root, onReady = () => {}) {
             const plantedPassBlocker = phase === 'play' && animation?.dropback
                 && !animation.no_snap && player.team === 'offense'
                 && ['C', 'LG', 'RG', 'LT', 'RT'].includes(player.role);
-            animateFootballPlayer(mesh, plantedPassBlocker ? false : moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
+            animateFootballPlayer(mesh, plantedPassBlocker ? false : moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? (elapsed < .6 ? elapsed : Math.max(.6, elapsed - (animation?.throw_at ?? 2.2) + 2.2)) : null, reception);
             // Pass linemen do not cycle through a running gait while protecting.
             // Their pocket drop is rendered separately below.
             const passLineman = phase === 'play' && animation?.dropback && !animation.no_snap
@@ -1022,7 +1023,7 @@ export function mountPractice(root, onReady = () => {}) {
         // Spin a forward pass around that axis, never around Z (end-over-end).
         // Only passes in flight spiral; keep snaps, handoffs and carries steady.
         const spiralFlight = phase === 'play' && animation?.passing
-            && elapsed >= (animation.throw_at ?? 2.2) && elapsed <= 4.2
+            && elapsed >= (animation.throw_at ?? 2.2) && elapsed <= (animation.catch_at ?? 3.8) + .4
             && !holder;
         ball.rotation.set(spiralFlight ? (elapsed - (animation.throw_at ?? 2.2)) * 28 : 0, 0, 0);
         // Kicks tumble end-over-end instead of spiraling like thrown passes.
@@ -1074,7 +1075,7 @@ export function mountPractice(root, onReady = () => {}) {
                 const tuckPosition = carrierMesh.localToWorld(new THREE.Vector3(tuckSide * .40, 1.28, .29));
                 // Blend briefly after the handoff/catch so the football never
                 // teleports between its recorded track and the carried position.
-                const pickupAt = holder.role === 'RB' ? 1 : 3.8;
+                const pickupAt = animation.receiver_role === holder.role ? (animation.catch_at ?? 3.8) : 1;
                 const blend = Math.max(0, Math.min(1, (elapsed - pickupAt) / .22));
                 const eased = blend * blend * (3 - 2 * blend);
                 ball.position.lerp(tuckPosition, eased);

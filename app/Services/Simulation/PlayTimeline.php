@@ -365,6 +365,8 @@ class PlayTimeline
             'receiver_role' => $pass ? $receiverRole : null, 'outcome' => $play['outcome'], 'gain' => $play['gain'],
             'out_of_bounds' => (bool) ($play['out_of_bounds'] ?? false), 'forced_out' => (bool) ($play['forced_out'] ?? false)];
 
+        $animation = PassingAnimationTiming::apply($animation, $rosters[$side]['players'][$receiverRole]['ratings'] ?? [], $play);
+
         return RushingAnimationTiming::apply($animation, $rosters[$side]['players']['RB']['ratings'] ?? [], $play);
     }
 }
