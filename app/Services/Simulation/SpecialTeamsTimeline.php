@@ -24,7 +24,6 @@ class SpecialTeamsTimeline
         $missed = str_ends_with($play['outcome'], '_missed');
         $endZ = $missed ? 40 : 26.7;
         foreach ($base['players'] as $i => &$player) {
-            $initial = $player['path'][0];
             if ($kickoff) {
                 $z = 3 + ($i % 11) * 4.7;
                 $x = $player['team'] === 'offense' ? $absolute($play['before']['spot']) - 1 * $direction : $absolute(65 + ($i % 3) * 8);
@@ -57,7 +56,9 @@ class SpecialTeamsTimeline
                 $player['path'] = [$point(0, $landing, 0, 26.7), $point(3.5, $landing, 0, 26.7), $point(5.3, $end, 0, 26.7), $point(6, $end, 0, 26.7)];
             }
             if ($player['role'] === 'TE' && $player['team'] === 'offense' && ! $goalKick) {
-                $player['path'] = [$initial, $point(3.5, $end - 8 * $direction, 0, 27), $point(5.3, $end, 0, 26.7), $point(6, $end, 0, 26.7)];
+                // Keep the kickoff formation position, not the scrimmage
+                // starting point in front of the kicker.
+                $player['path'] = [$player['path'][0], $point(3.5, $end - 8 * $direction, 0, 27), $point(5.3, $end, 0, 26.7), $point(6, $end, 0, 26.7)];
             }
             if ($player['role'] === 'DE1' && $blocked) {
                 $player['path'] = [$initial, $point(1.2, $kick + $direction, 0, 26.7), $point(6, $landing, 0, 26.7)];

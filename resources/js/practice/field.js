@@ -658,6 +658,7 @@ export function mountPractice(root, onReady = () => {}) {
         // During the snap, the center presents the ball low between his legs.
         // The ball then moves directly to the QB; on runs he gives it to the RB.
         if (['set', 'play'].includes(phase) && animation && !animation.no_snap
+            && !['kickoff', 'punt', 'field_goal', 'extra_point'].includes(animation.call)
             && (phase !== 'play' || elapsed < 1.02)) {
             const getOffense = role => {
                 const index = frame.players.findIndex(p => p.team === 'offense' && p.role === role);
@@ -695,6 +696,18 @@ export function mountPractice(root, onReady = () => {}) {
             && elapsed >= (animation.throw_at ?? 2.2) && elapsed <= 4.2
             && !holder;
         ball.rotation.set(spiralFlight ? (elapsed - (animation.throw_at ?? 2.2)) * 28 : 0, 0, 0);
+        // Kicks tumble end-over-end instead of spiraling like thrown passes.
+        // Keep a kickoff upright on the tee until the foot reaches the ball.
+        const kickingPlay = ['kickoff', 'punt', 'field_goal', 'extra_point'].includes(animation?.call);
+        if (kickingPlay) {
+            const launch = 1.2;
+            if (animation.call === 'kickoff' && elapsed < launch) {
+                ball.rotation.z = Math.PI / 2;
+            } else if (phase === 'play' && elapsed >= launch && elapsed <= 3.5) {
+                ball.rotation.z = (animation.call === 'kickoff' ? Math.PI / 2 : 0)
+                    + (elapsed - launch) * 18;
+            }
+        }
         // The ball's saved track remains authoritative until tackle contact.
         // After contact, visually follow the offensive ball carrier down.
         // Do not alter loose balls, turnovers, special teams or saved tracks.
