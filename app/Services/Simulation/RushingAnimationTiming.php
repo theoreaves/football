@@ -56,7 +56,7 @@ class RushingAnimationTiming
             return $animation;
         }
         $resultAt = 1 + $travelTime($distance);
-        $mapTime = static function (float $time) use ($legs, $travelTime, $resultAt): float {
+        $mapTime = static function (int|float $time) use ($legs, $travelTime, $resultAt): int|float {
             if ($time <= 1) {
                 return $time;
             }
@@ -69,6 +69,7 @@ class RushingAnimationTiming
                     return 1 + $travelTime($distance + $length * ($time - $start) / ($end - $start));
                 }
             }
+
             return $resultAt;
         };
 
@@ -84,10 +85,14 @@ class RushingAnimationTiming
                 for ($step = 1; $step <= $steps; $step++) {
                     $fraction = $step / $steps;
                     $time = $start[0] + ($end[0] - $start[0]) * $fraction;
-                    $result[] = [$mapTime($time),
-                        $start[1] + ($end[1] - $start[1]) * $fraction,
-                        $start[2] + ($end[2] - $start[2]) * $fraction,
-                        $start[3] + ($end[3] - $start[3]) * $fraction];
+                    // Keep exact recorded endpoints, including integer
+                    // coordinates, instead of recalculating them as floats.
+                    $result[] = $step === $steps
+                        ? [$mapTime($end[0]), $end[1], $end[2], $end[3]]
+                        : [$mapTime($time),
+                            $start[1] + ($end[1] - $start[1]) * $fraction,
+                            $start[2] + ($end[2] - $start[2]) * $fraction,
+                            $start[3] + ($end[3] - $start[3]) * $fraction];
                 }
             }
             // Collapse stationary and constant-speed sections. Acceleration
@@ -110,6 +115,7 @@ class RushingAnimationTiming
                     array_splice($compact, $n - 2, 1);
                 }
             }
+
             return $compact;
         };
         foreach ($animation['players'] as &$player) {
@@ -130,6 +136,7 @@ class RushingAnimationTiming
         $animation['reveal_at'] = $resultAt;
         $animation['result_at'] = $resultAt;
         $animation['timing_version'] = 'rushing-v1';
+
         return $animation;
     }
 }

@@ -61,12 +61,8 @@ class CpuCoach
         }
         if ($this->roll($state, 'offense') > max(15, min(90, $passChance))) {
             $call = $this->roll($state, 'run') < 70 ? 'inside_run' : 'outside_run';
-        } elseif ($state['distance'] >= 20 && $state['spot'] < 80) {
-            $call = 'deep_pass';
-        } elseif ($state['distance'] >= 10 && $state['spot'] < 85) {
-            $call = $this->roll($state, 'pass') < 75 ? 'medium_pass' : 'deep_pass';
         } else {
-            $call = $this->roll($state, 'pass') < 70 ? 'short_pass' : 'slant';
+            $call = $this->passingCall($state);
         }
         if ($state['spot'] >= 80 && $call === 'deep_pass') {
             $call = 'short_pass';
@@ -130,6 +126,40 @@ class CpuCoach
     public function coinChoice(array $state): string
     {
         return $this->roll($state, 'coin-choice') < 80 ? 'kick' : 'receive';
+    }
+
+    private function passingCall(array $state): string
+    {
+        $roll = $this->roll($state, 'pass');
+        // Ten yards to go is also a normal first down. Allow short throws
+        // there instead of automatically calling only medium/deep routes.
+        // Conversion downs still favor routes that can reach the marker.
+        if ($state['spot'] >= 85 || $state['distance'] < 10) {
+            return $roll < 70 ? 'short_pass' : 'slant';
+        }
+        if ($state['distance'] >= 20 && $state['spot'] < 80) {
+            return match (true) {
+                $roll < 10 => 'short_pass',
+                $roll < 20 => 'slant',
+                $roll < 55 => 'medium_pass',
+                default => 'deep_pass',
+            };
+        }
+        if ($state['down'] >= 3) {
+            return match (true) {
+                $roll < 10 => 'short_pass',
+                $roll < 20 => 'slant',
+                $roll < 75 => 'medium_pass',
+                default => 'deep_pass',
+            };
+        }
+
+        return match (true) {
+            $roll < 40 => 'short_pass',
+            $roll < 60 => 'slant',
+            $roll < 90 => 'medium_pass',
+            default => 'deep_pass',
+        };
     }
 
     private function roll(array $state, string $decision): int

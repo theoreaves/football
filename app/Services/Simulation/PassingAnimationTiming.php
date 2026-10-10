@@ -39,6 +39,7 @@ class PassingAnimationTiming
         $travel = static function (float $distance, float $initial) use ($speed, $acceleration): float {
             $ramp = ($speed - $initial) / $acceleration;
             $rampDistance = $initial * $ramp + .5 * $acceleration * $ramp ** 2;
+
             return $distance <= $rampDistance
                 ? (sqrt($initial ** 2 + 2 * $acceleration * $distance) - $initial) / $acceleration
                 : $ramp + ($distance - $rampDistance) / $speed;
@@ -46,13 +47,15 @@ class PassingAnimationTiming
         $distanceAt = static function (float $time) use ($receiver): float {
             $distance = 0.0;
             for ($i = 1; $i < count($receiver); $i++) {
-                $a = $receiver[$i - 1]; $b = $receiver[$i];
+                $a = $receiver[$i - 1];
+                $b = $receiver[$i];
                 if ($time <= $a[0]) {
                     break;
                 }
                 $fraction = min(1, ($time - $a[0]) / ($b[0] - $a[0]));
                 $distance += max(.01, hypot($b[1] - $a[1], $b[3] - $a[3])) * $fraction;
             }
+
             return $distance;
         };
         $snapDistance = $distanceAt(.6);
@@ -65,7 +68,8 @@ class PassingAnimationTiming
         $flightDistance = 0.0;
         $ball = $animation['ball'];
         for ($i = 1; $i < count($ball); $i++) {
-            $a = $ball[$i - 1]; $b = $ball[$i];
+            $a = $ball[$i - 1];
+            $b = $ball[$i];
             if ($a[0] >= 2.2 && $b[0] <= 3.8) {
                 $flightDistance += sqrt(($b[1] - $a[1]) ** 2 + ($b[2] - $a[2]) ** 2 + ($b[3] - $a[3]) ** 2);
             }
@@ -73,13 +77,13 @@ class PassingAnimationTiming
         $flightTime = max(.35, $flightDistance / 24.0);
         $scale = max(1.0, (1.6 + $flightTime) / max(.001, $rawCatch));
         $catchAt = .6 + $rawCatch * $scale;
-        $throwAt = $catchAt - $flightTime;
+        $throwAt = max(2.2, $catchAt - $flightTime);
         $finishedAtCatch = in_array($play['outcome'], ['incomplete', 'interception'], true);
         $yacDistance = $distanceAt(5.3) - $distanceAt(3.8);
         $yacInitial = min($speed, 2 + $acceleration * $rawCatch) / $scale;
         $yacTime = $finishedAtCatch ? .45 : max(.25, $travel($yacDistance, $yacInitial));
         $resultAt = $catchAt + $yacTime;
-        $mapTime = static function (float $time) use ($routeTime, $scale, $catchAt, $travel, $distanceAt, $finishedAtCatch, $yacTime, $yacInitial, $resultAt): float {
+        $mapTime = static function (int|float $time) use ($routeTime, $scale, $catchAt, $travel, $distanceAt, $finishedAtCatch, $yacTime, $yacInitial, $resultAt): int|float {
             if ($time <= .6) {
                 return $time;
             }
@@ -95,17 +99,22 @@ class PassingAnimationTiming
             $distance = $distanceAt($time) - $distanceAt(3.8);
             $total = $distanceAt(5.3) - $distanceAt(3.8);
             $physicalTime = $travel($total, $yacInitial);
+
             return $catchAt + $travel($distance, $yacInitial) * $yacTime / max(.000001, $physicalTime);
         };
         // Flight has its own clock: a long route delays the release instead
         // of making the football float slowly until the receiver arrives.
-        $ballTime = static function (float $time) use ($throwAt, $catchAt, $mapTime): float {
+        $ballTime = static function (int|float $time) use ($throwAt, $catchAt, $mapTime): int|float {
             if ($time <= .6 || $time >= 3.8) {
                 return $mapTime($time);
             }
-            if ($time <= 2.2) {
+            if ($time == 2.2) {
+                return $throwAt;
+            }
+            if ($time < 2.2) {
                 return .6 + ($time - .6) / 1.6 * ($throwAt - .6);
             }
+
             return $throwAt + ($time - 2.2) / 1.6 * ($catchAt - $throwAt);
         };
         foreach ($animation['players'] as &$player) {
@@ -129,6 +138,7 @@ class PassingAnimationTiming
         $animation['reveal_at'] = $resultAt;
         $animation['duration'] = $resultAt + .7;
         $animation['timing_version'] = 'passing-v1';
+
         return $animation;
     }
 
@@ -136,7 +146,8 @@ class PassingAnimationTiming
     {
         $result = [$path[0]];
         for ($i = 1; $i < count($path); $i++) {
-            $a = $path[$i - 1]; $b = $path[$i];
+            $a = $path[$i - 1];
+            $b = $path[$i];
             // Split at timing phase boundaries even when a participant's
             // original track does not contain that timestamp.
             $cuts = [$a[0]];
@@ -150,9 +161,13 @@ class PassingAnimationTiming
                 $steps = max(1, (int) ceil(($cuts[$j] - $cuts[$j - 1]) / .04));
                 for ($step = 1; $step <= $steps; $step++) {
                     $time = $cuts[$j - 1] + ($cuts[$j] - $cuts[$j - 1]) * $step / $steps;
-                    $fraction = ($time - $a[0]) / ($b[0] - $a[0]);
-                    $result[] = [$mapTime($time), $a[1] + ($b[1] - $a[1]) * $fraction,
-                        $a[2] + ($b[2] - $a[2]) * $fraction, $a[3] + ($b[3] - $a[3]) * $fraction];
+                    $fraction = max(0, min(1, ($time - $a[0]) / ($b[0] - $a[0])));
+                    // Exact endpoints are part of the original recording;
+                    // preserve their values/types and avoid roundoff drift.
+                    $result[] = $j === count($cuts) - 1 && $step === $steps
+                        ? [$mapTime($b[0]), $b[1], $b[2], $b[3]]
+                        : [$mapTime($time), $a[1] + ($b[1] - $a[1]) * $fraction,
+                            $a[2] + ($b[2] - $a[2]) * $fraction, $a[3] + ($b[3] - $a[3]) * $fraction];
                     while (count($result) >= 3) {
                         $n = count($result);
                         [$x, $y, $z] = array_slice($result, -3);
@@ -169,6 +184,7 @@ class PassingAnimationTiming
                 }
             }
         }
+
         return $result;
     }
 }

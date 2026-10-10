@@ -163,12 +163,11 @@ test('the ball and tackler finish at the engine dead-ball spot for both directio
                     $side === 'home' ? 10 + $spot : 110 - $spot,
                     "Side: {$side}, Call: {$call}, Seed: {$seed}, "
                     ."Outcome: {$play['outcome']}, "
-                    ."Throwaway: ".json_encode($play['throwaway'] ?? false).", "
-                    ."Defensive return: ".json_encode($play['defensive_return'] ?? false)
+                    .'Throwaway: '.json_encode($play['throwaway'] ?? false).', '
+                    .'Defensive return: '.json_encode($play['defensive_return'] ?? false)
                 );
 
-
-//                expect($ball[1])->toBe($side === 'home' ? 10 + $spot : 110 - $spot);
+                //                expect($ball[1])->toBe($side === 'home' ? 10 + $spot : 110 - $spot);
                 if ($play['outcome'] === 'incomplete') {
                     expect($ball[2])->toBe(0);
 
@@ -255,10 +254,15 @@ test('animation possession tracks distinguish passes turnovers and handoffs', fu
     $base = ['before' => ['possession' => 'home', 'spot' => 25, 'distance' => 10], 'gain' => 8, 'target' => 8, 'summary' => 'Result'];
     foreach (['complete', 'incomplete', 'interception', 'fumble'] as $outcome) {
         $animation = $timeline->build($base + ['call' => 'short_pass', 'carrier' => 'WR1', 'outcome' => $outcome], engineRosters());
-        expect($animation['ballHolders'][3])->toBe([2.2, null, null]);
+        expect($animation['throw_at'])->toBeGreaterThanOrEqual(2.2);
+        expect($animation['catch_at'])->toBeGreaterThan($animation['throw_at']);
+        expect($animation['result_at'])->toBeGreaterThan($animation['catch_at']);
+        expect($animation['ballHolders'][0])->toBe([0, 'offense', 'C']);
+        expect($animation['ballHolders'][3])->toBe([$animation['throw_at'], null, null]);
+        expect($animation['ballHolders'][4][0])->toBe($animation['catch_at']);
         expect($animation['ballHolders'][4][1])->toBe($outcome === 'incomplete' ? null : ($outcome === 'interception' ? 'defense' : 'offense'));
         if ($outcome === 'fumble') {
-            expect($animation['ballHolders'][5])->toBe([5.3, 'defense', 'CB1']);
+            expect($animation['ballHolders'][5])->toBe([$animation['result_at'], 'defense', 'CB1']);
         }
     }
     $run = $timeline->build($base + ['call' => 'inside_run', 'carrier' => 'RB', 'outcome' => 'tackle'], engineRosters());
@@ -425,4 +429,23 @@ test('touchback animations travel into either end zone including older saved pla
             expect(end($animation['ballHolders']))->toBe([$call === 'kickoff' ? 0 : 1.2, null, null]);
         }
     }
+});
+
+test('short pass completions can gain fewer than ten yards without changing their target range', function () {
+    $engine = app(ExhibitionEngine::class);
+    $shortCompletions = 0;
+    foreach (range(1, 250) as $seed) {
+        $state = $engine->initial(180, $seed, false);
+        $result = $engine->resolve($state, engineRosters(), 'short_pass', 'man_to_man');
+        $play = $result['play'];
+        if (($play['no_snap'] ?? false) || ($play['scramble'] ?? false) || ($play['throwaway'] ?? false)
+            || ! in_array($play['outcome'], ['tackle', 'touchdown', 'fumble'], true) || $play['carrier'] === 'QB') {
+            continue;
+        }
+        expect($play['target'])->toBeGreaterThanOrEqual(2)->toBeLessThanOrEqual(7);
+        if ($play['gain'] < 10) {
+            $shortCompletions++;
+        }
+    }
+    expect($shortCompletions)->toBeGreaterThan(0);
 });

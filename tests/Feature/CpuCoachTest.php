@@ -112,3 +112,28 @@ test('CPU motion and coin choices follow their target rates and remain determini
     expect($motion / 2000)->toBeBetween(.60, .68);
     expect($kicks / 2000)->toBeBetween(.76, .84);
 });
+
+test('CPU mixes short routes on early downs and favors longer routes on conversion downs', function () {
+    $engine = app(ExhibitionEngine::class);
+    $coach = app(CpuCoach::class);
+    $counts = [];
+    foreach ([1, 2, 3] as $down) {
+        $counts[$down] = array_fill_keys(['short_pass', 'slant', 'medium_pass', 'deep_pass'], 0);
+        foreach (range(1, 600) as $seed) {
+            $state = array_merge($engine->initial(180, $seed, false), ['down' => $down, 'distance' => 10, 'spot' => 25]);
+            $decision = $coach->offense($state, cpuRosters());
+            expect($decision)->toBe($coach->offense($state, cpuRosters()));
+            if (isset($counts[$down][$decision['call']])) {
+                $counts[$down][$decision['call']]++;
+            }
+        }
+        foreach ($counts[$down] as $count) {
+            expect($count)->toBeGreaterThan(0);
+        }
+    }
+    foreach ([1, 2] as $earlyDown) {
+        $earlyShort = ($counts[$earlyDown]['short_pass'] + $counts[$earlyDown]['slant']) / array_sum($counts[$earlyDown]);
+        $conversionShort = ($counts[3]['short_pass'] + $counts[3]['slant']) / array_sum($counts[3]);
+        expect($earlyShort)->toBeGreaterThan($conversionShort);
+    }
+});

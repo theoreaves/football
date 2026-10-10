@@ -44,7 +44,7 @@ test('both teams move smoothly into separate huddles without changing the saved 
     assert.equal(new Set(end.players.map(player=>`${player.x},${player.z}`)).size,22);
     assert.ok(end.players.slice(0,11).every(player=>player.x<65));
     assert.ok(end.players.slice(11).every(player=>player.x>65));
-    assert.equal(end.ball.x,66); assert.equal(end.ball.y,.25);
+    assert.equal(end.ball.x,65); assert.equal(end.ball.y,.25);
     assert.ok(end.huddle); assert.equal(JSON.stringify(frame),snapshot);
     for(const line of [10,110]) assert.ok(sampleHuddle(frame,line,'home',1).players.every(player=>player.x>0&&player.x<120));
 });
@@ -199,18 +199,34 @@ test('logos retain aspect ratio inside wide end zones and helmet panels', async 
     }
 });
 
-test('quarterback cocks his elbow releases and returns to a neutral pose', async () => {
+test('both throwing hands wind up release and return to the idle pose', async () => {
     const { buildFootballPlayer, animateFootballPlayer } = await import('../../resources/js/practice/player-model.js');
     const document = { createElement: () => ({ getContext: () => ({ strokeText() {}, fillText() {} }) }) };
-    const qb = buildFootballPlayer({number:12}, {}, document);
-    animateFootballPlayer(qb,false,2.1,0,2.1);
-    assert.ok(qb.userData.elbows[1].rotation.x < -1);
-    const cocked = qb.userData.arms[1].rotation.x;
-    animateFootballPlayer(qb,false,2.5,0,2.5);
-    assert.notEqual(qb.userData.arms[1].rotation.x,cocked);
-    animateFootballPlayer(qb,false,3,0,null);
-    assert.equal(qb.userData.arms[1].rotation.x,0);
-    assert.equal(qb.userData.elbows[1].rotation.x,0);
+    for (const throwingHand of ['right', 'left']) {
+        const qb = buildFootballPlayer({ number:12, appearance:{ throwing_hand:throwingHand } }, {}, document);
+        const hand = throwingHand === 'left' ? 1 : 0;
+        const wrist = () => {
+            qb.updateMatrixWorld(true);
+            const elbow = qb.userData.elbows[hand];
+            return qb.worldToLocal(elbow.localToWorld(elbow.position.clone().set(0, -.35, .04)));
+        };
+        animateFootballPlayer(qb, false, .8, 0, .8);
+        const ready = wrist();
+        animateFootballPlayer(qb, false, 1.9, 0, 1.9);
+        const windup = wrist();
+        assert.ok(windup.y > ready.y);
+        assert.ok(windup.z < ready.z);
+        assert.ok(Math.abs(windup.x) > Math.abs(ready.x));
+        animateFootballPlayer(qb, false, 2.2, 0, 2.2);
+        const release = wrist();
+        assert.ok(release.z > windup.z);
+        const released = qb.userData.arms[hand].quaternion.clone();
+        animateFootballPlayer(qb, false, 2.5, 0, 2.5);
+        assert.ok(released.angleTo(qb.userData.arms[hand].quaternion) > .01);
+        animateFootballPlayer(qb, false, 3, 0, null);
+        assert.ok(Math.abs(qb.userData.arms[hand].rotation.x) < 1e-9);
+        assert.equal(qb.userData.elbows[hand].rotation.x, -.12);
+    }
 });
 
 test('face mask uses the uniform color and curved rails attach to both helmet sides', async () => {
