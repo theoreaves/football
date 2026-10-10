@@ -371,6 +371,13 @@ export function mountPractice(root, onReady = () => {}) {
             }
             if (frame.huddle) mesh.rotation.y = Math.atan2(player.facingX - player.x, player.facingZ - player.z);
             else if ((animation?.dropback || animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' && (animation?.carrier !== 'QB' || elapsed < 2)) mesh.rotation.y = playDirection * Math.PI / 2;
+            else if (phase === 'play' && animation?.dropback && !animation.no_snap
+                && player.team === 'offense' && ['C', 'LG', 'RG', 'LT', 'RT'].includes(player.role)) {
+                // The tiny, sometimes reversing timeline movements are NOT
+                // changes of facing for an engaged pass blocker. Keep the
+                // shoulders squared upfield while the pocket settles.
+                mesh.rotation.y = playDirection * Math.PI / 2;
+            }
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
             // The QB must receive the snap before turning for a rushing handoff.
@@ -461,7 +468,12 @@ export function mountPractice(root, onReady = () => {}) {
             mesh.userData.cradlingBall = Boolean(heldOnOffense && eligibleCarrier
                 && elapsed >= possessionAt + .16
                 && !(animation?.outcome === 'fumble' && elapsed >= 5.3));
-            animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
+            // Small pocket positioning changes should not trigger the
+            // full running gait. Run plays and every other player are unchanged.
+            const plantedPassBlocker = phase === 'play' && animation?.dropback
+                && !animation.no_snap && player.team === 'offense'
+                && ['C', 'LG', 'RG', 'LT', 'RT'].includes(player.role);
+            animateFootballPlayer(mesh, plantedPassBlocker ? false : moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
             // Pass linemen do not cycle through a running gait while protecting.
             // Their pocket drop is rendered separately below.
             const passLineman = phase === 'play' && animation?.dropback && !animation.no_snap
