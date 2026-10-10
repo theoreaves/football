@@ -328,7 +328,24 @@ export function mountPractice(root, onReady = () => {}) {
             animateFootballPlayer(mesh, moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? elapsed : null, reception);
         });
         ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
-        if (['play', 'result'].includes(phase)) moveAnchor([frame.ball.x, frame.ball.y, frame.ball.z]);
+        // During a real throw, keep the football in the QB's right hand until
+        // release. Blend back to the saved flight path so the handoff is smooth.
+        // This is presentation-only: do not edit frame.ball or animation paths.
+        if (animation?.passing && animation?.dropback && animation?.carrier !== 'QB'
+            && phase === 'play' && elapsed >= .6 && elapsed < (animation.throw_at ?? 2.2)) {
+            const quarterbackIndex = frame.players.findIndex(player => player.team === 'offense' && player.role === 'QB');
+            const quarterback = players[quarterbackIndex];
+            const throwingHand = quarterback?.userData.elbows?.[1];
+            if (throwingHand) {
+                quarterback.updateMatrixWorld(true);
+                const handPosition = throwingHand.localToWorld(new THREE.Vector3(0, -.35, .04));
+                const release = animation.throw_at ?? 2.2;
+                const blend = Math.max(0, Math.min(1, (elapsed - (release - .20)) / .20));
+                const eased = blend * blend * (3 - 2 * blend);
+                ball.position.lerpVectors(handPosition, ball.position, eased);
+            }
+        }
+        if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
         ball.rotation.z = elapsed * 6;
         const holder = ballCarrier(frame, phase);
         // The ball's saved track remains authoritative until tackle contact.
