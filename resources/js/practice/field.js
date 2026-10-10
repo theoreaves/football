@@ -250,12 +250,13 @@ export function mountPractice(root, onReady = () => {}) {
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z); figure.add(mesh);
         };
-        part(new THREE.BoxGeometry(.48, .65, .28), trainerMaterial, 0, 1.26, 0);
-        part(new THREE.SphereGeometry(.18, 9, 7), trainerSkin, 0, 1.77, 0);
+        part(new THREE.BoxGeometry(.62, .70, .34), trainerMaterial, 0, 1.26, 0);
+        part(new THREE.SphereGeometry(.21, 9, 7), trainerSkin, 0, 1.77, 0);
         for (const sign of [-1, 1]) {
-            part(new THREE.BoxGeometry(.17, .62, .2), trainerPants, sign * .14, .57, 0);
-            part(new THREE.BoxGeometry(.15, .58, .2), trainerSkin, sign * .32, 1.21, 0);
+            part(new THREE.BoxGeometry(.20, .62, .23), trainerPants, sign * .14, .57, 0);
+            part(new THREE.BoxGeometry(.19, .58, .22), trainerSkin, sign * .32, 1.21, 0);
         }
+        figure.scale.setScalar(1.18); // Adult-sized, close to player height.
         medicalCrew.add(figure);
         return figure;
     };
