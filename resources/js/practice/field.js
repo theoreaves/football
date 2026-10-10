@@ -709,52 +709,92 @@ export function mountPractice(root, onReady = () => {}) {
                     mesh.rotation.x -= .04 * smoothEntry;
                 }
             }
-            // Touchdown celebration v1. Use the existing three-second result
-            // window, never the underlying recorded play tracks. The scorer
-            // reacts first; four nearest teammates join without teleporting.
-            if (animation?.outcome === 'touchdown' && ['celebration', 'result'].includes(phase)
-                && player.team === 'offense' && !animation.no_snap) {
+            // Touchdown celebration v3: animate from the recorded final spots.
+            // No simulation tracks, results, or field state are changed.
+            if (animation?.outcome === 'touchdown' && phase === 'celebration' && !animation.no_snap) {
                 const scorerRole = animation.receiver_role && animation.passing
                     ? animation.receiver_role : animation.carrier;
                 const scorer = frame.players.find(p => p.team === 'offense' && p.role === scorerRole);
-                if (scorer) {
-                    const isScorer = role === scorerRole;
-                    const teammates = frame.players
-                        .filter(p => p.team === 'offense' && p.role !== scorerRole)
-                        .sort((a, b) => {
-                            const da = Math.hypot(a.x - scorer.x, a.z - scorer.z);
-                            const db = Math.hypot(b.x - scorer.x, b.z - scorer.z);
-                            return da - db || a.role.localeCompare(b.role);
-                        }).slice(0, 4);
-                    const teammateIndex = teammates.findIndex(p => p.role === role);
-                    if (isScorer || teammateIndex !== -1) {
-                        const delay = isScorer ? 0 : .35 + teammateIndex * .14;
-                        const t = Math.max(0, Math.min(1, (postElapsed - delay) / .85));
-                        const ease = t * t * (3 - 2 * t);
-                        const wave = Math.sin((postElapsed - delay) * 9 + teammateIndex * 1.3);
+                const smooth = value => {
+                    const v = Math.max(0, Math.min(1, value));
+                    return v * v * (3 - 2 * v);
+                };
+                if (player.team === 'offense' && scorer) {
+                    const isScorer = player.role === scorerRole;
+                    // Pick four teammates by stable final-frame proximity; ties
+                    // break by role, so seek/replay doesn't change the group.
+                    const teammates = frame.players.filter(p => p.team === 'offense' && p.role !== scorerRole)
+                        .sort((a, b) => Math.hypot(a.x - scorer.x, a.z - scorer.z)
+                            - Math.hypot(b.x - scorer.x, b.z - scorer.z)
+                            || a.role.localeCompare(b.role)).slice(0, 4);
+                    const index = teammates.findIndex(p => p.role === player.role);
+                    if (isScorer || index >= 0) {
+                        const delay = isScorer ? 0 : .18 + index * .13;
+                        const active = Math.max(0, postElapsed - delay);
+                        const cheer = smooth(active / .45);
                         if (!isScorer) {
-                            // Approach the scorer but never shift more than 3 yards
-                            // from the authoritative final position.
-                            const dx = scorer.x - player.x, dz = scorer.z - player.z;
+                            const dx = scorer.x - player.x;
+                            const dz = scorer.z - player.z;
                             const distance = Math.hypot(dx, dz);
-                            const travel = Math.min(3, Math.max(0, distance - 1.5)) * ease;
-                            if (distance > .001) {
-                                mesh.position.x += dx / distance * travel;
-                                mesh.position.z += dz / distance * travel;
+                            // Allow a realistic jog from distant final positions,
+                            // rather than limiting every player to just 3 yards.
+                            const angle = (index / 4) * Math.PI * 2;
+                            const radius = 1.35;
+                            const targetX = scorer.x + Math.cos(angle) * radius;
+                            const targetZ = scorer.z + Math.sin(angle) * radius;
+                            const toX = targetX - player.x;
+                            const toZ = targetZ - player.z;
+                            const length = Math.hypot(toX, toZ);
+                            const moved = Math.min(length, active * 8.5);
+                            const arrival = length < .15 ? 1 : smooth(Math.max(0, (active - length / 8.5) / .25));
+                            if (length > .001) {
+                                mesh.position.x += toX / length * moved;
+                                mesh.position.z += toZ / length * moved;
+                                if (moved < length - .1) {
+                                    mesh.rotation.y = Math.atan2(toX, toZ);
+                                    mesh.userData.legs?.forEach((leg, side) => {
+                                        leg.rotation.x = (side === 0 ? 1 : -1) * .38 * Math.sin(active * 12 + index);
+                                    });
+                                } else {
+                                    mesh.rotation.y = Math.atan2(scorer.x - mesh.position.x, scorer.z - mesh.position.z);
+                                }
                             }
-                            mesh.rotation.y = Math.atan2(scorer.x - mesh.position.x, scorer.z - mesh.position.z);
+                            // Wave once the players have reached the scorer.
+                            const raised = arrival * cheer;
+                            mesh.userData.arms?.forEach((arm, side) => {
+                                arm.rotation.x = -1.70 * raised;
+                                arm.rotation.z = (side === 0 ? -.35 : .35) * raised;
+                            });
+                            mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.45 * raised; });
+                            mesh.position.y += .09 * Math.max(0, Math.sin(active * 8)) * raised;
+                        } else {
+                            const wave = Math.sin(active * 8);
+                            mesh.userData.arms?.forEach((arm, side) => {
+                                arm.rotation.x = (-2.0 + wave * .12) * cheer;
+                                arm.rotation.z = (side === 0 ? -.30 : .30) * cheer;
+                            });
+                            mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.45 * cheer; });
+                            mesh.position.y += Math.max(0, wave) * .11 * cheer;
                         }
-                        // Raise hands, bend elbows and bounce at the knees.
-                        mesh.userData.arms?.forEach((arm, side) => {
-                            arm.rotation.x = -2.10 * ease + .12 * wave * ease;
-                            arm.rotation.z = (side === 0 ? -.35 : .35) * ease;
-                        });
-                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.38 * ease; });
+                    }
+                } else if (player.team === 'defense') {
+                    // Defenders disengage and jog toward the closest sideline.
+                    // Each has a slightly different reaction, never teleporting.
+                    const delay = .3 + (i % 6) * .11;
+                    const active = Math.max(0, postElapsed - delay);
+                    const departing = smooth(active / .5);
+                    const sideline = player.z < 26.665 ? -3 : 56.33;
+                    const dz = sideline - player.z;
+                    const step = Math.sign(dz) * Math.min(Math.abs(dz), Math.max(0, active * 4.2));
+                    mesh.position.z += step;
+                    if (active > 0) {
+                        mesh.rotation.y = Math.atan2(0, dz);
                         mesh.userData.legs?.forEach((leg, side) => {
-                            leg.rotation.x = (side === 0 ? 1 : -1) * .10 * wave * ease;
+                            leg.rotation.x = (side === 0 ? 1 : -1) * departing * .38 * Math.sin(active * 12 + i);
                         });
-                        mesh.userData.knees?.forEach(knee => { knee.rotation.x = .14 * ease; });
-                        mesh.position.y += Math.max(0, Math.sin((postElapsed - delay) * 9)) * .10 * ease;
+                        mesh.userData.arms?.forEach((arm, side) => {
+                            arm.rotation.x = (side === 0 ? 1 : -1) * departing * .21 * Math.sin(active * 12 + i);
+                        });
                     }
                 }
             }
@@ -1183,7 +1223,7 @@ export function mountPractice(root, onReady = () => {}) {
             }
         } else if (phase === 'celebration') {
             postElapsed += delta;
-            if (postElapsed >= 2.6) {
+            if (postElapsed >= 4.2) {
                 phase = 'result'; postElapsed = 0;
                 if (resultPopup) resultPopup.hidden = false;
             }
