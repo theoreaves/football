@@ -347,8 +347,10 @@ export function mountPractice(root, onReady = () => {}) {
             }
         }
         if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
-        ball.rotation.z = elapsed * 6;
         const holder = ballCarrier(frame, phase);
+        // While held, the ball should not spin independently like a loose ball.
+        // Hand/torso attachment controls its position; flight still spins.
+        ball.rotation.z = holder ? 0 : elapsed * 6;
         // The ball's saved track remains authoritative until tackle contact.
         // After contact, visually follow the offensive ball carrier down.
         // Do not alter loose balls, turnovers, special teams or saved tracks.
