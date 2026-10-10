@@ -454,15 +454,38 @@ export function mountPractice(root, onReady = () => {}) {
                     mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.90; });
                     mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.75; });
                 }
-                if (player.team === 'offense' && player.role === 'QB' && animation.carrier === 'RB'
-                    && elapsed >= .56 && elapsed < 1.02) {
-                    mesh.userData.arms?.forEach(arm => { arm.rotation.x = -1.05; });
-                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.70; });
+                // Snap & Handoff v2: hands meet the ball's presentation-only
+                // path. Keep the QB's throw arm solver free after snap.
+                const runExchange = animation.carrier === 'RB' && !animation.passing;
+                const snapPhase = phase === 'play' && elapsed >= .25 && elapsed < .61;
+                const exchangePhase = phase === 'play' && elapsed >= .61 && elapsed < 1.05;
+                if (player.team === 'offense' && player.role === 'QB') {
+                    if (snapPhase) {
+                        // Receive with both hands below the chest.
+                        mesh.userData.arms?.forEach((arm, j) => {
+                            arm.rotation.x = -.83;
+                            arm.rotation.z = j === 0 ? -.20 : .20;
+                        });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -1.04; });
+                    } else if (runExchange && exchangePhase) {
+                        // Present the football at the RB's midsection. The QB
+                        // remains facing the play until the exchange completes.
+                        mesh.userData.arms?.forEach((arm, j) => {
+                            arm.rotation.x = -1.09;
+                            arm.rotation.z = j === 0 ? -.18 : .18;
+                        });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.80; });
+                    }
                 }
-                if (player.team === 'offense' && player.role === 'RB' && animation.carrier === 'RB'
-                    && elapsed >= .74 && elapsed < 1.07) {
-                    mesh.userData.arms?.forEach(arm => { arm.rotation.x = -.95; });
-                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.95; });
+                if (player.team === 'offense' && player.role === 'RB' && runExchange
+                    && exchangePhase) {
+                    // Form the receiving pocket, then leave the existing
+                    // high-and-tight carrying animation in charge after 1.05s.
+                    mesh.userData.arms?.forEach((arm, j) => {
+                        arm.rotation.x = -.95;
+                        arm.rotation.z = j === 0 ? -.15 : .15;
+                    });
+                    mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -1.00; });
                 }
             }
             // Drive the dedicated joints after all legacy arm/snap poses, so
@@ -529,16 +552,19 @@ export function mountPractice(root, onReady = () => {}) {
                 mesh.updateMatrixWorld(true);
                 return mesh.localToWorld(new THREE.Vector3(x, y, z));
             };
+            // The center handles the ball only once the line is set. Once
+            // snapped, follow one continuous hand-to-hand trajectory rather
+            // than interpolating between unrelated saved track positions.
             const centerSnap = at(center, 0, .48, -.30);
-            const qbHands = at(quarterback, 0, 1.24, .38);
-            const rbHands = at(runningBack, -.18, 1.18, .37);
+            const qbHands = at(quarterback, 0, 1.19, .43);
+            const rbHands = at(runningBack, -.12, 1.14, .42);
             const smooth = t => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
             if ((phase !== 'play' || elapsed < .32) && centerSnap) {
                 ball.position.copy(centerSnap);
             } else if (elapsed < .6 && centerSnap && qbHands) {
                 ball.position.copy(centerSnap).lerp(qbHands, smooth((elapsed - .32) / .28));
-            } else if (runningBack && elapsed < 1 && qbHands && rbHands) {
-                ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .4));
+            } else if (runningBack && elapsed < 1.02 && qbHands && rbHands) {
+                ball.position.copy(qbHands).lerp(rbHands, smooth((elapsed - .6) / .42));
             }
         }
         if (['play', 'result'].includes(phase)) moveAnchor(ball.position.toArray());
