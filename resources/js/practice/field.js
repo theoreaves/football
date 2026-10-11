@@ -344,7 +344,20 @@ export function mountPractice(root, onReady = () => {}) {
     let exchange = root.dataset.unitChange === 'true'
         ? unitExchange(sample(type,duration),nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,
             nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
-    let exchangeElapsed = 0, exchangeSnapLocked = false;
+    let exchangeElapsed = 0, exchangeSnapLocked = false, exchangeRate = 1;
+    const skipExchangeButtons = [...new Set([
+        root.querySelector('.game-actions'),root.querySelector('[data-drive-dialog]'),root.querySelector('[data-quarter-dialog]'),
+    ].filter(Boolean))].map(host => {
+        const button = document.createElement('button');button.type = 'button';
+        button.dataset.skipExchange = '';button.textContent = 'Skip player change';
+        button.className = 'mt-2 rounded border border-blue-400 px-3 py-2 text-sm text-blue-200';
+        button.style.display = 'none';host.append(button);
+        button.addEventListener('click', () => {
+            if (phase !== 'huddle' || !exchange || exchangeElapsed >= exchange.duration) return;
+            exchangeRate = Math.max(1,(exchange.duration-exchangeElapsed)/.6);
+        });
+        return button;
+    });
     const turnoverGroup = turnoverCelebrants(animation,sample(type,duration));
     const earlyExit = exchange && turnoverGroup.size
         ? unitExchange({...sample(type,duration),players:sample(type,duration).players.filter(p=>!turnoverGroup.has(playerKey(p)))},null,
@@ -1195,7 +1208,7 @@ export function mountPractice(root, onReady = () => {}) {
     };
     const replayView = () => {
         cadenceTime = 0; audio.stopPlayerVoices();
-        earlyExitElapsed = 0;celebrationSpots = null;
+        earlyExitElapsed = 0;celebrationSpots = null;exchangeRate = 1;
         clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
         showState(false);
@@ -1294,7 +1307,7 @@ export function mountPractice(root, onReady = () => {}) {
             exchange = unitExchange({...finalFrame,players:finalFrame.players.map((p,i)=>({...p,x:players[i].position.x,z:players[i].position.z}))},
                 nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster);
         }
-        resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; exchangeElapsed = 0; huddleView();
+        resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; exchangeElapsed = 0; exchangeRate = 1; huddleView();
     };
     root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
     const highlightsDialog = root.querySelector('[data-highlights-dialog]');
@@ -1457,9 +1470,9 @@ export function mountPractice(root, onReady = () => {}) {
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         if (['medical', 'big_play', 'celebration', 'result', 'penalty'].includes(phase)) refereePostTime += Math.min(delta, .1);
         if (earlyExit && ['celebration','result'].includes(phase)) earlyExitElapsed += Math.min(delta,.1);
-        if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1);
+        if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1) * exchangeRate;
         if (phase === 'huddle' && exchange) {
-            exchangeElapsed = Math.min(exchange.duration,exchangeElapsed + Math.min(delta,.1));
+            exchangeElapsed = Math.min(exchange.duration,exchangeElapsed + Math.min(delta,.1) * exchangeRate);
             if (exchangeElapsed < exchange.duration && snapButton) {snapButton.disabled = true;exchangeSnapLocked = true;}
             else if (exchangeSnapLocked && snapButton) {
                 exchangeSnapLocked = false;
@@ -1553,7 +1566,7 @@ export function mountPractice(root, onReady = () => {}) {
                 finishResult();
             }
         } else if (phase === 'huddle' && huddleProgress < 1) {
-            postElapsed += delta; huddleProgress = Math.min(1, postElapsed / 1.5);
+            postElapsed += delta * exchangeRate; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
         const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
@@ -1578,6 +1591,12 @@ export function mountPractice(root, onReady = () => {}) {
             if (running || ['result','celebration','big_play'].includes(phase)) crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
             audioTime = soundTime;
         } else if (running || ['result','celebration','big_play'].includes(phase)) audioTime = soundTime;
+        for (const button of skipExchangeButtons) {
+            const visible = phase === 'huddle' && exchange && exchangeElapsed < exchange.duration;
+            button.style.display = visible ? 'inline-block' : 'none';
+            button.disabled = exchangeRate > 1;
+            button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
+        }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
         tickPlayWizard?.({delta, ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         renderState(); controls.update(); renderer.render(scene, camera);
