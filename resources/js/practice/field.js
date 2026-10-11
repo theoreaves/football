@@ -817,6 +817,69 @@ export function mountPractice(root, onReady = () => {}) {
                     }
                 }
             }
+            // Defensive turnover celebration. Use the recovering player's
+            // saved ball-holder role, not an assumed interception/fumble role.
+            if (phase === 'celebration' && ['interception', 'fumble'].includes(animation?.outcome)
+                && !animation.no_snap) {
+                const recovery = [...(animation.ballHolders || [])].reverse()
+                    .find(holder => holder[1] === 'defense' && holder[2]);
+                const leadRole = recovery?.[2] || (animation.outcome === 'interception' ? 'CB1' : 'LB2');
+                const lead = frame.players.find(p => p.team === 'defense' && p.role === leadRole);
+                const smooth = x => { const v = Math.max(0, Math.min(1, x)); return v * v * (3 - 2 * v); };
+                if (lead && player.team === 'defense') {
+                    const nearby = frame.players.filter(p => p.team === 'defense' && p.role !== leadRole)
+                        .sort((a, b) => Math.hypot(a.x - lead.x, a.z - lead.z)
+                            - Math.hypot(b.x - lead.x, b.z - lead.z)
+                            || a.role.localeCompare(b.role)).slice(0, 4);
+                    const index = nearby.findIndex(p => p.role === player.role);
+                    if (player.role === leadRole || index !== -1) {
+                        const leader = player.role === leadRole;
+                        const delay = leader ? 0 : .15 + index * .13;
+                        const time = Math.max(0, postElapsed - delay);
+                        let cheer = smooth(time / .45);
+                        if (!leader) {
+                            const angle = index * Math.PI / 2;
+                            const targetX = lead.x + 1.35 * Math.cos(angle);
+                            const targetZ = lead.z + 1.35 * Math.sin(angle);
+                            const dx = targetX - player.x, dz = targetZ - player.z;
+                            const distance = Math.hypot(dx, dz);
+                            const travel = Math.min(distance, time * 8.5);
+                            if (distance > .001) {
+                                mesh.position.x += dx * travel / distance;
+                                mesh.position.z += dz * travel / distance;
+                                mesh.rotation.y = travel < distance - .1
+                                    ? Math.atan2(dx, dz)
+                                    : Math.atan2(lead.x - mesh.position.x, lead.z - mesh.position.z);
+                            }
+                            if (travel < distance - .1) {
+                                mesh.userData.legs?.forEach((leg, side) => {
+                                    leg.rotation.x = (side === 0 ? 1 : -1) * .38 * Math.sin(time * 12 + index);
+                                });
+                            }
+                            cheer *= distance < .1 ? 1 : smooth((time - distance / 8.5) / .3);
+                        }
+                        const pulse = Math.sin(time * 8 + index);
+                        mesh.userData.arms?.forEach((arm, side) => {
+                            arm.rotation.x = (side === 0 ? -1.7 : -1.3) * cheer + pulse * .08 * cheer;
+                            arm.rotation.z = (side === 0 ? -.3 : .3) * cheer;
+                        });
+                        mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.45 * cheer; });
+                        mesh.position.y += .09 * Math.max(0, pulse) * cheer;
+                    }
+                } else if (player.team === 'offense') {
+                    // Offense clears the turnover area rather than standing frozen.
+                    const time = Math.max(0, postElapsed - .35 - i % 4 * .12);
+                    const targetZ = player.z < 26.665 ? -3 : 56.33;
+                    const dz = targetZ - player.z;
+                    mesh.position.z += Math.sign(dz) * Math.min(Math.abs(dz), time * 4);
+                    if (time > 0) {
+                        mesh.rotation.y = Math.atan2(0, dz);
+                        mesh.userData.legs?.forEach((leg, side) => {
+                            leg.rotation.x = (side === 0 ? 1 : -1) * .33 * Math.sin(time * 12 + i);
+                        });
+                    }
+                }
+            }
             // Pre-snap-only visual breathing room between opposing front lines.
             // Keep the center fixed on the ball and leave recorded paths intact.
             // Ease offsets away at the snap to avoid popping into the play track.
@@ -1228,7 +1291,7 @@ export function mountPractice(root, onReady = () => {}) {
             running = false; playButton.textContent = 'Replay';
             if (seriousInjury && resultPopup) {
                 phase = 'medical'; postElapsed = 0; resultPopup.hidden = true;
-            } else if (resultPopup && animation?.outcome === 'touchdown') {
+            } else if (resultPopup && ['touchdown', 'interception', 'fumble'].includes(animation?.outcome)) {
                 // Give the scorer and teammates an unobstructed celebration
                 // before opening the result popup over the playing field.
                 phase = 'celebration'; postElapsed = 0; resultPopup.hidden = true;
@@ -1245,11 +1308,15 @@ export function mountPractice(root, onReady = () => {}) {
             // On long scores the closest teammates may still be far downfield.
             // Give them enough time to run in before revealing the popup.
             const finish = sample(type, duration);
-            const scorerRole = animation?.receiver_role && animation?.passing
-                ? animation.receiver_role : animation?.carrier;
-            const scorer = finish.players.find(p => p.team === 'offense' && p.role === scorerRole);
+            const turnover = ['interception', 'fumble'].includes(animation?.outcome);
+            const recovery = turnover ? [...(animation.ballHolders || [])].reverse()
+                .find(holder => holder[1] === 'defense' && holder[2]) : null;
+            const scorerRole = turnover ? (recovery?.[2] || (animation.outcome === 'interception' ? 'CB1' : 'LB2'))
+                : animation?.receiver_role && animation?.passing ? animation.receiver_role : animation?.carrier;
+            const team = turnover ? 'defense' : 'offense';
+            const scorer = finish.players.find(p => p.team === team && p.role === scorerRole);
             const distances = scorer ? finish.players
-                .filter(p => p.team === 'offense' && p.role !== scorerRole)
+                .filter(p => p.team === team && p.role !== scorerRole)
                 .map(p => ({role: p.role, distance: Math.hypot(p.x - scorer.x, p.z - scorer.z)}))
                 .sort((a, b) => a.distance - b.distance || a.role.localeCompare(b.role))
                 .slice(0, 4) : [];
