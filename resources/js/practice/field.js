@@ -1207,7 +1207,7 @@ export function mountPractice(root, onReady = () => {}) {
         moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
-        cadenceTime = 0; audio.stopPlayerVoices();
+        cadenceTime = 0; audio.stopPlayerVoices();stadium.resetCrowd();
         earlyExitElapsed = 0;celebrationSpots = null;exchangeRate = 1;
         clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
@@ -1588,7 +1588,7 @@ export function mountPractice(root, onReady = () => {}) {
         cadenceTime = quarterbackTime;
         const soundTime = presentationSoundTime(phase,elapsed,duration,postElapsed,audioTime);
         if (audible) {
-            if (running || ['result','celebration','big_play'].includes(phase)) crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
+            if (running || ['result','celebration','big_play'].includes(phase)) crossedCues(cues, audioTime, soundTime).forEach(cue => {stadium.crowdCue(cue);audio.play(cue);});
             audioTime = soundTime;
         } else if (running || ['result','celebration','big_play'].includes(phase)) audioTime = soundTime;
         for (const button of skipExchangeButtons) {
@@ -1599,6 +1599,7 @@ export function mountPractice(root, onReady = () => {}) {
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
         tickPlayWizard?.({delta, ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
+        stadium.updateCrowd(delta);
         renderState(); controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,

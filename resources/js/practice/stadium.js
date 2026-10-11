@@ -81,7 +81,8 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
         add(band(80 + offset, 48 + offset, 4, height, 0, allowed), walls, 'concourse');
         offset += 4; height += 2;
     }
-    group.add(buildStadiumCrowd(fanSeats, crowd, home, away));
+    const fans = buildStadiumCrowd(fanSeats,crowd,home,away);
+    group.add(fans);
     // Lower terrace closes the open end beneath the horseshoe's upper decks.
     if (design.gap === 'end') add(band(80, 48, 8, 1, 3, angle => Math.cos(angle) >= .83), seats, 'end-terrace');
     if (design.tower) {
@@ -151,5 +152,8 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
         image.onload = () => { logoImages[side] = image; last = ''; updateScoreboard(displayState, displayNames); };
         image.src = team.team_logo;
     }
-    return { group, updateScoreboard };
+    return {group,updateScoreboard,updateCrowd(delta){fans.userData.animation?.tick(delta);},
+        crowdCue(cue){if(cue.type==='crowd')fans.userData.animation?.cheer(cue.mood==='groan'?'away':'home');
+            else if(cue.type==='third_down')fans.userData.animation?.cheer('home');},
+        resetCrowd(){fans.userData.animation?.reset();}};
 }
