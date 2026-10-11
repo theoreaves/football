@@ -78,7 +78,7 @@ test('box score reconciles scores and offensive player totals from a complete CP
         expect(collect($score['players'][$other])->sum('defensive_sacks'))->toBe($players->sum('sacks'));
     }
     expect(array_sum(array_column($score['teams'], 'possession_seconds')))->toBe(720);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('game-field')->assertSee('data-open-box', false)->assertSee('Scoring summary')->assertSee('data-log-dialog', false)->assertSee('OK · Continue')->assertSee('Box score');
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('game-field')->assertSee('data-open-stats', false)->assertSee('data-stats-dialog', false)->assertSee('data-stats-tab="team"', false)->assertSee('data-stats-tab="lineups"', false)->assertSee('data-stats-tab="box"', false)->assertSee('data-stats-tab="log"', false)->assertSee('Scoring summary')->assertSee('data-stats-panel="log"', false)->assertSee('OK · Continue')->assertSee('Box score');
 });
 
 test('helmet sides are independent and end zone artwork is save scoped', function () {
