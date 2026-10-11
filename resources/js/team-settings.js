@@ -31,11 +31,11 @@ export function mountTeamSettings(form) {
     const retain=model=>model.traverse(object=>{if(object.geometry)resources.add(object.geometry);for(const material of object.material?(Array.isArray(object.material)?object.material:[object.material]):[]){resources.add(material);if(material.map)resources.add(material.map);}});
     const art=()=>{
         const result={};
-        for(const field of ['helmet_logo_left','helmet_logo_right','team_logo']) {
+        for(const field of ['helmet_logo_left','helmet_logo_right','team_logo','midfield_logo','endzone_logo_left','endzone_logo_right']) {
             const input=form.elements.namedItem(field),clear=form.elements.namedItem(`clear_${field}`);
             let url=null;
-            if(input.files[0]){url=URL.createObjectURL(input.files[0]);urls.add(url);}
-            else if(!clear?.checked)url=input.closest('div.min-w-0')?.querySelector('img')?.src;
+            if(input?.files?.[0]){url=URL.createObjectURL(input.files[0]);urls.add(url);}
+            else if(!clear?.checked)url=input?.closest('div.min-w-0')?.querySelector('img')?.src;
             result[field]=url;
         }
         return result;
@@ -45,9 +45,9 @@ export function mountTeamSettings(form) {
         if(view.model){retain(view.model);view.scene.remove(view.model);}
         // Drop all previous model resources, including asynchronous logo textures.
         resources.forEach(resource=>resource.dispose());resources.clear();textures.clear();urls.forEach(url=>URL.revokeObjectURL(url));urls.clear();
-        const textureFor=url=>{if(!url)return null;let texture=textures.get(url);if(!texture){texture=new THREE.TextureLoader().load(url);texture.colorSpace=THREE.SRGBColorSpace;textures.set(url,texture);resources.add(texture);}return texture;};
+        const textureFor=(url,onLoad)=>{if(!url)return null;let texture=textures.get(url);if(!texture){texture=new THREE.TextureLoader().load(url,onLoad);texture.colorSpace=THREE.SRGBColorSpace;textures.set(url,texture);resources.add(texture);}return texture;};
         const images=art();
-        if(kind==='stadium'){const appearance=stadiumFromForm(form);appearance.team_logo=images.team_logo;view.model=buildStadiumPreview(appearance,document);}
+        if(kind==='stadium'){const appearance=stadiumFromForm(form);Object.assign(appearance,images);view.model=buildStadiumPreview(appearance,document,textureFor);}
         else if(kind==='cheerleaders'){const data=new FormData(form),profile={};for(const key of ['primary','secondary','accent'])profile[key]=data.get(`team_settings[cheerleaders][${key}]`);view.model=buildCheerleader(profile,images.team_logo,textureFor);}
         else if(kind==='mascot'){const data=new FormData(form),profile={};for(const key of ['name','character','fur','shirt'])profile[key]=data.get(`team_settings[mascot][${key}]`);view.model=buildMascot(profile,images.team_logo,textureFor);}
         else if(role){const data=new FormData(form),profile={};for(const key of ['name','skin','hair','hair_color','build','shirt','pants','hat_color'])profile[key]=data.get(`team_settings[staff][${role}][${key}]`);profile.hat=data.getAll(`team_settings[staff][${role}][hat]`).at(-1)==='1';view.model=buildCoach(profile,role,images.team_logo,textureFor);}

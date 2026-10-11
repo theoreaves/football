@@ -61,3 +61,19 @@ test('independent tier wall colors cover terraces risers and concourses and are 
     assert.equal(stadiumTierWallColor(home,2),'#333333');
     assert.equal(stadiumTierWallColor({stadium_wall_color:'#abcdef'},0),'#abcdef');
 });
+
+test('field preview displays independent artwork with fitted end zones and text fallbacks',()=>{
+    const document=mockDocument(),loaded=[];
+    const textureFor=(url,onLoad)=>{loaded.push(url);const texture=new THREE.Texture();texture.image={width:800,height:200};onLoad?.(texture);return texture;};
+    const model=buildStadiumPreview({midfield_logo:'midfield.png',endzone_logo_left:'left.png',endzone_text:'THEO',endzone_transparent:true},document,textureFor);
+    assert.deepEqual(loaded,['midfield.png','left.png']);
+    assert.ok(model.getObjectByName('midfield-logo'));
+    const left=model.getObjectByName('endzone-art-left');
+    assert.ok(Math.abs(left.scale.x-28)<1e-10);assert.ok(Math.abs(left.scale.y-7)<1e-10);
+    assert.equal(left.rotation.z,Math.PI/2);
+    assert.equal(model.getObjectByName('endzone-text-right').rotation.z,-Math.PI/2);
+    assert.ok(document.drawn.includes('THEO'));
+    assert.equal(model.children.filter(part=>part.position.y===.025).length,0);
+    const painted=buildStadiumPreview({endzone_background:'#123456'},mockDocument());
+    assert.equal(painted.children.filter(part=>part.position.y===.025 && part.material.color.getHexString()==='123456').length,2);
+});
