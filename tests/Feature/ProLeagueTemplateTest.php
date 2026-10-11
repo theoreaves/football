@@ -47,6 +47,7 @@ test('startup picker creates a private pro league with complete playable rosters
     expect($world->owner_user_id)->toBe($user->id);
     app(CurrentWorld::class)->id = $world->id;
     expect(Team::count())->toBe(32)->and(Player::count())->toBe(1696);
+    expect(Player::all()->map(fn ($p) => $p->firstname.' '.$p->lastname)->unique())->toHaveCount(1696);
     $builder = app(RosterBuilder::class);
     foreach (Team::all() as $team) {
         foreach (['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo'] as $field) {
@@ -143,4 +144,53 @@ test('existing-save appearance updates matching pro teams only in the requested 
     $this->assertDatabaseHas('teams', ['id' => $pro->id, 'stadium_style' => 'indoor_dome', 'uniform_home_name_enabled' => 1, 'uniform_away_helmet_stripe_enabled' => 1, 'team_logo' => 'custom.png']);
     $this->assertDatabaseHas('teams', ['id' => $custom->id, 'stadium_style' => 'classic_oval', 'uniform_home_name_enabled' => 0]);
     $this->assertDatabaseHas('teams', ['id' => $outside->id, 'stadium_style' => 'classic_oval', 'uniform_home_name_enabled' => 0]);
+});
+
+
+test('pro numbers are legal unique varied and reproducible across a league', function () {
+    $generator = app(ProRosterGenerator::class);
+    $used = [];
+    $teNumbers = [];
+    for ($i = 0; $i < 32; $i++) {
+        $seed = 42 + $i * 7919;
+        $roster = $generator->generate($seed, $used);
+        expect($generator->generate($seed, $used))->toBe($roster);
+        expect(collect($roster)->pluck('roster.jersey_number')->unique())->toHaveCount(53);
+        $baseline = $generator->generate($seed);
+        foreach ($roster as $index => $entry) {
+            expect($entry['roster']['jersey_number'])->toBeIn(ProRosterGenerator::legalNumbers($entry['roster']['position']));
+            expect($entry['player']['simulation_ratings'])->toBe($baseline[$index]['player']['simulation_ratings']);
+            $name = $entry['player']['firstname'].' '.$entry['player']['lastname'];
+            expect($name)->not->toBeIn($used);
+            $used[] = $name;
+            if ($entry['roster']['depth_chart_position'] === 'TE1') {
+                $teNumbers[] = $entry['roster']['jersey_number'];
+            }
+        }
+    }
+    expect(count(array_unique($teNumbers)))->toBeGreaterThan(10);
+    expect(ProRosterGenerator::legalNumbers('QB'))->toBe(range(0, 19));
+    expect(ProRosterGenerator::legalNumbers('K'))->toBe(array_merge(range(0, 49), range(90, 99)));
+    expect(ProRosterGenerator::legalNumbers('OL'))->toBe(range(50, 79));
+});
+
+test('starter logo lettering cleanup is scoped repeatable and preserves custom art', function () {
+    $world = World::create(['name' => 'Logos']);
+    $other = World::create(['name' => 'Other']);
+    $team = Team::withoutGlobalScopes()->create(['world_id' => $world->id, 'city' => 'Kansas City', 'name' => 'Warriors', 'abbr' => 'KCW']);
+    $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
+    $clean = file_get_contents(resource_path('team-logos/pro/kcw.svg'));
+    expect($clean)->not->toContain('<text');
+    $old = str_replace('</svg>', '<path d="M61 165h134v37H61Z" fill="#e31837"/><text x="128">KCW</text></svg>', $clean);
+    $path = "worlds/{$world->id}/teams/{$team->id}/team_logo.svg";
+    $custom = "worlds/{$world->id}/teams/{$team->id}/midfield_logo.svg";
+    $disk->put($path, $old);
+    $disk->put($custom, '<svg><text>Custom</text></svg>');
+    $team->update(['team_logo' => $path, 'midfield_logo' => $custom]);
+    $this->artisan('football:clean-pro-logo-lettering', ['world' => $other->id])->assertSuccessful();
+    expect($disk->get($path))->toBe($old);
+    $this->artisan('football:clean-pro-logo-lettering', ['world' => $world->id])->assertSuccessful();
+    expect($disk->get($path))->toBe($clean)->and($disk->get($custom))->toBe('<svg><text>Custom</text></svg>');
+    $this->artisan('football:clean-pro-logo-lettering', ['world' => $world->id])->assertSuccessful();
+    $this->artisan('football:clean-pro-logo-lettering', ['world' => 999999])->assertFailed();
 });

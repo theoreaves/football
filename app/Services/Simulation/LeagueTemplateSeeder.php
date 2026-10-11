@@ -26,6 +26,7 @@ class LeagueTemplateSeeder
                 }
                 $league = $world->leagues()->first() ?? $world->leagues()->create(['name' => 'Pro Football League']);
                 $league->seasons()->firstOrCreate(['year' => $year]);
+                $usedNames = [];
                 foreach (config('pro-football.teams') as $index => [$city, $name, $abbr, $conference, $division, $primary, $secondary, $accent, $helmet, $pants]) {
                     $team = Team::create(array_merge([
                         'city' => $city, 'name' => $name, 'abbr' => $abbr, 'conference' => $conference, 'division' => $division,
@@ -41,7 +42,8 @@ class LeagueTemplateSeeder
                     ], app(ProTeamAppearance::class)->defaults(config('pro-football.teams')[$index])));
                     app(ProTeamBranding::class)->apply($team);
                     $teamSeed = (int) (($seed + $index * 7919) % 2147483647);
-                    foreach (app(ProRosterGenerator::class)->generate($teamSeed) as $entry) {
+                    foreach (app(ProRosterGenerator::class)->generate($teamSeed, $usedNames) as $entry) {
+                        $usedNames[] = $entry['player']['firstname'].' '.$entry['player']['lastname'];
                         $player = Player::create($entry['player']);
                         TeamPlayer::create(array_merge($entry['roster'], ['team_id' => $team->id, 'player_id' => $player->id, 'team_year' => (string) $year]));
                     }
