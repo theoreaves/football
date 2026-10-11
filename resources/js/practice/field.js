@@ -1,3 +1,5 @@
+import {idlePlayerPose} from './idle-player.js';
+import {mountGameStats} from './game-stats.js';
 import {entranceMusic} from './entrance-music.js';
 import {entranceSchedule} from './tunnel-entrance.js';
 import {turnoverCelebrants} from './turnover-group.js';
@@ -193,7 +195,7 @@ export function mountPractice(root, onReady = () => {}) {
     chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, JSON.parse(root.dataset.beforeState || '{}').down ?? 1, animation?.direction ?? 1, root.dataset.chainGang !== 'false');
     const referees = buildReferees(scene);
     const refereePaths = buildRefereePaths(animation);
-    const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'));
+    const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'),textureFor);
     scene.add(stadium.group);
     for (const x of [0, 120]) {
         addBox(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
@@ -415,7 +417,7 @@ export function mountPractice(root, onReady = () => {}) {
             mesh.rotation.y = moving ? Math.atan2(next.x-player.x,next.z-player.z) : Math.atan2(player.facingX-player.x,player.facingZ-player.z);
             animateFootballPlayer(mesh,moving,exchangeElapsed,i);
         });
-        sideline.update(activeSidelinePlayers);
+        sideline.update(activeSidelinePlayers,null,!running && ['result','huddle','set'].includes(phase)?idleTime:null);
         if (phase === 'liningup') {
             const formation = samplePreSnapMotion(sample(type, 0), animation, 0);
             frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress, playDirection * (offenseSide === 'home' ? 1 : -1));
@@ -1338,11 +1340,11 @@ export function mountPractice(root, onReady = () => {}) {
         saveCamera(); setCpuAuto(false); root.querySelector('[data-finish-sim-form] button').disabled = true;
     });
     root.querySelector('[data-save-highlight-form]')?.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); });
-    const logDialog = root.querySelector('[data-log-dialog]'), boxDialog = root.querySelector('[data-box-dialog]');
+    const gameStats=mountGameStats(root),logDialog=gameStats?.dialog,boxDialog=gameStats?.dialog;
     root.querySelector('[data-open-log]')?.addEventListener('click', () => logDialog.showModal());
     root.querySelector('[data-open-box]')?.addEventListener('click', () => boxDialog.showModal());
     if (root.dataset.showHighlights === 'true') highlightsDialog?.showModal();
-    else if (root.dataset.summary === 'true') boxDialog?.showModal();
+    else if (root.dataset.summary === 'true') gameStats?.open('box');
     root.querySelector('[data-fullscreen]')?.addEventListener('click', async () => {
         try { if (document.fullscreenElement) await document.exitFullscreen(); else await root.requestFullscreen(); } catch { /* The full-window field remains available. */ }
     });
@@ -1488,13 +1490,14 @@ export function mountPractice(root, onReady = () => {}) {
     coinDialog?.addEventListener('close', () => { if (snapButton) snapButton.disabled = false; });
     if (coinDialog?.open && snapButton) snapButton.disabled = true;
     if (((quarterDialog && !quarterShown) || (driveDialog && !driveShown)) && snapButton) snapButton.disabled = true;
-    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) boxDialog?.showModal(); });
+    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) gameStats?.open('box'); });
     driveDialog?.addEventListener('close',()=>{if(snapButton && (!quarterDialog || quarterShown))snapButton.disabled=false;showQuarter();});
     penaltyDialog?.addEventListener('close', showQuarter);
     injuryDialog?.addEventListener('close', showQuarter);
     if ((driveDialog || otDialog || quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const silenceHidden = () => { if (document.hidden) { audio.setActive(false); audio.setAmbienceActive(false); } };
     document.addEventListener('visibilitychange', silenceHidden);
+    let idleTime=0;
     const animate = now => {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
         if (running && phase === 'liningup') {
@@ -1641,6 +1644,7 @@ export function mountPractice(root, onReady = () => {}) {
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
         tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
+        idleTime+=Math.max(0,Math.min(.1,delta));
         stadium.updateCrowd(delta);
         if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds+=Math.min(.1,Math.max(0,delta));if(entrance.seconds>=entranceTiming.end)finishEntrance();
             if(entrance.active){const stage=entrance.seconds<entranceTiming.cheerStart?'The visiting team takes the field':entrance.seconds<entranceTiming.leadStart?'The home cheer squad welcomes the team':entrance.seconds<entranceTiming.homeStart?'Here comes the home mascot!':'Here comes the home team!';entrancePanel.querySelector('p').textContent=stage;}
@@ -1648,6 +1652,7 @@ export function mountPractice(root, onReady = () => {}) {
         sidelineCoaches.update(delta,entranceClock());
         if(!document.hidden){sidelineMascot.update(delta,entrance.active?entrance.seconds-entranceTiming.leadStart:null);sidelineCheerleaders.update(delta,entranceClock());}
         renderState();
+        if(!entrance.active && !running && ['result','huddle','set'].includes(phase)){players.forEach((model,index)=>idlePlayerPose(model,idleTime,index));}
         if(entrance.active){sideline.update(new Set(),entranceClock());players.forEach(player=>player.visible=false);}
         else if(entrancePanel && entrance.seconds>0){players.forEach(player=>player.visible=true);entrance.seconds=0;}
         controls.update(); renderer.render(scene, camera);

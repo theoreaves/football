@@ -27,47 +27,7 @@
             <label class="text-sm">Stadium volume<input data-sound-volume="stadium" type="range" min="0" max="100" step="1" class="block w-40 accent-blue-400"></label>
             <button type="button" data-pregame-close class="rounded bg-blue-700 px-4 py-2">Skip intro →</button>
         </div>
-        <div class="flex flex-wrap gap-2 mb-5" role="tablist" aria-label="Lineup group">
-            <button type="button" data-lineup-tab="offense" aria-selected="true" class="rounded px-4 py-2 bg-blue-700">Offense</button>
-            <button type="button" data-lineup-tab="defense" aria-selected="false" class="rounded px-4 py-2 bg-gray-700">Defense</button>
-            <button type="button" data-lineup-tab="special" aria-selected="false" class="rounded px-4 py-2 bg-gray-700">Special Teams</button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            @foreach(['away', 'home'] as $lineupSide)
-                <section class="rounded-lg p-3" style="background:#1a2840;">
-                    <div class="flex gap-3 items-center mb-4">
-                        @if($appearance[$lineupSide]['team_logo'] ?? null)<img src="{{ $appearance[$lineupSide]['team_logo'] }}" alt="" loading="lazy" class="w-12 h-12 object-contain">@endif
-                        <div><p class="text-xs uppercase tracking-wider text-blue-300">{{ ucfirst($lineupSide) }} team</p><h3 class="font-bold text-lg">{{ $teamNames[$lineupSide] }}</h3></div>
-                    </div>
-                    @foreach(['offense' => ['QB','RB','WR1','WR2','WR3','TE','C','LG','RG','LT','RT'], 'defense' => ['DE1','DT1','DT2','DE2','LB1','LB2','LB3','CB1','CB2','S1','S2'], 'special' => ['K','P']] as $lineupGroup => $lineupRoles)
-                        <div data-lineup-group="{{ $lineupGroup }}" style="{{ $lineupGroup === 'offense' ? 'display:grid' : 'display:none' }}" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        @foreach($lineupRoles as $lineupRole)
-                            @php
-                                $starter = $exhibition->rosters[$lineupSide]['players'][$lineupRole] ?? null;
-                            @endphp
-                            @if($starter)
-                                @php
-                                    $skin = $starter['skin_tone'] ?? '#bd906f';
-                                @endphp
-                                @php
-                                    $hair = $starter['appearance']['hair_color'] ?? '#29241f';
-                                    $hairStyle = $starter['appearance']['hair'] ?? 'short';
-                                    $headShape = $starter['appearance']['head_shape'] ?? 'round';
-                                    $beardStyle = $starter['appearance']['beard'] ?? 'none';
-                                    $browStyle = $starter['appearance']['brow'] ?? 'straight';
-                                    $eyeColor = $starter['appearance']['eye_color'] ?? '#17202b';
-                                @endphp
-                                <div class="flex gap-2 items-center rounded p-2" style="background:#223552;min-width:0;">
-                                    @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $starter, 'portraitSide' => $lineupSide])
-                                    <div class="min-w-0"><p class="text-xs text-blue-300">{{ $lineupRole }} · #{{ $starter['number'] ?? '—' }}</p><p class="text-sm font-semibold truncate" title="{{ $starter['name'] }}">{{ $starter['name'] }}</p></div>
-                                </div>
-                            @endif
-                        @endforeach
-                        </div>
-                    @endforeach
-                </section>
-            @endforeach
-        </div>
+        @include('exhibitions.partials.lineups')
         <p class="mt-4 text-xs text-gray-400">Portraits are lightweight illustrations based on player appearance. Custom player photos can be supported later.</p>
         <button type="button" data-pregame-close class="mt-4 bg-blue-700 hover:bg-blue-600 rounded px-5 py-2">Start Game →</button>
     </dialog>
@@ -354,7 +314,6 @@
         @endif
     </dialog>
     @endif
-    @if(!request()->boolean('summary') && !$replayOnly && $last)
     <?php
         $breakHistory = collect($exhibition->history)->map(function ($play) {
             $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap', 'gain', 'penalty']);
@@ -365,6 +324,7 @@
         })->values();
     ?>
     <script type="application/json" data-break-history>@json($breakHistory)</script>
+    @if(!request()->boolean('summary') && !$replayOnly && $last)
     <dialog data-drive-dialog class="game-dialog m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-lg backdrop:bg-black/70">
         <h2 class="text-2xl font-semibold">Drive summary</h2>
         <div data-drive-team class="flex items-center gap-3 mt-4">
@@ -434,16 +394,23 @@
     @if($last)<p data-hidden-result @if($watching) hidden @endif class="game-last-result">Last play: {{ $last['summary'] }}</p>@endif
     <p class="game-help text-sm text-gray-400">Home offense moves toward the right end zone; away offense toward the left. The scoreboard updates when the replay reveals the result.</p>
     <div class="game-stats grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
-    <div class="game-actions">@if($exhibition->seasonFixture)<a class="game-action-exit" href="{{ route('seasons.show', $exhibition->seasonFixture->season_id) }}">Exit to season</a>@else<a class="game-action-exit" href="{{ route('exhibitions.index') }}">Exit game</a>@endif @if(!$replayOnly && ($state['status'] === 'playing' || ($state['penalty_pending'] ?? false)))<form method="POST" action="{{ route('exhibitions.finish', $exhibition) }}" data-finish-sim-form>@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><button type="submit">Finish with Quick Sim</button></form>@endif@unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-log>Play log (<span data-log-count>{{ count($exhibition->history) - ($watching && !$replayOnly ? 1 : 0) }}</span>)</button><button type="button" data-open-lineups>Lineups</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-open-box>Box score</button><button type="button" data-fullscreen>Full screen</button></div>
-    <dialog data-log-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Play log</h2>
-<ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · {{ $play['before']['quarter'] >= 5 ? 'OT'.($play['before']['quarter'] > 5 ? $play['before']['quarter'] - 4 : '') : 'Q'.$play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
-@if(isset($play['animation']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $play['number'], 'watch' => 1]) }}">Replay{{ \App\Support\PlayHighlights::saved($play) ? ' · Highlight' : '' }}</a>@endif</li>@endforeach</ol>
-    </dialog>
+    <div class="game-actions">@if($exhibition->seasonFixture)<a class="game-action-exit" href="{{ route('seasons.show', $exhibition->seasonFixture->season_id) }}">Exit to season</a>@else<a class="game-action-exit" href="{{ route('exhibitions.index') }}">Exit game</a>@endif @if(!$replayOnly && ($state['status'] === 'playing' || ($state['penalty_pending'] ?? false)))<form method="POST" action="{{ route('exhibitions.finish', $exhibition) }}" data-finish-sim-form>@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><button type="submit">Finish with Quick Sim</button></form>@endif@unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-stats>Stats</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-fullscreen>Full screen</button></div>
     <dialog data-highlights-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Highlight reel</h2>
         <p class="text-gray-300 mb-4">Gains over 20 yards, scoring plays, turnovers, and your saved plays.</p>
         <ol class="space-y-4">@forelse($highlights as $highlight)<li @if(!$replayOnly && $highlight['number'] === ($last['number'] ?? null)) data-hidden-result @if($watching) hidden @endif @endif>#{{ $highlight['number'] }} · {{ implode(' · ', \App\Support\PlayHighlights::reasons($highlight)) }}{{ ($highlight['saved_highlight'] ?? false) ? ' · Saved by you' : '' }}<p>{{ $highlight['summary'] }}</p><a class="text-blue-300 underline" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $highlight['number'], 'watch' => 1]) }}">Watch highlight</a></li>@empty<li>No highlights yet. You can save any play beside the Replay button.</li>@endforelse</ol>
     </dialog>
-    <dialog data-box-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form>@include('exhibitions.box-score')</dialog>
+    <dialog data-stats-dialog class="game-dialog" style="width:min(94vw,1100px);max-width:1100px;max-height:90vh;overflow:auto;">
+        <form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Stats</h2>
+        <div role="tablist" aria-label="Game statistics" class="flex flex-wrap gap-2 mb-4">
+            @foreach(['team' => 'Team Stats', 'lineups' => 'Lineups', 'box' => 'Box Score', 'log' => 'Game Log'] as $tab => $label)<button type="button" data-stats-tab="{{ $tab }}" role="tab" class="rounded px-4 py-2">{{ $label }}</button>@endforeach
+        </div>
+        <section data-stats-panel="team"><h3>Game totals</h3><table class="w-full mt-3 text-sm"><thead><tr><th class="text-left">Stat</th><th>{{ $teamNames['away'] }}</th><th>{{ $teamNames['home'] }}</th></tr></thead><tbody data-game-team-stats></tbody></table></section>
+        <section data-stats-panel="lineups" hidden>@include('exhibitions.partials.lineups')</section>
+        <section data-stats-panel="box" hidden>@include('exhibitions.box-score')</section>
+        <section data-stats-panel="log" hidden><ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history) as $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · {{ $play['before']['quarter'] >= 5 ? 'OT'.($play['before']['quarter'] > 5 ? $play['before']['quarter'] - 4 : '') : 'Q'.$play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
+@if(isset($play['animation']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $play['number'], 'watch' => 1]) }}">Replay{{ \App\Support\PlayHighlights::saved($play) ? ' · Highlight' : '' }}</a>@endif</li>@endforeach</ol>
+    </section>
+    </dialog>
 
 </div>
 </x-layouts.app>

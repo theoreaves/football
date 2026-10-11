@@ -50,7 +50,7 @@ export function mountStadiumBuilder(form) {
 }
 
 export function buildStadiumPreview(home,document,textureFor=(url,onLoad)=>new THREE.TextureLoader().load(url,onLoad)) {
-    const stadium=buildStadium(home,document,{}, {fullness:0,visitors:0,seed:1});
+    const stadium=buildStadium(home,document,{}, {fullness:0,visitors:0,seed:1},textureFor);
     const sceneGroup=new THREE.Group();sceneGroup.add(stadium.group);
     const add=(width,length,x,z,color)=>{
         const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,length),new THREE.MeshStandardMaterial({color,roughness:1}));

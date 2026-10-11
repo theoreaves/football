@@ -20,7 +20,7 @@ export function earnedFirstDown(play) {
             && Number(play.gain)>=Number(before.distance) && !['punt','field_goal'].includes(play.call)));
 }
 export function periodSummary(history,quarter,half=false){
-    const plays=history.filter(p=>p.before && p.after && !p.after.penalty_pending && (half ? p.before.quarter<=2:p.before.quarter===quarter));
+    const plays=history.filter(p=>p.before && p.after && !p.after.penalty_pending && (quarter==null || (half ? p.before.quarter<=2:p.before.quarter===quarter)));
     return Object.fromEntries(sides.map(side=>[side,{
         ...Object.fromEntries(['plays','yards','turnovers','penalties','penalty_yards'].map(key=>[key,plays.reduce((sum,p)=>sum+difference(p,side,key),0)])),
         first_downs:plays.filter(p=>p.before.possession===side && earnedFirstDown(p)).length,

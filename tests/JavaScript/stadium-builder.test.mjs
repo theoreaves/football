@@ -96,8 +96,18 @@ test('fixture options change scoreboard placement and size lighting and tunnels 
     const defaults=buildStadium({primary_color:'#123456'},mockDocument(),{primary_color:'#abcdef'},{fullness:0}).group;
     assert.ok(defaults.getObjectByName('lighting-tower'));
     assert.equal(defaults.getObjectByName('tunnel-home-roof').material.color.getHexString(),'123456');
-    assert.equal(defaults.getObjectByName('tunnel-away-roof').material.color.getHexString(),'abcdef');
+    assert.equal(defaults.getObjectByName('tunnel-away-roof').material.color.getHexString(),'657587');
     const copied=stadiumCopyFields({stadium:{scoreboards:'right',scoreboard_size:'large',lighting:'rim',tunnels:false}});
     assert.equal(copied['team_settings[stadium][tunnels]'],false);
     assert.equal(copied['team_settings[stadium][lighting]'],'rim');
+});
+
+test('only the home tunnel carries a fitted team logo while visitor tunnel uses concrete',()=>{
+    const texture=new THREE.Texture();texture.image={width:400,height:200};
+    const {group}=buildStadium({primary_color:'#123456',team_logo:'home.png',stadium_wall_color:'#abcdef'},mockDocument(),{primary_color:'#ff0000',team_logo:'away.png'},{fullness:0},()=>texture);
+    assert.ok(group.getObjectByName('home-tunnel-logo'));
+    assert.equal(group.getObjectByName('away-tunnel-logo'),undefined);
+    assert.equal(group.getObjectByName('tunnel-away-roof').material.color.getHexString(),'abcdef');
+    const emblem=group.getObjectByName('home-tunnel-logo');emblem.onBeforeRender();assert.equal(emblem.rotation.y,Math.PI/2);
+    assert.ok(emblem.geometry.parameters.width/emblem.geometry.parameters.height-2<1e-8);
 });

@@ -51,7 +51,7 @@ export function stadiumTierWallColor(home,deck) {
     return separate && profile.tier_wall_colors?.[['lower','middle','upper'][deck]] || home.stadium_wall_color || '#657587';
 }
 
-export function buildStadium(home, document, away = {}, crowd = {}) {
+export function buildStadium(home, document, away = {}, crowd = {}, textureFor=()=>null) {
     const design = stadiumDesign(home),profile=home.stadium || {};
     const enabled=value=>value!==false && value!==0 && value!=='0';
     const group = new THREE.Group(); group.name = 'stadium'; group.position.set(60, 0, 26.665);
@@ -128,11 +128,20 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
     }
     // The open end faces the field; entrance paths use this same layout.
     if(enabled(profile.tunnels))for(const [side,team] of [['home',home],['away',away]]){
-        const {x,z,direction}=TUNNEL_LAYOUT[side],color=paint(team.primary_color || home.primary_color || '#315b85');
+        const {x,z,direction}=TUNNEL_LAYOUT[side],color=side==='home'?paint(home.primary_color || '#315b85'):walls;
         box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
         for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);
         box([8,.6,10.6],[x,5,z],color,`tunnel-${side}-roof`);
         box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
+        if(side==='home' && home.team_logo){
+            const texture=textureFor(home.team_logo);
+            if(texture){
+                box([.3,3,5.5],[x+4.1,6.5,z],color,'home-tunnel-logo-panel');
+                const emblem=add(new THREE.PlaneGeometry(4.5,2.5),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),'home-tunnel-logo');
+                emblem.position.set(x+4.3,6.5,z);emblem.rotation.y=Math.PI/2;
+                let dimensions='';emblem.onBeforeRender=()=>{if(!texture.image)return;const key=`${texture.image.width}:${texture.image.height}`;if(key===dimensions)return;const size=fitLogo(texture.image.width,texture.image.height,4.5,2.5);emblem.geometry.dispose();emblem.geometry=new THREE.PlaneGeometry(size.width,size.height);dimensions=key;};
+            }
+        }
     }
     const lighting=['corners','rim'].includes(profile.lighting)?profile.lighting:'corners';
     const lamp=new THREE.MeshBasicMaterial({color:'#fff4ce'});
