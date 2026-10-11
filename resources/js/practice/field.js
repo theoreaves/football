@@ -1223,7 +1223,23 @@ export function mountPractice(root, onReady = () => {}) {
             }
         } else if (phase === 'celebration') {
             postElapsed += delta;
-            if (postElapsed >= 4.2) {
+            // On long scores the closest teammates may still be far downfield.
+            // Give them enough time to run in before revealing the popup.
+            const finish = sample(type, duration);
+            const scorerRole = animation?.receiver_role && animation?.passing
+                ? animation.receiver_role : animation?.carrier;
+            const scorer = finish.players.find(p => p.team === 'offense' && p.role === scorerRole);
+            const distances = scorer ? finish.players
+                .filter(p => p.team === 'offense' && p.role !== scorerRole)
+                .map(p => ({role: p.role, distance: Math.hypot(p.x - scorer.x, p.z - scorer.z)}))
+                .sort((a, b) => a.distance - b.distance || a.role.localeCompare(b.role))
+                .slice(0, 4) : [];
+            // Match the teammate offsets and 8.5-yard/sec run in the
+            // celebration pose. Allow time to arrive and celebrate together.
+            const gatheringSeconds = distances.reduce((max, item, index) =>
+                Math.max(max, .18 + index * .13 + item.distance / 8.5 + .85), 0);
+            const celebrationSeconds = Math.max(4.2, Math.min(16, gatheringSeconds));
+            if (postElapsed >= celebrationSeconds) {
                 phase = 'result'; postElapsed = 0;
                 if (resultPopup) resultPopup.hidden = false;
             }
