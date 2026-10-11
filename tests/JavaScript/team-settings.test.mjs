@@ -30,3 +30,19 @@ test('uniform preview reads unchecked flags correctly and honors unsaved colors 
         assert.ok(texts.includes('00'));assert.ok(texts.includes('PLAYER'));
     }finally{globalThis.FormData=original;}
 });
+test('optional coach caps use team colors and both logos retain artwork proportions',()=>{
+    const texture=new THREE.Texture({width:400,height:100});
+    const coach=buildCoach({hat:true,hat_color:'#abcdef',hair:'curly'},'head','team-logo',()=>texture);
+    assert.equal(coach.getObjectByName('coach-cap').material.color.getHexString(),'abcdef');
+    assert.equal(coach.getObjectByName('hair-curl').visible,false);
+    for(const name of ['coach-shirt-logo','coach-cap-logo']) {
+        const logo=coach.getObjectByName(name);assert.ok(logo);assert.equal(logo.material.map,texture);logo.onBeforeRender();
+        assert.ok(Math.abs(logo.geometry.parameters.width/logo.geometry.parameters.height-4)<1e-9);
+    }
+    const bare=buildCoach({hat:false},'offense','team-logo',()=>texture);
+    assert.equal(bare.getObjectByName('coach-cap'),undefined);assert.ok(bare.getObjectByName('coach-shirt-logo'));assert.equal(bare.getObjectByName('coach-cap-logo'),undefined);
+    assert.equal(buildCoach({hat:'0'}).getObjectByName('coach-cap'),undefined);
+    assert.ok(buildCoach({hat:'1'}).getObjectByName('coach-cap'));
+    const scene=new THREE.Scene();buildSidelineCoaches(scene,{home:{team_logo:'home-logo',staff:{head:{hat:true}}}},()=>texture);
+    assert.equal(scene.children[0].getObjectByName('coach-cap-logo').material.map,texture);
+});

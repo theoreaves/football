@@ -369,7 +369,7 @@ export function mountPractice(root, onReady = () => {}) {
         const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
         mesh.visible = false;scene.add(mesh);return mesh;
     });
-    const sidelineCoaches = buildSidelineCoaches(scene,appearance);
+    const sidelineCoaches = buildSidelineCoaches(scene,appearance,textureFor);
     const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;

@@ -16,7 +16,7 @@
             <legend class="font-semibold px-2">{{ $label }}</legend>
             <label class="block">Name<input name="team_settings[staff][{{ $role }}][name]" maxlength="80" value="{{ old('team_settings.staff.'.$role.'.name', $team->team_settings['staff'][$role]['name'] ?? '') }}" class="block w-full border rounded p-2"></label>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                @foreach(['skin' => ['Skin tone', '#b9825b'], 'hair_color' => ['Hair color', '#30251f'], 'shirt' => ['Team shirt', $team->team_color1 ?: '#174880'], 'pants' => ['Pants', '#303b48']] as $part => [$title, $fallback])
+                @foreach(['skin' => ['Skin tone', '#b9825b'], 'hair_color' => ['Hair color', '#30251f'], 'shirt' => ['Team shirt', $team->team_color1 ?: '#174880'], 'pants' => ['Pants', '#303b48'], 'hat_color' => ['Cap color', $team->team_color1 ?: '#174880']] as $part => [$title, $fallback])
                     <label>{{ $title }}<input type="color" name="team_settings[staff][{{ $role }}][{{ $part }}]" value="{{ old('team_settings.staff.'.$role.'.'.$part, $team->team_settings['staff'][$role][$part] ?? $fallback) }}" class="block w-full h-10 border rounded"></label>
                 @endforeach
                 <label>Hair<select name="team_settings[staff][{{ $role }}][hair]" class="block w-full border rounded p-2">
@@ -26,6 +26,9 @@
                     @foreach(['slim', 'average', 'stocky'] as $choice)<option value="{{ $choice }}" @selected(old('team_settings.staff.'.$role.'.build', $team->team_settings['staff'][$role]['build'] ?? 'average') === $choice)>{{ ucfirst($choice) }}</option>@endforeach
                 </select></label>
             </div>
+            <input type="hidden" name="team_settings[staff][{{ $role }}][hat]" value="0">
+            <label class="block"><input type="checkbox" name="team_settings[staff][{{ $role }}][hat]" value="1" @checked(old('team_settings.staff.'.$role.'.hat', $team->team_settings['staff'][$role]['hat'] ?? false))> Wear a team cap</label>
+            <p class="text-sm text-gray-600">The team logo appears on the shirt and cap when a team logo is available.</p>
             <button type="button" data-coach-preview="{{ $role }}" class="border rounded px-4 py-2">Preview {{ strtolower($label) }}</button>
         </fieldset>
     @endforeach

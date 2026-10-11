@@ -107,11 +107,12 @@ class TeamEditor extends Controller
             $settings["team_settings.coaching.{$key}"] = ['sometimes', 'integer', 'between:0,100'];
         }
         foreach (array_keys(config('team-settings.staff')) as $role) {
-            $settings["team_settings.staff.{$role}"] = ['sometimes', 'array:name,skin,hair,hair_color,build,shirt,pants'];
+            $settings["team_settings.staff.{$role}"] = ['sometimes', 'array:name,skin,hair,hair_color,build,shirt,pants,hat,hat_color'];
             $settings["team_settings.staff.{$role}.name"] = ['nullable', 'string', 'max:80'];
-            foreach (['skin', 'hair_color', 'shirt', 'pants'] as $part) {
+            foreach (['skin', 'hair_color', 'shirt', 'pants', 'hat_color'] as $part) {
                 $settings["team_settings.staff.{$role}.{$part}"] = $hex;
             }
+            $settings["team_settings.staff.{$role}.hat"] = ['sometimes', 'boolean'];
             $settings["team_settings.staff.{$role}.hair"] = ['sometimes', \Illuminate\Validation\Rule::in(['bald', 'buzz', 'short', 'curly', 'long'])];
             $settings["team_settings.staff.{$role}.build"] = ['sometimes', \Illuminate\Validation\Rule::in(['slim', 'average', 'stocky'])];
         }
