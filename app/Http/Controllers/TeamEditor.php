@@ -25,6 +25,7 @@ class TeamEditor extends Controller
         return view('teams.editor.form', [
             'team' => $team,
             'mode' => 'create',
+            'stadiumCopies' => $this->stadiumCopies(),
         ]);
     }
 
@@ -46,6 +47,7 @@ class TeamEditor extends Controller
         return view('teams.editor.form', [
             'team' => $team,
             'mode' => 'edit',
+            'stadiumCopies' => $this->stadiumCopies($team),
         ]);
     }
 
@@ -63,6 +65,20 @@ class TeamEditor extends Controller
         return redirect()
             ->route('teams.editor.edit', $team)
             ->with('status', 'Team updated.');
+    }
+
+    private function stadiumCopies(?Team $current = null)
+    {
+        // Team's world scope limits this catalog to the active save.
+        return Team::orderBy('city')->orderBy('name')->get()->reject(fn ($team) => $current && $team->id === $current->id)
+            ->map(fn ($team) => [
+                'id' => $team->id, 'label' => trim($team->city.' '.$team->name),
+                'stadium_style' => $team->stadium_style ?: 'classic_oval',
+                'stadium_seat_color' => $team->stadium_seat_color ?: ($team->team_color1 ?: '#315b85'),
+                'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',
+                'stadium_roof_color' => $team->stadium_roof_color ?: '#cbd5e1',
+                'stadium' => $team->team_settings['stadium'] ?? [],
+            ])->values();
     }
 
     private function validated(Request $request): array
@@ -92,7 +108,17 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium'],
+            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors'],
+            'team_settings.stadium.name' => ['nullable', 'string', 'max:80'],
+            'team_settings.stadium.tiers' => ['nullable', 'integer', 'between:1,3'],
+            'team_settings.stadium.rows' => ['nullable', 'integer', 'between:4,12'],
+            'team_settings.stadium.row_height' => ['nullable', 'numeric', 'between:0.75,1.75'],
+            'team_settings.stadium.one_color' => ['sometimes', 'boolean'],
+            'team_settings.stadium.tier_colors' => ['sometimes', 'array:lower,middle,upper'],
+            'team_settings.stadium.tier_colors.lower' => $hex,
+            'team_settings.stadium.tier_colors.middle' => $hex,
+            'team_settings.stadium.tier_colors.upper' => $hex,
             'team_settings.white_at_home' => ['sometimes', 'boolean'],
             'team_settings.coaching' => ['sometimes', 'array:'.implode(',', array_keys(config('team-settings.coaching')))],
             'team_settings.staff' => ['sometimes', 'array:head,offense,defense'],

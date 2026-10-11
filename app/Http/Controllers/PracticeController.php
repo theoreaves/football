@@ -73,6 +73,7 @@ class PracticeController extends Controller
             'name' => $team->name,
             'primary_color' => $team->team_color1 ?: $uniform['shirt'],
             'secondary_color' => $team->team_color2 ?: $uniform['shirt'],
+            'stadium' => $team->team_settings['stadium'] ?? [],
             'stadium_style' => $team->stadium_style ?: 'classic_oval',
             'stadium_seat_color' => $team->stadium_seat_color ?: ($team->team_color1 ?: '#315b85'),
             'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',

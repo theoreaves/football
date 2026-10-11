@@ -120,8 +120,9 @@
             </section>
             <section role="tabpanel" id="panel-stadium" aria-labelledby="tab-stadium" data-team-panel="stadium" hidden class="space-y-4">
                 <h2 class="text-xl font-semibold">Stadium and field</h2>
-                <p class="text-sm text-gray-600">Choose your stadium and field design here. Expanded stadium builder controls will arrive here as they become available.</p>
-                <label class="block">Home stadium
+                <p class="text-sm text-gray-600">Build your home stadium, preview it, or start from another team’s design. Leave structure overrides blank to use the selected style’s defaults.</p>
+                @include('teams.editor.stadium-builder')
+                <label class="block">Stadium style
                     <select name="stadium_style" class="block w-full border rounded p-2 mt-1">
                         @foreach(config('stadiums') as $value => $label)
                             <option value="{{ $value }}" @selected(old('stadium_style', $team->stadium_style ?? 'classic_oval') === $value)>{{ $label }}</option>

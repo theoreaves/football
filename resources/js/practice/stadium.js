@@ -30,13 +30,27 @@ function band(rx, rz, width, y, rise, allowed) {
     geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
 
+export function stadiumDesign(home = {}) {
+    const preset=STADIUMS[home.stadium_style] || STADIUMS.classic_oval,profile=home.stadium || {};
+    const number=(value,min,max,fallback,integer=false)=>{
+        const n=Number(value);return value!==null && value!=='' && Number.isFinite(n) && n>=min && n<=max && (!integer || Number.isInteger(n))?n:fallback;
+    };
+    return {...preset,decks:number(profile.tiers,1,3,preset.decks,true),rows:number(profile.rows,4,12,preset.rows,true),step:number(profile.row_height,.75,1.75,preset.step)};
+}
+
+export function stadiumTierColor(home,deck) {
+    const profile=home.stadium || {},single=profile.one_color;
+    const separate=single===false || single===0 || single==='0';
+    return separate && profile.tier_colors?.[['lower','middle','upper'][deck]] || home.stadium_seat_color || '#315b85';
+}
+
 export function buildStadium(home, document, away = {}, crowd = {}) {
-    const design = STADIUMS[home.stadium_style] || STADIUMS.classic_oval;
+    const design = stadiumDesign(home);
     const group = new THREE.Group(); group.name = 'stadium'; group.position.set(60, 0, 26.665);
     group.userData.style = home.stadium_style in STADIUMS ? home.stadium_style : 'classic_oval';
     const paint = color => new THREE.MeshStandardMaterial({ color, roughness: .85, side: THREE.DoubleSide });
     const walls = paint(home.stadium_wall_color || '#657587');
-    const seats = paint(home.stadium_seat_color || '#315b85');
+    const seats = paint(stadiumTierColor(home,0));
     const roofPaint = paint(home.stadium_roof_color || '#cbd5e1');
     const allowed = angle => {
         if (design.gap === 'end') return Math.cos(angle) < .83;
@@ -58,7 +72,7 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
     for (let deck = 0; deck < design.decks; deck++) {
         const deckGroup = new THREE.Group(); deckGroup.name = `seating-deck-${deck + 1}`; group.add(deckGroup);
         const count = Math.floor(210 + offset * 3), chairCount = count * design.rows;
-        const chairs = new THREE.InstancedMesh(new THREE.BoxGeometry(.65, .5, .65), seats, chairCount);
+        const chairs = new THREE.InstancedMesh(new THREE.BoxGeometry(.65, .5, .65), deck===0?seats:paint(stadiumTierColor(home,deck)), chairCount);
         chairs.name = `seats-${deck + 1}`;
         const dummy = new THREE.Object3D(); let instance = 0;
         for (let row = 0; row < design.rows; row++) {
@@ -120,7 +134,7 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
         const key = JSON.stringify([state, names]); if (key === last) return; last = key;
         context.fillStyle = '#06101b'; context.fillRect(0, 0, 1024, 512);
         context.textAlign = 'center'; context.fillStyle = '#ffffff'; context.font = 'bold 38px sans-serif';
-        context.fillText((home.name || 'HOME') + ' STADIUM', 512, 54, 960);
+        context.fillText(home.stadium?.name || (home.name || 'HOME') + ' STADIUM', 512, 54, 960);
         if (!state || !names) {
             context.font = 'bold 64px sans-serif'; context.fillText('WEBSPORTS FOOTBALL', 512, 270, 960);
         } else {

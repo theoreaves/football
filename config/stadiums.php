@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'classic_oval' => 'Classic Oval — three continuous decks',
+    'classic_oval' => 'Classic Oval — continuous seating bowl',
     'grand_bowl' => 'Grand Bowl — tall, broad seating bowl',
     'horseshoe' => 'Horseshoe — open end with a low terrace',
     'open_corners' => 'Open Corners — four separate stands',

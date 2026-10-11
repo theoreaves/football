@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {buildFootballPlayer} from './practice/player-model.js';
+import {mountStadiumBuilder,stadiumFromForm,buildStadiumPreview} from './stadium-builder.js';
 import {buildCheerleader,animateCheerleader} from './practice/cheerleader-model.js';
 import {buildMascot} from './practice/mascot-model.js';
 import {buildCoach} from './practice/coach-model.js';
@@ -20,6 +21,7 @@ export function mountTeamSettings(form) {
     let initial='team';try{const saved=sessionStorage.getItem('football-team-tab');if(tabs.some(tab=>tab.dataset.teamTab===saved))initial=saved;}catch{}
     const error=JSON.parse(form.dataset.errorFields || '[]')[0];
     if(error)initial=error.includes('staff')||error.includes('coaching')?'coaching':error.includes('cheerleaders')?'cheerleaders':error.includes('mascot')?'mascot':error.includes('uniform')||error.includes('helmet_logo')||error.includes('white_at_home')?'uniforms':error.includes('stadium')||error.includes('endzone')||error.includes('midfield')?'stadium':'team';
+    mountStadiumBuilder(form);
     choose(initial);form.addEventListener('invalid',event=>{const panel=event.target.closest('[data-team-panel]');if(panel)choose(panel.dataset.teamPanel);},true);
     form.querySelectorAll('input[type=range]').forEach(input=>input.addEventListener('input',()=>input.parentElement.querySelector('output').value=input.value));
     const dialog=form.querySelector('[data-team-preview]'),host=form.querySelector('[data-team-preview-host]');
@@ -45,7 +47,8 @@ export function mountTeamSettings(form) {
         resources.forEach(resource=>resource.dispose());resources.clear();textures.clear();urls.forEach(url=>URL.revokeObjectURL(url));urls.clear();
         const textureFor=url=>{if(!url)return null;let texture=textures.get(url);if(!texture){texture=new THREE.TextureLoader().load(url);texture.colorSpace=THREE.SRGBColorSpace;textures.set(url,texture);resources.add(texture);}return texture;};
         const images=art();
-        if(kind==='cheerleaders'){const data=new FormData(form),profile={};for(const key of ['primary','secondary','accent'])profile[key]=data.get(`team_settings[cheerleaders][${key}]`);view.model=buildCheerleader(profile,images.team_logo,textureFor);}
+        if(kind==='stadium'){const appearance=stadiumFromForm(form);appearance.team_logo=images.team_logo;view.model=buildStadiumPreview(appearance,document);}
+        else if(kind==='cheerleaders'){const data=new FormData(form),profile={};for(const key of ['primary','secondary','accent'])profile[key]=data.get(`team_settings[cheerleaders][${key}]`);view.model=buildCheerleader(profile,images.team_logo,textureFor);}
         else if(kind==='mascot'){const data=new FormData(form),profile={};for(const key of ['name','character','fur','shirt'])profile[key]=data.get(`team_settings[mascot][${key}]`);view.model=buildMascot(profile,images.team_logo,textureFor);}
         else if(role){const data=new FormData(form),profile={};for(const key of ['name','skin','hair','hair_color','build','shirt','pants','hat_color'])profile[key]=data.get(`team_settings[staff][${role}][${key}]`);profile.hat=data.getAll(`team_settings[staff][${role}][hat]`).at(-1)==='1';view.model=buildCoach(profile,role,images.team_logo,textureFor);}
         else {
@@ -55,17 +58,25 @@ export function mountTeamSettings(form) {
         retain(view.model);view.scene.add(view.model);
     };
     const open=(venue,coachRole=null)=>{
-        dispose();kind=venue;role=coachRole;dialog.showModal();form.querySelector('[data-preview-title]').textContent=kind==='cheerleaders'?'Cheerleader preview':kind==='mascot'?`${form.elements.namedItem('team_settings[mascot][name]').value || 'Mascot'} preview`:role?'Coach preview':`${kind==='home'?'Home':'Away'} uniform preview`;
+        dispose();kind=venue;role=coachRole;dialog.showModal();form.querySelector('[data-preview-title]').textContent=kind==='stadium'?'Stadium preview':kind==='cheerleaders'?'Cheerleader preview':kind==='mascot'?`${form.elements.namedItem('team_settings[mascot][name]').value || 'Mascot'} preview`:role?'Coach preview':`${kind==='home'?'Home':'Away'} uniform preview`;
         try {
             const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1,2));renderer.setClearColor('#182537');host.append(renderer.domElement);renderer.domElement.setAttribute('aria-label','Rotatable 3D model preview');
             const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight('#ffffff','#56667b',2));const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(3,5,4);scene.add(light);
-            const camera=new THREE.PerspectiveCamera(40,1,.01,100);camera.position.set(0,kind==='mascot'?1.6:1.4,kind==='mascot'?5.7:4.3);const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,kind==='mascot'?1.4:1.1,0);controls.enablePan=false;controls.minDistance=2;controls.maxDistance=7;
+            const camera=new THREE.PerspectiveCamera(40,1,.01,kind==='stadium'?2000:100);camera.position.set(0,kind==='mascot'?1.6:1.4,kind==='mascot'?5.7:4.3);const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,kind==='mascot'?1.4:1.1,0);controls.enablePan=false;controls.minDistance=2;controls.maxDistance=7;
             view={renderer,scene,camera,controls,model:null};rebuild();
+            if(kind==='stadium') {
+                const bounds=new THREE.Box3().setFromObject(view.model),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+                const aspect=Math.max(.4,host.clientWidth/Math.max(1,host.clientHeight));
+                const distance=Math.max(size.y,size.x/aspect,size.z)/Math.tan(THREE.MathUtils.degToRad(20))* .85;
+                controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(1,.9,1.2).normalize().multiplyScalar(distance));
+                controls.minDistance=80;controls.maxDistance=1200;controls.maxPolarAngle=Math.PI/2.05;
+            }
             const render=()=>{if(!view || !dialog.open)return;const width=Math.max(1,host.clientWidth),height=Math.max(1,host.clientHeight);renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();if(!document.hidden){if(kind==='cheerleaders')animateCheerleader(view.model,performance.now()/1000);controls.update();renderer.render(scene,camera);}frame=requestAnimationFrame(render);};render();
         }catch{dispose();host.textContent='3D preview unavailable. You can still edit and save these settings.';}
     };
     form.querySelectorAll('[data-uniform-preview]').forEach(button=>button.onclick=()=>open(button.dataset.uniformPreview));
     form.querySelectorAll('[data-coach-preview]').forEach(button=>button.onclick=()=>open('home',button.dataset.coachPreview));
+    form.querySelector('[data-stadium-preview]').onclick=()=>open('stadium');
     form.querySelector('[data-cheerleader-preview]').onclick=()=>open('cheerleaders');
     form.querySelector('[data-mascot-preview]').onclick=()=>open('mascot');
     form.querySelector('[data-preview-close]').onclick=()=>dialog.close();dialog.addEventListener('close',dispose);
