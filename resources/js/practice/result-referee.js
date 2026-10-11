@@ -15,15 +15,27 @@ export function resultRefereeSignal(animation, before, after) {
     }
     const ruling = refereeSignal(animation,before,after);
     if (ruling) return ruling;
+    if (resultTurnover(animation,before,after) && after.phase === 'scrimmage' && after.down === 1) return 'first_down';
     if (animation.passing && animation.outcome === 'incomplete') return 'incomplete';
     if (animation.passing && ['tackle','touchdown','fumble','complete'].includes(animation.outcome)) return 'complete';
     return null;
 }
 
+export function resultTurnover(animation, before, after) {
+    return Boolean(animation && before && after && !animation.no_snap && !after.penalty_pending
+        && ['interception','fumble'].includes(animation.outcome)
+        && ['home','away'].includes(after.possession) && after.possession !== before.possession);
+}
+
+export function resultSignalDirection(animation, before, after) {
+    const direction = animation?.direction === -1 ? -1 : 1;
+    return resultTurnover(animation,before,after) ? -direction : direction;
+}
+
 export function resultRefereeSequence(animation, before, after) {
     const signal = resultRefereeSignal(animation,before,after);
     if (!signal) return [];
-    const caught = animation.passing && ['tackle','touchdown','fumble','complete'].includes(animation.outcome);
+    const caught = !resultTurnover(animation,before,after) && animation.passing && ['tackle','touchdown','fumble','complete'].includes(animation.outcome);
     return caught && ['first_down','touchdown'].includes(signal) ? ['complete',signal] : [signal];
 }
 
@@ -73,7 +85,7 @@ export function buildResultReferee(popup, animation, before, after) {
             elapsed += Math.max(0,Math.min(delta,.1));
             const current = resultSignalAt(sequence,elapsed);
             caption.textContent = labels[current.signal];panel.dataset.resultReferee = current.signal;
-            if(renderer && refs){resultSignalPose(refs,current.signal,current.time,animation.direction || 1);renderer.render(scene,camera);}
+            if(renderer && refs){resultSignalPose(refs,current.signal,current.time,resultSignalDirection(animation,before,after));renderer.render(scene,camera);}
         },
         dispose() {
             panel.remove();scene?.traverse(object => {object.geometry?.dispose();object.material?.dispose();});

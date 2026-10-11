@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildReferees} from '../../resources/js/practice/referees.js';
-import {resultRefereeSignal,resultSignalPose,resultRefereeSequence,resultSignalAt} from '../../resources/js/practice/result-referee.js';
+import {resultRefereeSignal,resultSignalPose,resultRefereeSequence,resultSignalAt,resultSignalDirection} from '../../resources/js/practice/result-referee.js';
 const before={phase:'scrimmage',possession:'home',distance:6,down:2,home_score:0,away_score:0};
 const animation={call:'inside_run',gain:8,outcome:'tackle',events:[]};
 test('result inset signals committed first downs scores and kicks, never provisional or nullified results',()=>{
@@ -56,4 +56,21 @@ test('pass completion brings raised hands down toward the chest and incompletion
  resultSignalPose(refs,'complete',1.5);assert.ok(arms[0].rotation.x>raised);assert.ok(arms[0].children.at(-1).rotation.x<0);
  resultSignalPose(refs,'incomplete',1);const sweep=arms[0].rotation.z;
  resultSignalPose(refs,'incomplete',1.5);assert.notEqual(arms[0].rotation.z,sweep);
+});
+
+test('confirmed interceptions and lost fumbles signal first down toward the recovering team',()=>{
+ for(const side of ['home','away'])for(const direction of [-1,1])for(const outcome of ['interception','fumble']){
+  const start={...before,possession:side};const after={...start,possession:side==='home'?'away':'home',down:1};
+  const play={...animation,direction,outcome,passing:true};
+  assert.equal(resultRefereeSignal(play,start,after),'first_down');
+  assert.deepEqual(resultRefereeSequence(play,start,after),['first_down']);
+  assert.equal(resultSignalDirection(play,start,after),-direction);
+  assert.equal(resultRefereeSignal(play,start,{...after,penalty_pending:true}),null);
+  assert.equal(resultRefereeSignal({...play,events:[[1,'Turnover nullified']]},start,after),null);
+  const score={...after,[`${after.possession}_score`]:6,phase:'extra_point'};
+  assert.deepEqual(resultRefereeSequence(play,start,score),['touchdown']);
+ }
+ const recovered={...before,down:3};const fumble={...animation,outcome:'fumble',gain:0,direction:1};
+ assert.equal(resultRefereeSignal(fumble,before,recovered),null);
+ assert.equal(resultSignalDirection(fumble,before,recovered),1);
 });
