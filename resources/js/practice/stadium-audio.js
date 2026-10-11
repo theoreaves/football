@@ -33,9 +33,11 @@ export function stadiumAudio(root, environment = window) {
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
     let breakMusic;
+    const entranceTrack=recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/entrance.mp3`);
     const music = recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/anthem.mp3`);
     const label = () => { for (const control of controls) { control.textContent = !supported ? 'Sound unavailable' : settings.enabled ? 'Sound on' : 'Sound muted'; control.setAttribute('aria-pressed',String(settings.enabled)); control.disabled = !supported; } };
     const levels = () => {
+        entranceTrack.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
         music.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
         breakMusic?.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
         if (!context) return;
@@ -123,7 +125,7 @@ export function stadiumAudio(root, environment = window) {
         input.value = Math.round(settings[input.dataset.soundVolume] * 100);
         input.addEventListener('input', () => { settings[input.dataset.soundVolume] = Number(input.value)/100; save(); prepare(); });
     });
-    const unlock = () => { prepare(); music.unlock(); breakMusic?.unlock(); }; root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
+    const unlock = () => { prepare(); music.unlock(); entranceTrack.unlock(); breakMusic?.unlock(); }; root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
     return {
         play, prepare,
         whenReactionFinished() { return stadiumRecordings?.whenFinished() ?? Promise.resolve(); },
@@ -136,6 +138,8 @@ export function stadiumAudio(root, environment = window) {
         },
         unlockBreakMusic() { breakMusic?.unlock(); },
         finishBreakMusic(seconds=.6) { return breakMusic?.finish(seconds) ?? Promise.resolve(); },
+        startEntranceMusic() { levels();entranceTrack.request(); },
+        finishEntranceMusic(seconds=.6) { return entranceTrack.finish(seconds); },
         startAnthem(callbacks) { levels(); music.request(callbacks); },
         finishAnthem(seconds) { return music.finish(seconds); },
         stopPlayerVoices() { playerRecordings?.stop(); },
@@ -155,7 +159,7 @@ export function stadiumAudio(root, environment = window) {
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
         dispose(handoff = false) {
             if (disposed) return;
-            disposed = true; music.dispose(); breakMusic?.dispose();
+            disposed = true; entranceTrack.dispose(); music.dispose(); breakMusic?.dispose();
             root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock);
             for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } }
             const graph = {gameKey, context, master, crowd, effects, players, stadium, recordings,

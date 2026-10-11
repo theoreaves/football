@@ -60,3 +60,10 @@ https://freesound.org/people/Seth_Makes_Sounds/sounds/691837/
 First 45 seconds of the high-quality MP3 preview.
 All clips attenuated, fade-in/out added, re-encoded as 160kbps MP3.
 No vocals, looping or external runtime downloads.
+
+HOME ENTRANCE MUSIC
+entrance.mp3: extended instrumental edit of the same CC0 Hard Rock Loop.wav
+by BaDoink used for drive-break.mp3 (source and license listed above).
+Four copies of the bundled sixteen-second clip joined with one-second
+crossfades, trimmed to sixty seconds with entry/exit fades. No vocals.
+The home entrance cues it once and fades it before the anthem or on Skip.

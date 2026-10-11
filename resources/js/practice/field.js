@@ -1,3 +1,4 @@
+import {entranceMusic} from './entrance-music.js';
 import {entranceSchedule} from './tunnel-entrance.js';
 import {turnoverCelebrants} from './turnover-group.js';
 import {presentationAmbience} from './presentation-ambience.js';
@@ -1361,10 +1362,14 @@ export function mountPractice(root, onReady = () => {}) {
     const entrancePanel=root.querySelector('[data-entrance-panel]');
     const entrance={active:Boolean(showPregame && entrancePanel && ![false,0,'0'].includes(home.stadium?.tunnels)),seconds:0};
     const entranceTiming=entranceSchedule(Boolean(sidelineCheerleaders.group),Boolean(sidelineMascot.model));
+    const entranceSound=entranceMusic(audio,entranceTiming.cheerStart);
     const entranceClock=()=>entrance.active?{away:entrance.seconds,home:entrance.seconds-entranceTiming.homeStart,cheer:entrance.seconds-entranceTiming.cheerStart}:null;
     const entranceCamera={position:camera.position.clone(),target:controls.target.clone()};
-    const finishEntrance=()=>{
-        if(!entrance.active)return;
+    const finishEntrance=async()=>{
+        if(!entrance.active || entrance.finishing)return;
+        entrance.finishing=true;entrancePanel.querySelector('button').disabled=true;
+        await entranceSound.finish();
+        if(!root.isConnected)return;
         entrance.active=false;entrancePanel.hidden=true;
         camera.position.copy(entranceCamera.position);controls.target.copy(entranceCamera.target);
         if(callForm)callForm.inert=false;
@@ -1637,7 +1642,7 @@ export function mountPractice(root, onReady = () => {}) {
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
         tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         stadium.updateCrowd(delta);
-        if(entrance.active){entrance.seconds+=Math.min(.1,Math.max(0,delta));if(entrance.seconds>=entranceTiming.end)finishEntrance();
+        if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds+=Math.min(.1,Math.max(0,delta));if(entrance.seconds>=entranceTiming.end)finishEntrance();
             if(entrance.active){const stage=entrance.seconds<entranceTiming.cheerStart?'The visiting team takes the field':entrance.seconds<entranceTiming.leadStart?'The home cheer squad welcomes the team':entrance.seconds<entranceTiming.homeStart?'Here comes the home mascot!':'Here comes the home team!';entrancePanel.querySelector('p').textContent=stage;}
 }
         sidelineCoaches.update(delta,entranceClock());
