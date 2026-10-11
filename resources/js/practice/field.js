@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DURATION, samplePlay } from './timeline.js';
 import { sampleEnginePlay } from './engine-timeline.js';
-import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor } from './camera-state.js';
+import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor, cameraLimits } from './camera-state.js';
 import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
@@ -79,7 +79,7 @@ export function mountPractice(root, onReady = () => {}) {
     controls.maxDistance = 180;
     const focus = [animation?.line ?? 40, 0, 26.7];
     const moveAnchor = anchor => {
-        const moved = translateCameraAnchor(camera.position.toArray(), controls.target.toArray(), focus, anchor);
+        const moved = translateCameraAnchor(camera.position.toArray(), controls.target.toArray(), focus, anchor, cameraMode);
         camera.position.set(...moved.position);
         controls.target.set(...moved.target);
         focus.splice(0, 3, ...anchor);
@@ -97,16 +97,22 @@ export function mountPractice(root, onReady = () => {}) {
     const setCamera = mode => {
         cameraMode = mode;
         cameraSelect.value = mode;
-        const preset = cameraPreset(mode, focus, cameraDirection);
-        controls.target.set(...preset.target);
-        camera.position.set(...preset.position);
+        Object.assign(controls, cameraLimits(mode));
+        if (mode !== 'free') {
+            const preset = cameraPreset(mode, focus, cameraDirection);
+            controls.target.set(...preset.target);
+            camera.position.set(...preset.position);
+        }
         controls.update();
         saveCamera();
     };
     let savedCamera;
     try { savedCamera = restoreCamera(JSON.parse(localStorage.getItem(cameraKey)), focus, cameraDirection); } catch { /* Use the default view. */ }
+    // Free inspection is only available where the developer camera option is rendered.
+    if (savedCamera?.mode === 'free' && !cameraSelect.querySelector('[value=free]')) savedCamera = null;
     if (savedCamera) {
         cameraMode = savedCamera.mode; cameraSelect.value = cameraMode;
+        Object.assign(controls, cameraLimits(cameraMode));
         controls.target.set(...savedCamera.target); camera.position.set(...savedCamera.position); controls.update();
     } else setCamera('broadcast');
     controls.addEventListener('end', saveCamera);
@@ -1244,7 +1250,7 @@ export function mountPractice(root, onReady = () => {}) {
     root.querySelector('[data-reset]').addEventListener('click', () => { setCpuAuto(false); replayView(); elapsed = 0; running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-play-type]')?.addEventListener('change', event => { type = event.target.value; elapsed = 0; audioTime = -2; cadenceTime = 0; audio.stopPlayerVoices(); running = false; playButton.textContent = 'Play'; });
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
-    root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(root.querySelector('[data-camera]').value));
+    root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(cameraMode === 'free' ? 'broadcast' : cameraMode));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
     slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); turnoverTime = elapsed; audioTime = elapsed; running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';

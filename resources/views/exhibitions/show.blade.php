@@ -407,13 +407,13 @@
     </dialog>
     @endif
     <div class="game-camera-controls flex flex-wrap gap-3 items-center">
-        <label>Camera<select data-camera class="bg-gray-800 text-white rounded p-2 ml-2"><option value="broadcast">Broadcast</option><option value="overhead">Overhead</option><option value="quarterback">Behind QB</option></select></label>
+        <label>Camera<select data-camera class="bg-gray-800 text-white rounded p-2 ml-2"><option value="broadcast">Broadcast</option><option value="overhead">Overhead</option><option value="quarterback">Behind QB</option>@if(app()->environment('local') && config('app.debug'))<option value="free">Developer: Free inspection</option>@endif</select></label>
         <label>Speed<select data-speed class="bg-gray-800 text-white rounded p-2 ml-2"><option value="0.5">Half</option><option value="1" selected>Normal</option><option value="2">Double</option></select></label>
         @if($last && !($last['after']['penalty_pending'] ?? false))
         <form data-save-highlight-form data-hidden-result @if($watching && !$replayOnly) hidden @endif method="POST" action="{{ route('exhibitions.highlights.save', $exhibition) }}">@csrf<input type="hidden" name="number" value="{{ $last['number'] }}"><input type="hidden" name="return_replay" value="{{ $replayOnly ? 1 : 0 }}"><button class="border border-blue-400 rounded px-3 py-2" @disabled($last['saved_highlight'] ?? false)>{{ ($last['saved_highlight'] ?? false) ? 'Highlight saved' : 'Save highlight' }}</button></form>
         @endif
         <button data-play class="bg-gray-700 rounded px-4 py-2">{{ $last ? 'Replay' : 'Play preview' }}</button><button data-reset class="border border-gray-600 rounded px-4 py-2">Reset replay</button><button data-reset-camera class="border border-gray-600 rounded px-4 py-2">Reset camera</button>
-        <span class="text-xs text-gray-400">Drag to orbit · Scroll to zoom</span>
+        <span class="text-xs text-gray-400">Drag to orbit · Right-drag / Shift-drag to pan · Scroll / pinch to zoom</span>
     </div>
     <div data-field class="game-field"></div>
     <details class="game-audio absolute right-4 top-36 z-20 bg-gray-900/90 border border-gray-600 rounded p-3 text-sm">
