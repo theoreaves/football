@@ -28,7 +28,7 @@ export function buildCheerleader(profile={},logoUrl=null,textureFor=()=>null) {
         ball('pom-core',[.16,.16,.16],[0,0,0],accent,pom);
         // Crossed ribbons give volume without dozens of strands per pom-pom.
         for(let i=0;i<6;i++) {
-            const strand=box('pom-ribbon',[.04,.42,.055],[0,0,0],i%2?accent:secondary,pom);
+            const strand=box('pom-ribbon',[.04,.42,.055],[0,0,0],[primary,secondary,accent][i%3],pom);
             strand.rotation.set(i*.7,i*.9,i*.55);
         }
     }
