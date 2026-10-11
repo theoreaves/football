@@ -74,6 +74,12 @@ class ExhibitionController extends Controller
         $exhibition->load(['homeTeam', 'awayTeam', 'seasonFixture.season']);
         $appearance = $exhibition->state['team_appearance'] ?? ['home' => app(PracticeController::class)->appearance($exhibition->homeTeam, 'home'),
             'away' => app(PracticeController::class)->appearance($exhibition->awayTeam, 'away')];
+        // Older appearance snapshots predate mascots; add presentation only.
+        foreach (['home' => $exhibition->homeTeam, 'away' => $exhibition->awayTeam] as $side => $team) {
+            if (! array_key_exists('mascot', $appearance[$side])) {
+                $appearance[$side]['mascot'] = $team->team_settings['mascot'] ?? [];
+            }
+        }
         $exhibition->state = app(GameClock::class)->normalize($exhibition->state);
         $history = $exhibition->history;
         $last = $history ? $history[array_key_last($history)] : null;

@@ -30,8 +30,9 @@ export function buildMascot(profile = {}, logoUrl = null, textureFor = () => nul
     ball('jersey',[.43,.57,.29],[0,1.17,0],shirt);
     ball('hips',[.36,.22,.26],[0,.66,0],shirt);
     for(const sign of [-1,1]) {
-        ball('leg',[.16,.32,.17],[sign*.2,.36,0]);
-        ball('foot',[.22,.12,.3],[sign*.2,.12,.1],human?dark:body);
+        const leg=new THREE.Group();leg.name=`mascot-leg-${sign}`;leg.position.set(sign*.2,.66,0);group.add(leg);
+        ball('leg',[.16,.32,.17],[0,-.3,0],body,leg);
+        ball('foot',[.22,.12,.3],[0,-.54,.1],human?dark:body,leg);
         const arm=new THREE.Group();arm.name=`mascot-arm-${sign}`;arm.position.set(sign*.43,1.53,0);group.add(arm);
         ball('sleeve',[.19,.2,.21],[0,-.12,0],shirt,arm);
         ball(bird?'wing':'arm',[bird?.24:.14,.34,bird?.09:.15],[sign*.055,-.43,0],body,arm);

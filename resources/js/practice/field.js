@@ -1,6 +1,7 @@
 import {turnoverCelebrants} from './turnover-group.js';
 import {presentationAmbience} from './presentation-ambience.js';
 import {unitExchange,playerKey} from './unit-exchange.js';
+import {buildSidelineMascot, mascotBigPlayCue} from './sideline-mascot.js';
 import {buildSidelineCoaches} from './coach-model.js';
 import {buildSidelinePlayers} from './sideline-players.js';
 import {autoNotices} from './auto-notices.js';
@@ -329,7 +330,9 @@ export function mountPractice(root, onReady = () => {}) {
     const foul = penaltyMoment(animation, penalty, refereePaths);
     const penaltyContact = buildPenaltyContact(animation, foul);
     const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending));
-    let audioTime = -2;
+    let audioTime = -2, mascotCueTime = -2;
+    const bigPlayMascotCue = mascotBigPlayCue(animation,beforeState,afterState,penalty);
+    const mascotCues = bigPlayMascotCue ? [...cues,bigPlayMascotCue] : cues;
     const turnover = turnoverMoment(animation);
     const liveBanner = document.createElement('div');
     liveBanner.className = 'game-live-turnover';
@@ -375,6 +378,7 @@ export function mountPractice(root, onReady = () => {}) {
         const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
         mesh.visible = false;scene.add(mesh);return mesh;
     });
+    const sidelineMascot = buildSidelineMascot(scene,appearance,textureFor,`${cameraKey}:mascot-time`);
     const sidelineCoaches = buildSidelineCoaches(scene,appearance,textureFor);
     const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
     const renderState = () => {
@@ -1215,7 +1219,7 @@ export function mountPractice(root, onReady = () => {}) {
         moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
-        cadenceTime = 0; audio.stopPlayerVoices();stadium.resetCrowd();
+        cadenceTime = 0; audio.stopPlayerVoices();stadium.resetCrowd();sidelineMascot.reset();mascotCueTime=-2;
         earlyExitElapsed = 0;celebrationSpots = null;exchangeRate = 1;
         clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
@@ -1252,7 +1256,7 @@ export function mountPractice(root, onReady = () => {}) {
     root.querySelector('[data-speed]').addEventListener('change', event => speed = Number(event.target.value));
     root.querySelector('[data-reset-camera]').addEventListener('click', () => setCamera(cameraMode === 'free' ? 'broadcast' : cameraMode));
     root.querySelector('[data-camera]').addEventListener('change', event => setCamera(event.target.value));
-    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); turnoverTime = elapsed; audioTime = elapsed; running = false; playButton.textContent = 'Play'; });
+    slider.addEventListener('input', () => { setCpuAuto(false); replayView(); elapsed = Number(slider.value); turnoverTime = elapsed; audioTime = elapsed; mascotCueTime = elapsed; running = false; playButton.textContent = 'Play'; });
     if (running) playButton.textContent = 'Pause';
     const callForm = root.querySelector('[data-call-form]');
     if (callForm && root.dataset.defenseOptions) {
@@ -1595,6 +1599,12 @@ export function mountPractice(root, onReady = () => {}) {
         }
         cadenceTime = quarterbackTime;
         const soundTime = presentationSoundTime(phase,elapsed,duration,postElapsed,audioTime);
+        // Mascot reactions are visual and keep working with sound muted.
+        const mascotTime=presentationSoundTime(phase,elapsed,duration,postElapsed,mascotCueTime);
+        if (!document.hidden && (running || ['result','celebration','big_play'].includes(phase))) {
+            crossedCues(mascotCues,mascotCueTime,mascotTime).forEach(cue=>sidelineMascot.cue(cue));
+        }
+        mascotCueTime=mascotTime;
         if (audible) {
             if (running || ['result','celebration','big_play'].includes(phase)) crossedCues(cues, audioTime, soundTime).forEach(cue => {stadium.crowdCue(cue);audio.play(cue);});
             audioTime = soundTime;
@@ -1609,6 +1619,7 @@ export function mountPractice(root, onReady = () => {}) {
         tickPlayWizard?.({delta, ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         stadium.updateCrowd(delta);
         sidelineCoaches.update(delta);
+        if(!document.hidden)sidelineMascot.update(delta);
         renderState(); controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
@@ -1628,6 +1639,7 @@ export function mountPractice(root, onReady = () => {}) {
         disposeMobileControls();
         audio.dispose(options.handoff === true);
         penaltyPresentation.dispose();
+        sidelineMascot.save();
         saveCamera();
         controls.removeEventListener('end', saveCamera);
         document.removeEventListener('livewire:navigating', cleanup);

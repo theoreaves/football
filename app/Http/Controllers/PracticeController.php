@@ -78,6 +78,7 @@ class PracticeController extends Controller
             'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',
             'stadium_roof_color' => $team->stadium_roof_color ?: '#cbd5e1',
             'uniform' => $uniform,
+            'mascot' => $team->team_settings['mascot'] ?? [],
             'staff' => $team->team_settings['staff'] ?? [],
             'endzone_text' => $team->endzone_text ?: $team->name,
             'endzone_background' => $team->endzone_background ?: ($team->team_color1 ?: '#174880'),

@@ -9,7 +9,7 @@
 </section>
 <section role="tabpanel" id="panel-mascot" aria-labelledby="tab-mascot" data-team-panel="mascot" hidden class="space-y-4">
     <h2 class="text-xl font-semibold">Mascot</h2>
-    <p>Choose a mascot character, give it a name, and set its body and outfit colors. Sideline roaming and cheering will be added in the mascot animation update.</p>
+    <p>Choose a mascot character, give it a name, and set its body and outfit colors. Your mascot walks and waves behind the home bench and cheers for home touchdowns, takeaways, and big plays.</p>
     <label class="block">Mascot name<input name="team_settings[mascot][name]" maxlength="80" value="{{ old('team_settings.mascot.name', $team->team_settings['mascot']['name'] ?? '') }}" class="block w-full border rounded p-2"></label>
     <label class="block">Character<select name="team_settings[mascot][character]" class="block w-full border rounded p-2">
         @foreach(config('team-settings.mascot_characters') as $choice => $label)<option value="{{ $choice }}" @selected(old('team_settings.mascot.character', $team->team_settings['mascot']['character'] ?? 'bear') === $choice)>{{ $label }}</option>@endforeach
