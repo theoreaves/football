@@ -77,3 +77,27 @@ test('field preview displays independent artwork with fitted end zones and text 
     const painted=buildStadiumPreview({endzone_background:'#123456'},mockDocument());
     assert.equal(painted.children.filter(part=>part.position.y===.025 && part.material.color.getHexString()==='123456').length,2);
 });
+
+test('fixture options change scoreboard placement and size lighting and tunnels in preview and games',()=>{
+    for(const scoreboards of ['both','left','right'])for(const scoreboard_size of ['small','medium','large']){
+        const home={primary_color:'#123456',stadium:{scoreboards,scoreboard_size,lighting:'rim',tunnels:false}};
+        const game=buildStadium(home,mockDocument(),{}, {fullness:0}).group;
+        const preview=buildStadiumPreview(home,mockDocument());
+        for(const model of [game,preview]){
+            const boards=[];model.traverse(part=>{if(part.name==='stadium-scoreboard')boards.push(part);});
+            assert.equal(boards.length,scoreboards==='both'?2:1);
+            assert.equal(boards[0].geometry.parameters.width,23*{small:.75,medium:1,large:1.35}[scoreboard_size]);
+            if(scoreboards!=='both')assert.equal(Math.sign(boards[0].position.x),scoreboards==='left'?-1:1);
+            assert.equal(model.getObjectByName('lighting-tower'),undefined);
+            assert.ok(model.getObjectByName('rim-light'));
+            assert.equal(model.getObjectByName('tunnel-home-roof'),undefined);
+        }
+    }
+    const defaults=buildStadium({primary_color:'#123456'},mockDocument(),{primary_color:'#abcdef'},{fullness:0}).group;
+    assert.ok(defaults.getObjectByName('lighting-tower'));
+    assert.equal(defaults.getObjectByName('tunnel-home-roof').material.color.getHexString(),'123456');
+    assert.equal(defaults.getObjectByName('tunnel-away-roof').material.color.getHexString(),'abcdef');
+    const copied=stadiumCopyFields({stadium:{scoreboards:'right',scoreboard_size:'large',lighting:'rim',tunnels:false}});
+    assert.equal(copied['team_settings[stadium][tunnels]'],false);
+    assert.equal(copied['team_settings[stadium][lighting]'],'rim');
+});

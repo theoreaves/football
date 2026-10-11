@@ -5,7 +5,9 @@ import {buildStadium} from './practice/stadium.js';
 export function stadiumCopyFields(source) {
     const data=source?.stadium || {},fields={};
     for(const key of ['stadium_style','stadium_seat_color','stadium_wall_color','stadium_roof_color'])fields[key]=source?.[key] || (key==='stadium_style'?'classic_oval':key==='stadium_seat_color'?'#315b85':key==='stadium_wall_color'?'#657587':'#cbd5e1');
-    for(const key of ['tiers','rows','row_height'])fields[`team_settings[stadium][${key}]`]=data[key] ?? '';
+    for(const key of ['tiers','rows','row_height','scoreboards','scoreboard_size','lighting'])fields[`team_settings[stadium][${key}]`]=data[key] ?? '';
+    for(const [key,value] of Object.entries({scoreboards:'both',scoreboard_size:'medium',lighting:'corners'}))fields[`team_settings[stadium][${key}]`] ||= value;
+    fields['team_settings[stadium][tunnels]']=!(data.tunnels===false || data.tunnels===0 || data.tunnels==='0');
     fields['team_settings[stadium][one_color]']=!(data.one_color===false || data.one_color===0 || data.one_color==='0');
     for(const key of ['lower','middle','upper'])fields[`team_settings[stadium][tier_colors][${key}]`]=data.tier_colors?.[key] || fields.stadium_seat_color;
     fields['team_settings[stadium][wall_one_color]']=!(data.wall_one_color===false || data.wall_one_color===0 || data.wall_one_color==='0');
@@ -16,7 +18,9 @@ export function stadiumCopyFields(source) {
 export function stadiumFromForm(form) {
     const data=new FormData(form),appearance={stadium:{tier_colors:{},tier_wall_colors:{}}};
     for(const key of ['stadium_style','stadium_seat_color','stadium_wall_color','stadium_roof_color','endzone_background','endzone_text','endzone_text_color'])appearance[key]=data.get(key);
-    for(const key of ['name','tiers','rows','row_height'])appearance.stadium[key]=data.get(`team_settings[stadium][${key}]`);
+    for(const key of ['name','tiers','rows','row_height','scoreboards','scoreboard_size','lighting'])appearance.stadium[key]=data.get(`team_settings[stadium][${key}]`);
+    appearance.primary_color=data.get('team_color1');
+    appearance.stadium.tunnels=data.getAll('team_settings[stadium][tunnels]').at(-1)==='1';
     appearance.stadium.one_color=data.getAll('team_settings[stadium][one_color]').at(-1)==='1';
     for(const key of ['lower','middle','upper'])appearance.stadium.tier_colors[key]=data.get(`team_settings[stadium][tier_colors][${key}]`);
     appearance.stadium.wall_one_color=data.getAll('team_settings[stadium][wall_one_color]').at(-1)==='1';
@@ -36,7 +40,8 @@ export function mountStadiumBuilder(form) {
         const status=form.querySelector('[data-stadium-copy-status]');
         if(!source){status.textContent='Choose a team first.';return;}
         for(const [name,value] of Object.entries(stadiumCopyFields(source))) {
-            if(name==='team_settings[stadium][one_color]')single.checked=value;
+            if(name==='team_settings[stadium][tunnels]')form.querySelector('[data-stadium-tunnels]').checked=value;
+            else if(name==='team_settings[stadium][one_color]')single.checked=value;
             else if(name==='team_settings[stadium][wall_one_color]')singleWalls.checked=value;
             else form.elements.namedItem(name).value=value;
         }

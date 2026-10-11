@@ -21,6 +21,16 @@
     <label>{{ $label }}<input data-tier-wall-color type="color" name="team_settings[stadium][tier_wall_colors][{{ $key }}]" value="{{ old('team_settings.stadium.tier_wall_colors.'.$key, $team->team_settings['stadium']['tier_wall_colors'][$key] ?? $team->stadium_wall_color ?? '#657587') }}" class="block w-full h-10 border rounded disabled:opacity-50"></label>
     @endforeach
 </div>
+<input type="hidden" name="team_settings[stadium][tunnels]" value="0">
+<label class="block"><input data-stadium-tunnels type="checkbox" name="team_settings[stadium][tunnels]" value="1" @checked(old('team_settings.stadium.tunnels', $team->team_settings['stadium']['tunnels'] ?? true))> Show home and visitor tunnels</label>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    @foreach(['scoreboards' => ['Scoreboard placement', 'both', ['both' => 'Both end zones', 'left' => 'Left end zone', 'right' => 'Right end zone']], 'scoreboard_size' => ['Scoreboard size', 'medium', ['small' => 'Small', 'medium' => 'Medium', 'large' => 'Large']], 'lighting' => ['Lighting fixtures', 'corners', ['corners' => 'Corner towers', 'rim' => 'Around the stadium rim']]] as $key => [$label, $default, $choices])
+    <label>{{ $label }}<select name="team_settings[stadium][{{ $key }}]" class="block w-full border rounded p-2">
+        @foreach($choices as $value => $title)<option value="{{ $value }}" @selected(old('team_settings.stadium.'.$key, $team->team_settings['stadium'][$key] ?? $default) === $value)>{{ $title }}</option>@endforeach
+    </select></label>
+    @endforeach
+</div>
+<p class="text-sm">Tunnels use team colors. Lighting fixtures are decorative; player entrances will follow in a later update.</p>
 <div class="flex flex-wrap gap-3 items-end">
     <label class="flex-1">Copy stadium from another team<select data-stadium-copy-team class="block w-full border rounded p-2"><option value="">Choose a team in this save</option>@foreach($stadiumCopies ?? [] as $source)<option value="{{ $source['id'] }}">{{ $source['label'] }}</option>@endforeach</select></label>
     <button type="button" data-stadium-copy class="border rounded px-4 py-2">Load design</button>

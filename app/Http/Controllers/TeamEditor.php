@@ -109,7 +109,11 @@ class TeamEditor extends Controller
 
         $settings = [
             'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium'],
-            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors'],
+            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors,tunnels,scoreboards,scoreboard_size,lighting'],
+            'team_settings.stadium.tunnels' => ['sometimes', 'boolean'],
+            'team_settings.stadium.scoreboards' => ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right'])],
+            'team_settings.stadium.scoreboard_size' => ['sometimes', \Illuminate\Validation\Rule::in(['small', 'medium', 'large'])],
+            'team_settings.stadium.lighting' => ['sometimes', \Illuminate\Validation\Rule::in(['corners', 'rim'])],
             'team_settings.stadium.name' => ['nullable', 'string', 'max:80'],
             'team_settings.stadium.tiers' => ['nullable', 'integer', 'between:1,3'],
             'team_settings.stadium.rows' => ['nullable', 'integer', 'between:4,12'],

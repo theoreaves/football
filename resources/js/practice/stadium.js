@@ -51,7 +51,8 @@ export function stadiumTierWallColor(home,deck) {
 }
 
 export function buildStadium(home, document, away = {}, crowd = {}) {
-    const design = stadiumDesign(home);
+    const design = stadiumDesign(home),profile=home.stadium || {};
+    const enabled=value=>value!==false && value!==0 && value!=='0';
     const group = new THREE.Group(); group.name = 'stadium'; group.position.set(60, 0, 26.665);
     group.userData.style = home.stadium_style in STADIUMS ? home.stadium_style : 'classic_oval';
     const paint = color => new THREE.MeshStandardMaterial({ color, roughness: .85, side: THREE.DoubleSide });
@@ -124,14 +125,36 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
         roof.material.transparent = true; roof.material.opacity = .3; roof.material.depthWrite = false; group.add(roof);
         add(band(80 + offset, 48 + offset, 0, 0, height, () => true), walls, 'dome-wall');
     }
+    // Tunnels sit in the clear apron in front of the seating, behind each end zone.
+    if(enabled(profile.tunnels))for(const [side,x,team] of [['home',-70,home],['away',70,away]]){
+        const z=side==='home'?-10:10,color=paint(team.primary_color || home.primary_color || '#315b85');
+        box([10,.4,8],[x,.2,z],walls,`tunnel-${side}-floor`);
+        for(const edge of [-1,1])box([.6,5,8],[x+edge*5,2.5,z],color,`tunnel-${side}-wall`);
+        box([10.6,.6,8],[x,5,z],color,`tunnel-${side}-roof`);
+        box([9.4,4.4,.2],[x,2.4,z+(side==='home'?-4:4)],paint('#101820'),`tunnel-${side}-interior`);
+    }
+    const lighting=['corners','rim'].includes(profile.lighting)?profile.lighting:'corners';
+    const lamp=new THREE.MeshBasicMaterial({color:'#fff4ce'});
+    if(lighting==='corners')for(const xsign of [-1,1])for(const zsign of [-1,1]){
+        const x=xsign*(82+offset),z=zsign*(52+offset),y=height+10;
+        box([1.2,y,1.2],[x,y/2,z],walls,'lighting-tower');
+        box([10,3,1],[x,y,z],walls,'lighting-bank');
+        for(let i=0;i<6;i++)box([1.1,1.8,.15],[x-4+i*1.6,y,z-zsign*.6],lamp,'stadium-lamp');
+    }
+    else for(let i=0;i<16;i++){
+        const angle=i/16*Math.PI*2,x=(80+offset)*Math.cos(angle),z=(48+offset)*Math.sin(angle);
+        const bank=box([6,1.2,1],[x,height+2,z],lamp,'rim-light');bank.rotation.y=-angle-Math.PI/2;
+    }
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 512;
     const context = canvas.getContext('2d');
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
     const displayPaint = new THREE.MeshBasicMaterial({ map: texture });
-    for (const sign of [-1, 1]) {
-        box([1.3, 12, 25], [sign * 84, 20, 0], walls, 'scoreboard-frame');
-        for (const z of [-8, 8]) box([1, 14, 1], [sign * 84, 7, z], walls, 'scoreboard-support');
-        const display = add(new THREE.PlaneGeometry(23, 10), displayPaint, 'stadium-scoreboard');
+    const boardScale={small:.75,medium:1,large:1.35}[profile.scoreboard_size] || 1;
+    const boardSigns=profile.scoreboards==='left'?[-1]:profile.scoreboards==='right'?[1]:[-1,1];
+    for (const sign of boardSigns) {
+        box([1.3, 12*boardScale, 25*boardScale], [sign * 84, 20, 0], walls, 'scoreboard-frame');
+        for (const z of [-8*boardScale, 8*boardScale]) box([1, 14, 1], [sign * 84, 7, z], walls, 'scoreboard-support');
+        const display = add(new THREE.PlaneGeometry(23*boardScale, 10*boardScale), displayPaint, 'stadium-scoreboard');
         display.position.set(sign * 83.25, 20, 0); display.rotation.y = -sign * Math.PI / 2;
     }
     let last = '', displayState = null, displayNames = null;
