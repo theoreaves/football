@@ -13,7 +13,23 @@ export function resultRefereeSignal(animation, before, after) {
         if (['field_goal_missed','field_goal_blocked','extra_point_missed','extra_point_blocked'].includes(animation.outcome) && points === 0) return 'no_good';
         return null;
     }
-    return refereeSignal(animation,before,after);
+    const ruling = refereeSignal(animation,before,after);
+    if (ruling) return ruling;
+    if (animation.passing && animation.outcome === 'incomplete') return 'incomplete';
+    if (animation.passing && ['tackle','touchdown','fumble','complete'].includes(animation.outcome)) return 'complete';
+    return null;
+}
+
+export function resultRefereeSequence(animation, before, after) {
+    const signal = resultRefereeSignal(animation,before,after);
+    if (!signal) return [];
+    const caught = animation.passing && ['tackle','touchdown','fumble','complete'].includes(animation.outcome);
+    return caught && ['first_down','touchdown'].includes(signal) ? ['complete',signal] : [signal];
+}
+
+export function resultSignalAt(sequence, time) {
+    return {signal: sequence[Math.min(sequence.length - 1, Math.floor(Math.max(0,time) / 2.4))],
+        time: sequence.length > 1 && time >= 2.4 ? time - 2.4 : time};
 }
 
 export function resultSignalPose(refs, signal, time, direction = 1) {
@@ -26,13 +42,15 @@ export function resultSignalPose(refs, signal, time, direction = 1) {
 }
 
 export function buildResultReferee(popup, animation, before, after) {
-    const signal = resultRefereeSignal(animation,before,after);
+    const sequence = resultRefereeSequence(animation,before,after);
+    const signal = sequence[0];
     if (!popup || !signal) return {update(){},dispose(){}};
     const document = popup.ownerDocument;
     const panel = document.createElement('div'); panel.dataset.resultReferee = signal;
     panel.style.cssText = 'margin:8px auto 0;max-width:220px;';
     const caption = document.createElement('p');
-    caption.textContent = {first_down:'FIRST DOWN',touchdown:'TOUCHDOWN',good:'KICK IS GOOD',no_good:'NO GOOD'}[signal];
+    const labels = {first_down:'FIRST DOWN',touchdown:'TOUCHDOWN',good:'KICK IS GOOD',no_good:'NO GOOD',complete:'PASS COMPLETE',incomplete:'INCOMPLETE PASS'};
+    caption.textContent = labels[signal];
     caption.className = 'text-sm font-semibold text-blue-200';panel.append(caption);
     popup.querySelector('[data-result-ok]').before(panel);
     let renderer,scene,camera,refs,elapsed=0,visible=false;
@@ -53,7 +71,9 @@ export function buildResultReferee(popup, animation, before, after) {
             if (!shown) {visible=false;elapsed=0;return;}
             if (!visible) {visible=true;elapsed=0;if(!refs && !renderer)setup();}
             elapsed += Math.max(0,Math.min(delta,.1));
-            if(renderer && refs){resultSignalPose(refs,signal,elapsed,animation.direction || 1);renderer.render(scene,camera);}
+            const current = resultSignalAt(sequence,elapsed);
+            caption.textContent = labels[current.signal];panel.dataset.resultReferee = current.signal;
+            if(renderer && refs){resultSignalPose(refs,current.signal,current.time,animation.direction || 1);renderer.render(scene,camera);}
         },
         dispose() {
             panel.remove();scene?.traverse(object => {object.geometry?.dispose();object.material?.dispose();});

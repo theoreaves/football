@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildReferees} from '../../resources/js/practice/referees.js';
-import {resultRefereeSignal,resultSignalPose} from '../../resources/js/practice/result-referee.js';
+import {resultRefereeSignal,resultSignalPose,resultRefereeSequence,resultSignalAt} from '../../resources/js/practice/result-referee.js';
 const before={phase:'scrimmage',possession:'home',distance:6,down:2,home_score:0,away_score:0};
 const animation={call:'inside_run',gain:8,outcome:'tackle',events:[]};
 test('result inset signals committed first downs scores and kicks, never provisional or nullified results',()=>{
@@ -36,4 +36,24 @@ test('popup official faces the viewer with full raised arms and directional firs
  resultSignalPose(refs,'no_good',1);const first=arms[0].rotation.z;
  resultSignalPose(refs,'no_good',1.5);assert.notEqual(first,arms[0].rotation.z);
  resultSignalPose(refs,'good',0);assert.ok(arms.every(arm=>arm.rotation.z===0));
+});
+
+test('pass signals show a catch followed by a first down or touchdown, without signaling sacks or interceptions',()=>{
+ const pass={...animation,passing:true};const after={...before,down:3};
+ assert.deepEqual(resultRefereeSequence(pass,before,after),['complete']);
+ assert.deepEqual(resultRefereeSequence(pass,before,{...after,down:1}),['complete','first_down']);
+ assert.deepEqual(resultRefereeSequence(pass,before,{...after,home_score:6}),['complete','touchdown']);
+ assert.deepEqual(resultRefereeSequence({...pass,outcome:'incomplete'},before,after),['incomplete']);
+ for(const outcome of ['sack','interception'])assert.deepEqual(resultRefereeSequence({...pass,outcome},before,{...after,possession:'away'}),[]);
+ assert.deepEqual(resultRefereeSequence(pass,before,{...after,penalty_pending:true}),[]);
+ assert.deepEqual(resultRefereeSequence({...pass,events:[[1,'Catch nullified']]},before,after),[]);
+ assert.deepEqual(resultSignalAt(['complete','first_down'],1),{signal:'complete',time:1});
+ assert.deepEqual(resultSignalAt(['complete','first_down'],3),{signal:'first_down',time:3-2.4});
+});
+test('pass completion brings raised hands down toward the chest and incompletion sweeps horizontally',()=>{
+ const refs=buildReferees(new THREE.Scene());const arms=refs.group.children[0].children.filter(child=>child.isGroup).slice(2);
+ resultSignalPose(refs,'complete',.65);const raised=arms[0].rotation.x;
+ resultSignalPose(refs,'complete',1.5);assert.ok(arms[0].rotation.x>raised);assert.ok(arms[0].children.at(-1).rotation.x<0);
+ resultSignalPose(refs,'incomplete',1);const sweep=arms[0].rotation.z;
+ resultSignalPose(refs,'incomplete',1.5);assert.notEqual(arms[0].rotation.z,sweep);
 });

@@ -4,7 +4,7 @@ import {mountGameStats} from './game-stats.js';
 import {entranceMusic} from './entrance-music.js';
 import {entranceSchedule} from './tunnel-entrance.js';
 import {turnoverCelebrants} from './turnover-group.js';
-import {presentationAmbience} from './presentation-ambience.js';
+import {presentationAmbience,playCallVisible} from './presentation-ambience.js';
 import {unitExchange,playerKey} from './unit-exchange.js';
 import {buildSidelineCheerleaders} from './sideline-cheerleaders.js';
 import {buildSidelineMascot, mascotBigPlayCue} from './sideline-mascot.js';
@@ -1612,7 +1612,7 @@ export function mountPractice(root, onReady = () => {}) {
         }
         const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
         // Keep the stadium bed under play calling, without enabling stale cues.
-        const callingPlay = phase === 'huddle' || !callForm.hidden;
+        const callingPlay = phase === 'huddle' || playCallVisible(callForm);
         const ambience = presentationAmbience({visible: !document.hidden, callingPlay, flagOpen: Boolean(penaltyDialog?.open),
             final: afterState?.status === 'final', recapOpen: Boolean(driveDialog?.open || quarterDialog?.open),
             inspectionOpen: Boolean(logDialog?.open || highlightsDialog?.open || boxDialog?.open)});
@@ -1645,7 +1645,7 @@ export function mountPractice(root, onReady = () => {}) {
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
-        tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
+        tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         idleTime+=Math.max(0,Math.min(.1,delta));
         stadium.updateCrowd(delta);
         if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds+=Math.min(.1,Math.max(0,delta));if(entrance.seconds>=entranceTiming.end)finishEntrance();
@@ -1661,7 +1661,7 @@ export function mountPractice(root, onReady = () => {}) {
         controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
-            ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
+            ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
             submitting: snapButton.disabled, dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }

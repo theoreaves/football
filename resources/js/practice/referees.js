@@ -190,11 +190,20 @@ export function applyResultSignal(ref, signal, time, direction = 1) {
         arm.rotation.set(0,0,0);
         if (signal === 'touchdown' || signal === 'good') arm.rotation.z = (i === 0 ? -1 : 1) * Math.PI * progress;
         if (signal === 'first_down' && i === (direction > 0 ? 1 : 0)) arm.rotation.z = direction * Math.PI / 2 * progress;
-        if (signal === 'no_good') {
+        if (signal === 'no_good' || signal === 'incomplete') {
             // Repeated outward sweeps across the chest: no good.
             arm.rotation.x = -Math.PI / 2 * progress;
             arm.rotation.z = (i === 0 ? -1 : 1) * (.25 + .9 * (.5 - .5 * Math.cos(Math.max(0,time - .65) * 5))) * progress;
         }
     });
     ref.elbows.forEach(elbow => elbow.rotation.set(0,0,0));
+    if (signal === 'complete') {
+        // Raise the hands, then bring them together toward the chest as a catch.
+        const catchProgress = signalProgress(Math.max(0,time - .65));
+        ref.arms.forEach((arm,i) => {
+            arm.rotation.x = (-2.65 + 1.5 * catchProgress) * progress;
+            arm.rotation.z = (i === 0 ? -.25 : .25) * progress;
+        });
+        ref.elbows.forEach(elbow => elbow.rotation.x = -1.1 * catchProgress);
+    }
 }
