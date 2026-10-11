@@ -22,6 +22,7 @@ class SeedNflWorld extends Command
 
     public function handle(NflRosterImport $importer): int
     {
+        ini_set('memory_limit', '-1');
         try {
             $identity = mb_strtolower(trim((string) $this->argument('user')));
             $owners = User::whereRaw('LOWER(name) = ?', [$identity])->orWhereRaw('LOWER(email) = ?', [$identity])->get();
