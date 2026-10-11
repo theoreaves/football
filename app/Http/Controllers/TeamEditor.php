@@ -156,6 +156,15 @@ class TeamEditor extends Controller
             $settings["team_settings.cheerleaders.{$part}"] = $hex;
         }
 
+        // Validate every upload before changing the team, including other tabs.
+        $audioRules = ['audio_uploads' => ['sometimes', 'array:'.implode(',', array_keys(config('team-audio')))],
+            'audio_clear' => ['sometimes', 'array:'.implode(',', array_keys(config('team-audio')))]];
+        foreach (array_keys(config('team-audio')) as $event) {
+            $audioRules["audio_uploads.{$event}"] = ['nullable', 'file', 'mimes:mp3,wav,ogg', 'extensions:mp3,wav,ogg', 'max:15360'];
+            $audioRules["audio_clear.{$event}"] = ['sometimes', 'boolean'];
+        }
+        $request->validate($audioRules);
+
         return $request->validate(array_merge($appearance, $settings, [
             'city' => ['required', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
@@ -171,6 +180,20 @@ class TeamEditor extends Controller
 
     private function handleUploads(Request $request, Team $team): void
     {
+        $profile = $team->team_settings ?? [];
+        foreach (array_keys(config('team-audio')) as $event) {
+            if ($request->boolean("audio_clear.{$event}")) {
+                unset($profile['audio'][$event]);
+            }
+            if ($request->hasFile("audio_uploads.{$event}")) {
+                $file = $request->file("audio_uploads.{$event}");
+                // Immutable filenames retain the audio used by existing game snapshots.
+                $profile['audio'][$event] = $file->storeAs("teams/{$team->id}/audio",
+                    (string) \Illuminate\Support\Str::uuid().'.'.strtolower($file->getClientOriginalExtension()), 'team_art');
+            }
+        }
+        $team->update(['team_settings' => $profile]);
+
         $fields = [
             'team_logo',
             'helmet_logo_right',

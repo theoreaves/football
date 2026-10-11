@@ -1,6 +1,6 @@
 // Event names are stable so future team sound packs can replace the files.
 const assets={touchdown:'touchdown.mp3',home_turnover:'turnover.mp3',third_down:'third-down.mp3'};
-export function recordedStadiumReactions(context,destination,environment,base='/audio/stadium/v1') {
+export function recordedStadiumReactions(context,destination,environment,base='/audio/stadium/v1',tracks={}) {
     const buffers=new Map();
     const abort=environment.AbortController ? new environment.AbortController():null;
     let loading,active=false,disposed=false,voice,finished=Promise.resolve(),resolveFinished;
@@ -9,10 +9,17 @@ export function recordedStadiumReactions(context,destination,environment,base='/
         if(loading || disposed || !environment.fetch)return loading ?? Promise.resolve();
         loading=Promise.all(Object.entries(assets).map(async([type,file])=>{
             try {
-                const response=await environment.fetch(`${base.replace(/\/$/,'')}/${file}`,abort ? {signal:abort.signal}:undefined);
-                if(!response.ok)return;
-                const buffer=await context.decodeAudioData(await response.arrayBuffer());
-                if(!disposed)buffers.set(type,buffer);
+                const fallback=`${base.replace(/\/$/,'')}/${file}`;
+                const urls=[...new Set([tracks[type]?.url || fallback,fallback])];
+                for(const url of urls){
+                    try {
+                        const response=await environment.fetch(url,abort ? {signal:abort.signal}:undefined);
+                        if(!response.ok)continue;
+                        const buffer=await context.decodeAudioData(await response.arrayBuffer());
+                        if(!disposed)buffers.set(type,buffer);
+                        break;
+                    }catch{if(disposed)break;}
+                }
             }catch{/* No queued or synthesized fallback when a recording is unavailable. */}
         }));return loading;
     };

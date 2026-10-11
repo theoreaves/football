@@ -129,3 +129,41 @@ test('all mascot choices render and save while unknown characters are rejected',
     ])->assertSessionHasErrors('team_settings.mascot.character');
     expect($team->fresh()->team_settings['mascot']['character'])->toBe('elf');
 });
+
+
+test('team audio uploads preview reset and preserve immutable game profiles', function () {
+    \Illuminate\Support\Facades\Storage::fake('team_art');
+    $team = Team::first();
+    $other = Team::where('id', '!=', $team->id)->first();
+    $world = (int) $team->world_id;
+    $payload = ['city' => $team->city, 'name' => $team->name];
+    $this->get(route('teams.editor.edit', $team))->assertOk()->assertSee('data-team-panel="audio"', false);
+    $upload = fn () => new \Illuminate\Http\UploadedFile(public_path('audio/stadium/v1/touchdown.mp3'), 'touchdown.mp3', 'audio/mpeg', null, true);
+    $this->put(route('teams.editor.update', $team), $payload + ['audio_uploads' => ['touchdown' => $upload()]])->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = $world;
+    $team->refresh();
+    $path = $team->team_settings['audio']['touchdown'];
+    \Illuminate\Support\Facades\Storage::disk('team_art')->assertExists($path);
+    $appearance = app(PracticeController::class)->matchup($team, $other);
+    $url = $appearance['home']['audio']['touchdown'];
+    $this->post(route('exhibitions.store'), ['home' => $team->id, 'away' => $other->id, 'quarter_length' => 180])->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = $world;
+    $game = Exhibition::latest('id')->firstOrFail();
+    expect($game->state['team_appearance']['home']['audio']['touchdown'])->toBe($url);
+    expect($appearance['away']['audio'])->toBe([]);
+    $this->get($url)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+    $this->get(route('teams.audio', ['team' => $other, 'clip' => basename($path)]))->assertNotFound();
+    $this->put(route('teams.editor.update', $team), $payload + ['audio_clear' => ['touchdown' => 1]])->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = $world;
+    expect($team->fresh()->team_settings['audio'] ?? [])->toBe([]);
+    expect($game->fresh()->state['team_appearance']['home']['audio']['touchdown'])->toBe($url);
+    // Old snapshots continue to resolve their immutable clip after a reset.
+    $this->get($url)->assertOk();
+    $this->put(route('teams.editor.update', $team), $payload + ['audio_uploads' => ['touchdown' => \Illuminate\Http\UploadedFile::fake()->create('bad.txt', 1, 'text/plain')]])->assertSessionHasErrors('audio_uploads.touchdown');
+    $this->put(route('teams.editor.update', $team), $payload + ['team_settings' => ['audio' => ['touchdown' => '/arbitrary/path']]])->assertSessionHasErrors('team_settings');
+    $secondWorld = World::create(['name' => 'Another audio save']);
+    LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $secondWorld->id]);
+    openFootballSave($secondWorld);
+    app(CurrentWorld::class)->id = (int) $secondWorld->id;
+    $this->get($url)->assertNotFound();
+});

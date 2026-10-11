@@ -1,3 +1,4 @@
+import {teamAudioUrls} from './team-audio.js';
 import {recordedStadiumReactions} from './recorded-stadium-reactions.js';
 import {recordedStadiumMusic} from './recorded-stadium-music.js';
 import {soundSettings} from './sound-cues.js';
@@ -33,8 +34,9 @@ export function stadiumAudio(root, environment = window) {
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
     let breakMusic;
-    const entranceTrack=recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/entrance.mp3`);
-    const music = recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/anthem.mp3`);
+    const teamTracks = teamAudioUrls(root);
+    const entranceTrack=recordedStadiumMusic(environment,teamTracks.entrance.url,teamTracks.entrance.fallback);
+    const music=recordedStadiumMusic(environment,teamTracks.anthem.url,teamTracks.anthem.fallback);
     const label = () => { for (const control of controls) { control.textContent = !supported ? 'Sound unavailable' : settings.enabled ? 'Sound on' : 'Sound muted'; control.setAttribute('aria-pressed',String(settings.enabled)); control.disabled = !supported; } };
     const levels = () => {
         entranceTrack.setLevel(settings.enabled ? settings.master * settings.stadium : 0);
@@ -86,7 +88,7 @@ export function stadiumAudio(root, environment = window) {
                 contactRecordings.load();
                 ballRecordings = recordedBallEffects(context,effects,environment,root.dataset?.ballAudioBase);
                 ballRecordings.load();
-                stadiumRecordings = recordedStadiumReactions(context,stadium,environment,root.dataset?.stadiumAudioBase);
+                stadiumRecordings = recordedStadiumReactions(context,stadium,environment,root.dataset?.stadiumAudioBase,teamTracks);
                 stadiumRecordings.load();
                 playerRecordings = recordedPlayerVoices(context,players,environment,root.dataset?.playerAudioBase);
                 playerRecordings.load();
@@ -131,9 +133,9 @@ export function stadiumAudio(root, environment = window) {
         whenReactionFinished() { return stadiumRecordings?.whenFinished() ?? Promise.resolve(); },
         startBreakMusic(kind) {
             breakMusic?.dispose();
-            const file = {drive:'drive-break.mp3',quarter:'quarter-break.mp3',halftime:'halftime-break.mp3'}[kind];
-            if(!file)return;
-            breakMusic = recordedStadiumMusic(environment,`${(root.dataset?.stadiumAudioBase || '/audio/stadium/v1').replace(/\/$/,'')}/${file}`);
+            const track = ['drive','quarter','halftime'].includes(kind) ? teamTracks[kind] : null;
+            if(!track)return;
+            breakMusic = recordedStadiumMusic(environment,track.url,track.fallback);
             levels();breakMusic.request();
         },
         unlockBreakMusic() { breakMusic?.unlock(); },

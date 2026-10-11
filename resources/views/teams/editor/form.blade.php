@@ -49,7 +49,7 @@
             @endif
 
             <div role="tablist" aria-label="Team settings" class="flex flex-wrap gap-2 border-b pb-3">
-                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching'] as $key => $label)
+                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'audio' => 'Audio', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching'] as $key => $label)
                     <button type="button" role="tab" id="tab-{{ $key }}" aria-controls="panel-{{ $key }}" aria-selected="{{ $key === 'team' ? 'true' : 'false' }}" data-team-tab="{{ $key }}" class="px-4 py-2 rounded border">{{ $label }}</button>
                 @endforeach
             </div>
@@ -67,6 +67,9 @@
 @include('teams.editor.art')
 @endforeach
 </div>
+            </section>
+            <section role="tabpanel" id="panel-audio" aria-labelledby="tab-audio" data-team-panel="audio" hidden class="space-y-4">
+                @include('teams.editor.audio')
             </section>
             <section role="tabpanel" id="panel-uniforms" aria-labelledby="tab-uniforms" data-team-panel="uniforms" hidden class="space-y-4">
                 <h2 class="text-xl font-semibold">Uniforms</h2>

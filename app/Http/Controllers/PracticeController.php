@@ -28,6 +28,29 @@ class PracticeController extends Controller
         return $disk->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 
+    public function audio(Team $team, string $clip)
+    {
+        abort_unless(preg_match('/^[a-f0-9-]{36}\.(mp3|wav|ogg)$/', $clip), 404);
+        $path = "teams/{$team->id}/audio/{$clip}";
+        $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
+        abort_unless($disk->exists($path), 404);
+
+        return $disk->response($path, null, ['Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    public function audioProfile(Team $team): array
+    {
+        $urls = [];
+        foreach (array_keys(config('team-audio')) as $event) {
+            $path = $team->team_settings['audio'][$event] ?? null;
+            if ($path) {
+                $urls[$event] = route('teams.audio', ['team' => $team, 'clip' => basename($path)]);
+            }
+        }
+
+        return $urls;
+    }
+
     public function matchup(?Team $home, ?Team $away): array
     {
         $white = (bool) ($home?->team_settings['white_at_home'] ?? false);
@@ -63,6 +86,7 @@ class PracticeController extends Controller
         $uniform['name_color'] = $team->{"uniform_{$venue}_name_color"} ?: $uniform['number'];
 
         return [
+            'audio' => $this->audioProfile($team),
             'team_logo' => $art('team_logo'),
             'helmet_logo_left' => $art('helmet_logo_left'),
             'helmet_logo_right' => $art('helmet_logo_right'),

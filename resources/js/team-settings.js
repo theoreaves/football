@@ -15,12 +15,28 @@ export function uniformFromForm(form,venue,art={}) {
 }
 export function mountTeamSettings(form) {
     if(!form || form.dataset.mounted)return;form.dataset.mounted='true';
+    // Preview selected local audio without uploading or starting it automatically.
+    form.addEventListener('change', event => {
+        const input = event.target;
+        if (!input.matches?.('[data-audio-preview]')) return;
+        const audio = input.parentElement.querySelector('audio');
+        if (!audio) return;
+        audio.pause();
+        if (input.dataset.previewUrl) { URL.revokeObjectURL(input.dataset.previewUrl); urls.delete(input.dataset.previewUrl); }
+        if (!input.dataset.originalAudio) input.dataset.originalAudio = audio.getAttribute('src');
+        const file = input.files?.[0];
+        input.dataset.previewUrl = file ? URL.createObjectURL(file) : '';
+        if (input.dataset.previewUrl) urls.add(input.dataset.previewUrl);
+        audio.src = input.dataset.previewUrl || input.dataset.originalAudio;
+        audio.load();
+    });
+
     const tabs=[...form.querySelectorAll('[data-team-tab]')],panels=[...form.querySelectorAll('[data-team-panel]')];
     const choose=key=>{tabs.forEach(tab=>{const selected=tab.dataset.teamTab===key;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;tab.classList.toggle('bg-blue-100',selected);});panels.forEach(panel=>panel.hidden=panel.dataset.teamPanel!==key);try{sessionStorage.setItem('football-team-tab',key);}catch{}};
     tabs.forEach((tab,index)=>{tab.onclick=()=>choose(tab.dataset.teamTab);tab.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;choose(tabs[next].dataset.teamTab);tabs[next].focus();};});
     let initial='team';try{const saved=sessionStorage.getItem('football-team-tab');if(tabs.some(tab=>tab.dataset.teamTab===saved))initial=saved;}catch{}
     const error=JSON.parse(form.dataset.errorFields || '[]')[0];
-    if(error)initial=error.includes('staff')||error.includes('coaching')?'coaching':error.includes('cheerleaders')?'cheerleaders':error.includes('mascot')?'mascot':error.includes('uniform')||error.includes('helmet_logo')||error.includes('white_at_home')?'uniforms':error.includes('stadium')||error.includes('endzone')||error.includes('midfield')?'stadium':'team';
+    if(error)initial=error.startsWith('audio_')?'audio':error.includes('staff')||error.includes('coaching')?'coaching':error.includes('cheerleaders')?'cheerleaders':error.includes('mascot')?'mascot':error.includes('uniform')||error.includes('helmet_logo')||error.includes('white_at_home')?'uniforms':error.includes('stadium')||error.includes('endzone')||error.includes('midfield')?'stadium':'team';
     mountStadiumBuilder(form);
     choose(initial);form.addEventListener('invalid',event=>{const panel=event.target.closest('[data-team-panel]');if(panel)choose(panel.dataset.teamPanel);},true);
     form.querySelectorAll('input[type=range]').forEach(input=>input.addEventListener('input',()=>input.parentElement.querySelector('output').value=input.value));

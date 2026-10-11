@@ -1,5 +1,6 @@
 // Stream long music independently of the short Web Audio effects.
-export function recordedStadiumMusic(environment, url) {
+export function recordedStadiumMusic(environment, url, fallbackUrl = url) {
+    let usedFallback=false;
     let media, level=0, wanted=false, started=false, finished=false, disposed=false;
     let pending=false, generation=0, timer, finishing, resolveFinish, fade=1;
     let onStarted=()=>{}, onState=()=>{};
@@ -18,6 +19,11 @@ export function recordedStadiumMusic(environment, url) {
         if (!media) {
             try {media=new environment.Audio(url);} catch {onState('unavailable');return;}
             media.preload='auto';media.loop=false;volume();
+            media.addEventListener('error',()=>{
+                if(disposed || finished)return;
+                if(!usedFallback && fallbackUrl!==url){usedFallback=true;generation++;pending=false;media.src=fallbackUrl;media.load();attempt();}
+                else onState('unavailable');
+            });
             media.addEventListener('ended',()=>{finished=true;wanted=false;onState('ended');completeFinish();});
         }
         if (!media.paused) return;
