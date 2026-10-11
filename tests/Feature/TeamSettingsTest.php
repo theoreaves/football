@@ -23,9 +23,10 @@ beforeEach(function () {
 test('team settings tabs save validated profiles and reject out of range coaching preferences', function () {
     $team = Team::first();
     $this->get(route('teams.editor.edit', $team))->assertOk()->assertSee('data-team-panel="uniforms"', false)->assertSee('data-team-panel="coaching"', false)->assertSee('data-team-panel="mascot"', false);
-    $settings = ['white_at_home' => 1, 'coaching' => ['pass' => 85, 'blitz' => 20], 'staff' => ['head' => ['name' => 'Theo', 'skin' => '#593b2c', 'hair' => 'short', 'build' => 'stocky']], 'cheerleaders' => ['primary' => '#123456'], 'mascot' => ['name' => 'Chief', 'character' => 'bear']];
+    $settings = ['white_at_home' => 1, 'coaching' => ['pass' => 85, 'blitz' => 20], 'staff' => ['head' => ['name' => 'Theo', 'skin' => '#593b2c', 'hair' => 'short', 'build' => 'stocky']], 'cheerleaders' => ['enabled' => 0, 'primary' => '#123456', 'secondary' => '#abcdef', 'accent' => '#fedcba'], 'mascot' => ['name' => 'Chief', 'character' => 'bear']];
     $this->put(route('teams.editor.update', $team), ['city' => $team->city, 'name' => $team->name, 'team_settings' => $settings])->assertRedirect()->assertSessionHasNoErrors();
     expect($team->fresh()->team_settings['coaching']['pass'])->toBe(85)->and($team->fresh()->team_settings['staff']['head']['name'])->toBe('Theo');
+    expect((bool) $team->fresh()->team_settings['cheerleaders']['enabled'])->toBeFalse();
     $this->put(route('teams.editor.update', $team), ['city' => $team->city, 'name' => $team->name, 'team_settings' => ['white_at_home' => 0]])->assertRedirect();
     expect($team->fresh()->team_settings['staff']['head']['name'])->toBe('Theo');
     $this->put(route('teams.editor.update', $team), ['city' => $team->city, 'name' => $team->name, 'team_settings' => ['coaching' => ['pass' => 101]]])->assertSessionHasErrors('team_settings.coaching.pass');
@@ -33,17 +34,18 @@ test('team settings tabs save validated profiles and reject out of range coachin
 
 test('white at home swaps both kits and new games snapshot coaching and presentation', function () {
     [$home, $away] = Team::all()->all();
-    $home->update(['uniform_home_shirt' => '#112233', 'uniform_away_shirt' => '#ffffff', 'team_settings' => ['white_at_home' => true, 'coaching' => ['pass' => 90], 'staff' => ['head' => ['name' => 'Head']], 'mascot' => ['character' => 'dog', 'name' => 'Chief']]]);
+    $home->update(['uniform_home_shirt' => '#112233', 'uniform_away_shirt' => '#ffffff', 'team_settings' => ['white_at_home' => true, 'coaching' => ['pass' => 90], 'staff' => ['head' => ['name' => 'Head']], 'mascot' => ['character' => 'dog', 'name' => 'Chief'], 'cheerleaders' => ['enabled' => false, 'primary' => '#123456']]]);
     $away->update(['uniform_home_shirt' => '#445566', 'uniform_away_shirt' => '#eeeeee', 'team_settings' => ['white_at_home' => true, 'coaching' => ['blitz' => 80]]]);
     $this->get(route('practice', ['home' => $home->id, 'away' => $away->id]))->assertOk()->assertViewHas('appearance', fn ($a) => $a['home']['uniform']['shirt'] === '#ffffff' && $a['away']['uniform']['shirt'] === '#445566');
     $this->post(route('exhibitions.store'), ['home' => $home->id, 'away' => $away->id, 'quarter_length' => 180])->assertRedirect()->assertSessionHasNoErrors();
     // Request middleware clears CurrentWorld after each HTTP response.
     app(CurrentWorld::class)->id = (int) $home->world_id;
     $game = Exhibition::latest('id')->firstOrFail();
+    expect($game->state['team_appearance']['home']['cheerleaders'])->toMatchArray(['enabled' => false, 'primary' => '#123456']);
     expect($game->state['team_appearance']['home']['mascot'])->toMatchArray(['character' => 'dog', 'name' => 'Chief']);
     expect($game->state['coaching']['home']['pass'])->toBe(90)->and($game->state['coaching']['away']['blitz'])->toBe(80);
     $home->update(['uniform_away_shirt' => '#ff0000', 'team_settings' => ['white_at_home' => false, 'coaching' => ['pass' => 10], 'mascot' => ['character' => 'wolf']]]);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('appearance', fn ($a) => $a['home']['uniform']['shirt'] === '#ffffff' && $a['home']['mascot']['character'] === 'dog');
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('appearance', fn ($a) => $a['home']['uniform']['shirt'] === '#ffffff' && $a['home']['mascot']['character'] === 'dog' && $a['home']['cheerleaders']['enabled'] === false);
     app(CurrentWorld::class)->id = (int) $home->world_id;
     expect($game->fresh()->state['coaching']['home']['pass'])->toBe(90);
     $normal = app(PracticeController::class)->matchup($home->fresh(), $away);

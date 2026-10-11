@@ -1,6 +1,10 @@
 <section role="tabpanel" id="panel-cheerleaders" aria-labelledby="tab-cheerleaders" data-team-panel="cheerleaders" hidden class="space-y-4">
-    <h2 class="text-xl font-semibold">Cheerleader colors</h2>
-    <p>Save the team's outfit colors here, ready for cheerleaders to be added to the stadium.</p>
+    <h2 class="text-xl font-semibold">Cheerleaders</h2>
+    <p>The home squad performs beside both ends of the home sideline and cheers for home touchdowns, takeaways, and big plays.</p>
+    <input type="hidden" name="team_settings[cheerleaders][enabled]" value="0">
+    <label class="block"><input type="checkbox" name="team_settings[cheerleaders][enabled]" value="1" @checked(old('team_settings.cheerleaders.enabled', $team->team_settings['cheerleaders']['enabled'] ?? true))> Show home cheerleaders</label>
+    <button type="button" data-cheerleader-preview class="border border-blue-500 rounded px-4 py-2">Preview cheerleader in 3D</button>
+    <p class="text-sm">Preview the current colors and team logo, including unsaved changes.</p>
     <div class="grid grid-cols-3 gap-4">
         @foreach(['primary' => ['Primary', $team->team_color1 ?: '#174880'], 'secondary' => ['Secondary', $team->team_color2 ?: '#ffffff'], 'accent' => ['Accent / pom-poms', '#ffffff']] as $part => [$label, $fallback])
             <label>{{ $label }}<input type="color" name="team_settings[cheerleaders][{{ $part }}]" value="{{ old('team_settings.cheerleaders.'.$part, $team->team_settings['cheerleaders'][$part] ?? $fallback) }}" class="block w-full h-10 border rounded"></label>
