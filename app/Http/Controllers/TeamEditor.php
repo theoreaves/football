@@ -109,11 +109,16 @@ class TeamEditor extends Controller
 
         $settings = [
             'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium'],
-            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors'],
+            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors'],
             'team_settings.stadium.name' => ['nullable', 'string', 'max:80'],
             'team_settings.stadium.tiers' => ['nullable', 'integer', 'between:1,3'],
             'team_settings.stadium.rows' => ['nullable', 'integer', 'between:4,12'],
             'team_settings.stadium.row_height' => ['nullable', 'numeric', 'between:0.75,1.75'],
+            'team_settings.stadium.wall_one_color' => ['sometimes', 'boolean'],
+            'team_settings.stadium.tier_wall_colors' => ['sometimes', 'array:lower,middle,upper'],
+            'team_settings.stadium.tier_wall_colors.lower' => $hex,
+            'team_settings.stadium.tier_wall_colors.middle' => $hex,
+            'team_settings.stadium.tier_wall_colors.upper' => $hex,
             'team_settings.stadium.one_color' => ['sometimes', 'boolean'],
             'team_settings.stadium.tier_colors' => ['sometimes', 'array:lower,middle,upper'],
             'team_settings.stadium.tier_colors.lower' => $hex,

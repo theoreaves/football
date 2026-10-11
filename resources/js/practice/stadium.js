@@ -44,6 +44,12 @@ export function stadiumTierColor(home,deck) {
     return separate && profile.tier_colors?.[['lower','middle','upper'][deck]] || home.stadium_seat_color || '#315b85';
 }
 
+export function stadiumTierWallColor(home,deck) {
+    const profile=home.stadium || {},single=profile.wall_one_color;
+    const separate=single===false || single===0 || single==='0';
+    return separate && profile.tier_wall_colors?.[['lower','middle','upper'][deck]] || home.stadium_wall_color || '#657587';
+}
+
 export function buildStadium(home, document, away = {}, crowd = {}) {
     const design = stadiumDesign(home);
     const group = new THREE.Group(); group.name = 'stadium'; group.position.set(60, 0, 26.665);
@@ -70,6 +76,7 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
     const fanSeats = [];
     let offset = 0, height = 1;
     for (let deck = 0; deck < design.decks; deck++) {
+        const deckWalls=stadiumTierWallColor(home,deck)===(home.stadium_wall_color || '#657587')?walls:paint(stadiumTierWallColor(home,deck));
         const deckGroup = new THREE.Group(); deckGroup.name = `seating-deck-${deck + 1}`; group.add(deckGroup);
         const count = Math.floor(210 + offset * 3), chairCount = count * design.rows;
         const chairs = new THREE.InstancedMesh(new THREE.BoxGeometry(.65, .5, .65), deck===0?seats:paint(stadiumTierColor(home,deck)), chairCount);
@@ -77,10 +84,10 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
         const dummy = new THREE.Object3D(); let instance = 0;
         for (let row = 0; row < design.rows; row++) {
             const rx = 80 + offset, rz = 48 + offset;
-            const terrace = new THREE.Mesh(band(rx, rz, design.width, height, 0, allowed), walls);
+            const terrace = new THREE.Mesh(band(rx, rz, design.width, height, 0, allowed), deckWalls);
             terrace.name = 'terrace'; deckGroup.add(terrace);
-            const riser = new THREE.Mesh(band(rx + design.width, rz + design.width, 0, height, design.step, allowed), walls);
-            deckGroup.add(riser);
+            const riser = new THREE.Mesh(band(rx + design.width, rz + design.width, 0, height, design.step, allowed), deckWalls);
+            riser.name='riser';deckGroup.add(riser);
             for (let i = 0; i < count; i++) {
                 const angle = i / count * Math.PI * 2;
                 if (!allowed(angle) || (design.asymmetric && deck === 2 && Math.sin(angle) > .2)) continue;
@@ -92,7 +99,7 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
             offset += design.width; height += design.step;
         }
         chairs.count = instance; chairs.instanceMatrix.needsUpdate = true; deckGroup.add(chairs);
-        add(band(80 + offset, 48 + offset, 4, height, 0, allowed), walls, 'concourse');
+        add(band(80 + offset, 48 + offset, 4, height, 0, allowed), deckWalls, 'concourse');
         offset += 4; height += 2;
     }
     const fans = buildStadiumCrowd(fanSeats,crowd,home,away);

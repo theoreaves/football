@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildStadium,STADIUMS,stadiumDesign,stadiumTierColor} from '../../resources/js/practice/stadium.js';
+import {buildStadium,STADIUMS,stadiumDesign,stadiumTierColor,stadiumTierWallColor} from '../../resources/js/practice/stadium.js';
 import {stadiumCopyFields,buildStadiumPreview} from '../../resources/js/stadium-builder.js';
 import * as THREE from 'three';
 
@@ -41,4 +41,23 @@ test('structural preview builds finite geometry for minimum and maximum bowls wi
         assert.ok(model.getObjectByName(`seats-${tiers}`));
         const fans=model.getObjectByName('stadium-crowd');fans.traverse(part=>{if(part.isInstancedMesh)assert.equal(part.count,0);});
     }
+});
+
+
+test('independent tier wall colors cover terraces risers and concourses and are copied',()=>{
+    const home={stadium_wall_color:'#333333',stadium:{tiers:3,rows:4,wall_one_color:false,tier_wall_colors:{lower:'#123456',middle:'#abcdef',upper:'#fedcba'}}};
+    const {group}=buildStadium(home,mockDocument(),{}, {fullness:0});
+    const colors=['123456','abcdef','fedcba'];
+    for(let i=0;i<3;i++){
+        const deck=group.getObjectByName(`seating-deck-${i+1}`);
+        assert.equal(deck.getObjectByName('terrace').material.color.getHexString(),colors[i]);
+        assert.equal(deck.getObjectByName('riser').material.color.getHexString(),colors[i]);
+        assert.equal(group.children.filter(part=>part.name==='concourse')[i].material.color.getHexString(),colors[i]);
+    }
+    const fields=stadiumCopyFields(home);
+    assert.equal(fields['team_settings[stadium][wall_one_color]'],false);
+    assert.equal(fields['team_settings[stadium][tier_wall_colors][upper]'],'#fedcba');
+    home.stadium.wall_one_color=true;
+    assert.equal(stadiumTierWallColor(home,2),'#333333');
+    assert.equal(stadiumTierWallColor({stadium_wall_color:'#abcdef'},0),'#abcdef');
 });

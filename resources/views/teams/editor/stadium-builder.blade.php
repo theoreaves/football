@@ -14,6 +14,13 @@
     <label>{{ $label }}<input data-tier-color type="color" name="team_settings[stadium][tier_colors][{{ $key }}]" value="{{ old('team_settings.stadium.tier_colors.'.$key, $team->team_settings['stadium']['tier_colors'][$key] ?? $team->stadium_seat_color ?? $team->team_color1 ?? '#315b85') }}" class="block w-full h-10 border rounded disabled:opacity-50"></label>
     @endforeach
 </div>
+<input type="hidden" name="team_settings[stadium][wall_one_color]" value="0">
+<label class="block"><input data-stadium-one-wall-color type="checkbox" name="team_settings[stadium][wall_one_color]" value="1" @checked(old('team_settings.stadium.wall_one_color', $team->team_settings['stadium']['wall_one_color'] ?? true))> Use one wall color for all tiers (Walls / structure color below)</label>
+<div class="grid grid-cols-3 gap-4">
+    @foreach(['lower' => 'Lower deck walls', 'middle' => 'Middle deck walls', 'upper' => 'Upper deck walls'] as $key => $label)
+    <label>{{ $label }}<input data-tier-wall-color type="color" name="team_settings[stadium][tier_wall_colors][{{ $key }}]" value="{{ old('team_settings.stadium.tier_wall_colors.'.$key, $team->team_settings['stadium']['tier_wall_colors'][$key] ?? $team->stadium_wall_color ?? '#657587') }}" class="block w-full h-10 border rounded disabled:opacity-50"></label>
+    @endforeach
+</div>
 <div class="flex flex-wrap gap-3 items-end">
     <label class="flex-1">Copy stadium from another team<select data-stadium-copy-team class="block w-full border rounded p-2"><option value="">Choose a team in this save</option>@foreach($stadiumCopies ?? [] as $source)<option value="{{ $source['id'] }}">{{ $source['label'] }}</option>@endforeach</select></label>
     <button type="button" data-stadium-copy class="border rounded px-4 py-2">Load design</button>
