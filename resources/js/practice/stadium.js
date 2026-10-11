@@ -1,3 +1,4 @@
+import {TUNNEL_LAYOUT} from './tunnel-layout.js';
 import { buildStadiumCrowd } from './stadium-crowd.js';
 import * as THREE from 'three';
 import { fitLogo } from './logo-fit.js';
@@ -125,13 +126,13 @@ export function buildStadium(home, document, away = {}, crowd = {}) {
         roof.material.transparent = true; roof.material.opacity = .3; roof.material.depthWrite = false; group.add(roof);
         add(band(80 + offset, 48 + offset, 0, 0, height, () => true), walls, 'dome-wall');
     }
-    // Tunnels sit in the clear apron in front of the seating, behind each end zone.
-    if(enabled(profile.tunnels))for(const [side,x,team] of [['home',-70,home],['away',70,away]]){
-        const z=side==='home'?-10:10,color=paint(team.primary_color || home.primary_color || '#315b85');
-        box([10,.4,8],[x,.2,z],walls,`tunnel-${side}-floor`);
-        for(const edge of [-1,1])box([.6,5,8],[x+edge*5,2.5,z],color,`tunnel-${side}-wall`);
-        box([10.6,.6,8],[x,5,z],color,`tunnel-${side}-roof`);
-        box([9.4,4.4,.2],[x,2.4,z+(side==='home'?-4:4)],paint('#101820'),`tunnel-${side}-interior`);
+    // The open end faces the field; entrance paths use this same layout.
+    if(enabled(profile.tunnels))for(const [side,team] of [['home',home],['away',away]]){
+        const {x,z,direction}=TUNNEL_LAYOUT[side],color=paint(team.primary_color || home.primary_color || '#315b85');
+        box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
+        for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);
+        box([8,.6,10.6],[x,5,z],color,`tunnel-${side}-roof`);
+        box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
     }
     const lighting=['corners','rim'].includes(profile.lighting)?profile.lighting:'corners';
     const lamp=new THREE.MeshBasicMaterial({color:'#fff4ce'});

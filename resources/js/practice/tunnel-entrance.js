@@ -1,8 +1,8 @@
-// Presentation-only movement along the apron, clear of the playing field.
+import {tunnelPath} from './tunnel-layout.js';
+// Pregame-only movement: straight onto the field, then toward the team sideline.
 export function entrancePose(side,index,target,seconds) {
     const home=side==='home',lane=index%2?-.9:.9;
-    const points=home?[{x:-10+lane,z:19.665},{x:-10+lane,z:-6},{x:target.x,z:-6},target]
-        :[{x:130+lane,z:33.665},{x:130+lane,z:59.33},{x:target.x,z:59.33},target];
+    const points=tunnelPath(side,lane,target);
     const delay=Math.floor(index/2)*.16,speed=6,distances=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.z-points[i].z));
     const length=distances.reduce((a,b)=>a+b,0),t=Math.max(0,seconds-delay);
     // Ease into a six-yard-per-second jog.
