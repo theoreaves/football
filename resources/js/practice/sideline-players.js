@@ -83,9 +83,10 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
                 dummy.rotation.set(0,side === 'home' ? 0 : Math.PI,0);
                 dummy.scale.setScalar((active.has(playerKey({...person,side})) || (hideMissingNumber && person.number == null)) ? 0 : height);
                 if(entranceSeconds!==null){
-                    const pose=entrancePose(side,i,slot,entranceSeconds),angle=pose.yaw;
+                    const seconds=typeof entranceSeconds==='object'?entranceSeconds[side]:entranceSeconds;
+                    const pose=entrancePose(side,i,slot,seconds),angle=pose.yaw;
                     dummy.position.set(pose.x+offset[0]*Math.cos(angle)+offset[2]*Math.sin(angle),offset[1]*height+(pose.moving?pose.bob:0),pose.z-offset[0]*Math.sin(angle)+offset[2]*Math.cos(angle));
-                    if(pose.moving && offset[1]<.8)dummy.position.z+=Math.sin(entranceSeconds*12+(offset[0]<0?0:Math.PI))*.12;
+                    if(pose.moving && offset[1]<.8)dummy.position.z+=Math.sin(seconds*12+(offset[0]<0?0:Math.PI))*.12;
                     dummy.rotation.y=angle;dummy.scale.setScalar(!pose.visible || (hideMissingNumber && person.number==null)?0:height);
                 }
                 dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);

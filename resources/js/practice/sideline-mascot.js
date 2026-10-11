@@ -1,3 +1,4 @@
+import {entrancePose} from './tunnel-entrance.js';
 import {buildMascot} from './mascot-model.js';
 
 // A clear lane behind the home benches, outside the player exchange routes.
@@ -32,11 +33,14 @@ export function buildSidelineMascot(scene,appearance,textureFor=()=>null,storage
     const legs=[-1,1].map(sign=>model.getObjectByName(`mascot-leg-${sign}`));
     let time=0,cheering=0,cheerTime=0;
     if(storageKey)try{const saved=Number(sessionStorage.getItem(storageKey));if(Number.isFinite(saved) && saved>=0)time=saved%100;}catch{ /* Storage is optional. */ }
-    const update=delta=>{
+    const update=(delta,entranceSeconds=null)=>{
         const step=Number.isFinite(delta)?Math.max(0,Math.min(.1,delta)):0;
         // Pause the route while cheering so the mascot never snaps back afterward.
         if(cheering>0){cheering=Math.max(0,cheering-step);cheerTime+=step;}else time+=step;
-        const pose=mascotPose(time),active=cheering>0;
+        const entry=entranceSeconds===null?null:entrancePose('home',0,{x:35,z:-16},entranceSeconds);
+        if(entry)time=0;
+        const pose=entry?{x:entry.x,z:entry.z,y:entry.bob,moving:entry.moving,facing:entry.yaw}:mascotPose(time),active=cheering>0;
+        model.visible=entry?entry.visible:true;
         model.position.set(pose.x,active?Math.abs(Math.sin(cheerTime*7))*.13:pose.y,pose.z);
         const facing=active?0:pose.facing;
         const turn=Math.atan2(Math.sin(facing-model.rotation.y),Math.cos(facing-model.rotation.y));

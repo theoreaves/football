@@ -27,3 +27,34 @@ test('both tunnels send entrants straight toward the field before turning toward
         assert.equal(moving.yaw,side==='home'?Math.PI/2:-Math.PI/2);
     }
 });
+
+import {entranceSchedule,greetingPose,greetingSlot} from '../../resources/js/practice/tunnel-entrance.js';
+import * as THREE from 'three';
+import {buildSidelinePlayers} from '../../resources/js/practice/sideline-players.js';
+test('visitors precede home formation and mascot lead with optional stages omitted',()=>{
+    assert.deepEqual(entranceSchedule(true,true),{cheerStart:35,leadStart:42,homeStart:44,end:79});
+    assert.equal(entranceSchedule(false,false).homeStart,35);
+    assert.equal(entranceSchedule(true,false).homeStart,42);
+    assert.equal(entranceSchedule(false,true).homeStart,37);
+    for(let i=0;i<12;i++){
+        const slot=greetingSlot(i),target={x:16+i*2,z:-10};
+        const greeting=greetingPose(i,target,7,0);
+        assert.equal(greeting.x,slot.x);assert.equal(greeting.z,slot.z);
+        assert.equal(greeting.yaw,i%2?Math.PI:0);
+        assert.equal(greetingPose(i,target,-1,-8).visible,false);
+        const released=greetingPose(i,target,30,35);
+        assert.equal(released.x,target.x);assert.equal(released.z,target.z);
+    }
+});
+test('staged roster matrices stay finite with visitors visible and home roster waiting',()=>{
+    const scene=new THREE.Scene(),roster={home:[{id:1}],away:[{id:2}]};
+    const bench=buildSidelinePlayers(scene,roster,{},null);
+    bench.update(new Set(),{home:-44,away:1});
+    scene.traverse(mesh=>{
+        if(!mesh.isInstancedMesh)return;
+        assert.ok([...mesh.instanceMatrix.array].every(Number.isFinite));
+        const basis=[...mesh.instanceMatrix.array.slice(0,12)];
+        if(mesh.name.startsWith('home-'))assert.ok(basis.every(value=>value===0));
+        else assert.ok(basis.some(value=>Math.abs(value)>0));
+    });
+});
