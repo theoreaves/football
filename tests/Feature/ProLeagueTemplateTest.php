@@ -177,6 +177,7 @@ test('pro numbers are legal unique varied and reproducible across a league', fun
 test('starter logo lettering cleanup is scoped repeatable and preserves custom art', function () {
     $world = World::create(['name' => 'Logos']);
     $other = World::create(['name' => 'Other']);
+    app(CurrentWorld::class)->id = $world->id;
     $team = Team::withoutGlobalScopes()->create(['world_id' => $world->id, 'city' => 'Kansas City', 'name' => 'Warriors', 'abbr' => 'KCW']);
     $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
     $clean = file_get_contents(resource_path('team-logos/pro/kcw.svg'));
