@@ -1,3 +1,4 @@
+import {autoNotices} from './auto-notices.js';
 import {mountBreakDialogs} from './break-dialogs.js';
 import {mountPregameAnthem} from './pregame-anthem.js';
 import { showSimProgress } from '../sim-progress.js';
@@ -1371,9 +1372,16 @@ export function mountPractice(root, onReady = () => {}) {
     const setCpuAuto = enabled => {
         cpuAuto = enabled;
         if (cpuToggle) cpuToggle.textContent = enabled ? 'Pause CPU game' : 'Start CPU game';
-        if (cpuStatus) cpuStatus.textContent = enabled ? 'CPU game running · pauses at quarter breaks' : 'Autoplay off · current play finishes';
+        if (cpuStatus) cpuStatus.textContent = enabled ? 'CPU game running · notices advance automatically' : 'Autoplay off · current play finishes';
         try { sessionStorage.setItem(cpuKey, String(enabled)); } catch { /* Optional persistence. */ }
     };
+    const tickNotices = autoNotices([
+        {dialog: penaltyDialog, seconds: 7},
+        {dialog: injuryDialog, seconds: 7},
+        {dialog: driveDialog, seconds: 10},
+        {dialog: quarterDialog, seconds: quarterDialog?.dataset.breakKind === 'halftime' ? 18 : 12,
+            allowed: () => afterState?.status !== 'final'},
+    ]);
     if (cpuAuto) setCpuAuto(true);
     cpuToggle?.addEventListener('click', () => setCpuAuto(!cpuAuto));
 
@@ -1488,9 +1496,9 @@ export function mountPractice(root, onReady = () => {}) {
         const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
         // Keep the stadium bed under play calling, without enabling stale cues.
         const callingPlay = phase === 'huddle' || !callForm.hidden;
-        audio.setAmbienceActive(!document.hidden && callingPlay && afterState?.status !== 'final'
-            && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open);
-        audio.setActive(audible);
+        const ambience = !document.hidden && callingPlay && afterState?.status !== 'final'
+            && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open;
+        audio.setPlayback(audible, ambience);
         // A separate cursor keeps pre-snap voices out of result/third-down cues.
         // Replay and seeking begin at the snap and never backfill a cadence.
         const quarterbackTime = phase === 'liningup' ? -setDuration : phase === 'set' ? setElapsed - setDuration : 0;
@@ -1506,6 +1514,7 @@ export function mountPractice(root, onReady = () => {}) {
             if (running || ['result','celebration','big_play'].includes(phase)) crossedCues(cues, audioTime, soundTime).forEach(cue => audio.play(cue));
             audioTime = soundTime;
         } else if (running || ['result','celebration','big_play'].includes(phase)) audioTime = soundTime;
+        tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
         tickPlayWizard?.({delta, ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         renderState(); controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
@@ -1518,13 +1527,13 @@ export function mountPractice(root, onReady = () => {}) {
     };
     frameId = requestAnimationFrame(animate);
     let disposed = false;
-    const cleanup = () => {
+    const cleanup = (options = {}) => {
         if (disposed) return;
         disposed = true;
         disposeNavigation();
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();
-        audio.dispose();
+        audio.dispose(options.handoff === true);
         penaltyPresentation.dispose();
         saveCamera();
         controls.removeEventListener('end', saveCamera);

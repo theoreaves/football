@@ -28,7 +28,7 @@ export function gameNavigation(root, { freeze, dispose, mount }) {
                 return;
             }
             cover = freeze();
-            dispose();
+            dispose({handoff: true});
             // Retain the stage element so browser fullscreen survives each play.
             for (const attribute of [...root.attributes]) root.removeAttribute(attribute.name);
             for (const attribute of [...next.attributes]) root.setAttribute(attribute.name, attribute.value);

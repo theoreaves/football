@@ -126,3 +126,32 @@ test('play setup keeps the same crowd bed alive while disabling effects and reac
     audio.setAmbienceActive(false);assert.equal(resumed.stopped,true);
     audio.dispose();
 });
+
+test('same-game remount adopts the running crowd source and audio context without refetching', async () => {
+    const f=fixture(); let closes=0;
+    f.context.close=async()=>{closes++;};
+    const environment={...f.environment,AudioContext:class{constructor(){return f.context;}},
+        localStorage:{getItem:()=>null,setItem(){}}};
+    const root=key=>({dataset:{cameraKey:key},querySelector:()=>null,querySelectorAll:()=>[],addEventListener(){},removeEventListener(){}});
+    const first=stadiumAudio(root('game-42'),environment);
+    first.setPlayback(true,false);await first.prepare();
+    const bed=f.sources.find(source=>source.loop), requests=f.requested.length;
+    first.setPlayback(false,true);first.setPlayback(true,false);
+    assert.equal(bed.stopped,undefined);
+    first.dispose(true);assert.equal(bed.stopped,undefined);assert.equal(closes,0);
+    const next=stadiumAudio(root('game-42'),environment);
+    next.setPlayback(true,false);await next.prepare();
+    assert.equal(f.requested.length,requests);assert.equal(f.sources.filter(s=>s.loop).length,1);
+    assert.equal(bed.stopped,undefined);
+    next.dispose();assert.equal(bed.stopped,true);assert.equal(closes,1);
+});
+
+test('a different game disposes the pending crowd graph instead of inheriting its sound', async () => {
+    const f=fixture();let closes=0;f.context.close=async()=>{closes++;};
+    const environment={...f.environment,AudioContext:class{constructor(){return f.context;}},localStorage:{getItem:()=>null,setItem(){}}};
+    const root=key=>({dataset:{cameraKey:key},querySelector:()=>null,querySelectorAll:()=>[],addEventListener(){},removeEventListener(){}});
+    const first=stadiumAudio(root('game-1'),environment);first.setPlayback(true,false);await first.prepare();
+    const bed=f.sources.find(s=>s.loop);first.dispose(true);
+    const other=stadiumAudio(root('game-2'),environment);
+    assert.equal(bed.stopped,true);assert.equal(closes,1);other.dispose();
+});

@@ -1,3 +1,4 @@
+import {goalKickBallTrack} from './goal-kick-flight.js';
 export function sampleTrack(path, elapsed) {
     if (elapsed <= path[0][0]) return { x: path[0][1], y: path[0][2], z: path[0][3] };
     for (let i = 1; i < path.length; i++) {
@@ -20,7 +21,7 @@ export function sampleEnginePlay(animation, elapsed) {
             const holder = animation.ballHolders.filter(entry => entry[0] <= time).at(-1);
             return holder?.[1] ? { team: holder[1], role: holder[2] } : null;
         })() : undefined,
-        ball: sampleTrack(animation.ball, time),
+        ball: sampleTrack(goalKickBallTrack(animation), time),
         event: animation.events.filter(event => event[0] <= time).at(-1)?.[1] || 'Ready',
     };
 }

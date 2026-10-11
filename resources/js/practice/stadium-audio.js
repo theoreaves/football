@@ -7,11 +7,28 @@ import {recordedBallEffects} from './recorded-ball-effects.js';
 import {recordedContactEffects} from './recorded-contact-effects.js';
 import {recordedFieldEffects} from './recorded-field-effects.js';
 
+// A same-game navigation adopts this graph without interrupting its crowd source.
+const handoffs = new WeakMap();
+function closeGraph(graph) {
+    for (const name of ['stadiumRecordings','ballRecordings','contactRecordings','playerRecordings','fieldRecordings','recordings']) graph[name]?.dispose();
+    graph.context?.close().catch(() => {});
+}
+
 // Recorded crowd ambience/reactions, with the existing synthesized field effects.
 export function stadiumAudio(root, environment = window) {
     const key = 'football-sound-settings';
     let saved = {}; try { saved = JSON.parse(environment.localStorage.getItem(key) || '{}'); } catch { /* Defaults when storage is unavailable. */ }
     let settings = soundSettings(saved), context, master, crowd, effects, players, stadium, recordings, fieldRecordings, playerRecordings, contactRecordings, ballRecordings, stadiumRecordings, active = false, ambienceActive = false, disposed = false;
+    const gameKey = root.dataset?.cameraKey;
+    const previous = handoffs.get(environment);
+    if (previous) {
+        handoffs.delete(environment);
+        environment.removeEventListener?.('pagehide', previous.release);
+        if (gameKey && previous.gameKey === gameKey) {
+            ({context, master, crowd, effects, players, stadium, recordings, fieldRecordings,
+                playerRecordings, contactRecordings, ballRecordings, stadiumRecordings, ambienceActive} = previous);
+        } else closeGraph(previous);
+    }
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
     const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
@@ -122,8 +139,39 @@ export function stadiumAudio(root, environment = window) {
         startAnthem(callbacks) { levels(); music.request(callbacks); },
         finishAnthem(seconds) { return music.finish(seconds); },
         stopPlayerVoices() { playerRecordings?.stop(); },
+        setPlayback(value, ambience) {
+            // Update both states before touching sources: no false/false transition.
+            if (active === value && ambienceActive === ambience) return;
+            const wasActive = active;
+            active = value; ambienceActive = ambience;
+            if (active || ambienceActive) prepare();
+            if (wasActive && !active) {
+                recordings?.stopReactions();
+                for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } }
+            }
+            levels();
+        },
         setActive(value) { if (active === value) return; active = value; if (active) prepare(); else { recordings?.stopReactions(); for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } } } levels(); },
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
-        dispose() { disposed = true; music.dispose(); breakMusic?.dispose(); root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock); try { stadiumRecordings?.dispose(); ballRecordings?.dispose(); contactRecordings?.dispose(); playerRecordings?.dispose(); fieldRecordings?.dispose(); recordings?.dispose(); context?.close().catch(()=>{}); } catch { /* Already closed. */ } },
+        dispose(handoff = false) {
+            if (disposed) return;
+            disposed = true; music.dispose(); breakMusic?.dispose();
+            root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock);
+            for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } }
+            const graph = {gameKey, context, master, crowd, effects, players, stadium, recordings,
+                fieldRecordings, playerRecordings, contactRecordings, ballRecordings, stadiumRecordings,
+                ambienceActive: active || ambienceActive};
+            if (handoff && gameKey && context) {
+                recordings?.stopReactions();
+                fieldRecordings?.setActive(false); playerRecordings?.setActive(false);
+                contactRecordings?.setActive(false); ballRecordings?.setActive(false); stadiumRecordings?.setActive(false);
+                graph.release = () => {
+                    if (handoffs.get(environment) !== graph) return;
+                    handoffs.delete(environment); closeGraph(graph);
+                };
+                handoffs.set(environment, graph);
+                environment.addEventListener?.('pagehide', graph.release, {once: true});
+            } else closeGraph(graph);
+        },
     };
 }
