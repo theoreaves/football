@@ -350,7 +350,7 @@
     </dialog>
     @endif
     @if(!request()->boolean('summary') && !$replayOnly && $last)
-    @php
+    <?php
         $breakHistory = collect($exhibition->history)->map(function ($play) {
             $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap']);
             foreach (['before', 'after'] as $when) {
@@ -358,7 +358,7 @@
             }
             return $item;
         })->values();
-    @endphp
+    ?>
     <script type="application/json" data-break-history>@json($breakHistory)</script>
     <dialog data-drive-dialog class="game-dialog m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-lg backdrop:bg-black/70">
         <h2 class="text-2xl font-semibold">Drive summary</h2>
