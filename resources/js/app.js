@@ -5,6 +5,8 @@ import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
 function initializePractice() {
     mountSimProgress();
+    const teamEditor = document.querySelector('[data-team-editor]');
+    if (teamEditor) import('./team-settings.js').then(module => module.mountTeamSettings(teamEditor));
     document.querySelectorAll('[data-player-tabs]').forEach(root => {
         if (root.dataset.tabsMounted) return;
         root.dataset.tabsMounted = 'true';

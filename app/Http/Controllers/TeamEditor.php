@@ -53,6 +53,9 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request);
 
+        if (isset($data['team_settings'])) {
+            $data['team_settings'] = array_replace_recursive($team->team_settings ?? [], $data['team_settings']);
+        }
         $team->update($data);
 
         $this->handleUploads($request, $team);
@@ -88,7 +91,35 @@ class TeamEditor extends Controller
             }
         }
 
-        return $request->validate(array_merge($appearance, [
+        $settings = [
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot'],
+            'team_settings.white_at_home' => ['sometimes', 'boolean'],
+            'team_settings.coaching' => ['sometimes', 'array:'.implode(',', array_keys(config('team-settings.coaching')))],
+            'team_settings.staff' => ['sometimes', 'array:head,offense,defense'],
+            'team_settings.cheerleaders' => ['sometimes', 'array:primary,secondary,accent'],
+            'team_settings.mascot' => ['sometimes', 'array:name,character,fur,shirt'],
+            'team_settings.mascot.name' => ['nullable', 'string', 'max:80'],
+            'team_settings.mascot.character' => ['sometimes', \Illuminate\Validation\Rule::in(['bear', 'cat', 'bird', 'bull'])],
+            'team_settings.mascot.fur' => $hex,
+            'team_settings.mascot.shirt' => $hex,
+        ];
+        foreach (array_keys(config('team-settings.coaching')) as $key) {
+            $settings["team_settings.coaching.{$key}"] = ['sometimes', 'integer', 'between:0,100'];
+        }
+        foreach (array_keys(config('team-settings.staff')) as $role) {
+            $settings["team_settings.staff.{$role}"] = ['sometimes', 'array:name,skin,hair,hair_color,build,shirt,pants'];
+            $settings["team_settings.staff.{$role}.name"] = ['nullable', 'string', 'max:80'];
+            foreach (['skin', 'hair_color', 'shirt', 'pants'] as $part) {
+                $settings["team_settings.staff.{$role}.{$part}"] = $hex;
+            }
+            $settings["team_settings.staff.{$role}.hair"] = ['sometimes', \Illuminate\Validation\Rule::in(['bald', 'buzz', 'short', 'curly', 'long'])];
+            $settings["team_settings.staff.{$role}.build"] = ['sometimes', \Illuminate\Validation\Rule::in(['slim', 'average', 'stocky'])];
+        }
+        foreach (['primary', 'secondary', 'accent'] as $part) {
+            $settings["team_settings.cheerleaders.{$part}"] = $hex;
+        }
+
+        return $request->validate(array_merge($appearance, $settings, [
             'city' => ['required', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
 

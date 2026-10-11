@@ -40,12 +40,20 @@
             enctype="multipart/form-data"
             action="{{ $mode === 'create' ? route('teams.editor.store') : route('teams.editor.update', $team) }}"
             class="space-y-6"
+            data-team-editor
+            data-error-fields="{{ json_encode($errors->keys()) }}"
         >
             @csrf
             @if($mode === 'edit')
                 @method('PUT')
             @endif
 
+            <div role="tablist" aria-label="Team settings" class="flex flex-wrap gap-2 border-b pb-3">
+                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching'] as $key => $label)
+                    <button type="button" role="tab" id="tab-{{ $key }}" aria-controls="panel-{{ $key }}" aria-selected="{{ $key === 'team' ? 'true' : 'false' }}" data-team-tab="{{ $key }}" class="px-4 py-2 rounded border">{{ $label }}</button>
+                @endforeach
+            </div>
+            <section role="tabpanel" id="panel-team" aria-labelledby="tab-team" data-team-panel="team" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 @foreach(['city' => 'City', 'name' => 'Team name', 'abbr' => 'Abbreviation', 'conference' => 'Conference', 'division' => 'Division'] as $field => $label)
                 <label>{{ $label }}<input name="{{ $field }}" value="{{ old($field, $team->{$field}) }}" class="block w-full border rounded p-2" @required(in_array($field, ['city', 'name']))></label>
@@ -54,22 +62,20 @@
                 <label>{{ $label }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?? '#174880') }}" class="block w-full h-10 border rounded"></label>
                 @endforeach
             </div>
-            <section class="border rounded p-4 space-y-4">
-                <h2 class="text-xl font-semibold">3D uniforms and home field</h2>
-                <label class="block">Home stadium
-                    <select name="stadium_style" class="block w-full border rounded p-2 mt-1">
-                        @foreach(config('stadiums') as $value => $label)
-                            <option value="{{ $value }}" @selected(old('stadium_style', $team->stadium_style ?? 'classic_oval') === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <div class="grid grid-cols-3 gap-4">
-                    @foreach(['seat' => 'Seats', 'wall' => 'Walls / structure', 'roof' => 'Roof / canopy'] as $part => $label)
-                        @php
-                            $field = 'stadium_'.$part.'_color';
-                        @endphp
-                        <label>{{ $label }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?: ($part === 'seat' ? ($team->team_color1 ?: '#315b85') : ($part === 'wall' ? '#657587' : '#cbd5e1'))) }}" class="block w-full h-10 border rounded"></label>
-                    @endforeach
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+@foreach(['team_logo' => 'Team logo'] as $field => $label)
+@include('teams.editor.art')
+@endforeach
+</div>
+            </section>
+            <section role="tabpanel" id="panel-uniforms" aria-labelledby="tab-uniforms" data-team-panel="uniforms" hidden class="space-y-4">
+                <h2 class="text-xl font-semibold">Uniforms</h2>
+                <input type="hidden" name="team_settings[white_at_home]" value="0">
+                <label class="block"><input type="checkbox" name="team_settings[white_at_home]" value="1" @checked(old('team_settings.white_at_home', $team->team_settings['white_at_home'] ?? false))> Wear white (away) uniform at home</label>
+                <p class="text-sm text-gray-600">When enabled, the home team wears its away uniform and the visitor wears its home uniform.</p>
+                <div class="flex gap-3">
+                    <button type="button" data-uniform-preview="home" class="border rounded px-4 py-2">Preview home uniform</button>
+                    <button type="button" data-uniform-preview="away" class="border rounded px-4 py-2">Preview away uniform</button>
                 </div>
                 @foreach(['home' => 'Home uniform', 'away' => 'Away uniform'] as $venue => $label)
                     <h3 class="font-semibold">{{ $label }}</h3>
@@ -104,6 +110,32 @@
                     @endforeach
                     </div>
                 @endforeach
+                <h3 class="font-semibold">Helmet logos</h3>
+                <p class="text-sm">Left and right logos apply to both uniforms. Leave either side empty for no logo.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+@foreach(['helmet_logo_left' => 'Helmet logo (left)', 'helmet_logo_right' => 'Helmet logo (right)'] as $field => $label)
+@include('teams.editor.art')
+@endforeach
+</div>
+            </section>
+            <section role="tabpanel" id="panel-stadium" aria-labelledby="tab-stadium" data-team-panel="stadium" hidden class="space-y-4">
+                <h2 class="text-xl font-semibold">Stadium and field</h2>
+                <p class="text-sm text-gray-600">Choose your stadium and field design here. Expanded stadium builder controls will arrive here as they become available.</p>
+                <label class="block">Home stadium
+                    <select name="stadium_style" class="block w-full border rounded p-2 mt-1">
+                        @foreach(config('stadiums') as $value => $label)
+                            <option value="{{ $value }}" @selected(old('stadium_style', $team->stadium_style ?? 'classic_oval') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <div class="grid grid-cols-3 gap-4">
+                    @foreach(['seat' => 'Seats', 'wall' => 'Walls / structure', 'roof' => 'Roof / canopy'] as $part => $label)
+                        @php
+                            $field = 'stadium_'.$part.'_color';
+                        @endphp
+                        <label>{{ $label }}<input type="color" name="{{ $field }}" value="{{ old($field, $team->{$field} ?: ($part === 'seat' ? ($team->team_color1 ?: '#315b85') : ($part === 'wall' ? '#657587' : '#cbd5e1'))) }}" class="block w-full h-10 border rounded"></label>
+                    @endforeach
+                </div>
                 <input type="hidden" name="endzone_transparent" value="0">
                 <label class="block"><input type="checkbox" name="endzone_transparent" value="1" @checked(old('endzone_transparent', $team->endzone_transparent))> Grass end zones (transparent background)</label>
                 <p class="text-sm">End zone art: transparent PNG, recommended 1600 × 300 pixels. Any aspect ratio fits without stretching. An uploaded logo replaces lettering on that end. Helmet uploads are independent: leave either side empty for no logo; images are not automatically mirrored.</p>
@@ -113,49 +145,19 @@
                     <label>End zone lettering<input type="color" name="endzone_text_color" value="{{ old('endzone_text_color', $team->endzone_text_color ?? '#ffffff') }}" class="block w-full h-10 border rounded"></label>
                 </div>
                 <p class="text-sm text-gray-600">Preview these settings on the practice field. Both end zones use the home team's design.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+@foreach(['midfield_logo' => 'Midfield logo', 'endzone_logo_left' => 'End zone logo (left)', 'endzone_logo_right' => 'End zone logo (right)'] as $field => $label)
+@include('teams.editor.art')
+@endforeach
+</div>
             </section>
-            @php
-                $uploadFields = [
-                    'team_logo' => 'Team Logo',
-                    'midfield_logo' => 'Midfield Logo',
-                    'endzone_logo_left' => 'End zone logo (left)',
-                    'endzone_logo_right' => 'End zone logo (right)',
-                    'helmet_logo_right' => 'Helmet Logo (Right)',
-                    'helmet_logo_left' => 'Helmet Logo (Left)',
-                ];
-            @endphp
-
-            <div class="border rounded p-4">
-                <div class="font-semibold mb-3">Logos / Field Art</div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @foreach($uploadFields as $field => $label)
-                        <div class="min-w-0 rounded border border-gray-200 bg-gray-50 p-4">
-                            <label for="{{ $field }}" class="block font-medium mb-2">{{ $label }}</label>
-                            @if($team->{$field})<label class="block text-sm"><input type="checkbox" name="clear_{{ $field }}" value="1"> Remove this image</label>@endif
-
-                            @if($mode === 'edit' && $team->{$field})
-                                <div class="mb-2">
-                                    <img
-                                        src="{{ in_array($field, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right']) ? route('teams.art', [$team, $field]) : Storage::disk('public')->url($team->{$field}) }}"
-                                        alt="{{ $label }}"
-                                        class="h-28 w-full object-contain border rounded bg-white p-2"
-                                    />
-                                    <div class="text-xs text-gray-600 mt-1 break-all">
-                                        {{ $team->{$field} }}
-                                    </div>
-                                </div>
-                            @endif
-
-                            <input id="{{ $field }}" type="file" name="{{ $field }}" accept="image/*" class="block w-full min-w-0 text-sm text-gray-700 file:mr-3 file:rounded file:border-0 file:bg-blue-100 file:px-3 file:py-2 file:text-blue-800" />
-                            <div class="text-xs text-gray-600 mt-1">
-                                Uploading a new file replaces the existing one.
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-
+            @include('teams.editor.entertainment')
+            @include('teams.editor.coaching')
+            <dialog data-team-preview class="rounded-xl p-4 w-full max-w-2xl backdrop:bg-black/70">
+                <div class="flex justify-between items-center gap-3"><h2 data-preview-title class="font-semibold text-xl">3D preview</h2><button type="button" data-preview-close class="rounded border px-3 py-2">Close</button></div>
+                <div data-team-preview-host style="height:440px" class="mt-3 rounded overflow-hidden"></div>
+                <p class="mt-2 text-sm">Drag to rotate. Scroll to zoom. This preview uses your unsaved settings.</p>
+            </dialog>
             <div class="flex items-center gap-3">
                 <button class="px-5 py-2 rounded bg-blue-600 text-white" type="submit">
                     {{ $mode === 'create' ? 'Create Team' : 'Save Changes' }}

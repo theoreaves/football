@@ -1,6 +1,7 @@
 import {turnoverCelebrants} from './turnover-group.js';
 import {presentationAmbience} from './presentation-ambience.js';
 import {unitExchange,playerKey} from './unit-exchange.js';
+import {buildSidelineCoaches} from './coach-model.js';
 import {buildSidelinePlayers} from './sideline-players.js';
 import {autoNotices} from './auto-notices.js';
 import {mountBreakDialogs} from './break-dialogs.js';
@@ -368,6 +369,7 @@ export function mountPractice(root, onReady = () => {}) {
         const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
         mesh.visible = false;scene.add(mesh);return mesh;
     });
+    const sidelineCoaches = buildSidelineCoaches(scene,appearance);
     const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
@@ -1600,6 +1602,7 @@ export function mountPractice(root, onReady = () => {}) {
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
         tickPlayWizard?.({delta, ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         stadium.updateCrowd(delta);
+        sidelineCoaches.update(delta);
         renderState(); controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,

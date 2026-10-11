@@ -1,0 +1,22 @@
+<section role="tabpanel" id="panel-cheerleaders" aria-labelledby="tab-cheerleaders" data-team-panel="cheerleaders" hidden class="space-y-4">
+    <h2 class="text-xl font-semibold">Cheerleader colors</h2>
+    <p>Save the team's outfit colors here, ready for cheerleaders to be added to the stadium.</p>
+    <div class="grid grid-cols-3 gap-4">
+        @foreach(['primary' => ['Primary', $team->team_color1 ?: '#174880'], 'secondary' => ['Secondary', $team->team_color2 ?: '#ffffff'], 'accent' => ['Accent / pom-poms', '#ffffff']] as $part => [$label, $fallback])
+            <label>{{ $label }}<input type="color" name="team_settings[cheerleaders][{{ $part }}]" value="{{ old('team_settings.cheerleaders.'.$part, $team->team_settings['cheerleaders'][$part] ?? $fallback) }}" class="block w-full h-10 border rounded"></label>
+        @endforeach
+    </div>
+</section>
+<section role="tabpanel" id="panel-mascot" aria-labelledby="tab-mascot" data-team-panel="mascot" hidden class="space-y-4">
+    <h2 class="text-xl font-semibold">Mascot</h2>
+    <p>Choose a starter character and team colors. Sideline roaming and cheering will be added in the mascot animation update.</p>
+    <label class="block">Mascot name<input name="team_settings[mascot][name]" maxlength="80" value="{{ old('team_settings.mascot.name', $team->team_settings['mascot']['name'] ?? '') }}" class="block w-full border rounded p-2"></label>
+    <label class="block">Character<select name="team_settings[mascot][character]" class="block w-full border rounded p-2">
+        @foreach(['bear', 'cat', 'bird', 'bull'] as $choice)<option value="{{ $choice }}" @selected(old('team_settings.mascot.character', $team->team_settings['mascot']['character'] ?? 'bear') === $choice)>{{ ucfirst($choice) }}</option>@endforeach
+    </select></label>
+    <div class="grid grid-cols-2 gap-4">
+        @foreach(['fur' => ['Fur / feathers', '#b9825b'], 'shirt' => ['Team outfit', $team->team_color1 ?: '#174880']] as $part => [$label, $fallback])
+            <label>{{ $label }}<input type="color" name="team_settings[mascot][{{ $part }}]" value="{{ old('team_settings.mascot.'.$part, $team->team_settings['mascot'][$part] ?? $fallback) }}" class="block w-full h-10 border rounded"></label>
+        @endforeach
+    </div>
+</section>

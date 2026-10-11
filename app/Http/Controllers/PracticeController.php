@@ -13,7 +13,7 @@ class PracticeController extends Controller
         $home = $request->filled('home') ? $teams->firstWhere('id', $request->integer('home')) : $teams->first();
         $away = $request->filled('away') ? $teams->firstWhere('id', $request->integer('away')) : $teams->first(fn ($team) => $team->id !== $home?->id);
         abort_if(($request->filled('home') && ! $home) || ($request->filled('away') && ! $away), 404);
-        $appearance = ['home' => $this->appearance($home, 'home'), 'away' => $this->appearance($away, 'away')];
+        $appearance = $this->matchup($home, $away);
 
         return view('practice.index', compact('teams', 'home', 'away', 'appearance'));
     }
@@ -26,6 +26,14 @@ class PracticeController extends Controller
         abort_unless($path && $disk->exists($path), 404);
 
         return $disk->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    public function matchup(?Team $home, ?Team $away): array
+    {
+        $white = (bool) ($home?->team_settings['white_at_home'] ?? false);
+
+        return ['home' => $this->appearance($home, $white ? 'away' : 'home'),
+            'away' => $this->appearance($away, $white ? 'home' : 'away')];
     }
 
     public function appearance(?Team $team, string $venue): array
@@ -70,6 +78,7 @@ class PracticeController extends Controller
             'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',
             'stadium_roof_color' => $team->stadium_roof_color ?: '#cbd5e1',
             'uniform' => $uniform,
+            'staff' => $team->team_settings['staff'] ?? [],
             'endzone_text' => $team->endzone_text ?: $team->name,
             'endzone_background' => $team->endzone_background ?: ($team->team_color1 ?: '#174880'),
             'endzone_text_color' => $team->endzone_text_color ?: '#ffffff',

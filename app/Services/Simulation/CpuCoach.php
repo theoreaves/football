@@ -37,19 +37,23 @@ class CpuCoach
             return ['call' => 'kneel', 'formation' => 'singleback'];
         }
         $mustGo = $late && $margin < 0 && ($margin < -3 || $state['spot'] < 60);
-        if ($state['down'] === 4 && ! $mustGo) {
+        $aggression = $this->preference($state, 'fourth_down') - 50;
+        $preferredGo = $aggression > 0 && $state['spot'] >= 40 && $state['distance'] <= 2 + $aggression / 20
+            && $this->roll($state, 'fourth-down') < $aggression;
+        if ($state['down'] === 4 && ! $mustGo && ! $preferredGo) {
             $distance = 117 - $state['spot'];
             $range = 40 + ($players['K']['ratings']['kicking'] - 50) * .3;
             if ($distance <= $range) {
                 return ['call' => 'field_goal', 'formation' => 'singleback'];
             }
-            if ($state['spot'] < 60 || $state['distance'] > 2) {
+            if ($state['spot'] < 60 || $state['distance'] > 2 || ($aggression < 0 && $this->roll($state, 'fourth-down') < -$aggression)) {
                 return ['call' => 'punt', 'formation' => 'singleback'];
             }
         }
         $passSkill = ($players['QB']['ratings']['throwing'] + $players['WR1']['ratings']['catching']) / 2;
         $runSkill = ($players['RB']['ratings']['speed'] + $players['C']['ratings']['blocking']) / 2;
         $passChance = 48 + ($passSkill - $runSkill) * .6 + ($state['distance'] >= 10 ? 12 : 0) + ($state['down'] >= 3 ? 12 : 0);
+        $passChance += ($this->preference($state, 'pass') - 50) * .6;
         if ($state['distance'] <= 2) {
             $passChance -= 28;
         }
@@ -89,6 +93,28 @@ class CpuCoach
             : ($state['distance'] >= 10 && $state['down'] >= 2 ? ($roll < 70 ? 'zone' : ($roll < 85 ? 'blitz' : 'man_to_man'))
                 : ($roll < 50 ? 'man_to_man' : ($roll < 75 ? 'zone' : ($roll < 90 ? 'blitz' : 'run_stop'))));
 
+        $other = $state['possession'] === 'home' ? 'away' : 'home';
+        $biases = ['run_stop' => $this->preference($state, 'run_stop', $other), 'blitz' => $this->preference($state, 'blitz', $other), 'man' => $this->preference($state, 'man', $other)];
+        if ($biases !== ['run_stop' => 50, 'blitz' => 50, 'man' => 50]) {
+            $weights = ($state['phase'] === 'extra_point' || $state['distance'] <= 2)
+                ? ['run_stop' => 70, 'man_to_man' => 30, 'zone' => 0, 'blitz' => 0]
+                : ($state['distance'] >= 10 && $state['down'] >= 2
+                    ? ['zone' => 70, 'blitz' => 15, 'man_to_man' => 15, 'run_stop' => 0]
+                    : ['man_to_man' => 50, 'zone' => 25, 'blitz' => 15, 'run_stop' => 10]);
+            $weights['run_stop'] = max(2, $weights['run_stop']) * $this->factor($biases['run_stop']);
+            $weights['blitz'] = max(2, $weights['blitz']) * $this->factor($biases['blitz']);
+            $weights['man_to_man'] *= $this->factor($biases['man']);
+            $weights['zone'] = max(2, $weights['zone']) * $this->factor(100 - $biases['man']);
+            $pick = $roll / 100 * array_sum($weights);
+            foreach ($weights as $candidate => $weight) {
+                $pick -= $weight;
+                if ($pick < 0) {
+                    $call = $candidate;
+                    break;
+                }
+            }
+        }
+
         return ['call' => $call, 'formation' => $call === 'zone' && $state['spot'] < 80 ? 'nickel' : ($call === 'blitz' ? 'single_high' : ($call === 'run_stop' ? 'base_3_5' : 'base_4_3'))];
     }
 
@@ -100,6 +126,13 @@ class CpuCoach
         $late = app(GameClock::class)->lateHalf($state);
         $hurry = ($late && $state['quarter'] === 2) || ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin <= 0);
         $tempo = $hurry ? 'hurry' : ($state['quarter'] >= 4 && $margin > 0 ? 'drain' : 'normal');
+
+        if (! $late && ! $hurry && ! ($state['quarter'] >= 4 && $margin > 0)) {
+            $bias = $this->preference($state, 'tempo') - 50;
+            if ($this->roll($state, 'tempo') < abs($bias)) {
+                $tempo = $bias > 0 ? 'hurry' : 'drain';
+            }
+        }
 
         return ['tempo' => $tempo, 'clock_strategy' => $late && ($state['quarter'] === 2 || $margin <= 0) ? 'sideline' : 'normal'];
     }
@@ -130,7 +163,7 @@ class CpuCoach
 
     private function passingCall(array $state): string
     {
-        $roll = $this->roll($state, 'pass');
+        $roll = max(0, min(99, $this->roll($state, 'pass') + (int) (($this->preference($state, 'depth') - 50) * .6)));
         // Ten yards to go is also a normal first down. Allow short throws
         // there instead of automatically calling only medium/deep routes.
         // Conversion downs still favor routes that can reach the marker.
@@ -160,6 +193,18 @@ class CpuCoach
             $roll < 90 => 'medium_pass',
             default => 'deep_pass',
         };
+    }
+
+    private function preference(array $state, string $key, ?string $side = null): int
+    {
+        $side ??= $state['possession'];
+
+        return max(0, min(100, (int) ($state['coaching'][$side][$key] ?? 50)));
+    }
+
+    private function factor(int $value): float
+    {
+        return 2 ** (($value - 50) / 25);
     }
 
     private function roll(array $state, string $decision): int

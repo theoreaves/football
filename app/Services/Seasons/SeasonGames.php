@@ -40,7 +40,8 @@ class SeasonGames
             $pending = ! $quick && $controls[$winner] === 'human';
             $choice = $pending ? null : app(CpuCoach::class)->coinChoice($state);
             $receiver = $choice === 'kick' ? ($winner === 'home' ? 'away' : 'home') : $winner;
-            $state = array_merge($state, ['controls' => $controls, 'opening_receiver' => $receiver,
+            $state = array_merge($state, ['coaching' => ['home' => $fixture->homeTeam->team_settings['coaching'] ?? [], 'away' => $fixture->awayTeam->team_settings['coaching'] ?? []],
+                'team_appearance' => app(\App\Http\Controllers\PracticeController::class)->matchup($fixture->homeTeam, $fixture->awayTeam), 'controls' => $controls, 'opening_receiver' => $receiver,
                 'possession' => $receiver === 'home' ? 'away' : 'home',
                 'coin_toss' => ['call' => 'heads', 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending],
                 'rules' => ['overtime' => 'modern', 'penalties' => true, 'injuries' => true],

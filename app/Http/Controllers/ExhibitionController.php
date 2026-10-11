@@ -56,7 +56,7 @@ class ExhibitionController extends Controller
         $game = DB::transaction(function () use ($home, $away, $initial, $receiver, $coinCall, $coin, $winner, $choice, $pending, $data, $controls, $builder, $quickSim) {
             $game = Exhibition::create([
                 'home_team_id' => $home->id, 'away_team_id' => $away->id,
-                'state' => array_merge($initial, ['possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['overtime' => $data['overtime'] ?? 'none', 'penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
+                'state' => array_merge($initial, ['coaching' => ['home' => $home->team_settings['coaching'] ?? [], 'away' => $away->team_settings['coaching'] ?? []], 'team_appearance' => app(PracticeController::class)->matchup($home, $away), 'possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['overtime' => $data['overtime'] ?? 'none', 'penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
                 'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
             ]);
             if ($quickSim) {
@@ -72,7 +72,7 @@ class ExhibitionController extends Controller
     public function show(Exhibition $exhibition)
     {
         $exhibition->load(['homeTeam', 'awayTeam', 'seasonFixture.season']);
-        $appearance = ['home' => app(PracticeController::class)->appearance($exhibition->homeTeam, 'home'),
+        $appearance = $exhibition->state['team_appearance'] ?? ['home' => app(PracticeController::class)->appearance($exhibition->homeTeam, 'home'),
             'away' => app(PracticeController::class)->appearance($exhibition->awayTeam, 'away')];
         $exhibition->state = app(GameClock::class)->normalize($exhibition->state);
         $history = $exhibition->history;

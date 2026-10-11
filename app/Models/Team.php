@@ -10,6 +10,8 @@ class Team extends Model
 
     protected $guarded = [];
 
+    protected $casts = ['team_settings' => 'array'];
+
     public function players()
     {
         return $this->belongsToMany(\App\Models\Player::class, 'team_players')
