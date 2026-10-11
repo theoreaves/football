@@ -31,7 +31,7 @@ export function mountTeamSettings(form) {
             const input=form.elements.namedItem(field),clear=form.elements.namedItem(`clear_${field}`);
             let url=null;
             if(input.files[0]){url=URL.createObjectURL(input.files[0]);urls.add(url);}
-            else if(!clear?.checked)url=input.closest('.min-w-0')?.querySelector('img')?.src;
+            else if(!clear?.checked)url=input.closest('div.min-w-0')?.querySelector('img')?.src;
             result[field]=url;
         }
         return result;
@@ -56,7 +56,7 @@ export function mountTeamSettings(form) {
             const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight('#ffffff','#56667b',2));const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(3,5,4);scene.add(light);
             const camera=new THREE.PerspectiveCamera(40,1,.01,100);camera.position.set(0,1.4,4.3);const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,1.1,0);controls.enablePan=false;controls.minDistance=2;controls.maxDistance=7;
             view={renderer,scene,camera,controls,model:null};rebuild();
-            const render=()=>{if(!view || !dialog.open)return;const width=Math.max(1,host.clientWidth),height=Math.max(1,host.clientHeight);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();if(!document.hidden){controls.update();renderer.render(scene,camera);}frame=requestAnimationFrame(render);};render();
+            const render=()=>{if(!view || !dialog.open)return;const width=Math.max(1,host.clientWidth),height=Math.max(1,host.clientHeight);renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();if(!document.hidden){controls.update();renderer.render(scene,camera);}frame=requestAnimationFrame(render);};render();
         }catch{dispose();host.textContent='3D preview unavailable. You can still edit and save these settings.';}
     };
     form.querySelectorAll('[data-uniform-preview]').forEach(button=>button.onclick=()=>open(button.dataset.uniformPreview));
