@@ -1,3 +1,4 @@
+import {buildResultReferee} from './result-referee.js';
 import {idlePlayerPose} from './idle-player.js';
 import {mountGameStats} from './game-stats.js';
 import {entranceMusic} from './entrance-music.js';
@@ -331,6 +332,7 @@ export function mountPractice(root, onReady = () => {}) {
     const quarterbackCues = cadenceCues(animation);
     let cadenceTime = -4;
     const ruling = refereeSignal(animation, beforeState, afterState);
+    const resultReferee = buildResultReferee(root.querySelector('[data-result-popup]'),animation,beforeState,afterState);
     const penalty = JSON.parse(root.dataset.penalty || 'null');
     const foul = penaltyMoment(animation, penalty, refereePaths);
     const penaltyContact = buildPenaltyContact(animation, foul);
@@ -1655,6 +1657,7 @@ export function mountPractice(root, onReady = () => {}) {
         if(!entrance.active && !running && ['result','huddle','set'].includes(phase)){players.forEach((model,index)=>idlePlayerPose(model,idleTime,index));}
         if(entrance.active){sideline.update(new Set(),entranceClock());players.forEach(player=>player.visible=false);}
         else if(entrancePanel && entrance.seconds>0){players.forEach(player=>player.visible=true);entrance.seconds=0;}
+        resultReferee.update(document.hidden ? 0 : delta);
         controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
@@ -1674,6 +1677,7 @@ export function mountPractice(root, onReady = () => {}) {
         disposeMobileControls();
         audio.dispose(options.handoff === true);
         penaltyPresentation.dispose();
+        resultReferee.dispose();
         sidelineMascot.save();
         saveCamera();
         controls.removeEventListener('end', saveCamera);

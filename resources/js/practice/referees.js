@@ -75,7 +75,6 @@ export function buildReferees(scene) {
             const moving = Math.abs(pose.velocity) > .1;
             const canSignal = active && !moving && (signal === 'first_down' ? index === 0
                 : index >= 2 && Math.abs(pose.x - (direction > 0 ? 110 : 10)) < 2);
-            const progress = canSignal ? signalProgress(time) : 0;
             ref.body.rotation.y = canSignal && signal === 'first_down' ? 0
                 : moving ? (pose.velocity > 0 ? Math.PI / 2 : -Math.PI / 2)
                 : pose.z > 26.7 ? Math.PI : 0;
@@ -85,12 +84,8 @@ export function buildReferees(scene) {
             ref.elbows.forEach(elbow => elbow.rotation.set(0,0,0));
             ref.arms.forEach((arm, i) => {
                 arm.rotation.set((i === 0 ? -1 : 1) * stride * .35, 0, 0);
-                if (canSignal) {
-                    arm.rotation.x = 0;
-                    if (signal === 'touchdown') arm.rotation.z = (i === 0 ? -1 : 1) * Math.PI * progress;
-                    if (signal === 'first_down' && i === (direction > 0 ? 1 : 0)) arm.rotation.z = direction * Math.PI / 2 * progress;
-                }
             });
+            if (canSignal) applyResultSignal(ref, signal, time, direction);
             if (flagThrow?.official === index && flagThrow.time >= -.18 && flagThrow.time < .45) {
                 ref.arms[1].rotation.x = -1.1 * Math.sin(Math.PI * (flagThrow.time + .18) / .63);
                 ref.arms[1].rotation.z = .3;
@@ -186,4 +181,20 @@ export function applyPenaltySignal(ref, type, time) {
         arms[0].rotation.x = -1.1*blend; arms[0].rotation.z = -.4*blend;
         elbows[0].rotation.x = -1.3*blend;
     }
+}
+
+// The popup and field crew share arm poses; this does not resolve game outcomes.
+export function applyResultSignal(ref, signal, time, direction = 1) {
+    const progress = signalProgress(time);
+    ref.arms.forEach((arm, i) => {
+        arm.rotation.set(0,0,0);
+        if (signal === 'touchdown' || signal === 'good') arm.rotation.z = (i === 0 ? -1 : 1) * Math.PI * progress;
+        if (signal === 'first_down' && i === (direction > 0 ? 1 : 0)) arm.rotation.z = direction * Math.PI / 2 * progress;
+        if (signal === 'no_good') {
+            // Repeated outward sweeps across the chest: no good.
+            arm.rotation.x = -Math.PI / 2 * progress;
+            arm.rotation.z = (i === 0 ? -1 : 1) * (.25 + .9 * (.5 - .5 * Math.cos(Math.max(0,time - .65) * 5))) * progress;
+        }
+    });
+    ref.elbows.forEach(elbow => elbow.rotation.set(0,0,0));
 }
