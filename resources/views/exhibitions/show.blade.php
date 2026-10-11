@@ -10,6 +10,11 @@
             'away' => ['medical_home_shirt' => $exhibition->awayTeam->uniform_home_shirt ?: ($exhibition->awayTeam->team_color1 ?: '#e9e9e7')],
         ])) }}" data-autoplay="{{ request('watch') === '1' || $replayOnly ? 'true' : 'false' }}" class="game-stage text-white">
     @if(!$replayOnly && !request()->boolean('summary'))
+    <div data-entrance-panel hidden class="absolute z-50 bottom-20 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 text-white border border-blue-400 p-4 text-center" role="status">
+        <p class="font-bold">Here come the teams!</p>
+        <p class="text-sm mb-3">Players, coaches and the home cheer squad take the field.</p>
+        <button type="button" class="rounded bg-blue-700 px-4 py-2">Skip entrance → Lineups</button>
+    </div>
     <dialog data-pregame-dialog class="game-dialog" style="width:min(94vw,1050px);max-width:1050px;max-height:90vh;overflow:auto;background:#101827;color:#f9fafb;border:1px solid #36537b;border-radius:16px;padding:24px;">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
             <div><p class="text-blue-300 text-sm tracking-widest uppercase">Game Day</p><h2 class="text-2xl font-bold">Starting Lineups</h2></div>

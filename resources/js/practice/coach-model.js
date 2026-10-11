@@ -1,3 +1,4 @@
+import {entrancePose} from './tunnel-entrance.js';
 import * as THREE from 'three';
 import {fitLogo} from './logo-fit.js';
 import {buildPlayerFace} from './player-face.js';
@@ -62,9 +63,9 @@ export function buildSidelineCoaches(scene,appearance,textureFor = () => null) {
     for(const side of ['home','away']) {
         Object.entries(appearance[side]?.staff || {}).forEach(([role,profile],index)=>{
             const coach=buildCoach(profile,role,appearance[side]?.team_logo,textureFor);coach.position.set(47+index*7,0,side==='home'?-3.7:57.03);coach.rotation.y=side==='home'?0:Math.PI;
-            scene.add(coach);coaches.push({coach,index,x:coach.position.x});
+            scene.add(coach);coaches.push({coach,index,side,x:coach.position.x,z:coach.position.z});
         });
     }
     let time=0;
-    return {update(delta){time+=Math.min(.1,Math.max(0,delta));for(const {coach,index,x} of coaches){coach.position.x=x+Math.sin(time*.13+index)*.65;const arm=coach.getObjectByName('coach-arm-1');arm.rotation.x=Math.sin(time*.7+index)*.07;}}};
+    return {update(delta,entranceSeconds=null){time+=Math.min(.1,Math.max(0,delta));for(const {coach,index,x,z,side} of coaches){coach.visible=true;coach.position.z=z;coach.position.y=0;coach.rotation.y=coach.position.z<0?0:Math.PI;coach.position.x=x+Math.sin(time*.13+index)*.65;const arm=coach.getObjectByName('coach-arm-1');arm.rotation.x=Math.sin(time*.7+index)*.07;if(entranceSeconds!==null){const pose=entrancePose(side,index,{x,z},entranceSeconds);coach.position.set(pose.x,pose.moving?pose.bob:0,pose.z);coach.rotation.y=pose.yaw;coach.visible=pose.visible;if(pose.moving)arm.rotation.x=Math.sin(entranceSeconds*12)*.35;}}}};
 }

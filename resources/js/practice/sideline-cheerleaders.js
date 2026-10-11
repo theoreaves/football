@@ -1,3 +1,4 @@
+import {entrancePose} from './tunnel-entrance.js';
 import * as THREE from 'three';
 import {buildCheerleader,animateCheerleader} from './cheerleader-model.js';
 import {mascotReaction} from './sideline-mascot.js';
@@ -24,12 +25,14 @@ export function buildSidelineCheerleaders(scene,appearance,textureFor=()=>null) 
         group.add(mesh);parts.push({source:part,mesh});
     });
     let time=0,remaining=0;
-    const update=delta=>{
+    const update=(delta,entranceSeconds=null)=>{
         const step=Number.isFinite(delta)?Math.max(0,Math.min(.1,delta)):0;time+=step;remaining=Math.max(0,remaining-step);
         template.getObjectByName('cheer-team-logo')?.onBeforeRender();
         CHEERLEADER_SLOTS.forEach((slot,index)=>{
             animateCheerleader(template,time,index,remaining>0);
             template.position.x=slot.x;template.position.z=slot.z;template.rotation.y=remaining>0?0:Math.PI;
+            template.position.y=0;template.scale.setScalar(1);
+            if(entranceSeconds!==null){const pose=entrancePose('home',index,slot,entranceSeconds);template.position.set(pose.x,pose.moving?pose.bob:0,pose.z);template.rotation.y=pose.yaw;template.scale.setScalar(pose.visible?1:0);}
             template.updateMatrixWorld(true);
             for(const {source,mesh} of parts)mesh.setMatrixAt(index,source.matrixWorld);
         });

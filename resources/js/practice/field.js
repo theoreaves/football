@@ -1356,12 +1356,26 @@ export function mountPractice(root, onReady = () => {}) {
     let showPregame = Boolean(pregameDialog && root.dataset.playNumber === '0');
     try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
     let openingPregame = showPregame;
-    const anthemIntro = mountPregameAnthem(root,pregameDialog,audio,showPregame);
-    if (showPregame) pregameDialog.showModal();
-    else coinDialog?.showModal();
+    let anthemIntro;
+    const entrancePanel=root.querySelector('[data-entrance-panel]');
+    const entrance={active:Boolean(showPregame && entrancePanel && ![false,0,'0'].includes(home.stadium?.tunnels)),seconds:0};
+    const entranceCamera={position:camera.position.clone(),target:controls.target.clone()};
+    const finishEntrance=()=>{
+        if(!entrance.active)return;
+        entrance.active=false;entrancePanel.hidden=true;
+        camera.position.copy(entranceCamera.position);controls.target.copy(entranceCamera.target);
+        if(callForm)callForm.inert=false;
+        anthemIntro=mountPregameAnthem(root,pregameDialog,audio,showPregame);
+        pregameDialog.showModal();
+    };
+    entrancePanel?.querySelector('button')?.addEventListener('click',finishEntrance);
+    if(entrance.active){
+        entrancePanel.hidden=false;if(callForm)callForm.inert=true;
+        camera.position.set(60,85,140);controls.target.set(60,0,26.665);
+    }else{anthemIntro=mountPregameAnthem(root,pregameDialog,audio,showPregame);if(showPregame)pregameDialog.showModal();else coinDialog?.showModal();}
     const pregameCloseButtons = pregameDialog?.querySelectorAll('[data-pregame-close]');
     root.querySelector('[data-open-lineups]')?.addEventListener('click', () => {
-        if (!pregameDialog || pregameDialog.open) return;
+        if (entrance.active || !pregameDialog || pregameDialog.open) return;
         openingPregame = false;
         pregameCloseButtons?.forEach((button, index) => {
             button.textContent = index === 0 ? 'Close Lineups' : 'Return to Game';
@@ -1618,15 +1632,19 @@ export function mountPractice(root, onReady = () => {}) {
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
-        tickPlayWizard?.({delta, ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
+        tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         stadium.updateCrowd(delta);
-        sidelineCoaches.update(delta);
-        if(!document.hidden){sidelineMascot.update(delta);sidelineCheerleaders.update(delta);}
-        renderState(); controls.update(); renderer.render(scene, camera);
+        if(entrance.active){entrance.seconds+=Math.min(.1,Math.max(0,delta));if(entrance.seconds>=35)finishEntrance();}
+        sidelineCoaches.update(delta,entrance.active?entrance.seconds:null);
+        if(!document.hidden){sidelineMascot.update(delta);sidelineCheerleaders.update(delta,entrance.active?entrance.seconds:null);}
+        renderState();
+        if(entrance.active){sideline.update(new Set(),entrance.seconds);players.forEach(player=>player.visible=false);}
+        else if(entrancePanel && entrance.seconds>0){players.forEach(player=>player.visible=true);entrance.seconds=0;}
+        controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled, dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

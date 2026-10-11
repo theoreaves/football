@@ -1,3 +1,4 @@
+import {entrancePose} from './tunnel-entrance.js';
 import * as THREE from 'three';
 import {sidelineNumbers} from './sideline-numbers.js';
 import {fitLogo} from './logo-fit.js';
@@ -70,10 +71,10 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
         }
     }
     let previous = '';
-    return {update(active) {
+    return {update(active,entranceSeconds=null) {
         const signature = [...active].sort().join('|');
-        if (signature === previous && previous !== '') return;
-        previous = signature;
+        if (entranceSeconds===null && signature === previous && previous !== '') return;
+        previous = entranceSeconds===null?signature:'';
         for (const {mesh,people,side,offset,hideMissingNumber} of groups) {
             people.forEach((person,i) => {
                 const slot = sidelineSlot(side,i), height = (person.height_inches || 73)/73;
@@ -81,6 +82,12 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
                 dummy.position.set(slot.x + offset[0]*sign,offset[1]*height,slot.z + offset[2]*sign);
                 dummy.rotation.set(0,side === 'home' ? 0 : Math.PI,0);
                 dummy.scale.setScalar((active.has(playerKey({...person,side})) || (hideMissingNumber && person.number == null)) ? 0 : height);
+                if(entranceSeconds!==null){
+                    const pose=entrancePose(side,i,slot,entranceSeconds),angle=pose.yaw;
+                    dummy.position.set(pose.x+offset[0]*Math.cos(angle)+offset[2]*Math.sin(angle),offset[1]*height+(pose.moving?pose.bob:0),pose.z-offset[0]*Math.sin(angle)+offset[2]*Math.cos(angle));
+                    if(pose.moving && offset[1]<.8)dummy.position.z+=Math.sin(entranceSeconds*12+(offset[0]<0?0:Math.PI))*.12;
+                    dummy.rotation.y=angle;dummy.scale.setScalar(!pose.visible || (hideMissingNumber && person.number==null)?0:height);
+                }
                 dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
             });
             mesh.instanceMatrix.needsUpdate = true;
