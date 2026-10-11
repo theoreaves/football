@@ -24,7 +24,7 @@ export function unitExchange(finalFrame, incomingFrame, line, possession, homeDi
     const bench = (player,i) => slots.get(playerKey(player)) || sidelineSlot(player.side,i);
     const outgoing = finalFrame.players.map((player,i) => {
         const end = bench(player,i);
-        return {player,start:player,end,duration:travel(player,end,0).duration};
+        return {player,start:player,end,duration:Math.hypot(player.x-end.x,player.z-end.z) < .01 ? 0 : travel(player,end,0).duration};
     });
     const destinations = incomingFrame ? sampleHuddle(incomingFrame,line,possession,1,homeDirection).players : [];
     const incoming = destinations.map((player,i) => {

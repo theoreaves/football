@@ -1,3 +1,4 @@
+import {turnoverCelebrants} from './turnover-group.js';
 import {presentationAmbience} from './presentation-ambience.js';
 import {unitExchange,playerKey} from './unit-exchange.js';
 import {buildSidelinePlayers} from './sideline-players.js';
@@ -340,20 +341,33 @@ export function mountPractice(root, onReady = () => {}) {
     let refereePostTime = 0, refereeHuddleTime = 0, refereeResetPath = null;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
     let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
-    const exchange = root.dataset.unitChange === 'true'
+    let exchange = root.dataset.unitChange === 'true'
         ? unitExchange(sample(type,duration),nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,
             nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
     let exchangeElapsed = 0, exchangeSnapLocked = false;
+    const turnoverGroup = turnoverCelebrants(animation,sample(type,duration));
+    const earlyExit = exchange && turnoverGroup.size
+        ? unitExchange({...sample(type,duration),players:sample(type,duration).players.filter(p=>!turnoverGroup.has(playerKey(p)))},null,
+            nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
+    let earlyExitElapsed = 0, celebrationSpots = null;
     const incomingPlayers = (nextAnimation?.players || []).map(player => {
         const team = player.side === 'home' ? home : away;
         const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
         mesh.visible = false;scene.add(mesh);return mesh;
     });
-    const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance);
+    const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
         let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress, nextHomeDirection) : sample(type, elapsed);
         let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02), nextHomeDirection) : sample(type, Math.min(duration, elapsed + 0.03));
+        if (earlyExit && ['celebration','result'].includes(phase)) {
+            const departing = new Map(earlyExit.sample(earlyExitElapsed).outgoing.map(p=>[playerKey(p),p]));
+            const nextDeparting = new Map(earlyExit.sample(earlyExitElapsed+.03).outgoing.map(p=>[playerKey(p),p]));
+            frame = {...frame,players:frame.players.map(p=>departing.get(playerKey(p)) ||
+                (phase === 'result' && celebrationSpots?.get(playerKey(p)) ? {...p,...celebrationSpots.get(playerKey(p))} : p))};
+            future = {...future,players:future.players.map(p=>nextDeparting.get(playerKey(p)) ||
+                (phase === 'result' && celebrationSpots?.get(playerKey(p)) ? {...p,...celebrationSpots.get(playerKey(p))} : p))};
+        }
         const exchangeFrame = phase === 'huddle' && exchange ? exchange.sample(exchangeElapsed) : null;
         const exchangeFuture = exchangeFrame ? exchange.sample(exchangeElapsed + .03) : null;
         if (exchangeFrame) {
@@ -384,7 +398,7 @@ export function mountPractice(root, onReady = () => {}) {
             future = samplePreSnapMotion(formation, animation, (setElapsed + .03) / 3);
         }
         if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
-        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
+        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : earlyExit && ['celebration','result'].includes(phase) ? duration + earlyExitElapsed : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             mesh.visible = player.visible !== false;
@@ -880,7 +894,7 @@ export function mountPractice(root, onReady = () => {}) {
                 const lead = frame.players.find(p => p.team === 'defense' && p.role === leadRole);
                 const smooth = x => { const v = Math.max(0, Math.min(1, x)); return v * v * (3 - 2 * v); };
                 if (lead && player.team === 'defense') {
-                    const nearby = frame.players.filter(p => p.team === 'defense' && p.role !== leadRole)
+                    const nearby = frame.players.filter(p => p.team === 'defense' && p.role !== leadRole && turnoverGroup.has(playerKey(p)))
                         .sort((a, b) => Math.hypot(a.x - lead.x, a.z - lead.z)
                             - Math.hypot(b.x - lead.x, b.z - lead.z)
                             || a.role.localeCompare(b.role)).slice(0, 4);
@@ -918,18 +932,6 @@ export function mountPractice(root, onReady = () => {}) {
                         });
                         mesh.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.45 * cheer; });
                         mesh.position.y += .09 * Math.max(0, pulse) * cheer;
-                    }
-                } else if (player.team === 'offense') {
-                    // Offense clears the turnover area rather than standing frozen.
-                    const time = Math.max(0, postElapsed - .35 - i % 4 * .12);
-                    const targetZ = player.z < 26.665 ? -3 : 56.33;
-                    const dz = targetZ - player.z;
-                    mesh.position.z += Math.sign(dz) * Math.min(Math.abs(dz), time * 4);
-                    if (time > 0) {
-                        mesh.rotation.y = Math.atan2(0, dz);
-                        mesh.userData.legs?.forEach((leg, side) => {
-                            leg.rotation.x = (side === 0 ? 1 : -1) * .33 * Math.sin(time * 12 + i);
-                        });
                     }
                 }
             }
@@ -1193,6 +1195,7 @@ export function mountPractice(root, onReady = () => {}) {
     };
     const replayView = () => {
         cadenceTime = 0; audio.stopPlayerVoices();
+        earlyExitElapsed = 0;celebrationSpots = null;
         clearTurnoverBanner(); turnoverTime = -1;
         audioTime = -2;
         showState(false);
@@ -1286,6 +1289,11 @@ export function mountPractice(root, onReady = () => {}) {
         if (phase !== 'result') return;
         refereeResetPath = refereePaths.reset(duration + refereePostTime, nextLine, nextDirection);
         refereeHuddleTime = 0;
+        if (earlyExit) {
+            const finalFrame = sample(type,duration);
+            exchange = unitExchange({...finalFrame,players:finalFrame.players.map((p,i)=>({...p,x:players[i].position.x,z:players[i].position.z}))},
+                nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster);
+        }
         resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; exchangeElapsed = 0; huddleView();
     };
     root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
@@ -1448,6 +1456,7 @@ export function mountPractice(root, onReady = () => {}) {
             if (setElapsed === setDuration) { phase = 'play'; elapsed = 0; }
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         if (['medical', 'big_play', 'celebration', 'result', 'penalty'].includes(phase)) refereePostTime += Math.min(delta, .1);
+        if (earlyExit && ['celebration','result'].includes(phase)) earlyExitElapsed += Math.min(delta,.1);
         if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1);
         if (phase === 'huddle' && exchange) {
             exchangeElapsed = Math.min(exchange.duration,exchangeElapsed + Math.min(delta,.1));
@@ -1533,6 +1542,8 @@ export function mountPractice(root, onReady = () => {}) {
                 Math.max(max, .18 + index * .13 + item.distance / 8.5 + .85), 0);
             const celebrationSeconds = Math.max(4.2, Math.min(16, gatheringSeconds));
             if (postElapsed >= celebrationSeconds) {
+                if (earlyExit) celebrationSpots = new Map(sample(type,duration).players.map((p,i)=>[playerKey(p),
+                    {x:players[i].position.x,z:players[i].position.z}]));
                 phase = 'result'; postElapsed = 0;
                 if (resultPopup) resultPopup.hidden = false;
             }
