@@ -104,3 +104,24 @@ test('coaching tendencies change deterministic distributions while neutral and l
     expect($counts['run_stop_high'])->toBeGreaterThan($counts['run_stop_low']);
     expect($counts['tempo_high'])->toBeGreaterThan($counts['tempo_low']);
 });
+
+
+test('all mascot choices render and save while unknown characters are rejected', function () {
+    $team = Team::first();
+    $page = $this->get(route('teams.editor.edit', $team))->assertOk();
+    foreach (config('team-settings.mascot_characters') as $character => $label) {
+        $page->assertSee('value="'.$character.'"', false);
+        $this->put(route('teams.editor.update', $team), [
+            'city' => $team->city, 'name' => $team->name,
+            'team_settings' => ['mascot' => ['character' => $character, 'name' => 'Chief', 'fur' => '#123456', 'shirt' => '#abcdef']],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        expect($team->fresh()->team_settings['mascot'])->toMatchArray([
+            'character' => $character, 'name' => 'Chief', 'fur' => '#123456', 'shirt' => '#abcdef',
+        ]);
+    }
+    $this->put(route('teams.editor.update', $team), [
+        'city' => $team->city, 'name' => $team->name,
+        'team_settings' => ['mascot' => ['character' => 'unknown-character']],
+    ])->assertSessionHasErrors('team_settings.mascot.character');
+    expect($team->fresh()->team_settings['mascot']['character'])->toBe('elf');
+});

@@ -99,7 +99,7 @@ class TeamEditor extends Controller
             'team_settings.cheerleaders' => ['sometimes', 'array:primary,secondary,accent'],
             'team_settings.mascot' => ['sometimes', 'array:name,character,fur,shirt'],
             'team_settings.mascot.name' => ['nullable', 'string', 'max:80'],
-            'team_settings.mascot.character' => ['sometimes', \Illuminate\Validation\Rule::in(['bear', 'cat', 'bird', 'bull'])],
+            'team_settings.mascot.character' => ['sometimes', \Illuminate\Validation\Rule::in(array_keys(config('team-settings.mascot_characters')))],
             'team_settings.mascot.fur' => $hex,
             'team_settings.mascot.shirt' => $hex,
         ];
