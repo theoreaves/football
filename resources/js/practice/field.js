@@ -1,3 +1,6 @@
+import {presentationAmbience} from './presentation-ambience.js';
+import {unitExchange,playerKey} from './unit-exchange.js';
+import {buildSidelinePlayers} from './sideline-players.js';
 import {autoNotices} from './auto-notices.js';
 import {mountBreakDialogs} from './break-dialogs.js';
 import {mountPregameAnthem} from './pregame-anthem.js';
@@ -59,6 +62,8 @@ export function mountPractice(root, onReady = () => {}) {
     };
     const animation = root.dataset.animation ? JSON.parse(root.dataset.animation) : null;
     const sample = (type, time) => animation ? sampleEnginePlay(animation, time) : samplePlay(type, time);
+    const sidelineRoster = JSON.parse(root.dataset.sidelineRoster || '{}');
+    const nextAnimation = JSON.parse(root.dataset.nextAnimation || 'null');
     const duration = animation?.duration || DURATION;
     slider.max = duration;
     const offenseSide = animation?.possession || 'home';
@@ -335,10 +340,39 @@ export function mountPractice(root, onReady = () => {}) {
     let refereePostTime = 0, refereeHuddleTime = 0, refereeResetPath = null;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
     let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
+    const exchange = root.dataset.unitChange === 'true'
+        ? unitExchange(sample(type,duration),nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,
+            nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
+    let exchangeElapsed = 0, exchangeSnapLocked = false;
+    const incomingPlayers = (nextAnimation?.players || []).map(player => {
+        const team = player.side === 'home' ? home : away;
+        const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+        mesh.visible = false;scene.add(mesh);return mesh;
+    });
+    const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance);
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
         let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress, nextHomeDirection) : sample(type, elapsed);
         let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02), nextHomeDirection) : sample(type, Math.min(duration, elapsed + 0.03));
+        const exchangeFrame = phase === 'huddle' && exchange ? exchange.sample(exchangeElapsed) : null;
+        const exchangeFuture = exchangeFrame ? exchange.sample(exchangeElapsed + .03) : null;
+        if (exchangeFrame) {
+            frame = {...frame,players:exchangeFrame.outgoing,huddle:false,event:exchangeFrame.complete ? (nextAnimation ? 'Incoming units ready · Choose the next play' : 'Game complete · Teams on the sidelines') : 'Changing units · Players jogging between field and sidelines'};
+            future = {...future,players:exchangeFuture.outgoing,huddle:false};
+        }
+        const activeSidelinePlayers = new Set();
+        frame.players.filter(player => player.visible !== false).forEach(player => activeSidelinePlayers.add(playerKey(player)));
+        incomingPlayers.forEach((mesh,i) => {
+            const player = exchangeFrame?.incoming[i], next = exchangeFuture?.incoming[i];
+            mesh.visible = Boolean(player?.visible);
+            if (!mesh.visible) return;
+            activeSidelinePlayers.add(playerKey(player));
+            const moving = Math.hypot(next.x-player.x,next.z-player.z) > .002;
+            mesh.position.set(player.x,moving ? Math.sin(exchangeElapsed*18+i)*.04 : 0,player.z);
+            mesh.rotation.y = moving ? Math.atan2(next.x-player.x,next.z-player.z) : Math.atan2(player.facingX-player.x,player.facingZ-player.z);
+            animateFootballPlayer(mesh,moving,exchangeElapsed,i);
+        });
+        sideline.update(activeSidelinePlayers);
         if (phase === 'liningup') {
             const formation = samplePreSnapMotion(sample(type, 0), animation, 0);
             frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress, playDirection * (offenseSide === 'home' ? 1 : -1));
@@ -350,9 +384,10 @@ export function mountPractice(root, onReady = () => {}) {
             future = samplePreSnapMotion(formation, animation, (setElapsed + .03) / 3);
         }
         if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
-        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
+        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
+            mesh.visible = player.visible !== false;
             resetPenaltyContactPose(mesh);
             // Reset the articulated stance every frame. Running, throws,
             // tackles, and the QB kneel must never inherit a prior crouch.
@@ -546,7 +581,7 @@ export function mountPractice(root, onReady = () => {}) {
             const earlySnap = phase === 'play' && elapsed < .28;
             // Crouch only after the break-huddle jog, not while travelling.
             const presnap = phase === 'set' || earlySnap || (phase === 'liningup' && lineupProgress >= .85);
-            const huddlePhase = phase === 'huddle';
+            const huddlePhase = phase === 'huddle' && !exchangeFrame;
             const setFacing = target => {
                 const dx = (target.x ?? 0) - mesh.position.x;
                 const dz = (target.z ?? 0) - mesh.position.z;
@@ -1163,6 +1198,11 @@ export function mountPractice(root, onReady = () => {}) {
         showState(false);
         refereePostTime = 0; refereeHuddleTime = 0; refereeResetPath = null;
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
+        if (exchangeSnapLocked) {
+            exchangeSnapLocked = false;
+            if (snapButton) snapButton.disabled = Boolean(driveDialog?.open || quarterDialog?.open
+                || (driveDialog && !driveShown) || (quarterDialog && !quarterShown));
+        }
         if (resultPopup) resultPopup.hidden = true;
         moveFocus(animation?.line ?? 40, playDirection);
         scrimmageLine.position.x = animation?.line ?? 40;
@@ -1234,7 +1274,10 @@ export function mountPractice(root, onReady = () => {}) {
     const tickPlayWizard = mountPlayWizard(root);
     const disposeMobileControls = mobileControls(root);
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
-    callForm?.addEventListener('submit', () => {
+    callForm?.addEventListener('submit', event => {
+        if (phase === 'huddle' && exchange && exchangeElapsed < exchange.duration) {
+            event.preventDefault();event.stopImmediatePropagation();return;
+        }
         root.classList.remove('game-replay-controls');
         saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
@@ -1243,7 +1286,7 @@ export function mountPractice(root, onReady = () => {}) {
         if (phase !== 'result') return;
         refereeResetPath = refereePaths.reset(duration + refereePostTime, nextLine, nextDirection);
         refereeHuddleTime = 0;
-        resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; huddleView();
+        resultPopup.hidden = true; phase = 'huddle'; postElapsed = 0; exchangeElapsed = 0; huddleView();
     };
     root.querySelector('[data-result-ok]')?.addEventListener('click', finishResult);
     const highlightsDialog = root.querySelector('[data-highlights-dialog]');
@@ -1406,6 +1449,15 @@ export function mountPractice(root, onReady = () => {}) {
         } else if (running) elapsed = Math.min(duration, elapsed + Math.min(delta, .1) * speed);
         if (['medical', 'big_play', 'celebration', 'result', 'penalty'].includes(phase)) refereePostTime += Math.min(delta, .1);
         if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1);
+        if (phase === 'huddle' && exchange) {
+            exchangeElapsed = Math.min(exchange.duration,exchangeElapsed + Math.min(delta,.1));
+            if (exchangeElapsed < exchange.duration && snapButton) {snapButton.disabled = true;exchangeSnapLocked = true;}
+            else if (exchangeSnapLocked && snapButton) {
+                exchangeSnapLocked = false;
+                snapButton.disabled = Boolean(driveDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open
+                    || (driveDialog && !driveShown) || (quarterDialog && !quarterShown));
+            }
+        }
         lastTime = now;
         if (bannerRemaining > 0) {
             bannerRemaining = Math.max(0, bannerRemaining - delta);
@@ -1496,8 +1548,9 @@ export function mountPractice(root, onReady = () => {}) {
         const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
         // Keep the stadium bed under play calling, without enabling stale cues.
         const callingPlay = phase === 'huddle' || !callForm.hidden;
-        const ambience = !document.hidden && callingPlay && afterState?.status !== 'final'
-            && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open;
+        const ambience = presentationAmbience({visible: !document.hidden, callingPlay, flagOpen: Boolean(penaltyDialog?.open),
+            final: afterState?.status === 'final', recapOpen: Boolean(driveDialog?.open || quarterDialog?.open),
+            inspectionOpen: Boolean(logDialog?.open || highlightsDialog?.open || boxDialog?.open)});
         audio.setPlayback(audible, ambience);
         // A separate cursor keeps pre-snap voices out of result/third-down cues.
         // Replay and seeking begin at the snap and never backfill a cadence.
@@ -1515,11 +1568,11 @@ export function mountPractice(root, onReady = () => {}) {
             audioTime = soundTime;
         } else if (running || ['result','celebration','big_play'].includes(phase)) audioTime = soundTime;
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
-        tickPlayWizard?.({delta, ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
+        tickPlayWizard?.({delta, ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         renderState(); controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
-            ready: !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
+            ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && !callForm.hidden && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
             submitting: snapButton.disabled, dialogOpen: Boolean(breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }

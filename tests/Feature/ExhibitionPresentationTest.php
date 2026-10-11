@@ -104,3 +104,29 @@ test('new snapshots field genuine linebacker and nickel personnel', function () 
         expect($players->pluck('id')->unique())->toHaveCount(11);
     }
 });
+
+test('possession changes expose snapshotted incoming personnel and sideline rosters without changing game data', function () {
+    $teams = Team::all();
+    $rosters = ['home' => app(RosterBuilder::class)->build($teams[0]), 'away' => app(RosterBuilder::class)->build($teams[1])];
+    $engine = app(ExhibitionEngine::class);
+    $state = $engine->initial(900, 42);
+    $state['controls'] = ['home' => 'cpu', 'away' => 'cpu'];
+    $state['phase'] = 'scrimmage';
+    $result = $engine->resolve($state, $rosters, 'punt', 'punt_return', 'punt', 'base_4_3');
+    $game = Exhibition::create(['home_team_id' => $teams[0]->id, 'away_team_id' => $teams[1]->id,
+        'state' => $result['state'], 'rosters' => $rosters, 'history' => [$result['play']]]);
+    $saved = $game->only(['state', 'history', 'rosters']);
+    $this->get(route('exhibitions.show', $game))->assertOk()
+        ->assertSee('data-sideline-roster', false)->assertViewHas('unitChange', true)
+        ->assertViewHas('nextAnimation', function ($animation) use ($result, $rosters) {
+            if ($animation['possession'] !== $result['state']['possession']) return false;
+            foreach ($animation['players'] as $player) {
+                if (! collect($rosters[$player['side']]['pool'] ?? $rosters[$player['side']]['players'])->contains('id', $player['id'])) return false;
+            }
+            return true;
+        })
+        ->assertViewHas('sidelineRoster', fn ($roster) => count($roster['home']) > 11 && ! isset($roster['home'][0]['ratings']));
+    expect($game->fresh()->only(['state', 'history', 'rosters']))->toBe($saved);
+    $this->get(route('exhibitions.show', [$game, 'replay' => $result['play']['number']]))
+        ->assertOk()->assertViewHas('unitChange', false)->assertViewHas('nextAnimation', null);
+});
