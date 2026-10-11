@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {completedDrives,latestBreakSummary,periodSummary,clockText} from '../../resources/js/practice/break-summaries.js';
+import {completedDrives,latestBreakSummary,periodSummary,clockText,earnedFirstDown} from '../../resources/js/practice/break-summaries.js';
 import {recordedStadiumReactions} from '../../resources/js/practice/recorded-stadium-reactions.js';
 import {stadiumAudio} from '../../resources/js/practice/stadium-audio.js';
 const zero=()=>({plays:0,yards:0,turnovers:0,penalties:0,penalty_yards:0});
@@ -62,4 +62,17 @@ test('recap Continue waits for the music fade and exposes the drive result and h
   mounted.startDrive();mounted.startQuarter();assert.deepEqual(starts,['drive','halftime']);dialogs[0].music.events.click();assert.equal(unlocks,1);
   let prevented=false;dialogs[0].form.events.submit({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal(dialogs[0].button.disabled,true);assert.equal(dialogs[0].dialog.closed,undefined);resolveFade();await new Promise(r=>setImmediate(r));assert.equal(dialogs[0].dialog.closed,true);assert.equal(dialogs[0].button.disabled,false);
  }finally{globalThis.document=previous;}
+});
+
+test('period first downs match box-score gain and accepted defensive penalty rules',()=>{
+ const before=state({down:2,distance:10}),normal=play(1,before,{down:1},{gain:12});
+ assert.equal(earnedFirstDown(normal),true);
+ for(const fields of [{gain:5},{gain:12,call:'punt'},{gain:12,call:'field_goal'},{gain:12,outcome:'interception'},{gain:12,no_snap:true},{gain:12,outcome:'penalty'}])assert.equal(earnedFirstDown({...normal,...fields}),false);
+ const foul={...normal,no_snap:true,outcome:'penalty',gain:0,penalty:{accepted:true,team:'away',type:'defensive_pass_interference',yards:5}};assert.equal(earnedFirstDown(foul),true);
+ assert.equal(earnedFirstDown({...foul,penalty:{...foul.penalty,type:'defensive_offside',yards:10}}),true);
+ assert.equal(earnedFirstDown({...foul,penalty:{...foul.penalty,type:'defensive_offside',yards:5}}),false);
+ assert.equal(earnedFirstDown({...foul,penalty:{...foul.penalty,accepted:false}}),false);
+ assert.equal(earnedFirstDown({...normal,after:{...normal.after,penalty_pending:true}}),false);
+ const q2={...normal,number:2,before:{...before,quarter:2}};const q3={...normal,number:3,before:{...before,quarter:3}};
+ assert.equal(periodSummary([normal,q2,q3],1).home.first_downs,1);assert.equal(periodSummary([normal,q2,q3],2,true).home.first_downs,2);
 });

@@ -352,9 +352,9 @@
     @if(!request()->boolean('summary') && !$replayOnly && $last)
     <?php
         $breakHistory = collect($exhibition->history)->map(function ($play) {
-            $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap']);
+            $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap', 'gain', 'penalty']);
             foreach (['before', 'after'] as $when) {
-                $item[$when] = \Illuminate\Support\Arr::only($play[$when] ?? [], ['stats', 'quarter', 'clock', 'phase', 'possession', 'status', 'home_score', 'away_score', 'penalty_pending']);
+                $item[$when] = \Illuminate\Support\Arr::only($play[$when] ?? [], ['stats', 'quarter', 'clock', 'phase', 'possession', 'status', 'home_score', 'away_score', 'penalty_pending', 'down', 'distance']);
             }
             return $item;
         })->values();

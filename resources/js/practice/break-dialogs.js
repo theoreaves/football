@@ -1,5 +1,5 @@
 import {latestBreakSummary,periodSummary,clockText} from './break-summaries.js';
-const stats=[['plays','Plays'],['yards','Yards'],['points','Points'],['turnovers','Turnovers'],['penalties','Penalties'],['penalty_yards','Penalty yards'],['possession','Possession time']];
+const stats=[['plays','Plays'],['yards','Yards'],['first_downs','First downs'],['points','Points'],['turnovers','Turnovers'],['penalties','Penalties'],['penalty_yards','Penalty yards'],['possession','Possession time']];
 export function mountBreakDialogs(root,audio) {
     const driveDialog=root.querySelector('[data-drive-dialog]'),quarterDialog=root.querySelector('[data-quarter-dialog]');
     let history=[];try{history=JSON.parse(root.querySelector('[data-break-history]')?.textContent || '[]');}catch{/* Older pages have no recap payload. */}

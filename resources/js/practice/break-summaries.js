@@ -9,10 +9,21 @@ function elapsed(play){
     const remaining=before.quarter===after.quarter ? Math.max(0,number(before.clock)-number(after.clock)):number(before.clock);
     return Math.min(remaining,Math.max(0,number(play.clock_seconds ?? remaining)));
 }
+// Match ExhibitionBoxScore's first-down rule, including accepted defensive fouls.
+export function earnedFirstDown(play) {
+    const before=play.before,after=play.after;if(!before || !after || after.penalty_pending)return false;
+    const side=before.possession,penalty=play.penalty;
+    const defensiveFirst=penalty?.accepted && penalty.team!==side
+        && (['defensive_pass_interference','face_mask'].includes(penalty.type) || Number(penalty.yards)>=Number(before.distance));
+    return after.possession===side && after.down===1 && (before.phase ?? 'scrimmage')==='scrimmage'
+        && Boolean(defensiveFirst || (!(play.no_snap || ['penalty','interception'].includes(play.outcome))
+            && Number(play.gain)>=Number(before.distance) && !['punt','field_goal'].includes(play.call)));
+}
 export function periodSummary(history,quarter,half=false){
     const plays=history.filter(p=>p.before && p.after && !p.after.penalty_pending && (half ? p.before.quarter<=2:p.before.quarter===quarter));
     return Object.fromEntries(sides.map(side=>[side,{
         ...Object.fromEntries(['plays','yards','turnovers','penalties','penalty_yards'].map(key=>[key,plays.reduce((sum,p)=>sum+difference(p,side,key),0)])),
+        first_downs:plays.filter(p=>p.before.possession===side && earnedFirstDown(p)).length,
         points:plays.reduce((sum,p)=>sum+number(p.after[`${side}_score`])-number(p.before[`${side}_score`]),0),
         possession:plays.filter(p=>p.before.possession===side && p.before.phase==='scrimmage').reduce((sum,p)=>sum+elapsed(p),0)
     }]));
