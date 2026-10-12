@@ -108,7 +108,7 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets'],
             'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors,tunnels,scoreboards,scoreboard_size,lighting'],
             'team_settings.stadium.tunnels' => ['sometimes', 'boolean'],
             'team_settings.stadium.scoreboards' => ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right'])],
@@ -139,6 +139,15 @@ class TeamEditor extends Controller
             'team_settings.mascot.fur' => $hex,
             'team_settings.mascot.shirt' => $hex,
         ];
+        $settings['team_settings.helmets'] = ['sometimes', 'array:home,away,flip_left,flip_right,logo_color'];
+        $settings['team_settings.helmets.logo_color'] = $hex;
+        foreach (['flip_left', 'flip_right'] as $side) {
+            $settings['team_settings.helmets.'.$side] = ['sometimes', 'boolean'];
+        }
+        foreach (['home', 'away'] as $venue) {
+            $settings['team_settings.helmets.'.$venue] = ['sometimes', 'array:design'];
+            $settings['team_settings.helmets.'.$venue.'.design'] = ['sometimes', \Illuminate\Validation\Rule::in(['standard', 'cat_stripes', 'ram_horns'])];
+        }
         foreach (array_keys(config('team-settings.coaching')) as $key) {
             $settings["team_settings.coaching.{$key}"] = ['sometimes', 'integer', 'between:0,100'];
         }

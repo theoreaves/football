@@ -43,13 +43,15 @@ export function helmetShellGeometry() {
     });
 }
 
-export function helmetLogoGeometry(sign, width = .36, height = .29) {
+export function helmetLogoGeometry(sign, width = .36, height = .29, flip = false) {
     const center = sign < 0 ? Math.PI : 0;
-    return surface(12, 8, (u, v) => helmetPoint(
+    const geometry = surface(12, 8, (u, v) => helmetPoint(
         1.48 + (v - .5) * height / .38,
         center - (u - .5) * width / .405,
         .005,
     ));
+    if(flip){const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));}
+    return geometry;
 }
 
 export function helmetStripeGeometry() {

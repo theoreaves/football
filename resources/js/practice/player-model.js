@@ -1,3 +1,4 @@
+import {helmetDesignGeometry,helmetLogoMaterial} from './helmet-designs.js';
 import { addJerseyName } from './jersey-names.js';
 import { buildPlayerFace } from './player-face.js';
 import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry } from './helmet-shell.js';
@@ -84,7 +85,10 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         mount.position.set(sign * .31, 1.965, .17); faceMask.add(mount);
     }
     group.userData.faceMask = faceMask;
-    if (kit.helmet_stripe_enabled) {
+    const pattern = helmetDesignGeometry(kit.helmet_design);
+    if(pattern){const paint=mat(kit.helmet_stripe || '#ffffff');paint.flatShading=false;paint.polygonOffset=true;paint.polygonOffsetFactor=-1;paint.polygonOffsetUnits=-1;
+        const mesh=new THREE.Mesh(pattern,paint);mesh.name='helmet-design-'+kit.helmet_design;helmet.add(mesh);}
+    if (!pattern && kit.helmet_stripe_enabled) {
         const stripePaint = mat(kit.helmet_stripe || '#ffffff'); stripePaint.flatShading = false;
         stripePaint.side = THREE.FrontSide;
         stripePaint.polygonOffset = true;
@@ -95,7 +99,8 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     }
     for (const [sign, url] of [[-1, kit.helmet_logo_left], [1, kit.helmet_logo_right]]) {
         const texture = url && textureFor(url); if (!texture) continue;
-        const logo = new THREE.Mesh(helmetLogoGeometry(sign), new THREE.MeshBasicMaterial({map: texture, transparent: true, depthWrite: false, side: THREE.DoubleSide}));
+        const flip=Boolean(sign<0?kit.helmet_logo_left_flip:kit.helmet_logo_right_flip);
+        const logo = new THREE.Mesh(helmetLogoGeometry(sign,.36,.29,flip), helmetLogoMaterial(texture,kit.helmet_logo_color));
         logo.name = sign < 0 ? 'helmet-logo-left' : 'helmet-logo-right';
         let dimensions = '';
         logo.onBeforeRender = () => {
@@ -103,7 +108,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
             const key = `${texture.image.width}:${texture.image.height}`;
             if (key === dimensions) return;
             const size = fitLogo(texture.image.width, texture.image.height, .36, .29);
-            logo.geometry.dispose(); logo.geometry = helmetLogoGeometry(sign, size.width, size.height);
+            logo.geometry.dispose(); logo.geometry = helmetLogoGeometry(sign, size.width, size.height,flip);
             dimensions = key;
         };
         helmet.add(logo);

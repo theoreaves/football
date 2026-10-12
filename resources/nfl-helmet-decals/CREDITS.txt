@@ -1,0 +1,5 @@
+Helmet decal adaptations for the private NFL importer.
+KC letter paths: https://commons.wikimedia.org/wiki/File:Kansas_City_Chiefs_KC_logo.svg (Lommes, source Chiefs mark). Arrow outline is an approximation.
+Ravens source vector: https://en.wikipedia.org/wiki/File:Baltimore_Ravens_logo.svg (Baltimore Ravens). Opposite-side adaptation retains readable B glyph.
+Eagles wing silhouette is an approximate code-native drawing, not an official decal download.
+These helmet adaptations are starter art; independent L/R uploads can replace them. Team-page/midfield logos retain their original imported files.

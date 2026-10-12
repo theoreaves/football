@@ -109,7 +109,6 @@ test('coaching tendencies change deterministic distributions while neutral and l
     expect($counts['tempo_high'])->toBeGreaterThan($counts['tempo_low']);
 });
 
-
 test('all mascot choices render and save while unknown characters are rejected', function () {
     $team = Team::first();
     $page = $this->get(route('teams.editor.edit', $team))->assertOk();
@@ -129,7 +128,6 @@ test('all mascot choices render and save while unknown characters are rejected',
     ])->assertSessionHasErrors('team_settings.mascot.character');
     expect($team->fresh()->team_settings['mascot']['character'])->toBe('elf');
 });
-
 
 test('team audio uploads preview reset and preserve immutable game profiles', function () {
     \Illuminate\Support\Facades\Storage::fake('team_art');
@@ -166,4 +164,17 @@ test('team audio uploads preview reset and preserve immutable game profiles', fu
     openFootballSave($secondWorld);
     app(CurrentWorld::class)->id = (int) $secondWorld->id;
     $this->get($url)->assertNotFound();
+});
+
+test('home and away helmet designs and decal controls save and validate', function () {
+    $team = Team::first();
+    $world = (int) $team->world_id;
+    $settings = ['helmets' => ['home' => ['design' => 'cat_stripes'], 'away' => ['design' => 'ram_horns'], 'flip_left' => 0, 'flip_right' => 1, 'logo_color' => '#ffffff']];
+    $this->put(route('teams.editor.update', $team), ['city' => $team->city, 'name' => $team->name, 'team_settings' => $settings])->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = $world;
+    $team->refresh();
+    expect(app(PracticeController::class)->appearance($team, 'home')['uniform']['helmet_design'])->toBe('cat_stripes');
+    expect(app(PracticeController::class)->appearance($team, 'away')['uniform']['helmet_design'])->toBe('ram_horns');
+    $this->get(route('teams.editor.edit', $team))->assertOk()->assertSee('Ram horns')->assertSee('Cat stripes');
+    $this->put(route('teams.editor.update', $team), ['city' => $team->city, 'name' => $team->name, 'team_settings' => ['helmets' => ['home' => ['design' => 'unknown']]]])->assertSessionHasErrors('team_settings.helmets.home.design');
 });

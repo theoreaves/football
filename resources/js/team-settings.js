@@ -11,6 +11,9 @@ export function uniformFromForm(form,venue,art={}) {
         const value=data.getAll(`uniform_${venue}_${part}`).at(-1);
         uniform[part]=part.endsWith('_enabled')?value==='1':value;
     }
+    uniform.helmet_design=data.getAll(`team_settings[helmets][${venue}][design]`).at(-1) || 'standard';
+    for(const side of ['left','right'])uniform[`helmet_logo_${side}_flip`]=data.getAll(`team_settings[helmets][flip_${side}]`).at(-1)==='1';
+    uniform.helmet_logo_color=data.getAll('team_settings[helmets][logo_color]').at(-1) || null;
     return {...uniform,...art};
 }
 export function mountTeamSettings(form) {
@@ -36,7 +39,7 @@ export function mountTeamSettings(form) {
     tabs.forEach((tab,index)=>{tab.onclick=()=>choose(tab.dataset.teamTab);tab.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;choose(tabs[next].dataset.teamTab);tabs[next].focus();};});
     let initial='team';try{const saved=sessionStorage.getItem('football-team-tab');if(tabs.some(tab=>tab.dataset.teamTab===saved))initial=saved;}catch{}
     const error=JSON.parse(form.dataset.errorFields || '[]')[0];
-    if(error)initial=error.startsWith('audio_')?'audio':error.includes('staff')||error.includes('coaching')?'coaching':error.includes('cheerleaders')?'cheerleaders':error.includes('mascot')?'mascot':error.includes('uniform')||error.includes('helmet_logo')||error.includes('white_at_home')?'uniforms':error.includes('stadium')||error.includes('endzone')||error.includes('midfield')?'stadium':'team';
+    if(error)initial=error.startsWith('audio_')?'audio':error.includes('staff')||error.includes('coaching')?'coaching':error.includes('cheerleaders')?'cheerleaders':error.includes('mascot')?'mascot':error.includes('helmets')||error.includes('uniform')||error.includes('helmet_logo')||error.includes('white_at_home')?'uniforms':error.includes('stadium')||error.includes('endzone')||error.includes('midfield')?'stadium':'team';
     mountStadiumBuilder(form);
     choose(initial);form.addEventListener('invalid',event=>{const panel=event.target.closest('[data-team-panel]');if(panel)choose(panel.dataset.teamPanel);},true);
     form.querySelectorAll('input[type=range]').forEach(input=>input.addEventListener('input',()=>input.parentElement.querySelector('output').value=input.value));

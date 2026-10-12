@@ -237,6 +237,7 @@ class NflRosterImport
                         }
                         $team->update(array_fill_keys(['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo'], $path));
                     }
+                    $written = array_merge($written, app(NflHelmetDefaults::class)->apply($team, false, $logos));
                     foreach ($data['players'] as $entry) {
                         $player = Player::create($entry['player']);
                         TeamPlayer::create($entry['roster'] + ['team_id' => $team->id, 'player_id' => $player->id, 'team_year' => (string) self::YEAR]);

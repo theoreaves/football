@@ -76,6 +76,22 @@
                 <input type="hidden" name="team_settings[white_at_home]" value="0">
                 <label class="block"><input type="checkbox" name="team_settings[white_at_home]" value="1" @checked(old('team_settings.white_at_home', $team->team_settings['white_at_home'] ?? false))> Wear white (away) uniform at home</label>
                 <p class="text-sm text-gray-600">When enabled, the home team wears its away uniform and the visitor wears its home uniform.</p>
+                <div class="grid md:grid-cols-2 gap-4">
+                @foreach(['home' => 'Home', 'away' => 'Away'] as $venue => $label)
+                    <label>{{ $label }} helmet design<select name="team_settings[helmets][{{ $venue }}][design]" class="block w-full border rounded p-2">
+                        @foreach(['standard' => 'Standard / center stripe', 'cat_stripes' => 'Cat stripes', 'ram_horns' => 'Ram horns'] as $design => $title)
+                        <option value="{{ $design }}" @selected(old('team_settings.helmets.'.$venue.'.design', $team->team_settings['helmets'][$venue]['design'] ?? 'standard') === $design)>{{ $title }}</option>
+                        @endforeach
+                    </select></label>
+                @endforeach
+                </div>
+                <p class="text-sm text-gray-600">Cat stripes and ram horns use the helmet stripe color below and replace the center stripe. Uploaded side logos remain independent.</p>
+                <div class="flex flex-wrap gap-4">
+                @foreach(['left', 'right'] as $side)
+                    <label><input type="hidden" name="team_settings[helmets][flip_{{ $side }}]" value="0"><input type="checkbox" name="team_settings[helmets][flip_{{ $side }}]" value="1" @checked(old('team_settings.helmets.flip_'.$side, $team->team_settings['helmets']['flip_'.$side] ?? false))> Mirror {{ $side }} helmet decal</label>
+                @endforeach
+                    <label>Helmet decal color (blank keeps artwork)<input name="team_settings[helmets][logo_color]" placeholder="#ffffff" value="{{ old('team_settings.helmets.logo_color', $team->team_settings['helmets']['logo_color'] ?? '') }}" class="block border rounded p-2" maxlength="7"></label>
+                </div>
                 <div class="flex gap-3">
                     <button type="button" data-uniform-preview="home" class="border rounded px-4 py-2">Preview home uniform</button>
                     <button type="button" data-uniform-preview="away" class="border rounded px-4 py-2">Preview away uniform</button>

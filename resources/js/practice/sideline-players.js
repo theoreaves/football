@@ -1,3 +1,4 @@
+import {helmetDesignGeometry,helmetLogoMaterial} from './helmet-designs.js';
 import {entrancePose} from './tunnel-entrance.js';
 import * as THREE from 'three';
 import {sidelineNumbers} from './sideline-numbers.js';
@@ -34,16 +35,19 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
             const {geometry,material}=sidelineNumbers(people,kit,document);
             addDetail(geometry,material,[0,0,0],`${side}-sideline-numbers`,true);
         }
-        if (kit.helmet_stripe_enabled) addDetail(helmetStripeGeometry(),new THREE.MeshStandardMaterial({color:kit.helmet_stripe || '#ffffff',
+        const pattern=helmetDesignGeometry(kit.helmet_design);
+        if(pattern)addDetail(pattern,new THREE.MeshStandardMaterial({color:kit.helmet_stripe || '#ffffff',polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),[0,2.03,0],`${side}-sideline-helmet-design-${kit.helmet_design}`);
+        if (!pattern && kit.helmet_stripe_enabled) addDetail(helmetStripeGeometry(),new THREE.MeshStandardMaterial({color:kit.helmet_stripe || '#ffffff',
             polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),[0,2.03,0],`${side}-sideline-helmet-stripe`);
         for (const [sign,url] of [[-1,appearance[side]?.helmet_logo_left],[1,appearance[side]?.helmet_logo_right]]) {
             const texture=url && textureFor(url);if(!texture)continue;
-            const mesh=addDetail(helmetLogoGeometry(sign),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide}),
+            const flip=Boolean(sign<0?kit.helmet_logo_left_flip:kit.helmet_logo_right_flip);
+            const mesh=addDetail(helmetLogoGeometry(sign,.36,.29,flip),helmetLogoMaterial(texture,kit.helmet_logo_color),
                 [0,2.03,0],`${side}-sideline-helmet-logo-${sign}`);
             let dimensions='';mesh.onBeforeRender=()=>{
                 if(!texture.image)return;const key=`${texture.image.width}:${texture.image.height}`;if(key===dimensions)return;
                 const size=fitLogo(texture.image.width,texture.image.height,.36,.29);
-                mesh.geometry.dispose();mesh.geometry=helmetLogoGeometry(sign,size.width,size.height);dimensions=key;
+                mesh.geometry.dispose();mesh.geometry=helmetLogoGeometry(sign,size.width,size.height,flip);dimensions=key;
             };
         }
         const parts = [
