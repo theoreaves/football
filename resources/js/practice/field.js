@@ -1603,7 +1603,7 @@ export function mountPractice(root, onReady = () => {}) {
             }
         } else if (phase === 'result') {
             postElapsed += delta;
-            if (postElapsed >= 3) {
+            if (postElapsed >= 10) {
                 finishResult();
             }
         } else if (phase === 'huddle' && huddleProgress < 1) {
