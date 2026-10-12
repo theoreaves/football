@@ -27,7 +27,7 @@ export function mascotBigPlayCue(animation,before,after,penalty=null) {
 
 export function buildSidelineMascot(scene,appearance,textureFor=()=>null,storageKey=null) {
     const profile=appearance.home?.mascot;
-    if(!profile || (!profile.character && !profile.name))return {update(){},cue(){},reset(){},save(){},model:null};
+    if(!profile || profile.enabled === false || profile.enabled === 0 || profile.enabled === '0' || (!profile.character && !profile.name))return {update(){},cue(){},reset(){},save(){},model:null};
     const model=buildMascot(profile,appearance.home?.team_logo,textureFor);scene.add(model);
     const arms=[-1,1].map(sign=>model.getObjectByName(`mascot-arm-${sign}`));
     const legs=[-1,1].map(sign=>model.getObjectByName(`mascot-leg-${sign}`));

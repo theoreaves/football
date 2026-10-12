@@ -62,6 +62,8 @@ test('NFL startup resolves an existing owner and creates an isolated playable sa
             $roster = app(RosterBuilder::class)->build($team, '2026');
             expect($roster['players'])->toHaveKeys(['QB', 'K', 'P', 'WR1', 'S1']);
             expect($team->team_settings['nfl_import']['ratings_method'])->toContain('estimated');
+            expect($team->team_settings['stadium']['name'])->toBe(config('nfl-presentation.'.$team->abbr.'.stadium'));
+            expect($team->team_settings['mascot']['enabled'])->toBe(config('nfl-presentation.'.$team->abbr.'.mascot.enabled'));
         }
     } finally {
         unlink($file);

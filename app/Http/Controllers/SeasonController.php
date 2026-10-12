@@ -21,7 +21,9 @@ class SeasonController extends Controller
 
     public function create()
     {
-        return view('seasons.create', ['teams' => Team::orderBy('conference')->orderBy('division')->orderBy('city')->get(),
+        $teams = Team::orderBy('conference')->orderBy('division')->orderBy('city')->get();
+
+        return view('seasons.create', ['teams' => $teams, 'nflSetup' => app(\App\Services\Simulation\NflPresentationDefaults::class)->setup($teams),
             'leagues' => League::all(), 'sizes' => SeasonOptions::SIZES, 'playoffs' => SeasonOptions::PLAYOFFS]);
     }
 

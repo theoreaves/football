@@ -208,7 +208,7 @@ class NflRosterImport
             return DB::transaction(function () use ($owner, $name, $prepared, $captured, $logos, $logoBytes, $context, &$written) {
                 $world = World::create(['name' => $name, 'owner_user_id' => $owner->id]);
                 $context->id = (int) $world->id;
-                $league = $world->leagues()->create(['name' => 'NFL']);
+                $league = $world->leagues()->create(['name' => 'National Football League']);
                 $league->seasons()->create(['year' => self::YEAR]);
                 foreach ($prepared as $data) {
                     $identity = $data['identity'];
@@ -237,6 +237,7 @@ class NflRosterImport
                         }
                         $team->update(array_fill_keys(['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo'], $path));
                     }
+                    app(NflPresentationDefaults::class)->apply($team);
                     $written = array_merge($written, app(NflHelmetDefaults::class)->apply($team, false, $logos));
                     foreach ($data['players'] as $entry) {
                         $player = Player::create($entry['player']);

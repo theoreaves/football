@@ -20,7 +20,7 @@ export function mountSeasonSetup(form) {
             control.disabled = !included;
             const group = row.querySelector('select'), previous = group.value;
             group.replaceChildren(...Object.entries(groups).map(([key,value]) => new Option(`${value.conference} · ${value.division} (${value.size})`, key)));
-            group.value = !resetGroups && groups[previous] ? previous : (assignments[i] || Object.keys(groups)[0]);
+            group.value = !resetGroups && groups[previous] ? previous : (count === 32 && layout === 'divisions' && groups[row.dataset.defaultGroup] ? row.dataset.defaultGroup : (assignments[i] || Object.keys(groups)[0]));
             group.disabled = !included;
             if (included) i++;
         });

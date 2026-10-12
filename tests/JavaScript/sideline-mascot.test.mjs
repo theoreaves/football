@@ -49,3 +49,12 @@ test('one configured home mascot animates, pauses its route for cheers and reset
     mascot.update(.1);assert.ok(mascot.model.position.x>x);
     mascot.update(NaN);assert.ok(Number.isFinite(mascot.model.position.x));
 });
+
+test('disabled mascots create no sideline model for any stored boolean form',()=>{
+    for(const enabled of [false,0,'0']) {
+        const scene=new THREE.Scene();
+        const mascot=buildSidelineMascot(scene,{home:{mascot:{enabled,name:'Disabled',character:'bear'}}});
+        assert.equal(mascot.model,null);assert.equal(scene.children.length,0);
+        mascot.update(.1);mascot.cue({type:'touchdown'});mascot.reset();
+    }
+});
