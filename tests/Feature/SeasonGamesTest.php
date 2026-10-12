@@ -147,7 +147,7 @@ test('finish with quick sim keeps existing plays and highlights and records the 
     $game->update(['history' => $history]);
     $controls = $game->state['controls'];
     $version = $game->state['version'];
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Finish with Quick Sim');
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Sim Drive')->assertSee('Sim Quarter')->assertSee('Sim Half')->assertSee('Sim Game');
     $this->post(route('exhibitions.finish', $game), ['version' => $version])->assertRedirect(route('exhibitions.show', ['exhibition' => $game, 'summary' => 1]));
     $game->refresh();
     expect($game->state['status'])->toBe('final')->and($game->state['controls'])->toBe($controls);
@@ -158,7 +158,7 @@ test('finish with quick sim keeps existing plays and highlights and records the 
     $this->post(route('exhibitions.finish', $game), ['version' => $version])->assertStatus(409);
     $this->post(route('exhibitions.finish', $game), ['version' => $game->state['version']])->assertRedirect();
     expect($game->fresh()->history)->toBe($snapshot);
-    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 1]))->assertOk()->assertDontSee('Finish with Quick Sim');
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => 1]))->assertOk()->assertDontSee('data-quick-sim-menu', false);
 });
 
 test('finish with quick sim lets CPU resolve a pending opening coin choice', function () {
@@ -298,8 +298,8 @@ test('team and player season stats include completed games and keep previous sea
     $oldFixture->save();
     $rows = app(\App\Services\Seasons\SeasonStats::class)->playerHistory($playerId, $this->season);
     expect(collect($rows)->pluck('season.year')->all())->toBe([2026, 2025]);
-//    $this->get(route('teams.editor.teams.players.edit', [$team, $playerId, 'year' => 2026, 'season' => $this->season->id, 'embedded' => 1]))
-//        ->assertOk()->assertSee('data-player-tab="statistics"', false)->assertSee('Current season')->assertSee('Previous seasons')->assertSee('Previous season');
+    //    $this->get(route('teams.editor.teams.players.edit', [$team, $playerId, 'year' => 2026, 'season' => $this->season->id, 'embedded' => 1]))
+    //        ->assertOk()->assertSee('data-player-tab="statistics"', false)->assertSee('Current season')->assertSee('Previous seasons')->assertSee('Previous season');
     $this->get(route('teams.editor.teams.players.edit', [
         $team,
         $playerId,
@@ -311,7 +311,7 @@ test('team and player season stats include completed games and keep previous sea
         ->assertSee('data-player-tab="statistics"', false)
         ->assertSee('data-player-lazy-url', false);
 
-// Statistics are loaded separately when the Stats tab is selected.
+    // Statistics are loaded separately when the Stats tab is selected.
     $this->get(route('teams.editor.teams.players.history', [
         $team,
         $playerId,
@@ -345,7 +345,6 @@ test('season stats credit a substituted quarterback by player identity', functio
         ->and($stats['players'][$backup['id']]['passer_rating'])->toBe(100.0);
     expect($stats['players'])->not->toHaveKey($game->rosters['home']['players']['QB']['id']);
 });
-
 
 test('persistent injury removes the starter next week and restores eligibility at recovery', function () {
     $fixture = $this->fixture;
@@ -393,4 +392,41 @@ test('season and player injury history display persistent recovery status', func
         ->assertOk()->assertSee('Leg injury')->assertSee('Moderate')->assertSee('Week 5');
     $this->get(route('teams.editor.teams.players.history', [$team, $qb, 'tab' => 'injuries', 'year' => 2026, 'season' => $this->season->id]))
         ->assertOk()->assertSee('Out until Week 5')->assertSee('Moderate');
+});
+
+test('partial quick sim stops at the requested boundary and restores human control', function (string $scope) {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $state = $game->state;
+    $state['coin_toss']['pending'] = false;
+    $state['rules']['penalties'] = false;
+    $game->update(['state' => $state]);
+    $controls = $state['controls'];
+    $this->post(route('exhibitions.finish', $game), ['version' => $state['version'], 'scope' => $scope])->assertRedirect(route('exhibitions.show', ['exhibition' => $game, 'summary' => 0]));
+    $game->refresh();
+    expect($game->state['status'])->toBe('playing')->and($game->state['controls'])->toBe($controls);
+    expect($game->state['quick_sim'] ?? false)->toBe($state['quick_sim'] ?? false);
+    expect($this->fixture->fresh()->status)->toBe('playing');
+    if ($scope === 'quarter') {
+        expect($game->state['quarter'])->toBe(2);
+    } elseif ($scope === 'half') {
+        expect($game->state['quarter'])->toBe(3);
+    } else {
+        $history = $game->history;
+        $last = end($history);
+        expect($last['before']['phase'])->toBe('scrimmage');
+        expect($last['after']['possession'] !== $last['before']['possession'] || $last['after']['phase'] !== 'scrimmage')->toBeTrue();
+    }
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-game-drives', false);
+    $this->post(route('exhibitions.finish', $game), ['version' => $state['version'], 'scope' => $scope])->assertStatus(409);
+})->with(['drive', 'quarter', 'half']);
+
+test('splitting Quick Sim at a quarter preserves the deterministic game outcomes', function () {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $sim = app(\App\Services\Simulation\QuickSimulator::class);
+    $whole = $sim->run($game->state, $game->rosters);
+    $quarter = $sim->run($game->state, $game->rosters, [], 'quarter');
+    $continued = $sim->run($quarter['state'], $game->rosters, $quarter['history']);
+    expect($continued['state'])->toEqual($whole['state'])->and($continued['history'])->toEqual($whole['history']);
 });

@@ -8,8 +8,17 @@ class QuickSimulator
 {
     public function __construct(private ExhibitionEngine $engine, private CpuCoach $coach, private GamePersonnel $personnel, private GameClock $clock) {}
 
-    public function run(array $state, array $rosters, array $history = []): array
+    public function run(array $state, array $rosters, array $history = [], string $scope = 'game'): array
     {
+        if (! in_array($scope, ['drive', 'quarter', 'half', 'game'], true)) {
+            throw new LogicException('Unknown Quick Sim scope.');
+        }
+        $pendingBefore = ($state['penalty_pending'] ?? false) ? ($history[array_key_last($history)]['before'] ?? $state) : null;
+        $startQuarter = ($pendingBefore ?? $state)['quarter'];
+        $endQuarter = $scope === 'half' && $startQuarter <= 4 ? ($startQuarter <= 2 ? 2 : 4) : $startQuarter;
+        $originalControls = $state['controls'] ?? null;
+        $hadQuickSim = array_key_exists('quick_sim', $state);
+        $originalQuickSim = $state['quick_sim'] ?? false;
         $state['controls'] = ['home' => 'cpu', 'away' => 'cpu'];
         $state['quick_sim'] = true;
         if ($state['penalty_pending'] ?? false) {
@@ -41,11 +50,17 @@ class QuickSimulator
         } elseif ($state['overtime']['toss']['pending'] ?? false) {
             $state = $overtime->choose($state, $this->coach->coinChoice($state));
         }
+        $boundaryReached = in_array($scope, ['quarter', 'half'], true) && $state['quarter'] > $endQuarter;
+        if ($scope === 'drive' && $pendingBefore && $pendingBefore['phase'] === 'scrimmage') {
+            $boundaryReached = $state['possession'] !== $pendingBefore['possession'] || $state['phase'] !== 'scrimmage'
+                || ($pendingBefore['quarter'] === 2 && $state['quarter'] === 3);
+        }
         // Use the same engine and CPU decisions as watched games, retaining each replay.
-        for ($events = 0; $state['status'] === 'playing'; $events++) {
+        for ($events = 0; $state['status'] === 'playing' && ! $boundaryReached; $events++) {
             if ($events >= 2000) {
                 throw new LogicException('Quick simulation exceeded its play limit.');
             }
+            $before = $state;
             $state = $this->clock->normalize($state);
             $timeout = $this->coach->timeoutTeam($state);
             if ($timeout) {
@@ -61,6 +76,26 @@ class QuickSimulator
             }
             $state = $result['state'];
             $history[] = $result['play'];
+            if ($scope === 'drive' && (($before['phase'] === 'scrimmage' && ($state['possession'] !== $before['possession'] || $state['phase'] !== 'scrimmage'))
+                || $before['phase'] === 'extra_point' || $state['quarter'] >= 3 && $before['quarter'] < 3)) {
+                break;
+            }
+            if (in_array($scope, ['quarter', 'half'], true) && $state['quarter'] > $endQuarter) {
+                break;
+            }
+        }
+
+        if ($scope !== 'game') {
+            if ($originalControls !== null) {
+                $state['controls'] = $originalControls;
+            } else {
+                unset($state['controls']);
+            }
+            if ($hadQuickSim) {
+                $state['quick_sim'] = $originalQuickSim;
+            } else {
+                unset($state['quick_sim']);
+            }
         }
 
         return ['state' => $state, 'history' => $history];

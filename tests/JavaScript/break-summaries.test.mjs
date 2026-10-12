@@ -76,3 +76,10 @@ test('period first downs match box-score gain and accepted defensive penalty rul
  const q2={...normal,number:2,before:{...before,quarter:2}};const q3={...normal,number:3,before:{...before,quarter:3}};
  assert.equal(periodSummary([normal,q2,q3],1).home.first_downs,1);assert.equal(periodSummary([normal,q2,q3],2,true).home.first_downs,2);
 });
+
+test('drive history optionally includes the current drive without changing completed recaps',()=>{
+ const before=state(),after=state({clock:560,stats:{home:{...zero(),plays:1,yards:8},away:zero()}}),history=[play(1,before,after)];
+ assert.deepEqual(completedDrives(history),[]);
+ const drives=completedDrives(history,true);assert.equal(drives.length,1);assert.equal(drives[0].plays,1);assert.equal(drives[0].yards,8);assert.equal(drives[0].result,'In progress');
+ assert.equal(latestBreakSummary(history),null);
+});

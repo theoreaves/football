@@ -136,10 +136,9 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         if(side==='home' && home.team_logo){
             const texture=textureFor(home.team_logo);
             if(texture){
-                box([.3,3,5.5],[x+4.1,6.5,z],color,'home-tunnel-logo-panel');
-                const emblem=add(new THREE.PlaneGeometry(4.5,2.5),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),'home-tunnel-logo');
-                emblem.position.set(x+4.3,6.5,z);emblem.rotation.y=Math.PI/2;
-                let dimensions='';emblem.onBeforeRender=()=>{if(!texture.image)return;const key=`${texture.image.width}:${texture.image.height}`;if(key===dimensions)return;const size=fitLogo(texture.image.width,texture.image.height,4.5,2.5);emblem.geometry.dispose();emblem.geometry=new THREE.PlaneGeometry(size.width,size.height);dimensions=key;};
+                const emblem=add(new THREE.PlaneGeometry(6,8),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),'home-tunnel-logo');
+                emblem.position.set(x,5.315,z);emblem.rotation.x=-Math.PI/2;
+                let dimensions='';emblem.onBeforeRender=()=>{if(!texture.image)return;const key=`${texture.image.width}:${texture.image.height}`;if(key===dimensions)return;const size=fitLogo(texture.image.width,texture.image.height,6,8);emblem.geometry.dispose();emblem.geometry=new THREE.PlaneGeometry(size.width,size.height);dimensions=key;};
             }
         }
     }

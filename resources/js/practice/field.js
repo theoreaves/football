@@ -147,7 +147,7 @@ export function mountPractice(root, onReady = () => {}) {
     }
     if (home.midfield_logo) {
         const logo = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshBasicMaterial({map: textureFor(home.midfield_logo), transparent: true, depthWrite: false}));
-        logo.rotation.x = -Math.PI / 2; logo.position.set(60, .045, 26.665); scene.add(logo);
+        logo.rotation.x = -Math.PI / 2; logo.position.set(60, .095, 26.665); scene.add(logo);
     }
     for (const x of [5, 115]) {
         const url = x === 5 ? home.endzone_logo_left : home.endzone_logo_right;
@@ -1333,13 +1333,17 @@ export function mountPractice(root, onReady = () => {}) {
     const highlightsDialog = root.querySelector('[data-highlights-dialog]');
     root.querySelector('[data-open-highlights]')?.addEventListener('click', () => highlightsDialog.showModal());
     root.querySelector('[data-finish-sim-form]')?.addEventListener('submit', event => {
-        if (!window.confirm('Finish this game with Quick Sim? The CPU will play the remainder of the game.')) {
+        if (event.currentTarget.dataset.simPending === 'true') {event.preventDefault();return;}
+        const scope = event.submitter?.value || 'game';
+        const label = {drive:'current drive',quarter:'current quarter',half:'current half',game:'remainder of the game'}[scope] || 'remainder of the game';
+        if (!window.confirm(`Quick Sim the ${label}? The CPU will call the plays.`)) {
             event.preventDefault();
             event.stopPropagation();
             return;
         }
+        event.currentTarget.dataset.simPending = 'true';
         showSimProgress();
-        saveCamera(); setCpuAuto(false); root.querySelector('[data-finish-sim-form] button').disabled = true;
+        saveCamera(); setCpuAuto(false); root.querySelector('[data-quick-sim-menu]')?.removeAttribute('open');
     });
     root.querySelector('[data-save-highlight-form]')?.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); });
     const gameStats=mountGameStats(root),logDialog=gameStats?.dialog,boxDialog=gameStats?.dialog;

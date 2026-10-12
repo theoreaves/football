@@ -146,7 +146,7 @@ class ExhibitionController extends Controller
 
     public function finish(Request $request, Exhibition $exhibition)
     {
-        $data = $request->validate(['version' => ['required', 'integer', 'min:0']]);
+        $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'scope' => ['sometimes', Rule::in(['drive', 'quarter', 'half', 'game'])]]);
         DB::transaction(function () use ($exhibition, $data) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'The game changed. Reload before finishing with Quick Sim.');
@@ -154,13 +154,13 @@ class ExhibitionController extends Controller
                 return;
             }
             $controls = app(CpuCoach::class)->controls($game->state);
-            $result = app(\App\Services\Simulation\QuickSimulator::class)->run($game->state, $game->rosters, $game->history);
+            $result = app(\App\Services\Simulation\QuickSimulator::class)->run($game->state, $game->rosters, $game->history, $data['scope'] ?? 'game');
             $result['state']['controls'] = $controls;
             $game->update($result);
             app(\App\Services\Seasons\SeasonGames::class)->record($game);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'summary' => 1]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'summary' => ($data['scope'] ?? 'game') === 'game' ? 1 : 0]);
     }
 
     public function saveHighlight(Request $request, Exhibition $exhibition)

@@ -108,6 +108,6 @@ test('only the home tunnel carries a fitted team logo while visitor tunnel uses 
     assert.ok(group.getObjectByName('home-tunnel-logo'));
     assert.equal(group.getObjectByName('away-tunnel-logo'),undefined);
     assert.equal(group.getObjectByName('tunnel-away-roof').material.color.getHexString(),'abcdef');
-    const emblem=group.getObjectByName('home-tunnel-logo');emblem.onBeforeRender();assert.equal(emblem.rotation.y,Math.PI/2);
+    const emblem=group.getObjectByName('home-tunnel-logo');emblem.onBeforeRender();assert.equal(emblem.rotation.x,-Math.PI/2);assert.ok(emblem.position.y>group.getObjectByName('tunnel-home-roof').position.y+.3);
     assert.ok(emblem.geometry.parameters.width/emblem.geometry.parameters.height-2<1e-8);
 });

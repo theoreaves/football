@@ -42,7 +42,7 @@ function driveResult(play,side){
     if(before.quarter===2 && after.quarter===3)return 'End of half';
     return 'Drive ended';
 }
-export function completedDrives(history){
+export function completedDrives(history,includeActive=false){
     const drives=[];let current;
     for(const play of history){
         const before=play.before,after=play.after;
@@ -55,6 +55,7 @@ export function completedDrives(history){
             drives.push({...current,number:play.number,result:driveResult(play,current.side)});current=undefined;
         }
     }
+    if(includeActive && current)drives.push({...current,number:null,result:'In progress'});
     return drives;
 }
 export function latestBreakSummary(history){
