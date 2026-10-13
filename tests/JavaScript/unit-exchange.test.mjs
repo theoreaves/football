@@ -69,3 +69,27 @@ test('flag notices retain crowd ambience, including the final play, but hidden t
     assert.equal(presentationAmbience({...flag,flagOpen:false,callingPlay:true}),true);
     assert.equal(presentationAmbience({...flag,flagOpen:false,callingPlay:true,final:true}),false);
 });
+test('individual replacements keep retained players on the field with one visible model per identity',()=>{
+    const next={...newFrame,players:[{...oldFrame.players[0]},{...newFrame.players[1]}]};
+    const saved=JSON.stringify([oldFrame,next,roster]);
+    for(const direction of [1,-1]) {
+        const exchange=unitExchange(oldFrame,next,50,'home',direction,roster,{partial:true});
+        const start=exchange.sample(0);
+        assert.equal(start.outgoing[0].visible,false);
+        assert.equal(start.incoming[0].visible,true);
+        assert.equal(start.incoming[0].x,oldFrame.players[0].x);
+        assert.equal(start.incoming[0].z,oldFrame.players[0].z);
+        for(let t=0;t<=exchange.duration;t+=.05) {
+            const f=exchange.sample(t),future=exchange.sample(t+.05);
+            const keys=[...f.outgoing,...f.incoming].filter(p=>p.visible).map(playerKey);
+            assert.equal(new Set(keys).size,keys.length);
+            assert.ok(f.incoming[0].z>20&&f.incoming[0].z<33);
+            assert.ok(Math.hypot(future.incoming[0].x-f.incoming[0].x,future.incoming[0].z-f.incoming[0].z)/.05<=6.001);
+        }
+        const end=exchange.sample(exchange.duration);
+        assert.equal(end.complete,true);assert.ok(end.outgoing.every(p=>!p.visible));
+        assert.ok(end.incoming.every(p=>p.visible));
+        assert.deepEqual(end.incoming.map(playerKey),next.players.map(playerKey));
+    }
+    assert.equal(JSON.stringify([oldFrame,next,roster]),saved);
+});

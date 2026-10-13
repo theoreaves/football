@@ -4,17 +4,44 @@ namespace App\Services\Simulation;
 
 class GamePersonnel
 {
-    public function active(array $rosters, array $state): array
+    public function active(array $rosters, array $state, ?string $call = null): array
     {
         foreach ($rosters as $side => &$roster) {
             if (! isset($roster['pool'])) {
                 continue;
             }
             $preferences = $state['game_lineup'][$side] ?? [];
+            $specialistRole = null;
+            $specialist = null;
+            if ($side === ($state['possession'] ?? null) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
+                && ! in_array($call, ['punt', 'field_goal', 'extra_point', 'kickoff'], true)
+                && (($state['down'] ?? 1) === 3 || ($state['distance'] ?? 10) <= 2)
+                && ! isset($preferences['RB'])) {
+                $specialistRole = 'RB';
+                $specialist = $roster['specialists']['third_down_back'] ?? null;
+            } elseif ($side !== ($state['possession'] ?? null) && in_array($call, ['punt', 'kickoff'], true)) {
+                $specialistRole = 'CB1';
+                $specialist = $roster['specialists'][$call === 'punt' ? 'punt_returner' : 'kick_returner'] ?? null;
+            }
+            $specialist = $specialist ? (int) $specialist : null;
+            $candidate = $specialist ? collect($roster['pool'])->firstWhere('id', $specialist) : null;
+            $hurt = $specialist ? ($state['injuries'][$side][$specialist] ?? null) : null;
+            $positions = $specialistRole === 'RB' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS'];
+            if ($specialist && $candidate && in_array($candidate['position'], $positions, true)
+                && (! $hurt || ($hurt['return_snap'] !== null && ($state['personnel_snaps'] ?? 0) >= $hurt['return_snap']))
+                && ($state['fatigue'][$side][$specialist] ?? 0) < 65
+                && ! in_array($specialist, array_diff_key($preferences, [$specialistRole => true]), true)) {
+                $preferences[$specialistRole] = (int) $specialist;
+            } else {
+                $specialistRole = null;
+            }
             $used = [];
             $selected = [];
             $snap = $state['personnel_snaps'] ?? 0;
             foreach (RosterBuilder::GROUPS as $role => $positions) {
+                if ($role === 'CB1' && $specialistRole === 'CB1') {
+                    $positions = array_merge($positions, ['RB', 'FB', 'WR', 'TE', 'S', 'FS', 'SS']);
+                }
                 $eligible = array_filter($roster['pool'], function ($player) use ($used, $state, $side, $snap, $preferences, $role) {
                     $injury = $state['injuries'][$side][$player['id']] ?? null;
 

@@ -166,3 +166,46 @@ test('running back substitutions credit saved snap identities across a midgame l
     expect($match[1] ?? '')->toContain(e($backup['name']))->not->toContain('Portrait of '.e($starter['name']));
 
 });
+
+test('optional situational back respects down distance overrides availability and saved identities', function () {
+    $rosters = $this->rosters;
+    $starter = $rosters['home']['players']['RB'];
+    $backup = collect($rosters['home']['pool'])->first(fn ($p) => $p['position'] === 'RB' && $p['id'] !== $starter['id']);
+    $rosters['home']['specialists']['third_down_back'] = $backup['id'];
+    $base = ['possession' => 'home', 'phase' => 'scrimmage', 'down' => 1, 'distance' => 10];
+    $personnel = app(GamePersonnel::class);
+    expect($personnel->active($rosters, $base)['home']['players']['RB']['id'])->toBe($starter['id']);
+    foreach ([[3, 10], [3, 1], [1, 2], [2, 1], [4, 2]] as [$down, $distance]) {
+        $state = array_replace($base, compact('down', 'distance'));
+        expect($personnel->active($rosters, $state)['home']['players']['RB']['id'])->toBe($backup['id']);
+    }
+    $state = array_replace($base, ['down' => 3]);
+    foreach ([['game_lineup' => ['home' => ['RB' => $starter['id']]]], ['injuries' => ['home' => [$backup['id'] => ['return_snap' => null]]]], ['fatigue' => ['home' => [$backup['id'] => 70]]]] as $override) {
+        expect($personnel->active($rosters, $state + $override)['home']['players']['RB']['id'])->toBe($starter['id']);
+    }
+    expect($personnel->active($rosters, $state, 'punt')['home']['players']['RB']['id'])->toBe($starter['id']);
+    expect($personnel->active($rosters, array_replace($state, ['possession' => 'away']))['home']['players']['RB']['id'])->toBe($starter['id']);
+    $state = array_replace(app(ExhibitionEngine::class)->initial(900, 42, false), ['down' => 3, 'rules' => ['penalties' => false, 'injuries' => false]]);
+    $a = app(ExhibitionEngine::class)->resolve($state, $rosters, 'inside_run', 'run_stop');
+    expect($a)->toBe(app(ExhibitionEngine::class)->resolve($state, $rosters, 'inside_run', 'run_stop'));
+    expect(collect($a['play']['animation']['players'])->first(fn ($p) => $p['side'] === 'home' && $p['role'] === 'RB')['id'])->toBe($backup['id']);
+    expect($rosters['home']['players']['RB']['id'])->toBe($starter['id']);
+});
+
+test('return specialists use their own identity ratings and animation without duplicate personnel', function () {
+    $rosters = $this->rosters;
+    $returner = collect($rosters['away']['pool'])->firstWhere('position', 'WR');
+    $rosters['away']['specialists'] = ['kick_returner' => $returner['id'], 'punt_returner' => $returner['id']];
+    $engine = app(ExhibitionEngine::class);
+    foreach (['punt', 'kickoff'] as $call) {
+        $state = array_replace($engine->initial(900, 51, false), ['phase' => $call === 'kickoff' ? 'kickoff' : 'scrimmage', 'spot' => 20, 'rules' => ['penalties' => false, 'injuries' => false]]);
+        $active = app(GamePersonnel::class)->active($rosters, $state, $call)['away']['players'];
+        expect($active['CB1']['id'])->toBe($returner['id']);
+        expect(array_unique(array_column($active, 'id')))->toHaveCount(count($active));
+        $result = $engine->resolve($state, $rosters, $call, $call === 'punt' ? 'punt_return' : 'kickoff_return');
+        $track = collect($result['play']['animation']['players'])->first(fn ($p) => $p['side'] === 'away' && $p['role'] === 'CB1');
+        expect($track['id'])->toBe($returner['id'])->and($track['name'])->toBe($returner['name']);
+        $state['injuries']['away'][$returner['id']] = ['return_snap' => null];
+        expect(app(GamePersonnel::class)->active($rosters, $state, $call)['away']['players']['CB1']['id'])->toBe($rosters['away']['players']['CB1']['id']);
+    }
+});

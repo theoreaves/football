@@ -120,19 +120,29 @@ class ExhibitionController extends Controller
             ])))->values()->all();
         }
         $nextAnimation = null;
+        $substitutionChange = false;
         $unitChange = ! $replayOnly && $last && ! ($exhibition->state['penalty_pending'] ?? false)
             && ($last['before']['possession'] !== $exhibition->state['possession']
                 || ($last['before']['phase'] ?? 'scrimmage') !== ($exhibition->state['phase'] ?? 'scrimmage')
                 || ($last['before']['quarter'] === 2 && $exhibition->state['quarter'] === 3)
                 || $exhibition->state['status'] === 'final');
-        if ($unitChange && $exhibition->state['status'] !== 'final') {
+        if (! $replayOnly && ! ($exhibition->state['penalty_pending'] ?? false) && $exhibition->state['status'] !== 'final') {
             $nextPreview = ['before' => $exhibition->state, 'call' => $plannedCall, 'outcome' => 'tackle',
                 'carrier' => in_array($plannedCall, ['field_goal', 'extra_point', 'kickoff'], true) ? 'K' : ($plannedCall === 'punt' ? 'P' : 'RB'),
                 'gain' => 0, 'target' => 0, 'summary' => 'Incoming unit',
                 'offense_formation' => $coachSuggestion['formation'] ?? 'shotgun',
                 'defense_formation' => $coachDefense['formation'] ?? 'base_4_3'];
-            $nextAnimation = \App\Services\Simulation\FieldOrientation::animation(
-                app(\App\Services\Simulation\PlayTimeline::class)->build($nextPreview, $personnel), $exhibition->state);
+            $nextPersonnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state, $plannedCall);
+            $nextTimeline = app(\App\Services\Simulation\PlayTimeline::class)->build($nextPreview, $nextPersonnel);
+            if (in_array($plannedCall, ['punt', 'field_goal', 'extra_point', 'kickoff'], true)) {
+                $nextTimeline = app(\App\Services\Simulation\SpecialTeamsTimeline::class)->build($nextPreview + ['landing' => $exhibition->state['spot'], 'return_yards' => 0], $nextPersonnel);
+            }
+            $nextAnimation = \App\Services\Simulation\FieldOrientation::animation($nextTimeline, $exhibition->state);
+            $keys = fn ($tracks) => collect($tracks)->map(fn ($p) => $p['side'].':'.$p['id'])->sort()->values()->all();
+            $substitutionChange = ! $unitChange && ($keys($animation['players']) !== $keys($nextAnimation['players']) || session('lineup_changed'));
+            if (! $unitChange && ! $substitutionChange) {
+                $nextAnimation = null;
+            }
         }
 
         $boxScore = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition);
@@ -141,7 +151,7 @@ class ExhibitionController extends Controller
             $exhibition->state = $last['after'] ?? $last['before'];
         }
 
-        return view('exhibitions.show', compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange'));
+        return view('exhibitions.show', compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange'));
     }
 
     public function finish(Request $request, Exhibition $exhibition)
@@ -381,6 +391,6 @@ class ExhibitionController extends Controller
             app(\App\Services\Seasons\SeasonGames::class)->record($game);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'], true) ? 0 : 1])->with('penalty_result', $action === 'penalty');
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'], true) ? 0 : 1])->with('penalty_result', $action === 'penalty')->with('lineup_changed', $action === 'lineup');
     }
 }

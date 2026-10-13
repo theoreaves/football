@@ -119,14 +119,40 @@ test('possession changes expose snapshotted incoming personnel and sideline rost
     $this->get(route('exhibitions.show', $game))->assertOk()
         ->assertSee('data-sideline-roster', false)->assertViewHas('unitChange', true)
         ->assertViewHas('nextAnimation', function ($animation) use ($result, $rosters) {
-            if ($animation['possession'] !== $result['state']['possession']) return false;
-            foreach ($animation['players'] as $player) {
-                if (! collect($rosters[$player['side']]['pool'] ?? $rosters[$player['side']]['players'])->contains('id', $player['id'])) return false;
+            if ($animation['possession'] !== $result['state']['possession']) {
+                return false;
             }
+            foreach ($animation['players'] as $player) {
+                if (! collect($rosters[$player['side']]['pool'] ?? $rosters[$player['side']]['players'])->contains('id', $player['id'])) {
+                    return false;
+                }
+            }
+
             return true;
         })
         ->assertViewHas('sidelineRoster', fn ($roster) => count($roster['home']) > 11 && ! isset($roster['home'][0]['ratings']));
     expect($game->fresh()->only(['state', 'history', 'rosters']))->toBe($saved);
     $this->get(route('exhibitions.show', [$game, 'replay' => $result['play']['number']]))
         ->assertOk()->assertViewHas('unitChange', false)->assertViewHas('nextAnimation', null);
+});
+
+test('individual injury fatigue and manual substitutions expose only presentation changes and preserve replays', function () {
+    $teams = Team::all();
+    $rosters = ['home' => app(RosterBuilder::class)->build($teams[0]), 'away' => app(RosterBuilder::class)->build($teams[1])];
+    $engine = app(ExhibitionEngine::class);
+    $state = $engine->initial(900, 42, false);
+    $state['rules'] = ['penalties' => false, 'injuries' => false];
+    $result = $engine->resolve($state, $rosters, 'inside_run', 'run_stop');
+    $rb = $rosters['home']['players']['RB']['id'];
+    $backup = collect($rosters['home']['pool'])->first(fn ($p) => $p['position'] === 'RB' && $p['id'] !== $rb)['id'];
+    foreach ([['injuries' => ['home' => [$rb => ['return_snap' => null]]]], ['fatigue' => ['home' => [$rb => 80]]], ['game_lineup' => ['home' => ['RB' => $backup]]]] as $change) {
+        $changed = array_replace_recursive($result['state'], $change);
+        $game = Exhibition::create(['home_team_id' => $teams[0]->id, 'away_team_id' => $teams[1]->id, 'state' => $changed, 'rosters' => $rosters, 'history' => [$result['play']]]);
+        $saved = $game->only(['state', 'history', 'rosters']);
+        $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('unitChange', false)->assertViewHas('substitutionChange', true)
+            ->assertViewHas('nextAnimation', fn ($a) => collect($a['players'])->first(fn ($p) => $p['side'] === 'home' && $p['role'] === 'RB')['id'] === $backup);
+        expect($game->fresh()->only(['state', 'history', 'rosters']))->toBe($saved);
+        $this->get(route('exhibitions.show', [$game, 'replay' => $result['play']['number']]))->assertOk()->assertViewHas('substitutionChange', false)->assertViewHas('nextAnimation', null);
+        app(CurrentWorld::class)->id = (int) $teams[0]->world_id;
+    }
 });

@@ -47,13 +47,14 @@ class TeamEditor extends Controller
         return view('teams.editor.form', [
             'team' => $team,
             'mode' => 'edit',
+            'specialistPlayers' => $team->players()->wherePivot('team_year', $team->players()->max('team_players.team_year'))->orderBy('lastname')->get(),
             'stadiumCopies' => $this->stadiumCopies($team),
         ]);
     }
 
     public function update(Request $request, Team $team)
     {
-        $data = $this->validated($request);
+        $data = $this->validated($request, $team);
 
         if (isset($data['team_settings'])) {
             $data['team_settings'] = array_replace_recursive($team->team_settings ?? [], $data['team_settings']);
@@ -81,7 +82,7 @@ class TeamEditor extends Controller
             ])->values();
     }
 
-    private function validated(Request $request): array
+    private function validated(Request $request, ?Team $team = null): array
     {
         $hex = ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'];
 
@@ -108,7 +109,7 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists'],
             'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors,tunnels,scoreboards,scoreboard_size,lighting'],
             'team_settings.stadium.tunnels' => ['sometimes', 'boolean'],
             'team_settings.stadium.scoreboards' => ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right'])],
@@ -140,6 +141,16 @@ class TeamEditor extends Controller
             'team_settings.mascot.fur' => $hex,
             'team_settings.mascot.shirt' => $hex,
         ];
+        $settings['team_settings.specialists'] = ['sometimes', 'array:third_down_back,kick_returner,punt_returner'];
+        foreach (['third_down_back', 'kick_returner', 'punt_returner'] as $role) {
+            $settings['team_settings.specialists.'.$role] = ['nullable', 'integer', function ($attribute, $value, $fail) use ($team, $role) {
+                $positions = $role === 'third_down_back' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS'];
+                $player = $team?->players()->wherePivot('team_year', $team->players()->max('team_players.team_year'))->where('players.id', $value)->first();
+                if (! $player || ! in_array(strtoupper($player->pivot->position ?: $player->position), $positions, true)) {
+                    $fail('Choose an eligible player from this team’s current roster.');
+                }
+            }];
+        }
         $settings['team_settings.helmets'] = ['sometimes', 'array:home,away,flip_left,flip_right,logo_color'];
         $settings['team_settings.helmets.logo_color'] = $hex;
         foreach (['flip_left', 'flip_right'] as $side) {

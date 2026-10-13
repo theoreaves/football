@@ -53,7 +53,7 @@ class RosterBuilder
             $roster[$role] = $this->snapshot($player);
         }
 
-        return app(GamePersonnel::class)->active(['team' => ['year' => $year, 'players' => $roster, 'pool' => $players->map(fn ($player) => $this->snapshot($player))->values()->all()]], [])['team'];
+        return app(GamePersonnel::class)->active(['team' => ['year' => $year, 'specialists' => $team->team_settings['specialists'] ?? [], 'players' => $roster, 'pool' => $players->map(fn ($player) => $this->snapshot($player))->values()->all()]], [])['team'];
     }
 
     private function snapshot(\App\Models\Player $player): array

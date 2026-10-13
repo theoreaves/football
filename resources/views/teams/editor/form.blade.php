@@ -49,7 +49,7 @@
             @endif
 
             <div role="tablist" aria-label="Team settings" class="flex flex-wrap gap-2 border-b pb-3">
-                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'audio' => 'Audio', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching'] as $key => $label)
+                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'audio' => 'Audio', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching', 'specialists' => 'Specialists'] as $key => $label)
                     <button type="button" role="tab" id="tab-{{ $key }}" aria-controls="panel-{{ $key }}" aria-selected="{{ $key === 'team' ? 'true' : 'false' }}" data-team-tab="{{ $key }}" class="px-4 py-2 rounded border">{{ $label }}</button>
                 @endforeach
             </div>
@@ -173,6 +173,7 @@
             </section>
             @include('teams.editor.entertainment')
             @include('teams.editor.coaching')
+            @include('teams.editor.specialists')
             <dialog data-team-preview class="rounded-xl p-4 w-full max-w-2xl backdrop:bg-black/70">
                 <div class="flex justify-between items-center gap-3"><h2 data-preview-title class="font-semibold text-xl">3D preview</h2><button type="button" data-preview-close class="rounded border px-3 py-2">Close</button></div>
                 <div data-team-preview-host style="height:440px" class="mt-3 rounded overflow-hidden"></div>

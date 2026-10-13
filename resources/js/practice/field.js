@@ -353,7 +353,7 @@ export function mountPractice(root, onReady = () => {}) {
     const clearTurnoverBanner = () => { liveBanner.hidden = true; bannerRemaining = 0; };
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
     const decidedPenaltyResult = root.dataset.penaltyResult === 'true';
-    let phase = decidedPenaltyResult ? 'result' : resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
+    let phase = decidedPenaltyResult ? 'result' : (resultPopup || root.dataset.substitutionChange === 'true') && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
     const lineupDuration = 3;
     let lineupProgress = 0;
     const setDuration = 4;
@@ -361,10 +361,41 @@ export function mountPractice(root, onReady = () => {}) {
     let refereePostTime = 0, refereeHuddleTime = 0, refereeResetPath = null;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
     let elapsed = ['huddle','result'].includes(phase) ? duration : 0, running = !decidedPenaltyResult && root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
-    let exchange = root.dataset.unitChange === 'true'
+    const partialExchange = root.dataset.substitutionChange === 'true';
+    let exchange = root.dataset.unitChange === 'true' || partialExchange
         ? unitExchange(sample(type,duration),nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,
-            nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
+            nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster,{partial:partialExchange}) : null;
     let exchangeElapsed = 0, exchangeSnapLocked = false, exchangeRate = 1;
+    // Carry only presentation positions across a submitted call. Match the saved
+    // version so refreshes/replays cannot apply a stale substitution to a snap.
+    const personnelKey = cameraKey + '-personnel';
+    let previousField = null;
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(personnelKey));
+        sessionStorage.removeItem(personnelKey);
+        if (Array.isArray(saved?.players) && (saved.purpose === 'lineup' ? saved.version === afterState?.version : saved.version === beforeState?.version)) previousField = saved;
+    } catch { /* Normal presentation remains available without browser storage. */ }
+    if (phase === 'huddle' && previousField?.purpose === 'lineup' && nextAnimation) {
+        exchange = unitExchange(previousField,sampleEnginePlay(nextAnimation,0),nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster,{partial:true});
+        previousField.players.forEach((player,i) => {
+            scene.remove(players[i]);
+            const team = player.side === 'home' ? home : away;
+            players[i] = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+            scene.add(players[i]);
+        });
+    }
+    const nextSnap = animation ? sample(type,0) : null;
+    const identities = frame => frame.players.map(playerKey).sort().join('|');
+    const preExchange = phase === 'liningup' && previousField && nextSnap && identities(previousField) !== identities(nextSnap)
+        ? unitExchange(previousField,nextSnap,animation.line,animation.possession,
+            playDirection * (offenseSide === 'home' ? 1 : -1),sidelineRoster,{partial:true}) : null;
+    let preExchangeElapsed = 0;
+    if (preExchange) phase = 'substituting';
+    const preOutgoingPlayers = (preExchange ? previousField.players : []).map(player => {
+        const team = player.side === 'home' ? home : away;
+        const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+        mesh.visible = false;scene.add(mesh);return mesh;
+    });
     const skipExchangeButtons = [...new Set([
         root.querySelector('.game-actions'),root.querySelector('[data-drive-dialog]'),root.querySelector('[data-quarter-dialog]'),
     ].filter(Boolean))].map(host => {
@@ -373,6 +404,9 @@ export function mountPractice(root, onReady = () => {}) {
         button.className = 'mt-2 rounded border border-blue-400 px-3 py-2 text-sm text-blue-200';
         button.style.display = 'none';host.append(button);
         button.addEventListener('click', () => {
+            if (phase === 'substituting' && preExchange) {
+                exchangeRate = Math.max(1,(preExchange.duration-preExchangeElapsed)/.6);return;
+            }
             if (phase !== 'huddle' || !exchange || exchangeElapsed >= exchange.duration) return;
             exchangeRate = Math.max(1,(exchange.duration-exchangeElapsed)/.6);
         });
@@ -381,7 +415,7 @@ export function mountPractice(root, onReady = () => {}) {
     const turnoverGroup = turnoverCelebrants(animation,sample(type,duration));
     const earlyExit = exchange && turnoverGroup.size
         ? unitExchange({...sample(type,duration),players:sample(type,duration).players.filter(p=>!turnoverGroup.has(playerKey(p)))},null,
-            nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
+            nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster,{partial:partialExchange}) : null;
     let earlyExitElapsed = 0, celebrationSpots = null;
     const incomingPlayers = (nextAnimation?.players || []).map(player => {
         const team = player.side === 'home' ? home : away;
@@ -407,10 +441,24 @@ export function mountPractice(root, onReady = () => {}) {
         const exchangeFrame = phase === 'huddle' && exchange ? exchange.sample(exchangeElapsed) : null;
         const exchangeFuture = exchangeFrame ? exchange.sample(exchangeElapsed + .03) : null;
         if (exchangeFrame) {
-            frame = {...frame,players:exchangeFrame.outgoing,huddle:false,event:exchangeFrame.complete ? (nextAnimation ? 'Incoming units ready · Choose the next play' : 'Game complete · Teams on the sidelines') : 'Changing units · Players jogging between field and sidelines'};
+            frame = {...frame,players:exchangeFrame.outgoing,huddle:false,event:exchangeFrame.complete ? (nextAnimation ? 'Incoming units ready · Choose the next play' : 'Game complete · Teams on the sidelines') : (partialExchange ? 'Substitutions · Players jogging between field and sidelines' : 'Changing units · Players jogging between field and sidelines')};
             future = {...future,players:exchangeFuture.outgoing,huddle:false};
         }
+        const preFrame = phase === 'substituting' ? preExchange.sample(preExchangeElapsed) : null;
+        if (preFrame) {
+            frame = {...frame,players:preFrame.incoming,event:'Substitutions · Incoming players joining the huddle'};
+            future = {...future,players:preExchange.sample(preExchangeElapsed+.03).incoming};
+        }
         const activeSidelinePlayers = new Set();
+        preOutgoingPlayers.forEach((mesh,i) => {
+            const player = preFrame?.outgoing[i];mesh.visible = Boolean(player?.visible);
+            if (!mesh.visible) return;
+            const next = preExchange.sample(preExchangeElapsed+.03).outgoing[i];
+            activeSidelinePlayers.add(playerKey(player));
+            mesh.position.set(player.x,Math.sin(preExchangeElapsed*18+i)*.04,player.z);
+            mesh.rotation.y = Math.atan2(next.x-player.x,next.z-player.z);
+            animateFootballPlayer(mesh,true,preExchangeElapsed,i);
+        });
         frame.players.filter(player => player.visible !== false).forEach(player => activeSidelinePlayers.add(playerKey(player)));
         incomingPlayers.forEach((mesh,i) => {
             const player = exchangeFrame?.incoming[i], next = exchangeFuture?.incoming[i];
@@ -434,7 +482,7 @@ export function mountPractice(root, onReady = () => {}) {
             future = samplePreSnapMotion(formation, animation, (setElapsed + .03) / 3);
         }
         if (beforeState && !revealed && !afterState?.penalty_pending && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
-        const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : earlyExit && ['celebration','result'].includes(phase) ? duration + earlyExitElapsed : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
+        const motionTime = phase === 'substituting' ? preExchangeElapsed : phase === 'liningup' ? lineupProgress * lineupDuration : earlyExit && ['celebration','result'].includes(phase) ? duration + earlyExitElapsed : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
             mesh.visible = player.visible !== false;
@@ -1313,11 +1361,21 @@ export function mountPractice(root, onReady = () => {}) {
     const tickPlayWizard = mountPlayWizard(root);
     const disposeMobileControls = mobileControls(root);
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
+    const rememberField = purpose => {
+        try {
+            const current = exchange ? exchange.sample(exchangeElapsed).incoming : sampleHuddle(sample(type,duration),nextLine,root.dataset.nextPossession,1,nextHomeDirection).players;
+            sessionStorage.setItem(personnelKey,JSON.stringify({version:afterState?.version,players:current,purpose}));
+        } catch { /* Presentation only; the saved game remains authoritative. */ }
+    };
+    root.querySelectorAll('form').forEach(form => {
+        if (form.querySelector('[name="action"]')?.value === 'lineup') form.addEventListener('submit',()=>rememberField('lineup'));
+    });
     callForm?.addEventListener('submit', event => {
         if (phase === 'huddle' && exchange && exchangeElapsed < exchange.duration) {
             event.preventDefault();event.stopImmediatePropagation();return;
         }
         root.classList.remove('game-replay-controls');
+        rememberField('snap');
         saveCamera();
         const button = callForm.querySelector('[data-snap]'); button.disabled = true; button.textContent = 'Simulating…';
     });
@@ -1527,7 +1585,10 @@ export function mountPractice(root, onReady = () => {}) {
     let idleTime=0;
     const animate = now => {
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
-        if (running && phase === 'liningup') {
+        if (running && phase === 'substituting') {
+            preExchangeElapsed = Math.min(preExchange.duration,preExchangeElapsed+Math.min(delta,.1)*exchangeRate);
+            if (preExchangeElapsed === preExchange.duration) {phase = 'liningup';lineupProgress = 0;exchangeRate = 1;}
+        } else if (running && phase === 'liningup') {
             lineupProgress = Math.min(1, lineupProgress + Math.min(delta, .1) * speed / lineupDuration);
             if (lineupProgress === 1) { phase = 'set'; setElapsed = 0; elapsed = 0; }
         } else if (running && phase === 'set') {
@@ -1657,7 +1718,7 @@ export function mountPractice(root, onReady = () => {}) {
             audioTime = soundTime;
         } else if (running || ['result','celebration','big_play'].includes(phase)) audioTime = soundTime;
         for (const button of skipExchangeButtons) {
-            const visible = phase === 'huddle' && exchange && exchangeElapsed < exchange.duration;
+            const visible = (phase === 'huddle' && exchange && exchangeElapsed < exchange.duration) || phase === 'substituting';
             button.style.display = visible ? 'inline-block' : 'none';
             button.disabled = exchangeRate > 1;
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';

@@ -178,3 +178,27 @@ test('home and away helmet designs and decal controls save and validate', functi
     $this->get(route('teams.editor.edit', $team))->assertOk()->assertSee('Ram horns')->assertSee('Cat stripes');
     $this->put(route('teams.editor.update', $team), ['city' => $team->city, 'name' => $team->name, 'team_settings' => ['helmets' => ['home' => ['design' => 'unknown']]]])->assertSessionHasErrors('team_settings.helmets.home.design');
 });
+
+test('specialists save only eligible current team players and are captured for new games', function () {
+    [$home, $away] = Team::all()->all();
+    $roster = app(\App\Services\Simulation\RosterBuilder::class)->build($home);
+    $rb = collect($roster['pool'])->firstWhere('position', 'RB')['id'];
+    $wr = collect($roster['pool'])->firstWhere('position', 'WR')['id'];
+    $qb = $roster['players']['QB']['id'];
+    $foreign = $away->players()->firstOrFail()->id;
+    $this->get(route('teams.editor.edit', $home))->assertOk()->assertSee('data-team-panel="specialists"', false)->assertSee('Third-down / short-yardage back');
+    $payload = ['city' => $home->city, 'name' => $home->name, 'team_settings' => ['specialists' => ['third_down_back' => $rb, 'kick_returner' => $wr, 'punt_returner' => $wr]]];
+    $this->put(route('teams.editor.update', $home), $payload)->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = (int) $home->world_id;
+    $snapshot = app(\App\Services\Simulation\RosterBuilder::class)->build($home->fresh());
+    expect($snapshot['specialists'])->toMatchArray($payload['team_settings']['specialists']);
+    foreach ([$foreign, $qb] as $id) {
+        $payload['team_settings']['specialists']['third_down_back'] = $id;
+        $this->put(route('teams.editor.update', $home), $payload)->assertSessionHasErrors('team_settings.specialists.third_down_back');
+    }
+    $payload['team_settings']['specialists'] = ['third_down_back' => null, 'kick_returner' => null, 'punt_returner' => null];
+    $this->put(route('teams.editor.update', $home), $payload)->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = (int) $home->world_id;
+    expect($home->fresh()->team_settings['specialists']['third_down_back'])->toBeNull();
+    expect($snapshot['specialists']['third_down_back'])->toBe($rb);
+});

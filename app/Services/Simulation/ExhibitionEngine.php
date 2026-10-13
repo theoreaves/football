@@ -51,7 +51,7 @@ class ExhibitionEngine
         $call = match ($call) {
             'draw' => 'inside_run', 'screen' => 'short_pass', default => OffensiveOptions::canonical($call)
         };
-        $rosters = app(GamePersonnel::class)->active($rosters, $state);
+        $rosters = app(GamePersonnel::class)->active($rosters, $state, $call);
         if (in_array($call, ['two_point_run', 'two_point_pass'], true)) {
             return $this->twoPoint($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation, $expect, $blitz, $motion);
         }
