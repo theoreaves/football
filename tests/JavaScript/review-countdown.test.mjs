@@ -22,3 +22,9 @@ test('back or close cancels review and returning starts a fresh countdown', () =
     assert.equal(timer.tick(20, false), null);
     assert.equal(timer.tick(1, true), 4);
 });
+
+test('manual review never expires or starts a countdown after returning to review', () => {
+    const timer=reviewCountdown({manual:true});
+    timer.start();assert.equal(timer.tick(600,true),null);
+    timer.cancel();timer.start();assert.equal(timer.tick(600,true),null);
+});

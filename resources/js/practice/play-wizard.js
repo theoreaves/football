@@ -1,8 +1,9 @@
+import {manualGameScreens} from './screen-timers.js';
 import { scoreboardText } from './scoreboard.js';
-export function reviewCountdown() {
+export function reviewCountdown({manual = false} = {}) {
     let remaining = null;
     return {
-        start: () => { remaining = 5; },
+        start: () => { remaining = manual ? null : 5; },
         cancel: () => { remaining = null; },
         tick(delta, active) {
             if (remaining === null || !active) return null;
@@ -129,7 +130,8 @@ export function mountPlayWizard(root) {
     const appearance = JSON.parse(root.dataset.appearance || '{}');
     const lastResult = root.querySelector('.game-last-result')?.textContent.trim() || '';
     let opened = false, idleSeconds = 0;
-    const countdown = reviewCountdown();
+    const manualScreens = manualGameScreens({exhibition:root.hasAttribute('data-exhibition'),cpuOnly:root.dataset.cpuOnly});
+    const countdown = reviewCountdown({manual:manualScreens});
     dialog.addEventListener('close', () => countdown.cancel());
     dialog.addEventListener('cancel', () => countdown.cancel());
     // Kick formations are offered only when those calls are legal for this phase.
@@ -210,7 +212,7 @@ export function mountPlayWizard(root) {
             step=steps().length-1;
             render();
         };
-        if (current.kind === 'review') {
+        if (current.kind === 'review' && !manualScreens) {
             countdown.start();
             ui.querySelector('[data-wizard-next]').textContent = 'Call play & watch · 5s';
         }

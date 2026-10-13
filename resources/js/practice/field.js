@@ -1,3 +1,4 @@
+import {manualGameScreens,screenTimerExpired} from './screen-timers.js';
 import {buildResultReferee} from './result-referee.js';
 import {idlePlayerPose} from './idle-player.js';
 import {mountGameStats} from './game-stats.js';
@@ -295,6 +296,7 @@ export function mountPractice(root, onReady = () => {}) {
     const treatmentDuration = 7;
 
     const teamNames = root.dataset.teamNames ? JSON.parse(root.dataset.teamNames) : null;
+    const manualScreens = manualGameScreens({exhibition:root.hasAttribute('data-exhibition'),cpuOnly:root.dataset.cpuOnly});
     let revealed = root.dataset.autoplay !== 'true';
     stadium.updateScoreboard(revealed ? afterState : beforeState, teamNames);
     const showState = committed => {
@@ -1576,7 +1578,7 @@ export function mountPractice(root, onReady = () => {}) {
             else showQuarter();
         } else if (phase === 'penalty') {
             postElapsed += Math.min(delta, .1);
-            if (postElapsed >= 4.5 && !afterState?.penalty_pending) finishPenaltyAnnouncement();
+            if (screenTimerExpired({manual:manualScreens,elapsed:postElapsed,seconds:4.5,pending:Boolean(afterState?.penalty_pending),visible:!document.hidden})) finishPenaltyAnnouncement();
         } else if (phase === 'medical') {
             postElapsed += delta;
             if (postElapsed >= treatmentDuration) {
@@ -1619,7 +1621,7 @@ export function mountPractice(root, onReady = () => {}) {
             }
         } else if (phase === 'result') {
             postElapsed += delta;
-            if (postElapsed >= 10) {
+            if (screenTimerExpired({manual:manualScreens,elapsed:postElapsed,seconds:10,visible:!document.hidden})) {
                 finishResult();
             }
         } else if (phase === 'huddle' && huddleProgress < 1) {
@@ -1664,8 +1666,9 @@ export function mountPractice(root, onReady = () => {}) {
         tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         idleTime+=Math.max(0,Math.min(.1,delta));
         stadium.updateCrowd(delta);
-        if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds+=Math.min(.1,Math.max(0,delta));if(entrance.seconds>=entranceTiming.end)finishEntrance();
-            if(entrance.active){const stage=entrance.seconds<entranceTiming.cheerStart?'The visiting team takes the field':entrance.seconds<entranceTiming.leadStart?'The home cheer squad welcomes the team':entrance.seconds<entranceTiming.homeStart?'Here comes the home mascot!':'Here comes the home team!';entrancePanel.querySelector('p').textContent=stage;}
+        if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds=Math.min(entranceTiming.end,entrance.seconds+Math.min(.1,Math.max(0,delta)));if(screenTimerExpired({manual:manualScreens,elapsed:entrance.seconds,seconds:entranceTiming.end,visible:!document.hidden}))finishEntrance();
+            if(entrance.active){const stage=entrance.seconds<entranceTiming.cheerStart?'The visiting team takes the field':entrance.seconds<entranceTiming.leadStart?'The home cheer squad welcomes the team':entrance.seconds<entranceTiming.homeStart?'Here comes the home mascot!':'Here comes the home team!';entrancePanel.querySelector('p').textContent=entrance.seconds>=entranceTiming.end?'Both teams are ready — continue to lineups':stage;
+                if(entrance.seconds>=entranceTiming.end)entrancePanel.querySelector('button').textContent='Continue → Lineups';}
 }
         sidelineCoaches.update(delta,entranceClock());
         if(!document.hidden){sidelineMascot.update(delta,entrance.active?entrance.seconds-entranceTiming.leadStart:null);sidelineCheerleaders.update(delta,entranceClock());}
