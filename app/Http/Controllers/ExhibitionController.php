@@ -378,6 +378,6 @@ class ExhibitionController extends Controller
             app(\App\Services\Seasons\SeasonGames::class)->record($game);
         }, 3);
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'], true) ? 0 : 1]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $exhibition, 'watch' => in_array($action, ['penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'], true) ? 0 : 1])->with('penalty_result', $action === 'penalty');
     }
 }

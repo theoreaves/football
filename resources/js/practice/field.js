@@ -350,14 +350,15 @@ export function mountPractice(root, onReady = () => {}) {
     let turnoverTime = -1, bannerRemaining = 0;
     const clearTurnoverBanner = () => { liveBanner.hidden = true; bannerRemaining = 0; };
     const nextLine = Number(root.dataset.nextLine || animation?.line || 60);
-    let phase = resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
+    const decidedPenaltyResult = root.dataset.penaltyResult === 'true';
+    let phase = decidedPenaltyResult ? 'result' : resultPopup && root.dataset.autoplay !== 'true' ? 'huddle' : (root.hasAttribute('data-exhibition') && root.dataset.autoplay === 'true' ? (animation?.no_snap ? 'play' : 'liningup') : 'play');
     const lineupDuration = 3;
     let lineupProgress = 0;
     const setDuration = 4;
     let setElapsed = 0;
     let refereePostTime = 0, refereeHuddleTime = 0, refereeResetPath = null;
     let postElapsed = 0, huddleProgress = phase === 'huddle' ? 1 : 0;
-    let elapsed = phase === 'huddle' ? duration : 0, running = root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
+    let elapsed = ['huddle','result'].includes(phase) ? duration : 0, running = !decidedPenaltyResult && root.dataset.autoplay === 'true', type = 'pass', speed = 1, lastTime = null, frameId;
     let exchange = root.dataset.unitChange === 'true'
         ? unitExchange(sample(type,duration),nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,
             nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster) : null;
@@ -430,7 +431,7 @@ export function mountPractice(root, onReady = () => {}) {
             frame = samplePreSnapMotion(formation, animation, setElapsed / 3);
             future = samplePreSnapMotion(formation, animation, (setElapsed + .03) / 3);
         }
-        if (beforeState && !revealed && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
+        if (beforeState && !revealed && !afterState?.penalty_pending && !['liningup', 'set'].includes(phase) && elapsed >= (animation?.reveal_at ?? Math.min(5.3, duration))) showState(true);
         const motionTime = phase === 'liningup' ? lineupProgress * lineupDuration : earlyExit && ['celebration','result'].includes(phase) ? duration + earlyExitElapsed : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
@@ -1432,19 +1433,30 @@ export function mountPractice(root, onReady = () => {}) {
     let driveShown=false,breakWaiting=false,breakReady=false;
     try {driveShown=sessionStorage.getItem(driveKey)==='shown';}catch{/* Optional persistence. */}
     const penaltyDialog = root.querySelector('[data-penalty-dialog]');
-    let penaltyShown = false;
+    const startPenaltyAnnouncement = () => {
+        phase = 'penalty'; running = false; elapsed = duration; postElapsed = 0;
+        if (afterState?.penalty_pending) showState(false);
+        if (resultPopup) resultPopup.hidden = true;
+        if (penaltyDialog && !penaltyDialog.open) {
+            penaltyDialog.showModal(); penaltyDialog.querySelector('button')?.focus();
+        }
+    };
+    const finishPenaltyAnnouncement = () => {
+        if (afterState?.penalty_pending) return;
+        const playStands = penalty?.accepted === false;
+        phase = seriousInjury ? 'medical' : playStands && ruling === 'touchdown' ? 'celebration'
+            : playStands && ['interception','fumble'].includes(animation?.outcome) ? 'celebration'
+                : playStands && animation?.gain >= 20 && !['penalty','sack','incomplete'].includes(animation?.outcome) ? 'big_play' : 'result';
+        postElapsed = 0;
+        if (resultPopup) resultPopup.hidden = phase !== 'result';
+        if (penaltyDialog?.open) penaltyDialog.close();
+    };
     penaltyDialog?.addEventListener('cancel', event => event.preventDefault());
     root.querySelectorAll('[data-penalty-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); }));
     const quarterKey = `${cameraKey}:quarter:${root.dataset.playNumber}`;
     let quarterShown = false;
     try { quarterShown = sessionStorage.getItem(quarterKey) === 'shown'; } catch { /* Show it once per page. */ }
     const showQuarter = () => {
-        if (penaltyDialog && !penaltyShown) {
-            penaltyShown = true;
-            penaltyDialog.showModal();
-            penaltyDialog.querySelector('button')?.focus();
-            return;
-        }
         if (penaltyDialog?.open) return;
         if (injuryDialog && !injuryShown) {
             injuryShown = true; injuryDialog.showModal();
@@ -1484,7 +1496,6 @@ export function mountPractice(root, onReady = () => {}) {
         try { sessionStorage.setItem(cpuKey, String(enabled)); } catch { /* Optional persistence. */ }
     };
     const tickNotices = autoNotices([
-        {dialog: penaltyDialog, seconds: 7},
         {dialog: injuryDialog, seconds: 7},
         {dialog: driveDialog, seconds: 10},
         {dialog: quarterDialog, seconds: quarterDialog?.dataset.breakKind === 'halftime' ? 18 : 12,
@@ -1498,9 +1509,11 @@ export function mountPractice(root, onReady = () => {}) {
     if (((quarterDialog && !quarterShown) || (driveDialog && !driveShown)) && snapButton) snapButton.disabled = true;
     quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) gameStats?.open('box'); });
     driveDialog?.addEventListener('close',()=>{if(snapButton && (!quarterDialog || quarterShown))snapButton.disabled=false;showQuarter();});
-    penaltyDialog?.addEventListener('close', showQuarter);
+    penaltyDialog?.addEventListener('close', () => {if (phase === 'penalty') finishPenaltyAnnouncement();});
     injuryDialog?.addEventListener('close', showQuarter);
-    if ((driveDialog || otDialog || quarterDialog || penaltyDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
+    if (decidedPenaltyResult && resultPopup) resultPopup.hidden = false;
+    else if (penaltyDialog && root.dataset.autoplay !== 'true') startPenaltyAnnouncement();
+    else if ((driveDialog || otDialog || quarterDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const silenceHidden = () => { if (document.hidden) { audio.setActive(false); audio.setAmbienceActive(false); } };
     document.addEventListener('visibilitychange', silenceHidden);
     let idleTime=0;
@@ -1542,7 +1555,7 @@ export function mountPractice(root, onReady = () => {}) {
         if (elapsed >= duration && phase === 'play') {
             running = false; playButton.textContent = 'Replay';
             if (foul && resultPopup) {
-                phase = 'penalty'; postElapsed = 0; resultPopup.hidden = true;
+                startPenaltyAnnouncement();
             } else if (seriousInjury && resultPopup) {
                 phase = 'medical'; postElapsed = 0; resultPopup.hidden = true;
             } else if (resultPopup && animation && !animation.no_snap
@@ -1557,14 +1570,7 @@ export function mountPractice(root, onReady = () => {}) {
             else showQuarter();
         } else if (phase === 'penalty') {
             postElapsed += Math.min(delta, .1);
-            if (postElapsed >= 4.5) {
-                const playStands = penalty?.accepted === false && !afterState?.penalty_pending;
-                phase = seriousInjury ? 'medical' : playStands && ruling === 'touchdown' ? 'celebration'
-                    : playStands && ['interception','fumble'].includes(animation?.outcome) ? 'celebration'
-                        : playStands && animation?.gain >= 20 && !['penalty','sack','incomplete'].includes(animation?.outcome) ? 'big_play' : 'result';
-                postElapsed = 0;
-                if (resultPopup) resultPopup.hidden = phase !== 'result';
-            }
+            if (postElapsed >= 4.5 && !afterState?.penalty_pending) finishPenaltyAnnouncement();
         } else if (phase === 'medical') {
             postElapsed += delta;
             if (postElapsed >= treatmentDuration) {

@@ -66,9 +66,10 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
     badge.setAttribute('role','status'); badge.textContent = 'FLAG';
     badge.style.cssText = 'position:fixed;z-index:45;right:16px;top:90px;max-width:80vw;padding:10px 16px;background:#ffdf00;color:#15191e;font-weight:700;border-radius:8px;';
     root.append(badge);
-    const panel = document.createElement('section');
+    const embedded = root.querySelector('[data-penalty-referee]');
+    const panel = embedded || document.createElement('section');
     panel.setAttribute('role','status'); panel.setAttribute('aria-live','polite'); panel.hidden = true;
-    panel.style.cssText = 'position:fixed;z-index:55;left:50%;top:14%;transform:translateX(-50%);width:min(92vw,440px);padding:14px;border:2px solid #ffdf00;border-radius:14px;background:#101827;color:white;text-align:center;box-shadow:0 12px 40px #0009;';
+    if (!embedded) panel.style.cssText = 'position:fixed;z-index:55;left:50%;top:14%;transform:translateX(-50%);width:min(92vw,440px);padding:14px;border:2px solid #ffdf00;border-radius:14px;background:#101827;color:white;text-align:center;box-shadow:0 12px 40px #0009;';
     const title = document.createElement('strong'); title.textContent = 'REFEREE ANNOUNCEMENT'; panel.append(title);
     const caption = document.createElement('p'); caption.textContent = penalty ? penaltyText(penalty,names,pending) : ''; caption.style.margin = '10px 0';
     let renderer = null, insetScene, insetCamera, insetRefs;
@@ -83,7 +84,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
             insetRefs = buildReferees(insetScene); insetRefs.group.children.slice(1).forEach(ref => ref.visible = false);
         } catch { /* Keep the readable announcement if a second WebGL context is unavailable. */ }
     }
-    panel.append(caption); root.append(panel);
+    panel.append(caption); if (!embedded) root.append(panel);
     const update = ({moment, time, announcing, announcementTime}) => {
         const position = flagPosition(moment,time);
         flag.visible = Boolean(position);
@@ -100,7 +101,8 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
         }
     };
     const dispose = () => {
-        panel.remove(); badge.remove();
+        if (embedded) panel.replaceChildren(); else panel.remove();
+        badge.remove();
         insetScene?.traverse(object => {object.geometry?.dispose(); object.material?.dispose();});
         renderer?.dispose(); renderer?.forceContextLoss();
     };

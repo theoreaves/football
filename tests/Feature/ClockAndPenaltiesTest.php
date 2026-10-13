@@ -242,15 +242,15 @@ test('human penalty choices commit the selected outcome once and block interveni
     $expected = $result['play']['penalty_options'][$decision];
     app(CurrentWorld::class)->id = $world->id;
     $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-penalty-dialog', false)->assertSee('Accept')->assertSee('Decline')->assertSee('illegally held');
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-penalty-dialog', false)->assertSee('data-penalty-referee', false)->assertSee('Referee announcement')->assertSee('Accept')->assertSee('Decline')->assertSee('illegally held');
     $this->post(route('exhibitions.play', $game), ['version' => 1, 'call' => 'inside_run', 'defense' => 'man_to_man'])->assertStatus(409);
     $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'penalty', 'decision' => $decision])->assertStatus(409);
-    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertRedirect(route('exhibitions.show', [$game, 'watch' => 0]));
+    $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertRedirect(route('exhibitions.show', [$game, 'watch' => 0]))->assertSessionHas('penalty_result', true);
     $game->refresh();
     expect($game->state)->toBe($expected['state'])->and($game->history)->toHaveCount(1);
     expect($game->history[0]['penalty']['accepted'])->toBe($decision === 'accept');
     expect($game->history[0]['penalty']['decided'])->toBeTrue();
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertDontSee('data-penalty-dialog', false);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertDontSee('data-penalty-dialog', false)->assertSee('data-penalty-result="true"', false);
     $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertStatus(409);
 })->with(['accept', 'decline']);
 
