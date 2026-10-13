@@ -8,14 +8,14 @@ class RushingAnimationTiming
     public static function apply(array $animation, array $ratings, array $play): array
     {
         if (! in_array($play['call'], ['inside_run', 'outside_run', 'draw', 'two_point_run'], true)
-            || $play['carrier'] !== 'RB' || ($play['defensive_return'] ?? false)
+            || ($play['carrier'] !== 'RB' && ! ($play['qb_designed_run'] ?? false)) || ($play['defensive_return'] ?? false)
             || ($play['no_snap'] ?? false)) {
             return $animation;
         }
 
         $runner = null;
         foreach ($animation['players'] as $player) {
-            if ($player['team'] === 'offense' && $player['role'] === 'RB') {
+            if ($player['team'] === 'offense' && $player['role'] === $play['carrier']) {
                 $runner = $player['path'];
                 break;
             }

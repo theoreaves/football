@@ -72,7 +72,23 @@ class CpuCoach
             $call = 'short_pass';
         }
 
-        $formation = in_array($call, ['inside_run', 'outside_run'], true) ? 'singleback' : ($call === 'deep_pass' ? 'spread' : 'shotgun');
+        $baseCall = $call;
+        $variants = match ($baseCall) {
+            'inside_run' => ['inside_run', 'inside_zone', 'counter', 'power', 'lead', 'draw'],
+            'outside_run' => ['outside_run', 'outside_zone', 'stretch', 'toss'],
+            'short_pass' => ['short_pass', 'quick_pass', 'mesh', 'screen'],
+            'medium_pass' => ['medium_pass', 'flood', 'play_action'],
+            default => [$baseCall],
+        };
+        $call = $variants[$this->roll($state, 'offensive-concept') % count($variants)];
+        $qb = $players['QB']['ratings'];
+        $qbChance = min(45, max(0, (($qb['speed'] + $qb['acceleration']) / 2 - 45) * .6) * $this->preference($state, 'qb_run') / 50);
+        if (in_array($baseCall, ['inside_run', 'outside_run'], true) && $this->preference($state, 'qb_run') > 0
+            && $this->roll($state, 'qb-designed-run') < ($state['distance'] <= 1 ? max(15, $qbChance) : $qbChance)) {
+            $call = $state['distance'] <= 1 ? 'qb_sneak' : ['qb_draw', 'qb_power', 'qb_sweep'][$this->roll($state, 'qb-run-type') % 3];
+        }
+        $formations = array_keys(array_filter(OffensiveOptions::FORMATIONS, fn ($calls) => in_array($call, $calls, true)));
+        $formation = $formations[$this->roll($state, 'offensive-formation') % count($formations)];
         $roles = array_values(array_filter($formation === 'spread' ? ['WR1', 'WR2', 'WR3'] : ['WR1', 'WR2', 'TE', 'RB'], fn ($role) => isset($players[$role])));
         // PFF's 2025 pre-snap motion rate: 64% (not motion at the snap).
         $motion = $roles && $this->roll($state, 'motion') < 64 ? $roles[$this->roll($state, 'motion-player') % count($roles)] : 'none';

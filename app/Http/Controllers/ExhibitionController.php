@@ -322,6 +322,9 @@ class ExhibitionController extends Controller
                     $human = $request->validate(['call' => ['required', Rule::in(ExhibitionEngine::callsForState($game->state))],
                         'offense_formation' => ['sometimes', 'required', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))]]);
                     $offense = ['call' => $human['call'], 'formation' => $human['offense_formation'] ?? 'shotgun'];
+                    if (isset(\App\Services\Simulation\OffensiveOptions::ALIASES[$offense['call']]) && ! in_array($offense['call'], \App\Services\Simulation\OffensiveOptions::FORMATIONS[$offense['formation']] ?? [], true)) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['call' => 'Choose a play offered by this offensive formation.']);
+                    }
                 }
                 if ($controls[$other] === 'cpu') {
                     $defense = $coach->defense($game->state, $offense['call']);

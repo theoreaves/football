@@ -23,6 +23,9 @@ export function formationPoints(side, formation) {
     if (formation === 'spread') { offense.WR1[1]=4; offense.WR2[1]=49; offense.TE[1]=39; }
     if (formation === 'i_form') { offense.QB[0]=-2; offense.RB=[-7,26.7]; offense.WR3=[-4,26.7]; }
     if (formation === 'pistol') { offense.QB[0]=-4; offense.RB=[-8,26.7]; }
+    if (formation === 'bunch') { offense.WR1=[-1,40]; offense.WR2=[-2,43]; offense.WR3=[-3,38]; }
+    if (formation === 'empty') { offense.RB=[-2,6]; offense.TE=[-1,47]; offense.WR3=[-2,36]; }
+    if (formation === 'goal_line') { offense.QB=[-1.8,26.7]; offense.RB=[-5,26.7]; offense.TE=[-1,33]; offense.WR2=[-1,20]; offense.WR3=[-3,29]; }
     if (formation === 'trips') { offense.WR1[1]=40; offense.WR2[1]=47; offense.WR3=[-2,35]; }
     if (formation === 'two_high') { defense.S1=[14,16]; defense.S2=[14,38]; }
     if (formation === 'single_high') { defense.S1=[14,26.7]; defense.S2=[4,34]; }
@@ -58,7 +61,14 @@ export function playGraphic(kind, value, formation = 'shotgun') {
         const [x,y]=xy(points[value] || points.WR1);
         art='<path d="M '+x+' '+y+' Q 150 '+(y+30)+' '+(x>150?60:245)+' '+y+'" fill="none" stroke="#facc15" stroke-width="3" stroke-dasharray="6 4"/>';
     } else if (kind === 'play') {
-        if (['inside_run','draw','two_point_run','kneel','spike'].includes(value)) art=route(value==='kneel'||value==='spike'?'QB':'RB',value==='kneel'?-6:7,26.7);
+        if (value.startsWith('qb_')) art=route('QB',value==='qb_sneak'?2:8,value==='qb_sweep'?43:26.7)+(value==='qb_power'?route('LG',3,29):'');
+        else if (['inside_zone','counter','power','lead'].includes(value)) art=route('RB',8,value==='counter'?22:29);
+        else if (['outside_zone','stretch','toss'].includes(value)) art=route('RB',8,43);
+        else if (value==='mesh') art=route('WR1',6,38)+route('WR2',6,16);
+        else if (value==='flood') art=route('WR1',20,44)+route('TE',6,40);
+        else if (value==='play_action') art=route('RB',1,27)+route('WR1',15,13);
+        else if (value==='quick_pass') art=route('WR1',5,14);
+        else if (['inside_run','draw','two_point_run','kneel','spike'].includes(value)) art=route(value==='kneel'||value==='spike'?'QB':'RB',value==='kneel'?-6:7,26.7);
         else if (value==='outside_run') art=route('RB',6,44);
         else if (value==='screen') art=route('RB',1,43);
         else if (value==='slant') art=route('WR1',8,25);
@@ -151,7 +161,7 @@ export function mountPlayWizard(root) {
         }
         if (field('defense') && (current.kind.startsWith('defense') || current.kind === 'review')) {
             const opponentFormation = field('offense_formation')?.value || JSON.parse(root.dataset.coachOffense || '{}').formation || 'shotgun';
-            const labels = { singleback:'Singleback', shotgun:'Shotgun', spread:'Spread', i_form:'I formation', pistol:'Pistol', trips:'Trips' };
+            const labels = { singleback:'Singleback', shotgun:'Shotgun', spread:'Spread', i_form:'I formation', pistol:'Pistol', trips:'Trips', bunch:'Bunch', empty:'Empty', goal_line:'Goal line' };
             const state = JSON.parse(root.dataset.afterState || '{}');
             const names = JSON.parse(root.dataset.teamNames || '{}');
             const scouting = document.createElement('aside');

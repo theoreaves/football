@@ -69,7 +69,7 @@ test('coaching tendencies change deterministic distributions while neutral and l
             $biased = array_replace_recursive($state, ['coaching' => ['home' => ['pass' => $value]]]);
             $decision = $coach->offense($biased, $rosters);
             expect($decision)->toBe($coach->offense($biased, $rosters));
-            if (! in_array($decision['call'], ['inside_run', 'outside_run'])) {
+            if (! in_array(\App\Services\Simulation\OffensiveOptions::canonical($decision['call']), ['inside_run', 'outside_run'])) {
                 $counts[$label]++;
             }
         }
@@ -83,7 +83,7 @@ test('coaching tendencies change deterministic distributions while neutral and l
         }
         foreach (['short' => 0, 'deep' => 100] as $label => $value) {
             $biased = array_replace_recursive($state, ['coaching' => ['home' => ['depth' => $value, 'pass' => 100]]]);
-            $counts[$label] += $coach->offense($biased, $rosters)['call'] === 'deep_pass' ? 1 : 0;
+            $counts[$label] += \App\Services\Simulation\OffensiveOptions::canonical($coach->offense($biased, $rosters)['call']) === 'deep_pass' ? 1 : 0;
         }
         foreach (['go_low' => 0, 'go_high' => 100] as $label => $value) {
             $biased = array_replace_recursive($state, ['down' => 4, 'distance' => 2, 'spot' => 50, 'coaching' => ['home' => ['fourth_down' => $value]]]);

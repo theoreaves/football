@@ -73,6 +73,25 @@ class PlayTimeline
             $offense['WR2'][1] = 47;
             $offense['WR3'] = [-2, 35];
         }
+        $design = $play['design'] ?? $play['call'];
+        $qbDesigned = $play['qb_designed_run'] ?? false;
+        if ($offenseFormation === 'bunch') {
+            $offense['WR1'] = [-1, 40];
+            $offense['WR2'] = [-2, 43];
+            $offense['WR3'] = [-3, 38];
+        }
+        if ($offenseFormation === 'empty') {
+            $offense['RB'] = [-2, 6];
+            $offense['TE'] = [-1, 47];
+            $offense['WR3'] = [-2, 36];
+        }
+        if ($offenseFormation === 'goal_line') {
+            $offense['QB'] = [-1.8, 26.7];
+            $offense['RB'] = [-5, 26.7];
+            $offense['TE'] = [-1, 33];
+            $offense['WR2'] = [-1, 20];
+            $offense['WR3'] = [-3, 29];
+        }
         if (($play['defense_formation'] ?? '') === 'base_3_4') {
             $defense['DT2'] = [4, 33];
             $defense['LB3'] = [4, 17];
@@ -151,6 +170,21 @@ class PlayTimeline
                 ? [7, 12, 17, 36, 42, 47][$visualVariant % 6]
                 : [21, 24, 26, 28, 30, 33][$visualVariant % 6];
         }
+        if ($design === 'mesh') {
+            $endZ = max(3, min(50, $receiverZ + ($receiverZ < 26.7 ? 12 : -12)));
+        }
+        if ($design === 'flood') {
+            $endZ = $visualVariant % 2 ? 43 : 10;
+        }
+        if ($design === 'stretch') {
+            $endZ = $visualVariant % 2 ? 47 : 6;
+        }
+        if ($design === 'qb_sneak') {
+            $endZ = 26.7;
+        }
+        if (in_array($design, ['power', 'lead', 'counter', 'qb_power'], true)) {
+            $endZ = $visualVariant % 2 ? 30 : 23;
+        }
         if ($play['out_of_bounds'] ?? false) {
             $endZ = $endZ < 26.7 ? 0 : 53.33;
         }
@@ -200,12 +234,52 @@ class PlayTimeline
                 // Keep the ball on the exact RB track once the handoff completes.
                 $runnerPath = $path;
             }
+            if (in_array($design, ['outside_zone', 'stretch', 'toss'], true) && $role === 'RB' && $play['carrier'] === 'RB') {
+                $path = [$point(0, $x, $z), $point(1, $handoff, 27), $point(2.4, -1, $endZ),
+                    $point(4.1, $play['gain'] * .65, $endZ), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+                $runnerPath = $path;
+            }
+            if ($design === 'counter' && $role === 'RB' && $play['carrier'] === 'RB') {
+                $wrongWay = $endZ < 26.7 ? 31 : 22;
+                $path = [$point(0, $x, $z), $point(1, $handoff, 27), $point(1.5, -2, $wrongWay),
+                    $point(2.4, max(0, $play['gain'] * .25), $endZ), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+                $runnerPath = $path;
+            }
+            if ($pass && in_array($design, ['mesh', 'flood'], true) && in_array($role, ['WR1', 'WR2', 'WR3', 'TE'], true) && $role !== $receiverRole) {
+                $routeZ = $design === 'mesh' ? ($z < 26.7 ? 38 : 16) : ($visualVariant % 2 ? 43 : 10);
+                $routeDepth = $design === 'mesh' ? 5 : ['WR1' => 20, 'WR2' => 12, 'WR3' => 8, 'TE' => 5][$role];
+                $path = [$point(0, $x, $z), $point(1.35, 3, $z), $point(3.8, $routeDepth, $routeZ), $point(6, $routeDepth + 2, $routeZ)];
+            }
+            if ($pass && $design === 'play_action' && $role === 'RB' && $role !== $receiverRole) {
+                $path = [$point(0, $x, $z), $point(.6, $handoff, 26.7), $point(1.2, 1, 27), $point(3.8, 2, 29), $point(6, 3, 29)];
+            }
             if ($role === 'QB' && $play['carrier'] === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(2, $qbSet, 26.7), $point(5.3, $play['gain'], 26.7), $point(6, $play['gain'], 26.7)];
-                $endZ = 26.7;
+                if ($qbDesigned) {
+                    $startRun = $design === 'qb_draw' ? $qbSet : $qbStart;
+                    $path = [$point(0, $qbStart, 26.7), $point(.35, $qbStart, 26.7), $point(1, $startRun, 26.7),
+                        $point(2.4, $play['gain'] * .25, ($endZ + 26.7) / 2), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+                    $runnerPath = $path;
+                } else {
+                    $endZ = 26.7;
+                }
             }
             if (in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
                 $path = [$point(0, $x, $z), $point(1.2, .3, $z), $point(5.3, $pass ? .3 : 2, $z), $point(6, $pass ? .3 : 2, $z)];
+            }
+            if ($design === 'inside_zone' && in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
+                $path = [$point(0, $x, $z), $point(1.2, .4, $z + ($endZ < 26.7 ? -.8 : .8)), $point(5.3, 2.5, $z), $point(6, 2.5, $z)];
+            }
+            if (in_array($design, ['power', 'counter', 'qb_power'], true) && $role === ($endZ < 26.7 ? 'RG' : 'LG')) {
+                $path = [$point(0, $x, $z), $point(.6, -2.2, $z), $point(1.4, -1.5, $endZ), $point(2.4, 1, $endZ), $point(5.3, 3, $endZ), $point(6, 3, $endZ)];
+            }
+            if ($design === 'lead' && $role === 'WR3') {
+                $path = [$point(0, $x, $z), $point(1, -1, $endZ), $point(2.4, 2, $endZ), $point(5.3, 4, $endZ), $point(6, 4, $endZ)];
+            }
+            if ($qbDesigned && $role === 'RB') {
+                $path = $offenseFormation === 'empty'
+                    ? [$point(0, $x, $z), $point(1, $x + 1, $z), $point(2.4, 2, $z), $point(5.3, 4, $z), $point(6, 4, $z)]
+                    : [$point(0, $x, $z), $point(1, -1, 27), $point(2.4, 2, $endZ), $point(5.3, 4, $endZ), $point(6, 4, $endZ)];
             }
             $person = $rosters[$side]['players'][$special && $role === 'QB' ? $play['carrier'] : $role];
             // Read the carrier's actual route, not an assumed running lane.
@@ -307,7 +381,13 @@ class PlayTimeline
                 )
             );
         }
-        $events = [[0, 'Snap'], [.6, $special ? 'Kick setup' : ($pass || ($play['throwaway'] ?? false) || $play['carrier'] === 'QB' ? 'Dropback' : 'Handoff')], [2.2, $special ? 'Kick in flight' : ($pass || ($play['throwaway'] ?? false) ? 'Pass in flight' : (($play['scramble'] ?? false) ? 'QB scramble' : 'Run'))], [3.8, $pass ? match ($play['outcome']) {
+        if ($qbDesigned && $runnerPath !== null) {
+            $ball = array_merge([$point(0, -1, 26.7, 1)], array_map(fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]], array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= .35))));
+        }
+        if ($design === 'toss' && $play['carrier'] === 'RB') {
+            $ball = array_merge(array_values(array_filter($ball, fn ($frame) => $frame[0] < .6)), [$point(.6, $handoff, 26.7, 1.5), $point(.8, $handoff, 27, 2.5)], array_values(array_filter($ball, fn ($frame) => $frame[0] >= 1)));
+        }
+        $events = [[0, 'Snap'], [.6, $special ? 'Kick setup' : ($design === 'play_action' ? 'Play-action fake' : ($qbDesigned ? 'QB keeper' : ($design === 'toss' ? 'Toss' : ($pass || ($play['throwaway'] ?? false) || $play['carrier'] === 'QB' ? 'Dropback' : 'Handoff'))))], [2.2, $special ? 'Kick in flight' : ($pass || ($play['throwaway'] ?? false) ? 'Pass in flight' : (($play['scramble'] ?? false) ? 'QB scramble' : 'Run'))], [3.8, $pass ? match ($play['outcome']) {
             'incomplete' => 'Incomplete pass', 'interception' => 'Intercepted', default => 'Catch'
         } : (($play['throwaway'] ?? false) ? 'Thrown away' : 'Pursuit')], [5.3, $play['summary']]];
 
@@ -330,8 +410,20 @@ class PlayTimeline
         if ($play['call'] === 'spike') {
             $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart, 26.7, 1), $point(1, $qbStart, 26.7, .25), $point(6, $qbStart, 26.7, .25)];
             $holders = [[0, 'offense', 'C'], [.01, null, null], [.35, 'offense', 'QB'], [1, null, null]];
+            if ($qbDesigned && $runnerPath !== null) {
+                $ball = array_merge([$point(0, -1, 26.7, 1)], array_map(fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]], array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= .35))));
+            }
+            if ($design === 'toss' && $play['carrier'] === 'RB') {
+                $ball = array_merge(array_values(array_filter($ball, fn ($frame) => $frame[0] < .6)), [$point(.6, $handoff, 26.7, 1.5), $point(.8, $handoff, 27, 2.5)], array_values(array_filter($ball, fn ($frame) => $frame[0] >= 1)));
+            }
             $events = [[0, 'Snap'], [1, 'Spike · clock stopped'], [5.3, $play['summary']]];
         } elseif ($play['call'] === 'kneel') {
+            if ($qbDesigned && $runnerPath !== null) {
+                $ball = array_merge([$point(0, -1, 26.7, 1)], array_map(fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]], array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= .35))));
+            }
+            if ($design === 'toss' && $play['carrier'] === 'RB') {
+                $ball = array_merge(array_values(array_filter($ball, fn ($frame) => $frame[0] < .6)), [$point(.6, $handoff, 26.7, 1.5), $point(.8, $handoff, 27, 2.5)], array_values(array_filter($ball, fn ($frame) => $frame[0] >= 1)));
+            }
             $events = [[0, 'Snap'], [2, 'Quarterback takes a knee'], [5.3, $play['summary']]];
         }
 
@@ -359,7 +451,7 @@ class PlayTimeline
         $contactDefender = $contactTackler;
         $contactAt = $contactStyle !== null ? 5.3 : null;
 
-        $animation = ['tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        $animation = ['design' => $design, 'qb_designed_run' => $qbDesigned, 'tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])),
             'possession' => $side, 'animation_variant' => $visualVariant,
             'receiver_role' => $pass ? $receiverRole : null, 'outcome' => $play['outcome'], 'gain' => $play['gain'],
@@ -367,6 +459,6 @@ class PlayTimeline
 
         $animation = PassingAnimationTiming::apply($animation, $rosters[$side]['players'][$receiverRole]['ratings'] ?? [], $play);
 
-        return RushingAnimationTiming::apply($animation, $rosters[$side]['players']['RB']['ratings'] ?? [], $play);
+        return RushingAnimationTiming::apply($animation, $rosters[$side]['players'][$play['carrier']]['ratings'] ?? [], $play);
     }
 }

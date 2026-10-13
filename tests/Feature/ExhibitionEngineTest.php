@@ -57,8 +57,9 @@ test('each offensive call has deterministic results and valid animation tracks',
     foreach (ExhibitionEngine::callsForState(['phase' => 'scrimmage']) as $call) {
         foreach (['home', 'away'] as $side) {
             $state = array_merge($engine->initial(180, 42, false), ['possession' => $side]);
-            $result = $engine->resolve($state, engineRosters(), $call, 'blitz');
-            expect($result)->toBe($engine->resolve($state, engineRosters(), $call, 'blitz'));
+            $formation = isset(\App\Services\Simulation\OffensiveOptions::ALIASES[$call]) ? array_key_first(array_filter(\App\Services\Simulation\OffensiveOptions::FORMATIONS, fn ($plays) => in_array($call, $plays, true))) : 'shotgun';
+            $result = $engine->resolve($state, engineRosters(), $call, 'blitz', $formation);
+            expect($result)->toBe($engine->resolve($state, engineRosters(), $call, 'blitz', $formation));
             expect($result['state']['version'])->toBe(1);
             $animation = $result['play']['animation'];
             expect($animation['players'])->toHaveCount(22);

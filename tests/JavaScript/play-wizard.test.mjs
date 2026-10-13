@@ -14,7 +14,7 @@ test('wizard sequences each human side and keeps the final call step after all c
 });
 
 test('formation diagrams contain eleven players and distinguish each alignment', () => {
-    const formations={offense:['singleback','shotgun','spread','i_form','pistol','trips'], defense:['base_4_3','base_3_5','nickel','two_high','single_high','base_3_4','dime']};
+    const formations={offense:['singleback','shotgun','spread','i_form','pistol','trips','bunch','empty','goal_line'], defense:['base_4_3','base_3_5','nickel','two_high','single_high','base_3_4','dime']};
     for(const [side,types] of Object.entries(formations)) {
         const layouts=types.map(type=>{
             const points=formationPoints(side,type);
@@ -48,4 +48,12 @@ test('kick formations keep formation and play steps and automatic opening waits 
     for(const change of [{ready:false},{opened:true},{visible:false},{dialogOpen:true}]) {
         assert.equal(canAutoOpenWizard({...ready,...change}),false);
     }
+});
+
+test('designed QB and crossing concepts have distinct diagrams and empty spreads its back',()=>{
+    assert.notEqual(playGraphic('play','qb_draw'),playGraphic('play','qb_power'));
+    assert.notEqual(playGraphic('play','qb_sneak'),playGraphic('play','qb_sweep'));
+    assert.notEqual(playGraphic('play','mesh'),playGraphic('play','flood'));
+    assert.equal(formationPoints('offense','empty').RB[1],6);
+    assert.equal(formationPoints('offense','bunch').WR2[1],43);
 });

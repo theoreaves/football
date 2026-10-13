@@ -7,6 +7,9 @@ class ReceiverTargets
     // Weights describe opportunities among players currently on the field,
     // not probabilities of completing the pass.
     private const WEIGHTS = [
+        'play_action' => ['WR1' => 30, 'WR2' => 20, 'WR3' => 5, 'TE' => 35, 'RB' => 10],
+        'mesh' => ['WR1' => 30, 'WR2' => 30, 'WR3' => 15, 'TE' => 20, 'RB' => 5],
+        'flood' => ['WR1' => 35, 'WR2' => 25, 'WR3' => 10, 'TE' => 25, 'RB' => 5],
         'screen' => ['WR1' => 30, 'WR2' => 20, 'WR3' => 15, 'TE' => 5, 'RB' => 30],
         'slant' => ['WR1' => 34, 'WR2' => 27, 'WR3' => 18, 'TE' => 16, 'RB' => 5],
         'short_pass' => ['WR1' => 29, 'WR2' => 24, 'WR3' => 14, 'TE' => 19, 'RB' => 14],
@@ -36,6 +39,7 @@ class ReceiverTargets
                 return $role;
             }
         }
+
         return array_key_last($weights);
     }
 }
