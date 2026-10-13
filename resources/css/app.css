@@ -311,3 +311,15 @@
 [data-anthem-panel][hidden] { display: none !important; }
 
 [data-drive-side][hidden] { display: none !important; }
+
+/* Keep decisions stationary while the referee/body can scroll independently. */
+.game-penalty-dialog { margin: auto; padding: 18px; width: min(600px, 94vw); max-height: 90vh; max-height: 90dvh; overflow: hidden; color: white; background: #111827; border: 2px solid #facc15; border-radius: 14px; }
+.game-penalty-dialog[open] { display: flex; flex-direction: column; gap: 12px; }
+.game-penalty-dialog::backdrop { background: #000b; }
+.game-penalty-dialog > h2, .game-penalty-actions { flex: 0 0 auto; }
+.game-penalty-body { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+[data-penalty-referee] { min-height: 270px; pointer-events: none; }
+.game-penalty-actions { border-top: 1px solid #64748b; padding-top: 8px; }
+.game-penalty-choice { display: block; width: 100%; min-height: 48px; padding: 12px 20px; border: 1px solid #93c5fd; border-radius: 8px; background: #1d4ed8; color: white; font-size: 18px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+.game-penalty-choice:focus-visible { outline: 3px solid #facc15; outline-offset: 2px; }
+.game-penalty-choice:disabled { opacity: .65; cursor: wait; }

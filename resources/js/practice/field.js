@@ -1452,7 +1452,13 @@ export function mountPractice(root, onReady = () => {}) {
         if (penaltyDialog?.open) penaltyDialog.close();
     };
     penaltyDialog?.addEventListener('cancel', event => event.preventDefault());
-    root.querySelectorAll('[data-penalty-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); }));
+    root.querySelectorAll('[data-penalty-form]').forEach(form => form.addEventListener('submit', event => {
+        if (penaltyDialog?.dataset.saving === 'true') {event.preventDefault();return;}
+        if (penaltyDialog) penaltyDialog.dataset.saving = 'true';
+        root.querySelector('[data-penalty-saving]')?.removeAttribute('hidden');
+        root.querySelectorAll('[data-penalty-form] button').forEach(button => button.disabled = true);
+        saveCamera(); setCpuAuto(false);
+    }));
     const quarterKey = `${cameraKey}:quarter:${root.dataset.playNumber}`;
     let quarterShown = false;
     try { quarterShown = sessionStorage.getItem(quarterKey) === 'shown'; } catch { /* Show it once per page. */ }

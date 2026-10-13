@@ -242,7 +242,7 @@ test('human penalty choices commit the selected outcome once and block interveni
     $expected = $result['play']['penalty_options'][$decision];
     app(CurrentWorld::class)->id = $world->id;
     $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-penalty-dialog', false)->assertSee('data-penalty-referee', false)->assertSee('Referee announcement')->assertSee('Accept')->assertSee('Decline')->assertSee('illegally held');
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-penalty-dialog', false)->assertSee('data-penalty-referee', false)->assertSee('game-penalty-actions', false)->assertSee('game-penalty-choice', false)->assertSee('Referee announcement')->assertSee('Accept')->assertSee('Decline')->assertSee('illegally held');
     $this->post(route('exhibitions.play', $game), ['version' => 1, 'call' => 'inside_run', 'defense' => 'man_to_man'])->assertStatus(409);
     $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'penalty', 'decision' => $decision])->assertStatus(409);
     $this->post(route('exhibitions.play', $game), ['version' => 1, 'action' => 'penalty', 'decision' => $decision])->assertRedirect(route('exhibitions.show', [$game, 'watch' => 0]))->assertSessionHas('penalty_result', true);

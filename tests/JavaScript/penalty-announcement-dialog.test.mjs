@@ -12,6 +12,9 @@ test('referee presentation embeds inside the decision dialog instead of adding a
         root.children.push(decisionForm);root.querySelector=selector=>selector==='[data-penalty-referee]'?embedded:null;
         const presentation=buildPenaltyPresentation(root,new THREE.Scene(),{type:'holding',team:'home',accepted:true,yards:10},{home:'Home'},true);
         assert.equal(root.children.length,2); // Existing decision form plus live FLAG badge.
+        assert.equal(embedded.hidden,false); // Reserve layout before the dialog opens.
+        presentation.update({moment:null,time:0,announcing:false,announcementTime:0});
+        assert.equal(embedded.hidden,false);
         assert.equal(embedded.children[0].textContent,'REFEREE ANNOUNCEMENT');
         assert.match(embedded.children.at(-1).textContent,/Awaiting accept/);
         presentation.update({moment:null,time:0,announcing:true,announcementTime:1});

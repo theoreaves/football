@@ -68,7 +68,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
     root.append(badge);
     const embedded = root.querySelector('[data-penalty-referee]');
     const panel = embedded || document.createElement('section');
-    panel.setAttribute('role','status'); panel.setAttribute('aria-live','polite'); panel.hidden = true;
+    panel.setAttribute('role','status'); panel.setAttribute('aria-live','polite'); panel.hidden = !embedded;
     if (!embedded) panel.style.cssText = 'position:fixed;z-index:55;left:50%;top:14%;transform:translateX(-50%);width:min(92vw,440px);padding:14px;border:2px solid #ffdf00;border-radius:14px;background:#101827;color:white;text-align:center;box-shadow:0 12px 40px #0009;';
     const title = document.createElement('strong'); title.textContent = 'REFEREE ANNOUNCEMENT'; panel.append(title);
     const caption = document.createElement('p'); caption.textContent = penalty ? penaltyText(penalty,names,pending) : ''; caption.style.margin = '10px 0';
@@ -92,7 +92,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
             flag.position.set(position.x,position.y,position.z);
             flag.rotation.set(position.landed ? 0 : (time-moment.at)*5, 0, position.landed ? 0 : (time-moment.at)*7);
         }
-        panel.hidden = !announcing;
+        if (!embedded && panel.hidden === announcing) panel.hidden = !announcing;
         badge.hidden = !position || announcing;
         if (announcing && renderer && insetRefs) {
             const poses = refereeFormation(0,1); poses[0] = {x:0,z:0,velocity:0,travel:0};

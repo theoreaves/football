@@ -290,14 +290,17 @@
         @endforeach
     </dialog>
     @if(!$replayOnly && $last && isset($last['penalty']) && !($last['penalty']['decided'] ?? false))
-    <dialog data-penalty-dialog style="max-height:90vh;overflow:auto" class="m-auto bg-gray-800 text-white rounded-xl border border-yellow-400 p-6 max-w-xl backdrop:bg-black/70">
+    <dialog data-penalty-dialog class="game-penalty-dialog">
         <h2 class="game-event-title text-yellow-300">Referee announcement</h2>
+        <div class="game-penalty-body">
         <div data-penalty-referee class="text-center"></div>
         <p class="mt-3 font-semibold">{{ ucwords(str_replace('_', ' ', $last['penalty']['type'])) }}</p>
         <p class="mt-3">On {{ $teamNames[$last['penalty']['team']] }}.</p>
         <p class="mt-3 text-gray-300">{{ $last['penalty']['explanation'] }}</p>
         @if(!($last['no_snap'] ?? false) && isset($last['penalty']['play_result']))<p class="mt-3 text-gray-300">Play result: {{ $last['penalty']['play_result'] }}</p>@endif
         <p class="mt-3 text-sm text-gray-400">Yardage is reduced to half the distance to the goal when needed.</p>
+        </div>
+        <div class="game-penalty-actions">
         @if($state['penalty_pending'] ?? false)
             <p class="mt-3">{{ $teamNames[$last['penalty']['beneficiary']] }} chooses:</p>
             <div class="grid gap-3 mt-4">
@@ -305,8 +308,8 @@
                 @php($option = $last['penalty_options'][$decision]['state'])
                 <form data-penalty-form method="POST" action="{{ route('exhibitions.play', $exhibition) }}">@csrf
                     <input type="hidden" name="version" value="{{ $state['version'] }}"><input type="hidden" name="action" value="penalty"><input type="hidden" name="decision" value="{{ $decision }}">
-                    <button class="bg-blue-700 rounded px-5 py-2">{{ $label }}</button>
-                    <span class="ml-2 text-sm">{{ $teamNames[$option['possession']] }} · Down {{ $option['down'] }} & {{ $option['distance'] >= 100 - $option['spot'] ? 'Goal' : $option['distance'] }} · {{ $option['spot'] <= 50 ? 'Own '.$option['spot'] : 'Opponent '.(100-$option['spot']) }} · Score {{ $option['away_score'] }}–{{ $option['home_score'] }}</span>
+                    <button type="submit" class="game-penalty-choice">{{ $label }}</button>
+                    <span class="block mt-1 text-xs">{{ $teamNames[$option['possession']] }} · Down {{ $option['down'] }} & {{ $option['distance'] >= 100 - $option['spot'] ? 'Goal' : $option['distance'] }} · {{ $option['spot'] <= 50 ? 'Own '.$option['spot'] : 'Opponent '.(100-$option['spot']) }} · Score {{ $option['away_score'] }}–{{ $option['home_score'] }}</span>
                 </form>
             @endforeach
             </div>
@@ -314,6 +317,8 @@
             <p class="mt-3">{{ $teamNames[$last['penalty']['beneficiary']] }} CPU {{ $last['penalty']['accepted'] ? 'accepted' : 'declined' }} the penalty.</p>
             <form method="dialog"><button class="bg-blue-700 rounded px-5 py-2 mt-5">OK</button></form>
         @endif
+        <p data-penalty-saving hidden role="status" class="mt-2 text-blue-200">Saving penalty decision…</p>
+        </div>
     </dialog>
     @endif
     <?php
