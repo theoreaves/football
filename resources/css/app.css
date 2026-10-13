@@ -323,3 +323,11 @@
 .game-penalty-choice { display: block; width: 100%; min-height: 48px; padding: 12px 20px; border: 1px solid #93c5fd; border-radius: 8px; background: #1d4ed8; color: white; font-size: 18px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
 .game-penalty-choice:focus-visible { outline: 3px solid #facc15; outline-offset: 2px; }
 .game-penalty-choice:disabled { opacity: .65; cursor: wait; }
+
+/* Shared response for mouse, touch and keyboard activation. */
+button:active, input[type="submit"]:active, input[type="button"]:active, .button-was-pressed { filter: brightness(.8); box-shadow: inset 0 2px 5px #0005; }
+.button-is-working { cursor: progress; pointer-events: none; }
+.button-feedback-spinner { display: inline-block; width: 1em; height: 1em; margin-left: .5em; vertical-align: -.12em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: button-feedback-spin .7s linear infinite; }
+.button-feedback-status { position: fixed; z-index: 10000; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); padding: 10px 16px; border: 1px solid #93c5fd; border-radius: 10px; background: #14233b; color: white; font-weight: 600; pointer-events: none; box-shadow: 0 4px 16px #0005; }
+@keyframes button-feedback-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .button-feedback-spinner { animation: none; } }

@@ -1,3 +1,4 @@
+import { mountButtonFeedback } from './button-feedback.js';
 import { mountSimProgress } from './sim-progress.js';
 import { mountSeasonBoxScores } from './season-box-scores.js';
 import { mountSeasonDepth } from './season-depth.js';
@@ -5,6 +6,7 @@ import { mountSeasonRoster } from './season-roster.js';
 import { mountSeasonSetup } from './season-setup.js';
 function initializePractice() {
     mountSimProgress();
+    mountButtonFeedback();
     const teamEditor = document.querySelector('[data-team-editor]');
     if (teamEditor) import('./team-settings.js').then(module => module.mountTeamSettings(teamEditor));
     document.querySelectorAll('[data-player-tabs]').forEach(root => {
