@@ -169,8 +169,9 @@
             $resultReceiver = $last['receiver_role'] ?? null;
             $resultCarrier = $last['carrier'] ?? 'RB';
             $resultPlayers = [];
-            $addResultPlayer = function (string $side, string $role, string $label) use (&$resultPlayers, $exhibition) {
-                $person = $exhibition->rosters[$side]['players'][$role] ?? null;
+            $resultRoster = app(\App\Services\Simulation\SavedPlayPersonnel::class)->rosters($exhibition->rosters, $last);
+            $addResultPlayer = function (string $side, string $role, string $label) use (&$resultPlayers, $resultRoster) {
+                $person = $resultRoster[$side]['players'][$role] ?? null;
                 if (!$person) return;
                 foreach ($resultPlayers as $existing) {
                     if (($existing['player']['id'] ?? null) === ($person['id'] ?? null)) return;
@@ -183,7 +184,7 @@
                 $addResultPlayer($resultSide, 'P', 'Punter');
             } elseif (in_array($resultCall, ['kickoff'], true)) {
                 $addResultPlayer($resultSide, 'K', 'Kicker');
-            } elseif ($resultReceiver !== null && isset($exhibition->rosters[$resultSide]['players'][$resultReceiver])) {
+            } elseif ($resultReceiver !== null && isset($resultRoster[$resultSide]['players'][$resultReceiver])) {
                 $addResultPlayer($resultSide, 'QB', 'Quarterback');
                 $addResultPlayer($resultSide, $resultReceiver, 'Target');
                 if ($resultOutcome === 'interception') $addResultPlayer($otherSide, 'CB1', 'Interception');

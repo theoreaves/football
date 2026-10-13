@@ -15,10 +15,26 @@ class ExhibitionBoxScore
         foreach (['home', 'away'] as $side) {
             $teams[$side] = ['plays' => 0, 'yards' => 0, 'rushing_yards' => 0, 'passing_yards' => 0, 'first_downs' => 0, 'turnovers' => 0, 'penalties' => 0, 'penalty_yards' => 0, 'possession_seconds' => 0];
             foreach ($game->rosters[$side]['players'] as $role => $person) {
-                $players[$side][$role] = array_merge(array_intersect_key($person, array_flip(['id', 'name', 'number'])), ['role' => $role, 'pass_attempts' => 0, 'completions' => 0, 'passing_yards' => 0, 'passing_td' => 0, 'interceptions' => 0, 'rushes' => 0, 'rushing_yards' => 0, 'rushing_td' => 0, 'targets' => 0, 'receptions' => 0, 'receiving_yards' => 0, 'receiving_td' => 0, 'sacks' => 0, 'fg_attempts' => 0, 'fg_made' => 0, 'xp_attempts' => 0, 'xp_made' => 0, 'punts' => 0, 'punt_yards' => 0, 'returns' => 0, 'return_yards' => 0, 'return_td' => 0, 'tackles' => 0, 'defensive_sacks' => 0, 'defensive_interceptions' => 0, 'fumble_recoveries' => 0, 'fumbles_lost' => 0]);
+                $players[$side][$role] = $this->playerRow($person, $role);
+            }
+        }
+        $totals = $players;
+        $identityKeys = [];
+        foreach ($totals as $side => $rows) {
+            foreach ($rows as $key => $row) {
+                $identityKeys[$side][$row['id']] = $key;
             }
         }
         foreach ($game->history as $play) {
+            $snap = app(SavedPlayPersonnel::class)->rosters($game->rosters, $play);
+            foreach ($snap as $snapSide => $roster) {
+                foreach ($roster['players'] as $role => $person) {
+                    $key = $identityKeys[$snapSide][$person['id']] ??= 'player-'.$person['id'];
+                    $totals[$snapSide][$key] ??= $this->playerRow($person, $role);
+                    // Existing scoring rules use roles; point each role at this snap's identity.
+                    $players[$snapSide][$role] = &$totals[$snapSide][$key];
+                }
+            }
             $before = $play['before'];
             $after = $play['after'];
             $side = $before['possession'];
@@ -127,6 +143,13 @@ class ExhibitionBoxScore
             }
         }
 
+        $players = $totals;
+
         return compact('quarters', 'teams', 'players', 'scoring');
+    }
+
+    private function playerRow(array $person, string $role): array
+    {
+        return array_merge(array_intersect_key($person, array_flip(['id', 'name', 'number'])), ['role' => $role, 'pass_attempts' => 0, 'completions' => 0, 'passing_yards' => 0, 'passing_td' => 0, 'interceptions' => 0, 'rushes' => 0, 'rushing_yards' => 0, 'rushing_td' => 0, 'targets' => 0, 'receptions' => 0, 'receiving_yards' => 0, 'receiving_td' => 0, 'sacks' => 0, 'fg_attempts' => 0, 'fg_made' => 0, 'xp_attempts' => 0, 'xp_made' => 0, 'punts' => 0, 'punt_yards' => 0, 'returns' => 0, 'return_yards' => 0, 'return_td' => 0, 'tackles' => 0, 'defensive_sacks' => 0, 'defensive_interceptions' => 0, 'fumble_recoveries' => 0, 'fumbles_lost' => 0]);
     }
 }

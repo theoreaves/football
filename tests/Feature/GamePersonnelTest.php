@@ -128,3 +128,41 @@ test('availability panel and new player ratings are rendered for captured roster
     $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Depth chart and availability')->assertSee('Backup');
     $this->get(route('teams.editor.teams.players.create', $teams[0]))->assertOk()->assertSee('Stamina')->assertSee('Durability');
 });
+
+test('running back substitutions credit saved snap identities across a midgame lineup change', function () {
+    $engine = app(ExhibitionEngine::class);
+    $starter = $this->rosters['home']['players']['RB'];
+    $backup = collect($this->rosters['home']['pool'])->first(fn ($p) => $p['position'] === 'RB' && $p['id'] !== $starter['id']);
+    $state = $engine->initial(900, 42, false);
+    $state['rules']['penalties'] = false;
+    $state['rules']['injuries'] = false;
+    $first = $engine->resolve($state, $this->rosters, 'inside_run', 'man_to_man', devForceResult: 'big_play');
+    $state = $first['state'];
+    $state['game_lineup']['home']['RB'] = $backup['id'];
+    $second = $engine->resolve($state, $this->rosters, 'inside_run', 'man_to_man', devForceResult: 'big_play');
+    $secondTrack = collect($second['play']['animation']['players'])->first(fn ($p) => $p['side'] === 'home' && $p['role'] === 'RB');
+    expect($secondTrack['id'])->toBe($backup['id']);
+    $saved = app(\App\Services\Simulation\SavedPlayPersonnel::class);
+    expect($saved->rosters($this->rosters, $first['play'])['home']['players']['RB']['id'])->toBe($starter['id']);
+    expect($saved->rosters($this->rosters, $second['play'])['home']['players']['RB']['id'])->toBe($backup['id']);
+    $game = new \App\Models\Exhibition(['state' => $second['state'], 'rosters' => $this->rosters, 'history' => [$first['play'], $second['play']]]);
+    $score = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game);
+    $rows = collect($score['players']['home'])->keyBy('id');
+    expect($rows[$starter['id']]['rushes'])->toBe(1)->and($rows[$backup['id']]['rushes'])->toBe(1);
+    expect($rows[$starter['id']]['rushing_yards'])->toBe($first['play']['gain']);
+    expect($rows[$backup['id']]['rushing_yards'])->toBe($second['play']['gain']);
+    expect(collect($score['players']['home'])->sum('rushing_yards'))->toBe($score['teams']['home']['rushing_yards']);
+    // Historical plays retain credit even after the current lineup changes again.
+    $changed = $second['state'];
+    $changed['game_lineup']['home']['RB'] = $starter['id'];
+    $game->state = $changed;
+    expect(app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game)['players'])->toBe($score['players']);
+    $teams = Team::all();
+    $game->home_team_id = $teams[0]->id;
+    $game->away_team_id = $teams[1]->id;
+    $game->save();
+    $html = $this->get(route('exhibitions.show', $game))->assertOk()->getContent();
+    preg_match('/aria-label="Players involved in this play"(.*?)data-result-ok/s', $html, $match);
+    expect($match[1] ?? '')->toContain(e($backup['name']))->not->toContain('Portrait of '.e($starter['name']));
+
+});
