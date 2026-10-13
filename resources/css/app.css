@@ -291,6 +291,9 @@
 .season-human-game-badge { display: inline-block; padding: 2px 6px; border-radius: 5px; background: #1e3a8a; color: #bfdbfe; font-size: 11px; white-space: nowrap; }
 
 .sim-progress, .game-stage > .sim-progress { position: fixed; inset: 0; z-index: 20000; display: grid; place-items: center; padding: 24px; background: rgb(2 6 23 / 75%); }
+dialog.sim-progress { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; border: 0; color: #f8fafc; }
+dialog.sim-progress:not([open]) { display: none; }
+dialog.sim-progress::backdrop { background: rgb(2 6 23 / 75%); }
 .sim-progress-card { max-width: 360px; padding: 28px; border: 1px solid #475569; border-radius: 14px; background: #0f172a; color: #f8fafc; text-align: center; box-shadow: 0 20px 60px #0008; }
 .sim-progress-card strong { display: block; font-size: 22px; }
 .sim-progress-card p { margin-top: 10px; font-size: 14px; color: #cbd5e1; }

@@ -8,5 +8,6 @@
     <input type="hidden" name="return_tab" value="{{ request('tab') === 'schedule' ? 'schedule' : 'overview' }}">
     <button class="landing-button" @disabled(!$cpuGames)>Sim all CPU vs CPU Games ({{ $cpuGames }})</button>
     <span>Week {{ $season->current_week }} · Unstarted games only</span>
+    <p data-sim-status hidden role="status" aria-live="polite" class="w-full text-blue-200"></p>
 </form>
 @endif

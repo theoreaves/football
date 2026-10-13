@@ -11,15 +11,19 @@ export function hideSimProgress() {
 
 export function showSimProgress(batch = false) {
     if (overlay?.isConnected) return;
-    overlay = document.createElement('div');
+    overlay = document.createElement('dialog');
     overlay.className = 'sim-progress';
-    overlay.setAttribute('role', 'status');
-    overlay.setAttribute('aria-live', 'polite');
-    overlay.innerHTML = '<div class="sim-progress-card"><span class="sim-progress-spinner" aria-hidden="true"></span><strong>Simulating'+(batch ? ' CPU games' : ' game')+'…</strong><p>Please wait while the games are played and results are saved.</p></div>';
+    overlay.setAttribute('aria-label',batch ? 'CPU game simulation progress' : 'Game simulation progress');
+    overlay.addEventListener('cancel',event=>event.preventDefault());
+    overlay.innerHTML = '<div class="sim-progress-card" role="status" aria-live="polite" aria-atomic="true"><span class="sim-progress-spinner" aria-hidden="true"></span><strong>Simulating'+(batch ? ' CPU games' : ' game')+'…</strong><p>Please wait while the games are played and results are saved.</p></div>';
     (document.fullscreenElement || document.body).append(overlay);
+    if (typeof overlay.showModal === 'function') overlay.showModal();
+    else overlay.setAttribute('open','');
 }
 
 export function mountSimProgress() {
+    // Livewire initializes the page again; keep an active batch's UI mounted.
+    if (batchRunning) return;
     hideSimProgress();
     if (mounted) return;
     mounted = true;
@@ -46,7 +50,9 @@ export function mountSimProgress() {
         const payload = new FormData(form);
         let total = Number(form.dataset.simCount) || 0;
         const message = overlay.querySelector('p');
-        message.textContent = `Completed 0 of ${total} games. Each game is saved before the next begins.`;
+        const inlineStatus = form.querySelector('[data-sim-status]');
+        const updateProgress = text => {message.textContent = text;if(inlineStatus){inlineStatus.hidden = false;inlineStatus.textContent = text;}};
+        updateProgress(`Completed 0 of ${total} games. Each game is saved before the next begins.`);
         runCpuSimBatch(async () => {
             const response = await fetch(form.action, {method:'POST',body:payload,credentials:'same-origin',signal:controller.signal,
                 headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});
@@ -59,14 +65,14 @@ export function mountSimProgress() {
             return response.json();
         }, ({completed,remaining}) => {
             total = completed + remaining;
-            message.textContent = `Completed ${completed} of ${total} games · ${remaining} remaining.`;
+            updateProgress(`Completed ${completed} of ${total} games · ${remaining} remaining.`);
         }).then(result => {
             window.location.assign(result.redirect);
         }).catch(error => {
             if (controller.signal.aborted || !progressOverlay.isConnected) return;
             progressOverlay.querySelector('.sim-progress-spinner')?.remove();
             progressOverlay.querySelector('strong').textContent = 'Simulation paused';
-            message.textContent = `${error.message} Completed games are saved. Retry continues with unstarted CPU games.`;
+            updateProgress(`${error.message} Completed games are saved. Retry continues with unstarted CPU games.`);
             const retry = document.createElement('button');retry.type = 'button';retry.className = 'landing-button mt-4';retry.textContent = 'Retry remaining games';
             retry.addEventListener('click',()=>{hideSimProgress();form.requestSubmit(button);});
             const close = document.createElement('button');close.type = 'button';close.className = 'landing-button mt-4';close.textContent = 'Reload results';
@@ -79,5 +85,5 @@ export function mountSimProgress() {
             if (button) {button.disabled = initialDisabled;button.removeAttribute('aria-busy');}
         });
     });
-    window.addEventListener('pageshow', hideSimProgress);
+    window.addEventListener('pageshow',()=>{if(!batchRunning)hideSimProgress();});
 }
