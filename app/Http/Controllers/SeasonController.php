@@ -157,10 +157,21 @@ class SeasonController extends Controller
     public function simCpu(Request $request, Season $season)
     {
         $data = $request->validate(['week' => ['required', 'integer', 'min:1'], 'return_tab' => ['sometimes', Rule::in(['overview', 'schedule'])]]);
-        $count = app(\App\Services\Seasons\SeasonGames::class)->simCpuWeek($season, (int) $data['week']);
+        $games = app(\App\Services\Seasons\SeasonGames::class);
+        $count = $games->simCpuWeek($season, (int) $data['week']);
+        $remaining = $games->remainingCpuGames($season->fresh(), (int) $data['week']);
+        $redirect = route('seasons.show', ['season' => $season, 'tab' => $data['return_tab'] ?? 'overview']);
+        if ($request->expectsJson()) {
+            if ($remaining === 0) {
+                $request->session()->flash('status', 'CPU simulation complete. Results are below.');
+            }
 
-        return redirect()->route('seasons.show', ['season' => $season, 'tab' => $data['return_tab'] ?? 'overview'])
-            ->with('status', $count ? "Simulated {$count} CPU vs CPU game(s). Results are below." : 'No unstarted CPU vs CPU games remain this week.');
+            return response()->json(['simulated' => $count, 'remaining' => $remaining, 'redirect' => $redirect]);
+        }
+
+        return redirect($redirect)->with('status', $count
+            ? "Simulated {$count} CPU vs CPU game(s). Results are below.".($remaining ? " {$remaining} remain; click Sim all CPU vs CPU Games to continue." : '')
+            : 'No unstarted CPU vs CPU games remain this week.');
     }
 
     public function boxScore(Season $season, \App\Models\SeasonFixture $fixture)

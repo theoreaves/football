@@ -430,3 +430,46 @@ test('splitting Quick Sim at a quarter preserves the deterministic game outcomes
     $continued = $sim->run($quarter['state'], $game->rosters, $quarter['history']);
     expect($continued['state'])->toEqual($whole['state'])->and($continued['history'])->toEqual($whole['history']);
 });
+
+test('bulk CPU HTTP requests commit one game at a time and report resumable progress', function () {
+    $season = $this->season;
+    $settings = $season->settings;
+    foreach ($settings['members'] as &$member) {
+        $member['control'] = 'cpu';
+    }
+    unset($member);
+    $season->update(['settings' => $settings]);
+    expect($season->fixtures()->where('week', 1)->count())->toBe(2);
+    $url = route('seasons.sim-cpu', $season);
+    $this->postJson($url, ['week' => 1, 'return_tab' => 'schedule'])->assertOk()->assertJson([
+        'simulated' => 1, 'remaining' => 1, 'redirect' => route('seasons.show', ['season' => $season, 'tab' => 'schedule']),
+    ]);
+    $saved = Exhibition::firstOrFail()->only(['id', 'state', 'history', 'rosters']);
+    expect($season->fixtures()->where('week', 1)->where('status', 'final')->count())->toBe(1);
+    $this->assertDatabaseCount('exhibitions', 1);
+    // A later click/resume does not rerun the result that was already committed.
+    $this->postJson($url, ['week' => 1])->assertOk()->assertJson(['simulated' => 1, 'remaining' => 0]);
+    expect(Exhibition::findOrFail($saved['id'])->only(['id', 'state', 'history', 'rosters']))->toBe($saved);
+    expect($season->fixtures()->where('week', 1)->where('status', 'final')->count())->toBe(2);
+    $this->postJson($url, ['week' => 1])->assertOk()->assertJson(['simulated' => 0, 'remaining' => 0]);
+    $this->assertDatabaseCount('exhibitions', 2);
+    $this->postJson($url, ['week' => 2])->assertStatus(409);
+});
+
+test('bulk sim keeps earlier commits if a subsequent game cannot start', function () {
+    $season = $this->season;
+    $settings = $season->settings;
+    foreach ($settings['members'] as &$member) {
+        $member['control'] = 'cpu';
+    }
+    unset($member);
+    $season->update(['settings' => $settings]);
+    $this->postJson(route('seasons.sim-cpu', $season), ['week' => 1])->assertOk()->assertJson(['remaining' => 1]);
+    $saved = Exhibition::firstOrFail()->only(['id', 'state', 'history']);
+    $remaining = $season->fixtures()->where('week', 1)->whereNull('exhibition_id')->firstOrFail();
+    $remaining->homeTeam->players()->detach();
+    $this->postJson(route('seasons.sim-cpu', $season), ['week' => 1])->assertStatus(422);
+    $this->assertDatabaseCount('exhibitions', 1);
+    expect(Exhibition::findOrFail($saved['id'])->only(['id', 'state', 'history']))->toBe($saved);
+    expect($remaining->fresh()->exhibition_id)->toBeNull()->and($remaining->fresh()->status)->toBe('scheduled');
+});

@@ -66,18 +66,29 @@ class SeasonGames
         return DB::transaction(function () use ($season, $week) {
             $season = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
             abort_unless($season->phase === 'regular_season' && (int) $season->current_week === $week, 409, 'Reload the current season week before simulating.');
-            $count = 0;
-            foreach ($season->fixtures()->where('week', $week)->whereNull('exhibition_id')->where('status', 'scheduled')->orderBy('id')->get() as $fixture) {
-                $members = $season->settings['members'];
-                if (($members[$fixture->home_team_id]['control'] ?? 'human') !== 'cpu' || ($members[$fixture->away_team_id]['control'] ?? 'human') !== 'cpu') {
-                    continue;
-                }
-                $this->start($season, $fixture, true);
-                $count++;
+            // One game per HTTP request: commit its result before the browser
+            // requests another. The season lock serializes competing clicks.
+            $fixture = $this->pendingCpuGames($season, $week)->orderBy('id')->first();
+            if (! $fixture) {
+                return 0;
             }
+            $this->start($season, $fixture, true);
 
-            return $count;
+            return 1;
         }, 3);
+    }
+
+    public function remainingCpuGames(Season $season, int $week): int
+    {
+        return $this->pendingCpuGames($season, $week)->count();
+    }
+
+    private function pendingCpuGames(Season $season, int $week)
+    {
+        $cpuTeams = array_keys(array_filter($season->settings['members'], fn ($member) => ($member['control'] ?? 'human') === 'cpu'));
+
+        return $season->fixtures()->where('week', $week)->whereNull('exhibition_id')->where('status', 'scheduled')
+            ->whereIn('home_team_id', $cpuTeams)->whereIn('away_team_id', $cpuTeams);
     }
 
     public function record(Exhibition $game): void
