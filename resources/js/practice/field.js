@@ -1,3 +1,4 @@
+import {isSpecialTeamCall,kickFormation} from './special-teams-options.js';
 import {manualGameScreens,screenTimerExpired} from './screen-timers.js';
 import {buildResultReferee} from './result-referee.js';
 import {idlePlayerPose} from './idle-player.js';
@@ -609,7 +610,8 @@ export function mountPractice(root, onReady = () => {}) {
                     mesh.position.y = fall * (defender ? .08 : .12);
                 }
             }
-            const kneelingHolder = animation?.players?.[i]?.pose === 'holder-kneel' && ['set', 'play', 'result'].includes(phase);
+            const fakeHolder = animation?.fake_kick && animation.design?.startsWith('fake_field_goal') && player.team === 'offense' && player.role === 'QB';
+            const kneelingHolder = fakeHolder ? phase === 'set' || (phase === 'play' && elapsed < .5) : animation?.players?.[i]?.pose === 'holder-kneel' && ['set', 'play', 'result'].includes(phase);
             mesh.userData.holderKneel = kneelingHolder;
             if (kneelingHolder) {
                 mesh.position.y = -.45;
@@ -793,7 +795,7 @@ export function mountPractice(root, onReady = () => {}) {
             // short lateral steps. This affects meshes only, not play tracks,
             // the ball, outcomes or replays. Special teams keep their own poses.
             const blocking = phase === 'play' && animation && !animation.no_snap
-                && !['kickoff', 'punt', 'field_goal', 'extra_point', 'spike', 'kneel'].includes(animation.call)
+                && !['kickoff', 'onside_kick', 'punt', 'field_goal', 'extra_point', 'spike', 'kneel'].includes(animation.call)
                 && (offensiveLine || centerStance || defensiveLine);
             if (blocking) {
                 const engage = Math.min(1, Math.max(0, (elapsed - .22) / .35));
@@ -1139,7 +1141,7 @@ export function mountPractice(root, onReady = () => {}) {
         // During the snap, the center presents the ball low between his legs.
         // The ball then moves directly to the QB; on runs he gives it to the RB.
         if (['set', 'play'].includes(phase) && animation && !animation.no_snap
-            && !['kickoff', 'punt', 'field_goal', 'extra_point'].includes(animation.call)
+            && !['kickoff', 'onside_kick', 'punt', 'field_goal', 'extra_point'].includes(animation.call)
             && (phase !== 'play' || elapsed < 1.02)) {
             const getOffense = role => {
                 const index = frame.players.findIndex(p => p.team === 'offense' && p.role === role);
@@ -1193,13 +1195,13 @@ export function mountPractice(root, onReady = () => {}) {
         ball.rotation.set(spiralFlight ? (elapsed - (animation.throw_at ?? 2.2)) * 28 : 0, 0, 0);
         // Kicks tumble end-over-end instead of spiraling like thrown passes.
         // Keep a kickoff upright on the tee until the foot reaches the ball.
-        const kickingPlay = ['kickoff', 'punt', 'field_goal', 'extra_point'].includes(animation?.call);
+        const kickingPlay = ['kickoff', 'onside_kick', 'punt', 'field_goal', 'extra_point'].includes(animation?.call);
         if (kickingPlay) {
             const launch = 1.2;
-            if (animation.call === 'kickoff' && elapsed < launch) {
+            if (['kickoff','onside_kick'].includes(animation.call) && elapsed < launch) {
                 ball.rotation.z = Math.PI / 2;
             } else if (phase === 'play' && elapsed >= launch && elapsed <= 3.5) {
-                ball.rotation.z = (animation.call === 'kickoff' ? Math.PI / 2 : 0)
+                ball.rotation.z = (['kickoff','onside_kick'].includes(animation.call) ? Math.PI / 2 : 0)
                     + (elapsed - launch) * 18;
             }
         }
@@ -1329,25 +1331,25 @@ export function mountPractice(root, onReady = () => {}) {
                 defense.replaceChildren(...options[call.value].filter(value => !['blitz', 'run_stop'].includes(value)).map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); return option; }));
                 if ([...defense.options].some(option => option.value === selected)) defense.value = selected;
             }
-            const special = call ? ['punt','field_goal','kickoff','extra_point'].includes(call.value) : root.dataset.cpuSpecial === 'true';
+            const special = call ? isSpecialTeamCall(call.value) : root.dataset.cpuSpecial === 'true';
             callForm.querySelectorAll('[data-formation]').forEach(select => select.parentElement.hidden = special);
         };
         call?.addEventListener('change', refreshCalls); refreshCalls();
         const formation = callForm.querySelector('[name="offense_formation"]');
         const allCalls = call ? [...call.options].map(option => ({value: option.value, text: option.textContent})) : [];
-        const phaseCalls = allCalls.length > 0 && allCalls.every(option => ['kickoff','extra_point','two_point_run','two_point_pass'].includes(option.value));
+        const phaseCalls = allCalls.length > 0 && allCalls.every(option => ['kickoff','onside_kick','extra_point','two_point_run','two_point_pass'].includes(option.value));
         const formationCalls = JSON.parse(root.dataset.offensiveOptions || '{}');
         const refreshFormation = () => {
             if (!call || !formation || phaseCalls || !formationCalls[formation.value]) return;
             const selected = call.value;
-            const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || (!['punt','field_goal'].includes(formation.value) && ['kickoff','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value)));
+            const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || (!['punt','field_goal'].includes(formation.value) && ['kickoff','onside_kick','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value)));
             call.replaceChildren(...choices.map(({value,text}) => new Option(text,value)));
             if (choices.some(option => option.value === selected)) call.value = selected;
             refreshCalls();
         };
         formation?.addEventListener('change', refreshFormation); refreshFormation();
         callForm.querySelector('[data-coach-offense]')?.addEventListener('click', () => {
-            const plan = JSON.parse(root.dataset.coachOffense); formation.value = ['punt','field_goal'].includes(plan.call) ? plan.call : plan.formation; refreshFormation(); call.value = plan.call; callForm.querySelector('[name="motion"]').value = plan.motion || 'none'; refreshCalls();
+            const plan = JSON.parse(root.dataset.coachOffense); formation.value = kickFormation(plan.call) || plan.formation; refreshFormation(); call.value = plan.call; callForm.querySelector('[name="motion"]').value = plan.motion || 'none'; refreshCalls();
         });
         callForm.querySelector('[data-coach-defense]')?.addEventListener('click', () => {
             const plan = JSON.parse(root.dataset.coachDefense);

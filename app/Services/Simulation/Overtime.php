@@ -93,6 +93,9 @@ class Overtime
         if ($live && $phase === 'scrimmage' && ($state['possession'] !== $side || $state['phase'] !== 'scrimmage')) {
             $ot['completed'][$side] = true;
         }
+        if ($live && $phase === 'kickoff' && ($play['outcome'] ?? '') === 'onside_recovered') {
+            $ot['completed'][$other] = true;
+        }
         // A return touchdown ends the receiving team's initial opportunity too.
         if ($live && $phase === 'kickoff' && $state['phase'] === 'extra_point') {
             $ot['completed'][$state['possession']] = true;

@@ -19,6 +19,9 @@ class CpuCoach
                 return ['call' => 'two_point_pass', 'formation' => 'shotgun'];
             }
         }
+        if ($phase === 'kickoff' && SpecialTeamsTricks::cpuOnside($state)) {
+            return ['call' => 'onside_kick', 'formation' => 'singleback'];
+        }
         if ($phase !== 'scrimmage') {
             return ['call' => $phase === 'kickoff' ? 'kickoff' : 'extra_point', 'formation' => 'singleback'];
         }
@@ -44,10 +47,10 @@ class CpuCoach
             $distance = 117 - $state['spot'];
             $range = 40 + ($players['K']['ratings']['kicking'] - 50) * .3;
             if ($distance <= $range) {
-                return ['call' => 'field_goal', 'formation' => 'singleback'];
+                return SpecialTeamsTricks::cpuFake($state, 'field_goal') ?? ['call' => 'field_goal', 'formation' => 'singleback'];
             }
             if ($state['spot'] < 60 || $state['distance'] > 2 || ($aggression < 0 && $this->roll($state, 'fourth-down') < -$aggression)) {
-                return ['call' => 'punt', 'formation' => 'singleback'];
+                return SpecialTeamsTricks::cpuFake($state, 'punt') ?? ['call' => 'punt', 'formation' => 'singleback'];
             }
         }
         $passSkill = ($players['QB']['ratings']['throwing'] + $players['WR1']['ratings']['catching']) / 2;
@@ -99,7 +102,7 @@ class CpuCoach
     public function defense(array $state, string $call): array
     {
         $special = match ($call) {
-            'punt' => 'punt_return', 'field_goal', 'extra_point' => 'field_goal_block', 'kickoff' => 'kickoff_return', default => null,
+            'punt', 'fake_punt_run', 'fake_punt_pass' => 'punt_return', 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass', 'extra_point' => 'field_goal_block', 'kickoff' => 'kickoff_return', 'onside_kick' => 'onside_return', default => null,
         };
         if ($special) {
             return ['call' => $special, 'formation' => 'base_4_3'];

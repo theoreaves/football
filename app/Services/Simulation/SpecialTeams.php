@@ -6,6 +6,9 @@ class SpecialTeams
 {
     public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation, string $defenseFormation): array
     {
+        if ($call === 'onside_kick') {
+            return app(OnsideKick::class)->resolve($state, $rosters, $defense, $offenseFormation, $defenseFormation);
+        }
         $before = $state;
         $side = $state['possession'];
         $other = $side === 'home' ? 'away' : 'home';

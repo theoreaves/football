@@ -20,7 +20,7 @@ class PenaltyRules
             return null;
         }
 
-        if (! ($before['rules']['penalties'] ?? false) || isset($play['penalty']) || ($play['no_snap'] ?? false) || in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'spike', 'kneel'], true)) {
+        if (! ($before['rules']['penalties'] ?? false) || isset($play['penalty']) || ($play['no_snap'] ?? false) || in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'onside_kick', 'extra_point', 'spike', 'kneel'], true)) {
             return null;
         }
         if (($play['dev_force_flag'] ?? false) === true) {

@@ -112,6 +112,10 @@ class PlayTimeline
                 }
             }
         }
+        if ($play['fake_kick'] ?? false) {
+            $offense['QB'] = [str_starts_with($play['design'], 'fake_punt') ? -12 : -7, 26.7];
+            $offense['RB'] = [-9, 29];
+        }
         $motion = $play['motion'] ?? 'none';
         $motionStart = isset($offense[$motion]) ? $offense[$motion][1] : null;
         if ($motionStart !== null) {
@@ -155,7 +159,7 @@ class PlayTimeline
             $receiverRole, $play['receiver_id'] ?? 0,
         ])));
         $visualVariant = $visualSeed % 12;
-        $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true);
+        $special = in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'onside_kick', 'extra_point'], true);
         // Run toward a catch point near the actual receiver, not WR1's fixed sideline.
         $receiverZ = $offense[$receiverRole][1] ?? $offense['WR1'][1];
         $inside = $receiverZ < 26.7 ? 1 : -1;
@@ -451,7 +455,7 @@ class PlayTimeline
         $contactDefender = $contactTackler;
         $contactAt = $contactStyle !== null ? 5.3 : null;
 
-        $animation = ['design' => $design, 'qb_designed_run' => $qbDesigned, 'tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
+        $animation = ['design' => $design, 'qb_designed_run' => $qbDesigned, 'tackle_style' => $contactStyle, 'tackler_role' => $contactDefender, 'motion_defender' => $motionDefender, 'motion_defender_start' => $motionDefenderStart, 'motion_defender_end' => $motionDefender !== null ? $defense[$motionDefender][1] : null, 'motion' => $motion, 'motion_start' => $motionStart, 'motion_end' => $motionStart !== null ? $offense[$motion][1] : null, 'contact_at' => $contactAt, 'carrier' => $play['carrier'], 'dropback' => in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'two_point_pass'], true), 'passing' => $pass || ($play['throwaway'] ?? false), 'throw_at' => 2.2, 'call' => $play['call'], 'fake_kick' => (bool) ($play['fake_kick'] ?? false), 'duration' => 6, 'players' => $tracks, 'ball' => $ball, 'ballHolders' => $holders, 'events' => $events, 'line' => $line,
             'firstDown' => max(10, min(110, $line + $direction * $play['before']['distance'])),
             'possession' => $side, 'animation_variant' => $visualVariant,
             'receiver_role' => $pass ? $receiverRole : null, 'outcome' => $play['outcome'], 'gain' => $play['gain'],

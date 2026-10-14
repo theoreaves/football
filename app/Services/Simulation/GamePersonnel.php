@@ -14,7 +14,7 @@ class GamePersonnel
             $specialistRole = null;
             $specialist = null;
             if ($side === ($state['possession'] ?? null) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
-                && ! in_array($call, ['punt', 'field_goal', 'extra_point', 'kickoff'], true)
+                && ! in_array($call, ['punt', 'field_goal', 'extra_point', 'kickoff', 'onside_kick', ...SpecialTeamsTricks::FAKES], true)
                 && (($state['down'] ?? 1) === 3 || ($state['distance'] ?? 10) <= 2)
                 && ! isset($preferences['RB'])) {
                 $specialistRole = 'RB';

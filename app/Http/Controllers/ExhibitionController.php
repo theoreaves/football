@@ -133,9 +133,19 @@ class ExhibitionController extends Controller
                 'offense_formation' => $coachSuggestion['formation'] ?? 'shotgun',
                 'defense_formation' => $coachDefense['formation'] ?? 'base_4_3'];
             $nextPersonnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state, $plannedCall);
+            $fake = in_array($plannedCall, \App\Services\Simulation\SpecialTeamsTricks::FAKES, true);
+            if ($fake) {
+                $nextPersonnel = \App\Services\Simulation\SpecialTeamsTricks::personnel($nextPersonnel, $exhibition->state['possession'], $plannedCall);
+                $nextPreview['design'] = $plannedCall;
+                $nextPreview['fake_kick'] = true;
+                $nextPreview['qb_designed_run'] = str_ends_with($plannedCall, '_run');
+                $nextPreview['call'] = \App\Services\Simulation\OffensiveOptions::canonical($plannedCall);
+                $nextPreview['carrier'] = str_ends_with($plannedCall, '_run') ? 'QB' : 'TE';
+                $nextPreview['receiver_role'] = str_ends_with($plannedCall, '_pass') ? 'TE' : null;
+            }
             $nextTimeline = app(\App\Services\Simulation\PlayTimeline::class)->build($nextPreview, $nextPersonnel);
-            if (in_array($plannedCall, ['punt', 'field_goal', 'extra_point', 'kickoff'], true)) {
-                $nextTimeline = app(\App\Services\Simulation\SpecialTeamsTimeline::class)->build($nextPreview + ['landing' => $exhibition->state['spot'], 'return_yards' => 0], $nextPersonnel);
+            if (in_array($plannedCall, ['punt', 'field_goal', 'extra_point', 'kickoff', 'onside_kick'], true)) {
+                $nextTimeline = app(\App\Services\Simulation\SpecialTeamsTimeline::class)->build($nextPreview + ['landing' => $plannedCall === 'onside_kick' ? min(99, $exhibition->state['spot'] + 12) : $exhibition->state['spot'], 'return_yards' => 0, 'recovery_side' => $defenseSide, 'recovery_role' => 'CB1'], $nextPersonnel);
             }
             $nextAnimation = \App\Services\Simulation\FieldOrientation::animation($nextTimeline, $exhibition->state);
             $keys = fn ($tracks) => collect($tracks)->map(fn ($p) => $p['side'].':'.$p['id'])->sort()->values()->all();

@@ -1,4 +1,4 @@
-const kicks = ['kickoff','punt','field_goal','extra_point'];
+const kicks = ['kickoff','onside_kick','punt','field_goal','extra_point'];
 
 // Derive audible ball events from saved timing, possession and height.
 export function ballSoundCues(animation) {

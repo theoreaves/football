@@ -7,7 +7,7 @@ export function soundCues(animation, before, after, penalty = null) {
     const call = animation.call;
     const noSnap = animation.no_snap || call === 'clock_event';
     if (!noSnap) {
-        if (call !== 'kickoff') add(0,'snap');
+        if (!['kickoff','onside_kick'].includes(call)) add(0,'snap');
         if (animation.passing) add(animation.throw_at ?? 2.2,'throw');
     }
     const resultAt = animation.reveal_at ?? (noSnap ? .8 : 5.3);
@@ -28,6 +28,9 @@ export function soundCues(animation, before, after, penalty = null) {
         if (homePoints > 0 || awayPoints > 0) {
             add(reactionAt,'crowd',homePoints > 0 ? 'cheer' : 'groan');
             if (touchdown) add(reactionAt + .2, homePoints >= 6 ? 'touchdown' : 'away_score');
+        } else if (call === 'onside_kick') {
+            const winner = animation.outcome === 'onside_recovered' ? before.possession : (before.possession === 'home' ? 'away' : 'home');
+            add(reactionAt,'crowd',winner === 'home' ? 'cheer' : 'groan');
         } else if (turnover || firstDown || summary.includes('sack') || summary.includes('missed') || summary.includes('blocked')) {
             const goodSide = turnover || summary.includes('sack') || summary.includes('missed') || summary.includes('blocked') ? (before.possession === 'home' ? 'away' : 'home') : before.possession;
             add(reactionAt,'crowd',goodSide === 'home' ? 'cheer' : 'groan');
@@ -56,7 +59,7 @@ export function soundSettings(value = {}) {
 
 // The set phase runs in real seconds, independently of replay speed.
 export function cadenceCues(animation) {
-    if (!animation || animation.no_snap || ['clock_event','kickoff','punt','field_goal','extra_point'].includes(animation.call)) return [];
+    if (!animation || animation.no_snap || ['clock_event','kickoff','onside_kick','punt','field_goal','extra_point'].includes(animation.call)) return [];
     return [{time:-2,type:'cadence',mood:'ready'}, {time:-1,type:'cadence',mood:'set'}, {time:0,type:'cadence',mood:'hut'}];
 }
 

@@ -1,3 +1,4 @@
+import {isSpecialTeamCall} from './special-teams-options.js';
 import {manualGameScreens} from './screen-timers.js';
 import { scoreboardText } from './scoreboard.js';
 export function reviewCountdown({manual = false} = {}) {
@@ -14,7 +15,7 @@ export function reviewCountdown({manual = false} = {}) {
         },
     };
 }
-const special = value => ['punt', 'field_goal', 'kickoff', 'extra_point'].includes(value);
+const special = isSpecialTeamCall;
 const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
 
 export function formationPoints(side, formation) {
@@ -62,7 +63,9 @@ export function playGraphic(kind, value, formation = 'shotgun') {
         const [x,y]=xy(points[value] || points.WR1);
         art='<path d="M '+x+' '+y+' Q 150 '+(y+30)+' '+(x>150?60:245)+' '+y+'" fill="none" stroke="#facc15" stroke-width="3" stroke-dasharray="6 4"/>';
     } else if (kind === 'play') {
-        if (value.startsWith('qb_')) art=route('QB',value==='qb_sneak'?2:8,value==='qb_sweep'?43:26.7)+(value==='qb_power'?route('LG',3,29):'');
+        if (value === 'onside_kick') art=route('QB',10,22)+'<text x="150" y="60" fill="#facc15" text-anchor="middle">DECLARED ONSIDE</text>';
+        else if (value.startsWith('fake_')) art=value.endsWith('_pass') ? route('TE',9,35) : route(points.P?'P':'H',7,26.7);
+        else if (value.startsWith('qb_')) art=route('QB',value==='qb_sneak'?2:8,value==='qb_sweep'?43:26.7)+(value==='qb_power'?route('LG',3,29):'');
         else if (['inside_zone','counter','power','lead'].includes(value)) art=route('RB',8,value==='counter'?22:29);
         else if (['outside_zone','stretch','toss'].includes(value)) art=route('RB',8,43);
         else if (value==='mesh') art=route('WR1',6,38)+route('WR2',6,16);
@@ -92,7 +95,7 @@ export function playGraphic(kind, value, formation = 'shotgun') {
 export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
     const list=[];
     if(humanOffense) {
-        const onlySpecial=calls.length>0 && calls.every(value=>['kickoff','extra_point'].includes(value)||value.startsWith('two_point'));
+        const onlySpecial=calls.length>0 && calls.every(value=>['kickoff','onside_kick','extra_point'].includes(value)||value.startsWith('two_point'));
         if(!onlySpecial) list.push({title:'Offense · Formation',kind:'formation',name:'offense_formation'});
         list.push({title:'Offense · Play',kind:'play',name:'call'});
         if(!special(call)&&!['kneel','spike'].includes(call)) list.push({title:'Offense · Motion',kind:'motion',name:'motion'});

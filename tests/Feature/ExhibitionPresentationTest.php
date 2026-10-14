@@ -156,3 +156,30 @@ test('individual injury fatigue and manual substitutions expose only presentatio
         app(CurrentWorld::class)->id = (int) $teams[0]->world_id;
     }
 });
+
+test('special play options render and CPU onside previews preserve the saved game', function () {
+    $teams = Team::all();
+    $rosters = ['home' => app(RosterBuilder::class)->build($teams[0]), 'away' => app(RosterBuilder::class)->build($teams[1])];
+    $state = array_replace(app(ExhibitionEngine::class)->initial(900, 42, false), [
+        'phase' => 'kickoff', 'quarter' => 4, 'clock' => 82, 'home_score' => 20, 'away_score' => 22,
+        'controls' => ['home' => 'cpu', 'away' => 'human'], 'rules' => ['penalties' => false, 'injuries' => false],
+    ]);
+    $game = Exhibition::create(['home_team_id' => $teams[0]->id, 'away_team_id' => $teams[1]->id, 'state' => $state, 'rosters' => $rosters, 'history' => []]);
+    $saved = $game->only(['state', 'history', 'rosters']);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('cpuPlan', fn ($plan) => $plan['call'] === 'onside_kick')
+        ->assertViewHas('nextAnimation', fn ($a) => $a['call'] === 'onside_kick' && $a['declared_onside'])
+        ->assertSee('Onside hands team');
+    expect($game->fresh()->only(['state', 'history', 'rosters']))->toBe($saved);
+    app(CurrentWorld::class)->id = (int) $teams[0]->world_id;
+    $state['controls'] = ['home' => 'human', 'away' => 'cpu'];
+    $game->update(['state' => $state]);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Declare onside kick');
+    app(CurrentWorld::class)->id = (int) $teams[0]->world_id;
+    $state = array_replace($state, ['phase' => 'scrimmage', 'down' => 4, 'spot' => 70, 'distance' => 3]);
+    $game->update(['state' => $state]);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('fake_punt_run')->assertSee('fake_field_goal_pass');
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => 'fake_field_goal_pass', 'offense_formation' => 'field_goal'])->assertRedirect()->assertSessionHasNoErrors();
+    $play = $game->fresh()->history[0];
+    expect($play['design'])->toBe('fake_field_goal_pass');
+    expect(collect($play['animation']['players'])->first(fn ($p) => $p['side'] === 'home' && $p['role'] === 'QB')['id'])->toBe($rosters['home']['players']['P']['id']);
+});

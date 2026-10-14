@@ -6,6 +6,9 @@ class SpecialTeamsTimeline
 {
     public function build(array $play, array $rosters): array
     {
+        if ($play['call'] === 'onside_kick') {
+            return app(OnsideKick::class)->animation($play, $rosters);
+        }
         $base = app(PlayTimeline::class)->build($play, $rosters);
         $side = $play['before']['possession'];
         $other = $side === 'home' ? 'away' : 'home';

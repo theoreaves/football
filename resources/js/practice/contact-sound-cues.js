@@ -1,6 +1,6 @@
 import {sampleTrack} from './engine-timeline.js';
 
-const special = ['kickoff','punt','field_goal','extra_point','spike','kneel','clock_event'];
+const special = ['kickoff','onside_kick','punt','field_goal','extra_point','spike','kneel','clock_event'];
 const validPath = player => Array.isArray(player.path) && player.path.length > 0
     && player.path.every(point => Array.isArray(point) && point.length >= 4 && point.every(Number.isFinite));
 

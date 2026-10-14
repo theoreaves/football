@@ -4,7 +4,7 @@ namespace App\Services\Simulation;
 
 class OffensiveOptions
 {
-    public const ALIASES = ['inside_zone' => 'inside_run', 'outside_zone' => 'outside_run', 'stretch' => 'outside_run', 'toss' => 'outside_run', 'counter' => 'inside_run', 'power' => 'inside_run', 'lead' => 'inside_run', 'play_action' => 'medium_pass', 'mesh' => 'short_pass', 'flood' => 'medium_pass', 'quick_pass' => 'short_pass', 'qb_sneak' => 'inside_run', 'qb_draw' => 'inside_run', 'qb_power' => 'inside_run', 'qb_sweep' => 'outside_run'];
+    public const ALIASES = ['inside_zone' => 'inside_run', 'outside_zone' => 'outside_run', 'stretch' => 'outside_run', 'toss' => 'outside_run', 'counter' => 'inside_run', 'power' => 'inside_run', 'lead' => 'inside_run', 'play_action' => 'medium_pass', 'mesh' => 'short_pass', 'flood' => 'medium_pass', 'quick_pass' => 'short_pass', 'qb_sneak' => 'inside_run', 'qb_draw' => 'inside_run', 'qb_power' => 'inside_run', 'qb_sweep' => 'outside_run', 'fake_punt_run' => 'inside_run', 'fake_punt_pass' => 'short_pass', 'fake_field_goal_run' => 'inside_run', 'fake_field_goal_pass' => 'short_pass'];
 
     public const FORMATIONS = [
         'singleback' => ['qb_sneak', 'inside_zone', 'outside_zone', 'counter', 'play_action', 'short_pass', 'inside_run', 'outside_run', 'slant', 'medium_pass'],
@@ -16,7 +16,7 @@ class OffensiveOptions
         'bunch' => ['quick_pass', 'mesh', 'flood', 'screen', 'short_pass', 'medium_pass'],
         'empty' => ['quick_pass', 'mesh', 'medium_pass', 'deep_pass', 'qb_draw', 'short_pass'],
         'goal_line' => ['qb_sneak', 'power', 'lead', 'play_action', 'inside_run', 'short_pass'],
-        'punt' => ['punt'], 'field_goal' => ['field_goal'],
+        'punt' => ['punt', 'fake_punt_run', 'fake_punt_pass'], 'field_goal' => ['field_goal', 'fake_field_goal_run', 'fake_field_goal_pass'],
     ];
 
     public static function canonical(string $call): string

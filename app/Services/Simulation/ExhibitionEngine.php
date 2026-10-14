@@ -6,13 +6,13 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass'];
 
     public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread', 'i_form' => 'I formation', 'pistol' => 'Pistol', 'trips' => 'Trips', 'bunch' => 'Bunch', 'empty' => 'Empty', 'goal_line' => 'Goal line', 'punt' => 'Punt', 'field_goal' => 'Field goal'];
 
     public const DEFENSE_FORMATIONS = ['base_4_3' => 'Base 4–3', 'base_3_5' => '3–5', 'nickel' => 'Nickel · 4–2–5', 'two_high' => '4–3 · two high safeties', 'single_high' => '4–3 · single high safety', 'base_3_4' => '3–4', 'dime' => 'Dime · 4–1–6'];
 
-    public const DEFENSE = ['man_to_man', 'run_stop', 'zone', 'blitz', 'punt_return', 'field_goal_block', 'kickoff_return'];
+    public const DEFENSE = ['man_to_man', 'run_stop', 'zone', 'blitz', 'punt_return', 'field_goal_block', 'kickoff_return', 'onside_return'];
 
     public function initial(int $quarterLength = 180, ?int $seed = null, bool $openingKickoff = true): array
     {
@@ -40,18 +40,20 @@ class ExhibitionEngine
         if (app(Overtime::class)->pending($state)) {
             throw new LogicException('Finish the overtime coin toss before calling a play.');
         }
-        if (in_array($offenseFormation, ['punt', 'field_goal'], true) && $call !== $offenseFormation) {
+        if (in_array($offenseFormation, ['punt', 'field_goal'], true) && ! in_array($call, OffensiveOptions::FORMATIONS[$offenseFormation], true)) {
             throw new LogicException('Choose the matching play for this special-teams formation.');
         }
         if (isset(OffensiveOptions::ALIASES[$call]) && ! in_array($call, OffensiveOptions::FORMATIONS[$offenseFormation] ?? [], true)) {
             throw new LogicException('Choose a play offered by this offensive formation.');
         }
         $design = $call;
-        $qbDesigned = OffensiveOptions::quarterbackRun($design);
+        $fake = in_array($design, SpecialTeamsTricks::FAKES, true);
+        $qbDesigned = OffensiveOptions::quarterbackRun($design) || ($fake && str_ends_with($design, '_run'));
         $call = match ($call) {
             'draw' => 'inside_run', 'screen' => 'short_pass', default => OffensiveOptions::canonical($call)
         };
-        $rosters = app(GamePersonnel::class)->active($rosters, $state, $call);
+        $rosters = app(GamePersonnel::class)->active($rosters, $state, $fake ? $design : $call);
+        $rosters = SpecialTeamsTricks::personnel($rosters, $state['possession'], $design);
         if (in_array($call, ['two_point_run', 'two_point_pass'], true)) {
             return $this->twoPoint($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation, $expect, $blitz, $motion);
         }
@@ -97,7 +99,7 @@ class ExhibitionEngine
         if (in_array($call, ['spike', 'kneel'], true)) {
             return $this->clockPlay($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
         }
-        if (in_array($call, ['punt', 'field_goal', 'kickoff', 'extra_point'], true)) {
+        if (in_array($call, ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)) {
             return app(SpecialTeams::class)->resolve($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
         }
         $state['phase'] = 'scrimmage';
@@ -232,6 +234,22 @@ class ExhibitionEngine
             }
         }
         // Force the football result before scoring, possession, statistics and replay.
+        if ($fake) {
+            $converted = $roll() < SpecialTeamsTricks::fakeChance($state, $design, $off, $def, $defense);
+            $pressure = $scramble = $throwaway = $flip = $outOfBounds = $forcedOut = false;
+            $outcome = 'tackle';
+            $gain = $converted ? $state['distance'] + $yards($roll(), 0, 8) : $yards($roll(), -3, max(-3, $state['distance'] - 1));
+            if (str_ends_with($design, '_pass')) {
+                $carrier = $targetRole;
+                $target = max(1, min(108 - $state['spot'], $gain));
+                if (! $converted && $roll() < .7) {
+                    $outcome = 'incomplete';
+                    $gain = 0;
+                }
+            } else {
+                $carrier = 'QB';
+            }
+        }
         if ($debugSnap && $devForceResult === 'touchdown') {
             $gain = 100 - $before['spot'];
             $outcome = 'tackle';
@@ -277,8 +295,8 @@ class ExhibitionEngine
         }
         $deadSpot = $before['spot'] + $gain;
         $name = fn ($player, string $role) => $role.' '.$player['name'].(isset($player['number']) ? ' (#'.$player['number'].')' : '');
-        $qb = $name($off['QB'], 'QB');
-        $runner = $name($off[$carrier], $carrier);
+        $qb = $name($off['QB'], $fake ? (str_starts_with($design, 'fake_punt') ? 'P' : 'Holder') : 'QB');
+        $runner = $name($off[$carrier], $fake && $carrier === 'QB' ? (str_starts_with($design, 'fake_punt') ? 'P' : 'Holder') : $carrier);
         $receiverRole = $targetRole ?? 'WR1';
         $receiver = $name($off[$receiverRole], $receiverRole);
         $tacklerRole = $targetRole !== null && $carrier !== 'QB' ? 'CB1' : 'LB2';
@@ -338,7 +356,7 @@ class ExhibitionEngine
         $seconds = $yards($roll(), 5, 9);
 
         return $this->finish($state, $before, [
-            'design' => $design, 'qb_designed_run' => $qbDesigned, 'pressure' => $pressure, 'scramble' => $scramble, 'throwaway' => $throwaway, 'expect' => $expect, 'blitz' => $blitz, 'motion' => $motion,
+            'design' => $design, 'fake_kick' => $fake, 'qb_designed_run' => $qbDesigned, 'pressure' => $pressure, 'scramble' => $scramble, 'throwaway' => $throwaway, 'expect' => $expect, 'blitz' => $blitz, 'motion' => $motion,
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
             'out_of_bounds' => $outOfBounds && $outcome !== 'touchdown', 'forced_out' => $forcedOut && $outcome !== 'touchdown', 'outcome' => $outcome, 'gain' => $gain, 'target' => $target, 'carrier' => $carrier,
             'receiver_role' => $targetRole, 'receiver_id' => $targetRole !== null ? ($off[$targetRole]['id'] ?? null) : null, 'summary' => $summary, 'dev_force_result' => $debugSnap ? $devForceResult : 'none', 'dev_force_flag' => $debugSnap && $devForceResult === 'flag',
@@ -348,15 +366,15 @@ class ExhibitionEngine
     public static function callsForState(array $state): array
     {
         return match ($state['phase'] ?? 'scrimmage') {
-            'kickoff' => ['kickoff'], 'extra_point' => ['extra_point', 'two_point_run', 'two_point_pass'], default => array_values(array_diff(self::OFFENSE, ['kickoff', 'extra_point', 'two_point_run', 'two_point_pass'])),
+            'kickoff' => ['kickoff', 'onside_kick'], 'extra_point' => ['extra_point', 'two_point_run', 'two_point_pass'], default => array_values(array_diff(self::OFFENSE, ['kickoff', 'onside_kick', 'extra_point', 'two_point_run', 'two_point_pass'])),
         };
     }
 
     public static function defensesForCall(string $call): array
     {
         return match ($call) {
-            'kickoff' => ['kickoff_return'], 'extra_point' => ['field_goal_block'],
-            'punt' => ['punt_return', 'man_to_man', 'blitz'], 'field_goal' => ['field_goal_block', 'man_to_man', 'blitz'],
+            'onside_kick' => ['onside_return'], 'kickoff' => ['kickoff_return'], 'extra_point' => ['field_goal_block'],
+            'punt', 'fake_punt_run', 'fake_punt_pass' => ['punt_return', 'man_to_man', 'blitz'], 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass' => ['field_goal_block', 'man_to_man', 'blitz'],
             default => ['man_to_man', 'run_stop', 'zone', 'blitz'],
         };
     }
@@ -389,7 +407,7 @@ class ExhibitionEngine
         $play += ['number' => $state['version'], 'before' => $before, 'after' => $state, 'duration' => 6];
         $play['summary'] = ucfirst($play['summary']);
         $animationPlay = array_merge($play, ['outcome' => $play['live_outcome'] ?? $play['outcome']]);
-        $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point'], true)
+        $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)
             ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
 
         $play['animation'] = FieldOrientation::animation($play['animation'], $before);

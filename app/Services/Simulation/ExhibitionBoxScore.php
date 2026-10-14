@@ -113,7 +113,7 @@ class ExhibitionBoxScore
                 if (in_array($outcome, ['tackle', 'sack', 'fumble', 'safety'], true) && ! ($play['out_of_bounds'] ?? false) && $call !== 'spike') {
                     $players[$other][$tackler]['tackles']++;
                 }
-                if ($carrier === 'QB' && $call !== 'spike' && ! $scramble) {
+                if ($carrier === 'QB' && $call !== 'spike' && ! $scramble && ! ($play['qb_designed_run'] ?? false)) {
                     $players[$other][$tackler]['defensive_sacks']++;
                 }
                 if ($outcome === 'interception') {
@@ -136,7 +136,7 @@ class ExhibitionBoxScore
                 $players[$side]['P']['punts']++;
                 $players[$side]['P']['punt_yards'] += $gain;
             }
-            if (in_array($outcome, ['punt_return', 'kickoff_return', 'punt_return_touchdown', 'kickoff_return_touchdown'], true)) {
+            if (in_array($outcome, ['punt_return', 'kickoff_return', 'onside_failed', 'punt_return_touchdown', 'kickoff_return_touchdown'], true)) {
                 $players[$other]['CB1']['returns']++;
                 $players[$other]['CB1']['return_yards'] += $play['return_yards'];
                 $players[$other]['CB1']['return_td'] += (int) str_ends_with($outcome, '_touchdown');

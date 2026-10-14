@@ -55,7 +55,7 @@ class GameClock
         $warning = $this->warningDue($before, $seconds);
         $state['clock'] = max(0, $state['clock'] - $seconds);
         $state['clock_running'] = ! ($play['no_snap'] ?? false) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
-            && $state['possession'] === $before['possession'] && ! in_array($play['outcome'], ['incomplete', 'interception', 'fumble', 'spike', 'penalty'], true)
+            && $state['possession'] === $before['possession'] && ! in_array($play['outcome'], ['incomplete', 'interception', 'fumble', 'spike', 'penalty', 'onside_recovered'], true)
             && ! ($play['out_of_bounds'] ?? false);
         // The ball remains dead/out of bounds for the current play. Whether
         // the clock resumes at the ready signal is stored for the next snap.
