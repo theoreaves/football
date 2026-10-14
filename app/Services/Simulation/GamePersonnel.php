@@ -17,10 +17,10 @@ class GamePersonnel
             $specialist = null;
             if ($side === ($state['possession'] ?? null) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
                 && ! in_array($call, ['punt', 'field_goal', 'extra_point', 'kickoff', 'onside_kick', ...SpecialTeamsTricks::FAKES], true)
-                && (($state['down'] ?? 1) === 3 || ($state['distance'] ?? 10) <= 2)
+                && (($state['down'] ?? 1) === 3 || ($state['distance'] ?? 10) <= 2 || (($state['down'] ?? 1) === 4 && ! empty($roster['specialists']['fourth_down_back'])))
                 && ! isset($preferences['RB'])) {
                 $specialistRole = 'RB';
-                $specialist = $roster['specialists']['third_down_back'] ?? null;
+                $specialist = (($state['down'] ?? 1) === 4 ? ($roster['specialists']['fourth_down_back'] ?? null) : null) ?: ($roster['specialists']['third_down_back'] ?? null);
             } elseif ($side !== ($state['possession'] ?? null) && in_array($call, ['punt', 'kickoff'], true)) {
                 $specialistRole = 'CB1';
                 $specialist = $roster['specialists'][$call === 'punt' ? 'punt_returner' : 'kick_returner'] ?? null;
@@ -28,7 +28,8 @@ class GamePersonnel
             $specialist = $specialist ? (int) $specialist : null;
             $candidate = $specialist ? collect($roster['pool'])->firstWhere('id', $specialist) : null;
             $hurt = $specialist ? ($state['injuries'][$side][$specialist] ?? null) : null;
-            $positions = $specialistRole === 'RB' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS'];
+            $fourthDownSpecialist = $specialistRole === 'RB' && ($state['down'] ?? 1) === 4 && $specialist && $specialist === (int) ($roster['specialists']['fourth_down_back'] ?? 0);
+            $positions = $fourthDownSpecialist ? array_unique(array_merge(...array_values(RosterBuilder::GROUPS))) : ($specialistRole === 'RB' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS']);
             if ($specialist && $candidate && in_array($candidate['position'], $positions, true)
                 && (! $hurt || ($hurt['return_snap'] !== null && ($state['personnel_snaps'] ?? 0) >= $hurt['return_snap']))
                 && ($state['fatigue'][$side][$specialist] ?? 0) < 65
@@ -41,6 +42,9 @@ class GamePersonnel
             $selected = [];
             $snap = $state['personnel_snaps'] ?? 0;
             foreach (RosterBuilder::GROUPS as $role => $positions) {
+                if ($role === 'RB' && $specialistRole === 'RB' && $fourthDownSpecialist) {
+                    $positions = array_unique(array_merge(...array_values(RosterBuilder::GROUPS)));
+                }
                 if ($role === 'CB1' && $specialistRole === 'CB1') {
                     $positions = array_merge($positions, ['RB', 'FB', 'WR', 'TE', 'S', 'FS', 'SS']);
                 }

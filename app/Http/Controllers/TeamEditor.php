@@ -141,10 +141,10 @@ class TeamEditor extends Controller
             'team_settings.mascot.fur' => $hex,
             'team_settings.mascot.shirt' => $hex,
         ];
-        $settings['team_settings.specialists'] = ['sometimes', 'array:third_down_back,kick_returner,punt_returner'];
-        foreach (['third_down_back', 'kick_returner', 'punt_returner'] as $role) {
+        $settings['team_settings.specialists'] = ['sometimes', 'array:third_down_back,fourth_down_back,kick_returner,punt_returner'];
+        foreach (['third_down_back', 'fourth_down_back', 'kick_returner', 'punt_returner'] as $role) {
             $settings['team_settings.specialists.'.$role] = ['nullable', 'integer', function ($attribute, $value, $fail) use ($team, $role) {
-                $positions = $role === 'third_down_back' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS'];
+                $positions = $role === 'fourth_down_back' ? array_unique(array_merge(...array_values(\App\Services\Simulation\RosterBuilder::GROUPS))) : ($role === 'third_down_back' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS']);
                 $player = $team?->players()->wherePivot('team_year', $team->players()->max('team_players.team_year'))->where('players.id', $value)->first();
                 if (! $player || ! in_array(strtoupper($player->pivot->position ?: $player->position), $positions, true)) {
                     $fail('Choose an eligible player from this team’s current roster.');

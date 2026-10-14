@@ -230,7 +230,7 @@ class SeasonController extends Controller
     {
         abort_unless(isset($season->settings['members'][$team->id]), 404);
         $tab = $request->query('tab', 'overview');
-        abort_unless(in_array($tab, ['overview', 'roster', 'depth', 'schedule', 'stats', 'injuries', 'settings'], true), 404);
+        abort_unless(in_array($tab, ['overview', 'roster', 'depth', 'specialists', 'schedule', 'stats', 'injuries', 'settings'], true), 404);
         $players = $team->players()->wherePivot('team_year', (string) $season->year)->orderBy('team_players.depth_chart_position')->get();
         $positions = $players->pluck('pivot.position')->unique()->sort()->values();
         $request->validate(['position' => ['sometimes', 'string', 'max:10']]);
@@ -253,6 +253,41 @@ class SeasonController extends Controller
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])->mapWithKeys(fn ($t) => [$t->id => route('teams.art', ['team' => $t, 'asset' => 'team_logo'])]),
             'players' => $players, 'positions' => $positions, 'position' => $position, 'depthPlayers' => $depthPlayers,
             'fixtures' => $season->fixtures()->where(fn ($q) => $q->where('home_team_id', $team->id)->orWhere('away_team_id', $team->id))->orderBy('week')->get()]);
+    }
+
+    public function specialists(Request $request, Season $season, Team $team)
+    {
+        abort_unless(isset($season->settings['members'][$team->id]), 404);
+        $roles = ['third_down_back', 'fourth_down_back', 'kick_returner', 'punt_returner'];
+        $rules = [];
+        foreach ($roles as $role) {
+            $rules[$role] = ['present', 'nullable', 'regex:/^(default|[1-9][0-9]*)$/'];
+        }
+        $data = $request->validate($rules);
+        DB::transaction(function () use ($season, $team, $data, $roles) {
+            $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            $players = $team->players()->wherePivot('team_year', (string) $locked->year)->get();
+            $settings = $locked->settings;
+            foreach ($roles as $role) {
+                $value = $data[$role];
+                if ($value === 'default') {
+                    unset($settings['specialists'][$team->id][$role]);
+
+                    continue;
+                }
+                if ($value !== null) {
+                    $allowed = $role === 'fourth_down_back' ? array_unique(array_merge(...array_values(\App\Services\Simulation\RosterBuilder::GROUPS))) : ($role === 'third_down_back' ? ['RB', 'FB'] : ['RB', 'FB', 'WR', 'TE', 'CB', 'DB', 'S', 'FS', 'SS']);
+                    $player = $players->firstWhere('id', (int) $value);
+                    if (! $player || ! in_array(strtoupper($player->pivot->position ?: $player->position), $allowed, true)) {
+                        throw ValidationException::withMessages([$role => 'Choose an eligible player from this season’s team roster.']);
+                    }
+                }
+                $settings['specialists'][$team->id][$role] = $value === null ? null : (int) $value;
+            }
+            $locked->update(['settings' => $settings]);
+        });
+
+        return redirect()->route('seasons.team', ['season' => $season, 'team' => $team, 'tab' => 'specialists'])->with('status', 'Season specialists saved.');
     }
 
     public function depth(Request $request, Season $season, Team $team)

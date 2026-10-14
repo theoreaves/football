@@ -473,3 +473,34 @@ test('bulk sim keeps earlier commits if a subsequent game cannot start', functio
     expect(Exhibition::findOrFail($saved['id'])->only(['id', 'state', 'history']))->toBe($saved);
     expect($remaining->fresh()->exhibition_id)->toBeNull()->and($remaining->fresh()->status)->toBe('scheduled');
 });
+
+test('season specialists validate roster eligibility and snapshot overrides only in new games', function () {
+    $team = $this->fixture->homeTeam;
+    $backs = $team->players()->wherePivot('team_year', '2026')->wherePivot('position', 'RB')->get();
+    $qb = $team->players()->wherePivot('position', 'QB')->first();
+    $this->get(route('seasons.team', [$this->season, $team, 'tab' => 'specialists']))->assertOk()->assertSee('Save specialists')->assertSee('Third-down / short-yardage back');
+    $defender = $team->players()->wherePivot('position', 'CB')->first();
+    $data = ['fourth_down_back' => $defender->id, 'third_down_back' => $backs[1]->id, 'kick_returner' => '', 'punt_returner' => 'default'];
+    $this->put(route('seasons.specialists', [$this->season, $team]), array_replace($data, ['third_down_back' => $qb->id]))->assertSessionHasErrors('third_down_back');
+    $other = $this->fixture->awayTeam->players()->wherePivot('position', 'RB')->first();
+    $this->put(route('seasons.specialists', [$this->season, $team]), array_replace($data, ['third_down_back' => $other->id]))->assertSessionHasErrors('third_down_back');
+    $this->put(route('seasons.specialists', [$this->season, $team]), $data)->assertSessionHasNoErrors()->assertRedirect();
+    $overrides = $this->season->fresh()->settings['specialists'][$team->id];
+    expect($overrides['third_down_back'])->toBe($backs[1]->id)->and($overrides)->toHaveKey('kick_returner', null)->not->toHaveKey('punt_returner');
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    expect($game->rosters['home']['specialists']['third_down_back'])->toBe($backs[1]->id);
+    $state = array_replace($game->state, ['phase' => 'scrimmage', 'possession' => 'home', 'down' => 3, 'distance' => 5]);
+    expect(app(GamePersonnel::class)->active($game->rosters, $state)['home']['players']['RB']['id'])->toBe($backs[1]->id);
+    expect($game->rosters['home']['specialists']['fourth_down_back'])->toBe($defender->id);
+    $rosters = $game->rosters;
+    $rosters['home']['specialists']['fourth_down_back'] = $defender->id;
+    $state['down'] = 4;
+    expect(app(GamePersonnel::class)->active($rosters, $state)['home']['players']['RB']['id'])->toBe($defender->id);
+    $state['game_lineup']['home']['RB'] = $backs[0]->id;
+    expect(app(GamePersonnel::class)->active($rosters, $state)['home']['players']['RB']['id'])->toBe($backs[0]->id);
+    $this->put(route('seasons.specialists', [$this->season, $team]), ['fourth_down_back' => 'default', 'third_down_back' => 'default', 'kick_returner' => 'default', 'punt_returner' => 'default'])->assertSessionHasNoErrors();
+    expect($this->season->fresh()->settings['specialists'][$team->id])->toBe([]);
+    expect($game->fresh()->rosters['home']['specialists']['third_down_back'])->toBe($backs[1]->id);
+    expect($team->fresh()->team_settings['specialists'] ?? [])->toBe([]);
+});

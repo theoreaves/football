@@ -28,6 +28,7 @@ class SeasonGames
             foreach (['home', 'away'] as $side) {
                 $team = $side === 'home' ? $fixture->homeTeam : $fixture->awayTeam;
                 $rosters[$side] = $builder->build($team, (string) $season->year, $season->settings['depth_charts'][$team->id] ?? []);
+                $rosters[$side]['specialists'] = array_replace($rosters[$side]['specialists'] ?? [], $season->settings['specialists'][$team->id] ?? []);
                 $controls[$side] = $season->settings['members'][$team->id]['control'];
             }
             $state = app(ExhibitionEngine::class)->initial($season->settings['quarter_length'] ?? 900);
