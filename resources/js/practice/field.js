@@ -1,3 +1,4 @@
+import {entranceComplete,hideOpeningUnits} from './opening-presentation.js';
 import {isSpecialTeamCall,kickFormation} from './special-teams-options.js';
 import {manualGameScreens,screenTimerExpired} from './screen-timers.js';
 import {buildResultReferee} from './result-referee.js';
@@ -1462,6 +1463,7 @@ export function mountPractice(root, onReady = () => {}) {
     entrancePanel?.querySelector('button')?.addEventListener('click',finishEntrance);
     if(entrance.active){
         entrancePanel.hidden=false;if(callForm)callForm.inert=true;
+        hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);
         camera.position.set(60,85,140);controls.target.set(60,0,26.665);
     }else{anthemIntro=mountPregameAnthem(root,pregameDialog,audio,showPregame);if(showPregame)pregameDialog.showModal();else coinDialog?.showModal();}
     const pregameCloseButtons = pregameDialog?.querySelectorAll('[data-pregame-close]');
@@ -1612,7 +1614,7 @@ export function mountPractice(root, onReady = () => {}) {
         if (['medical', 'big_play', 'celebration', 'result', 'penalty'].includes(phase)) refereePostTime += Math.min(delta, .1);
         if (earlyExit && ['celebration','result'].includes(phase)) earlyExitElapsed += Math.min(delta,.1);
         if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1) * exchangeRate;
-        if (phase === 'huddle' && exchange) {
+        if (!entrance.active && phase === 'huddle' && exchange) {
             exchangeElapsed = Math.min(exchange.duration,exchangeElapsed + Math.min(delta,.1) * exchangeRate);
             if (exchangeElapsed < exchange.duration && snapButton) {snapButton.disabled = true;exchangeSnapLocked = true;}
             else if (exchangeSnapLocked && snapButton) {
@@ -1699,7 +1701,7 @@ export function mountPractice(root, onReady = () => {}) {
             if (screenTimerExpired({manual:manualScreens,elapsed:postElapsed,seconds:10,visible:!document.hidden})) {
                 finishResult();
             }
-        } else if (phase === 'huddle' && huddleProgress < 1) {
+        } else if (!entrance.active && phase === 'huddle' && huddleProgress < 1) {
             postElapsed += delta * exchangeRate; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
@@ -1741,7 +1743,7 @@ export function mountPractice(root, onReady = () => {}) {
         tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
         idleTime+=Math.max(0,Math.min(.1,delta));
         stadium.updateCrowd(delta);
-        if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds=Math.min(entranceTiming.end,entrance.seconds+Math.min(.1,Math.max(0,delta)));if(screenTimerExpired({manual:manualScreens,elapsed:entrance.seconds,seconds:entranceTiming.end,visible:!document.hidden}))finishEntrance();
+        if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds=Math.min(entranceTiming.end,entrance.seconds+Math.min(.1,Math.max(0,delta)));if(entranceComplete({active:entrance.active,finishing:entrance.finishing,seconds:entrance.seconds,end:entranceTiming.end,visible:!document.hidden}))finishEntrance();
             if(entrance.active){const stage=entrance.seconds<entranceTiming.cheerStart?'The visiting team takes the field':entrance.seconds<entranceTiming.leadStart?'The home cheer squad welcomes the team':entrance.seconds<entranceTiming.homeStart?'Here comes the home mascot!':'Here comes the home team!';entrancePanel.querySelector('p').textContent=entrance.seconds>=entranceTiming.end?'Both teams are ready — continue to lineups':stage;
                 if(entrance.seconds>=entranceTiming.end)entrancePanel.querySelector('button').textContent='Continue → Lineups';}
 }
@@ -1749,8 +1751,9 @@ export function mountPractice(root, onReady = () => {}) {
         if(!document.hidden){sidelineMascot.update(delta,entrance.active?entrance.seconds-entranceTiming.leadStart:null);sidelineCheerleaders.update(delta,entranceClock());}
         renderState();
         if(!entrance.active && !running && ['result','huddle','set'].includes(phase)){players.forEach((model,index)=>idlePlayerPose(model,idleTime,index));}
-        if(entrance.active){sideline.update(new Set(),entranceClock());players.forEach(player=>player.visible=false);}
-        else if(entrancePanel && entrance.seconds>0){players.forEach(player=>player.visible=true);entrance.seconds=0;}
+        ball.visible=!entrance.active;
+        if(entrance.active){sideline.update(new Set(),entranceClock());hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);carrierArrow.visible=carrierRing.visible=ballGlow.visible=false;}
+        else if(entrancePanel && entrance.seconds>0){entrance.seconds=0;}
         resultReferee.update(document.hidden ? 0 : delta);
         controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
