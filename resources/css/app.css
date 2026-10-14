@@ -334,3 +334,15 @@ button:active, input[type="submit"]:active, input[type="button"]:active, .button
 .button-feedback-status { position: fixed; z-index: 10000; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); padding: 10px 16px; border: 1px solid #93c5fd; border-radius: 10px; background: #14233b; color: white; font-weight: 600; pointer-events: none; box-shadow: 0 4px 16px #0005; }
 @keyframes button-feedback-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .button-feedback-spinner { animation: none; } }
+
+.one-play-personnel { grid-column: 1 / -1; border: 1px solid #475569; border-radius: 10px; padding: 14px; background: #17273b; }
+.personnel-details > summary { cursor: pointer; font-weight: 600; padding: 8px 0; min-height: 44px; }
+.personnel-note { color: #cbd5e1; font-size: 13px; margin: 10px 0; }
+.personnel-details input { display: block; width: 100%; min-height: 44px; background: #0f172a; border: 1px solid #64748b; border-radius: 6px; padding: 8px; }
+.personnel-team h3 { font-weight: 600; margin: 18px 0 10px; }
+.personnel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.personnel-row { display: grid; grid-template-columns: 45px minmax(0, 1fr); gap: 6px; padding: 10px; border: 1px solid #475569; border-radius: 8px; }
+.personnel-row span { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.personnel-row select { grid-column: 1 / -1; min-width: 0; background: #0f172a; border: 1px solid #64748b; border-radius: 6px; padding: 8px; }
+.one-play-personnel button { padding: 10px 14px; min-height: 44px; border: 1px solid #64748b; border-radius: 6px; margin: 10px 8px 0 0; }
+@media (max-width: 640px) { .personnel-grid { grid-template-columns: minmax(0, 1fr); } .one-play-personnel { padding: 10px; } }

@@ -209,6 +209,45 @@ class ExhibitionController extends Controller
         return redirect()->route('exhibitions.show', array_filter(['exhibition' => $exhibition, 'replay' => ($data['return_replay'] ?? false) ? $data['number'] : null, 'watch' => ($data['return_replay'] ?? false) ? 1 : 0]));
     }
 
+    public function personnel(Request $request, Exhibition $exhibition)
+    {
+        $data = $request->validate(array_merge(\App\Services\Simulation\OnePlayPersonnel::rules(), [
+            'version' => ['required', 'integer', 'min:0'],
+            'call' => ['sometimes', Rule::in(ExhibitionEngine::OFFENSE)],
+            'offense_formation' => ['sometimes', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))],
+            'defense_formation' => ['sometimes', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))],
+        ]));
+        $state = $exhibition->state;
+        abort_if($state['version'] !== (int) $data['version'], 409, 'The game changed. Reload before choosing personnel.');
+        abort_if($state['status'] !== 'playing' || ($state['penalty_pending'] ?? false), 409, 'Finish the current game screen first.');
+        $coach = app(CpuCoach::class);
+        $controls = $coach->controls($state);
+        $side = $state['possession'];
+        $other = $side === 'home' ? 'away' : 'home';
+        $offense = $controls[$side] === 'cpu' ? $coach->offense($state, app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $state)) : ['call' => $data['call'] ?? 'inside_run', 'formation' => $data['offense_formation'] ?? 'shotgun'];
+        $defense = $controls[$other] === 'cpu' ? $coach->defense($state, $offense['call']) : ['formation' => $data['defense_formation'] ?? 'base_4_3'];
+        $service = app(\App\Services\Simulation\OnePlayPersonnel::class);
+        $state = $service->apply($state, $exhibition->rosters, $data['one_play'] ?? [], $offense['call'], $offense['formation'], $defense['formation']);
+        if (! $service->supported($state, $offense['call'])) {
+            return response()->json(['supported' => false, 'teams' => []]);
+        }
+        $units = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $state, $offense['call'], $offense['formation']);
+        $teams = [];
+        foreach (['home', 'away'] as $team) {
+            if ($controls[$team] !== 'human' || ! isset($exhibition->rosters[$team]['pool'])) {
+                continue;
+            }
+            $roles = $service->roles($units[$team], $team === $side, $team === $side ? $offense['formation'] : $defense['formation']);
+            $teams[$team] = [
+                'unit' => $team === $side ? 'Offense' : 'Defense',
+                'players' => array_map(fn ($player) => \Illuminate\Support\Arr::only($player, ['id', 'name', 'number', 'position']), array_intersect_key($units[$team]['players'], array_flip($roles))),
+                'pool' => array_map(fn ($player) => \Illuminate\Support\Arr::only($player, ['id', 'name', 'number', 'position']) + ['unavailable' => $service->unavailable($state, $team, $player['id']), 'fatigue' => (int) round($state['fatigue'][$team][$player['id']] ?? 0)], $exhibition->rosters[$team]['pool']),
+            ];
+        }
+
+        return response()->json(['supported' => true, 'teams' => $teams]);
+    }
+
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
     {
         $controls = app(CpuCoach::class)->controls($exhibition->state);
@@ -255,6 +294,9 @@ class ExhibitionController extends Controller
             $rules['dev_force_result'] = ['sometimes', Rule::in(['none', 'touchdown', 'turnover', 'flag', 'big_play', 'defensive_offside', 'illegal_formation'])];
             $rules['dev_force_injury'] = ['sometimes', Rule::in(['none', 'minor', 'moderate', 'serious'])];
             $rules['dev_injury_role'] = ['sometimes', Rule::in(['carrier', 'QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'C', 'LB1', 'CB1'])];
+        }
+        if ($action === 'play') {
+            $rules = array_merge($rules, \App\Services\Simulation\OnePlayPersonnel::rules());
         }
         $data = $request->validate($rules);
         DB::transaction(function () use ($exhibition, $engine, $data, $request, $forceInjuryAllowed) {
@@ -364,7 +406,8 @@ class ExhibitionController extends Controller
                     $defense = ['call' => $human['defense'], 'formation' => $human['defense_formation'] ?? 'base_4_3'];
                 }
                 $management = $controls[$side] === 'cpu' ? $coach->management($game->state) : ['tempo' => $data['tempo'] ?? 'normal', 'clock_strategy' => $data['clock_strategy'] ?? 'normal'];
-                $result = $engine->resolve($game->state, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'), $forceInjuryAllowed ? ($data['dev_force_result'] ?? 'none') : 'none');
+                $snapState = app(\App\Services\Simulation\OnePlayPersonnel::class)->apply($game->state, $game->rosters, $data['one_play'] ?? [], $offense['call'], $offense['formation'], $defense['formation']);
+                $result = $engine->resolve($snapState, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'), $forceInjuryAllowed ? ($data['dev_force_result'] ?? 'none') : 'none');
             }
             // Presentation and persistence use the same injury state as natural injuries.
             // This happens after the engine resolves the play, without altering its outcome.

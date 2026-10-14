@@ -415,6 +415,8 @@ class ExhibitionEngine
 
         $play['animation'] = FieldOrientation::animation($play['animation'], $before);
 
+        // Keep choices in the saved before-state for replays, never in the next-play state.
+        unset($state['_snap_lineup']);
         $personnel = app(GamePersonnel::class)->afterPlay($state, $before, $play, $rosters);
         $state = $personnel['state'];
         $play['personnel_notices'] = $personnel['notices'];

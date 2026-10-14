@@ -14,3 +14,6 @@ before breaking the next huddle when the actual play needs different personnel.
 These presentation seconds never advance the simulation clock. Formation-based
 personnel packages and planned RB/receiver rotation are described in
 [personnel-rotation.md](docs/personnel-rotation.md).
+
+Human play-calling review screens include searchable one-play personnel replacements.
+See [one-play-personnel.md](docs/one-play-personnel.md) for supported plays, selection priority, and replay behavior.

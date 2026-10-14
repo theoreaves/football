@@ -1,3 +1,4 @@
+import {createOnePlayPersonnel} from './one-play-personnel.js';
 import {isSpecialTeamCall} from './special-teams-options.js';
 import {manualGameScreens} from './screen-timers.js';
 import { scoreboardText } from './scoreboard.js';
@@ -131,6 +132,7 @@ export function mountPlayWizard(root) {
     form.prepend(source);
     const ui=document.createElement('section'); ui.className='play-wizard-ui'; source.after(ui);
     const field=name=>form.elements.namedItem(name);
+    const onePlayPersonnel = createOnePlayPersonnel(root, form);
     let step=0;
     const state = JSON.parse(root.dataset.afterState || '{}');
     const names = JSON.parse(root.dataset.teamNames || '{}');
@@ -139,8 +141,8 @@ export function mountPlayWizard(root) {
     let opened = false, idleSeconds = 0;
     const manualScreens = manualGameScreens({exhibition:root.hasAttribute('data-exhibition'),cpuOnly:root.dataset.cpuOnly});
     const countdown = reviewCountdown({manual:manualScreens});
-    dialog.addEventListener('close', () => countdown.cancel());
-    dialog.addEventListener('cancel', () => countdown.cancel());
+    dialog.addEventListener('close', () => {countdown.cancel(); onePlayPersonnel.cancel();});
+    dialog.addEventListener('cancel', () => {countdown.cancel(); onePlayPersonnel.cancel();});
     // Kick formations are offered only when those calls are legal for this phase.
     if (field('offense_formation') && field('call')) {
         [...field('offense_formation').options].filter(option => ['punt','field_goal'].includes(option.value) && (state.phase || 'scrimmage') !== 'scrimmage').forEach(option=>option.remove());
@@ -149,6 +151,7 @@ export function mountPlayWizard(root) {
     const summary=()=>['offense_formation','call','motion','defense_formation','defense'].filter(name=>field(name)).map(name=>'<li>'+escape(field(name).selectedOptions[0]?.textContent || '')+'</li>').join('')+(field('expect')?'<li>'+escape(field('expect').value)+(field('blitz').checked?' + blitz':' · regular')+'</li>':'');
     function render() {
         countdown.cancel();
+        onePlayPersonnel.cancel();
         ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
         const list=steps(); step=Math.min(step,list.length-1); const current=list[step];
         const labels = scoreboardText(state, names);
@@ -182,6 +185,11 @@ export function mountPlayWizard(root) {
         form.querySelector('[data-snap]').hidden=true;
         if(current.kind==='review') {
             cards.innerHTML='<div class="wizard-review"><h3>Selected calls</h3><ul>'+summary()+'</ul></div>';
+            if (root.dataset.personnelUrl) {
+                const personnel = document.createElement('section'); personnel.className = 'one-play-personnel';
+                cards.append(personnel);
+                onePlayPersonnel.render(personnel, ui.querySelector('[data-wizard-next]'));
+            }
             ['tempo','clock_strategy'].forEach(name=>{
                 if(field(name)) { const label=field(name).parentElement; label.hidden=false; cards.append(label); }
             });
@@ -210,7 +218,7 @@ export function mountPlayWizard(root) {
         ui.querySelector('[data-wizard-close]').onclick=()=>dialog.close();
         ui.querySelector('[data-wizard-back]').onclick=()=>{step--;render();};
         ui.querySelector('[data-wizard-next]').onclick=()=>{
-            if(current.kind==='review') {if (!form.querySelector('[data-snap]').disabled) { form.requestSubmit();dialog.close(); }}
+            if(current.kind==='review') {if (onePlayPersonnel.ready() && !form.querySelector('[data-snap]').disabled) { form.requestSubmit();dialog.close(); }}
             else {step++;render();ui.scrollIntoView({block:'start'});}
         };
         ui.querySelector('[data-wizard-coach]').onclick=()=>{

@@ -13,6 +13,14 @@ class GamePersonnel
                 continue;
             }
             $preferences = $state['game_lineup'][$side] ?? [];
+            $snapChoices = $state['_snap_lineup'][$side] ?? [];
+            // A one-play assignment can move a starter without changing permanent overrides.
+            foreach ($preferences as $role => $id) {
+                if (in_array($id, $snapChoices, true) && ($snapChoices[$role] ?? null) !== $id) {
+                    unset($preferences[$role]);
+                }
+            }
+            $preferences = array_replace($preferences, $snapChoices);
             $specialistRole = null;
             $specialist = null;
             if ($side === ($state['possession'] ?? null) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
@@ -42,6 +50,9 @@ class GamePersonnel
             $selected = [];
             $snap = $state['personnel_snaps'] ?? 0;
             foreach (RosterBuilder::GROUPS as $role => $positions) {
+                if (isset($snapChoices[$role])) {
+                    $positions = array_unique(array_column($roster['pool'], 'position'));
+                }
                 if ($role === 'RB' && $specialistRole === 'RB' && $fourthDownSpecialist) {
                     $positions = array_unique(array_merge(...array_values(RosterBuilder::GROUPS)));
                 }
