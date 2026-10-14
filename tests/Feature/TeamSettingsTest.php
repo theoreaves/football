@@ -202,3 +202,16 @@ test('specialists save only eligible current team players and are captured for n
     expect($home->fresh()->team_settings['specialists']['third_down_back'])->toBeNull();
     expect($snapshot['specialists']['third_down_back'])->toBe($rb);
 });
+
+test('RB workload slider validates and new games capture its team preference', function () {
+    [$home, $away] = Team::all()->all();
+    $payload = ['city' => $home->city, 'name' => $home->name, 'team_settings' => ['coaching' => ['rb_workload' => 100]]];
+    $this->get(route('teams.editor.edit', $home))->assertOk()->assertSee('Running back workload');
+    $this->put(route('teams.editor.update', $home), $payload)->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('exhibitions.store'), ['home' => $home->id, 'away' => $away->id, 'quarter_length' => 180])->assertRedirect()->assertSessionHasNoErrors();
+    app(CurrentWorld::class)->id = (int) $home->world_id;
+    $game = Exhibition::latest('id')->firstOrFail();
+    expect($game->state['coaching']['home']['rb_workload'])->toBe(100);
+    $payload['team_settings']['coaching']['rb_workload'] = 101;
+    $this->put(route('teams.editor.update', $home), $payload)->assertSessionHasErrors('team_settings.coaching.rb_workload');
+});

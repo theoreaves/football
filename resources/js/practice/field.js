@@ -1339,8 +1339,20 @@ export function mountPractice(root, onReady = () => {}) {
         const allCalls = call ? [...call.options].map(option => ({value: option.value, text: option.textContent})) : [];
         const phaseCalls = allCalls.length > 0 && allCalls.every(option => ['kickoff','onside_kick','extra_point','two_point_run','two_point_pass'].includes(option.value));
         const formationCalls = JSON.parse(root.dataset.offensiveOptions || '{}');
+        const motionField = callForm.querySelector('[name="motion"]');
+        const motionChoices = motionField ? [...motionField.options].map(option=>({value:option.value,text:option.textContent})) : [];
+        const refreshMotion = () => {
+            if (!motionField || !formation) return;
+            const packages = {singleback:['RB','WR1','WR2','TE','TE2'],i_form:['RB','FB','WR1','WR2','TE'],goal_line:['RB','FB','WR1','TE','TE2'],empty:['WR1','WR2','WR3','WR4','TE']};
+            const names = root.dataset.formationPersonnel ? JSON.parse(root.dataset.formationPersonnel)[formation.value] : null;
+            const roles = names ? Object.keys(names) : packages[formation.value] || ['RB','WR1','WR2','WR3','TE'];
+            const previous = motionField.value;
+            motionField.replaceChildren(...motionChoices.filter(o=>o.value==='none'||roles.includes(o.value)).map(o=>new Option(o.value !== 'none' && names?.[o.value] ? `${o.value} · ${names[o.value]}` : o.text,o.value)));
+            motionField.value = [...motionField.options].some(o=>o.value===previous) ? previous : 'none';
+        };
         const refreshFormation = () => {
             if (!call || !formation || phaseCalls || !formationCalls[formation.value]) return;
+            refreshMotion();
             const selected = call.value;
             const choices = allCalls.filter(option => formationCalls[formation.value].includes(option.value) || (!['punt','field_goal'].includes(formation.value) && ['kickoff','onside_kick','extra_point','two_point_run','two_point_pass','spike','kneel'].includes(option.value)));
             call.replaceChildren(...choices.map(({value,text}) => new Option(text,value)));

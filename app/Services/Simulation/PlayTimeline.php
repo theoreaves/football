@@ -116,6 +116,15 @@ class PlayTimeline
             $offense['QB'] = [str_starts_with($play['design'], 'fake_punt') ? -12 : -7, 26.7];
             $offense['RB'] = [-9, 29];
         }
+        $activeRoles = $rosters[$side]['offensive_roles'] ?? array_keys($offense);
+        if ($play['fake_kick'] ?? false || in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'onside_kick', 'extra_point'], true)) {
+            $activeRoles = array_keys($offense);
+        }
+        foreach (['TE2' => [-1, 20], 'FB' => [-4, 26.7], 'WR4' => [-2, 6]] as $role => $position) {
+            if (in_array($role, $activeRoles, true)) {
+                $offense[$role] = $position;
+            }
+        }
         $motion = $play['motion'] ?? 'none';
         $motionStart = isset($offense[$motion]) ? $offense[$motion][1] : null;
         if ($motionStart !== null) {
@@ -129,7 +138,9 @@ class PlayTimeline
                 'WR1' => ['CB1'],
                 'WR2' => ['CB2'],
                 'WR3' => ['CB3', 'LB3', 'S1'],
-                'TE' => ['S2', 'LB5', 'LB3', 'CB3'],
+                'TE', 'TE2' => ['S2', 'LB5', 'LB3', 'CB3'],
+                'WR4' => ['CB4', 'CB3', 'LB3'],
+                'FB' => ['LB2', 'LB1'],
                 'RB' => ['LB2', 'CB4', 'LB1'],
                 default => [],
             };
@@ -214,7 +225,7 @@ class PlayTimeline
         $contactTackler = $play['outcome'] === 'sack' ? 'DE1' : ($pass ? 'CB1' : 'LB2');
         $carrierContact = null;
         $tracks = [];
-        foreach ($offense as $role => [$x, $z]) {
+        foreach (array_intersect_key($offense, array_flip($activeRoles)) as $role => [$x, $z]) {
             $path = [$point(0, $x, $z), $point(1, $x + ($role === 'QB' ? -2 : 1), $z), $point(6, $x + 2, $z)];
             if ($role === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(.6, $handoff, 26.7), $point(2.2, $qbSet, $qbZ), $point(6, $qbSet, $qbZ)];
@@ -249,9 +260,9 @@ class PlayTimeline
                     $point(2.4, max(0, $play['gain'] * .25), $endZ), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
                 $runnerPath = $path;
             }
-            if ($pass && in_array($design, ['mesh', 'flood'], true) && in_array($role, ['WR1', 'WR2', 'WR3', 'TE'], true) && $role !== $receiverRole) {
+            if ($pass && in_array($design, ['mesh', 'flood'], true) && in_array($role, ['WR1', 'WR2', 'WR3', 'WR4', 'TE', 'TE2', 'FB'], true) && $role !== $receiverRole) {
                 $routeZ = $design === 'mesh' ? ($z < 26.7 ? 38 : 16) : ($visualVariant % 2 ? 43 : 10);
-                $routeDepth = $design === 'mesh' ? 5 : ['WR1' => 20, 'WR2' => 12, 'WR3' => 8, 'TE' => 5][$role];
+                $routeDepth = $design === 'mesh' ? 5 : (['WR1' => 20, 'WR2' => 12, 'WR3' => 8, 'TE' => 5][$role] ?? 5);
                 $path = [$point(0, $x, $z), $point(1.35, 3, $z), $point(3.8, $routeDepth, $routeZ), $point(6, $routeDepth + 2, $routeZ)];
             }
             if ($pass && $design === 'play_action' && $role === 'RB' && $role !== $receiverRole) {
@@ -277,7 +288,7 @@ class PlayTimeline
             if (in_array($design, ['power', 'counter', 'qb_power'], true) && $role === ($endZ < 26.7 ? 'RG' : 'LG')) {
                 $path = [$point(0, $x, $z), $point(.6, -2.2, $z), $point(1.4, -1.5, $endZ), $point(2.4, 1, $endZ), $point(5.3, 3, $endZ), $point(6, 3, $endZ)];
             }
-            if ($design === 'lead' && $role === 'WR3') {
+            if ($design === 'lead' && $role === (in_array('FB', $activeRoles, true) ? 'FB' : 'WR3')) {
                 $path = [$point(0, $x, $z), $point(1, -1, $endZ), $point(2.4, 2, $endZ), $point(5.3, 4, $endZ), $point(6, 4, $endZ)];
             }
             if ($qbDesigned && $role === 'RB') {

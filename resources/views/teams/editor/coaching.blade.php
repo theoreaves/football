@@ -10,7 +10,8 @@
             </label>
         @endforeach
     </div>
-    <p class="text-sm text-gray-600">50 keeps the existing balanced coaching behavior. Values are tendencies, not guaranteed play percentages.</p>
+    <p class="text-sm text-gray-600">RB workload at 50 targets 65/30/5 across the top three available backs in short stretches. Specialist and manual choices take priority; fewer backs redistribute the remaining snaps.</p>
+    <p class="text-sm text-gray-600">50 gives balanced coaching tendencies. Values are tendencies, not guaranteed play percentages.</p>
     @foreach(config('team-settings.staff') as $role => $label)
         <fieldset class="border rounded p-4 space-y-4">
             <legend class="font-semibold px-2">{{ $label }}</legend>

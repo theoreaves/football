@@ -20,6 +20,11 @@ class ReceiverTargets
     public function choose(array $offense, string $design, float $roll): string
     {
         $base = self::WEIGHTS[$design] ?? self::WEIGHTS['short_pass'];
+        foreach (['TE2' => 'WR3', 'FB' => 'WR3', 'WR4' => 'RB'] as $role => $replaced) {
+            if (isset($offense[$role])) {
+                $base[$role] = $base[$replaced] ?? 10;
+            }
+        }
         $weights = [];
         foreach ($base as $role => $share) {
             if (! isset($offense[$role])) {

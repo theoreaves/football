@@ -34,7 +34,7 @@ class ExhibitionEngine
         if (! in_array($tempo, ['normal', 'hurry', 'drain'], true) || ! in_array($clockStrategy, ['normal', 'sideline'], true)) {
             throw new LogicException('Choose a valid tempo and clock strategy.');
         }
-        if (! in_array($expect, ['balanced', 'run', 'pass'], true) || ! in_array($motion, ['none', 'WR1', 'WR2', 'WR3', 'TE', 'RB'], true)) {
+        if (! in_array($expect, ['balanced', 'run', 'pass'], true) || ! in_array($motion, ['none', 'WR1', 'WR2', 'WR3', 'WR4', 'TE', 'TE2', 'FB', 'RB'], true)) {
             throw new LogicException('Choose valid defensive expectations and motion.');
         }
         if (app(Overtime::class)->pending($state)) {
@@ -52,8 +52,11 @@ class ExhibitionEngine
         $call = match ($call) {
             'draw' => 'inside_run', 'screen' => 'short_pass', default => OffensiveOptions::canonical($call)
         };
-        $rosters = app(GamePersonnel::class)->active($rosters, $state, $fake ? $design : $call);
+        $rosters = app(GamePersonnel::class)->active($rosters, $state, $fake ? $design : $call, $offenseFormation);
         $rosters = SpecialTeamsTricks::personnel($rosters, $state['possession'], $design);
+        if ($motion !== 'none' && ! in_array($motion, $rosters[$state['possession']]['offensive_roles'] ?? array_keys($rosters[$state['possession']]['players']), true)) {
+            $motion = 'none';
+        }
         if (in_array($call, ['two_point_run', 'two_point_pass'], true)) {
             return $this->twoPoint($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation, $expect, $blitz, $motion);
         }
@@ -149,7 +152,7 @@ class ExhibitionEngine
         $targetRole = null;
         $flip = false;
         if (in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)) {
-            $targetRole = app(ReceiverTargets::class)->choose($off, $design, $roll());
+            $targetRole = app(ReceiverTargets::class)->choose(array_intersect_key($off, array_flip($rosters[$side]['offensive_roles'] ?? array_keys($off))), $design, $roll());
             $carrier = $targetRole;
             $pressureChance = max(.01, min(.35, .08 + ($front - $block) * .003 + ($defense === 'blitz' || $blitz ? .12 : 0) + ($offenseFormation === 'singleback' ? .02 : -.01) + ($design === 'play_action' ? .025 : 0)));
             $pressure = $roll() < min(.65, $pressureChance + .10);

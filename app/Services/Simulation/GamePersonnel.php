@@ -4,10 +4,12 @@ namespace App\Services\Simulation;
 
 class GamePersonnel
 {
-    public function active(array $rosters, array $state, ?string $call = null): array
+    public function active(array $rosters, array $state, ?string $call = null, ?string $formation = null): array
     {
         foreach ($rosters as $side => &$roster) {
             if (! isset($roster['pool'])) {
+                $roster = app(PersonnelRotation::class)->apply($roster, $state, $side, $call, $formation, $state['game_lineup'][$side] ?? []);
+
                 continue;
             }
             $preferences = $state['game_lineup'][$side] ?? [];
@@ -59,7 +61,7 @@ class GamePersonnel
                         }
                     }
                 }
-                if (! $player && in_array($role, ['LB4', 'LB5', 'CB3', 'CB4'], true)) {
+                if (! $player && in_array($role, ['LB4', 'LB5', 'CB3', 'CB4', 'TE2', 'FB', 'WR4'], true)) {
                     continue;
                 }
                 if (! $player) {
@@ -88,6 +90,7 @@ class GamePersonnel
                 $selected[$role] = $player;
             }
             $roster['players'] = $selected;
+            $roster = app(PersonnelRotation::class)->apply($roster, $state, $side, $call, $formation, $preferences);
         }
         unset($roster);
 
@@ -108,6 +111,13 @@ class GamePersonnel
         }
         $snap = ($before['personnel_snaps'] ?? 0) + 1;
         $state['personnel_snaps'] = $snap;
+        if (($before['phase'] ?? 'scrimmage') === 'scrimmage' && ! ($play['conversion'] ?? false)
+            && ! in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'onside_kick', 'extra_point'], true)) {
+            $offense = $before['possession'];
+            $state['personnel_usage'][$offense]['offensive_snaps'] = (int) ($before['personnel_usage'][$offense]['offensive_snaps'] ?? $before['stats'][$offense]['plays'] ?? 0) + 1;
+            $usedBack = ! ($play['fake_kick'] ?? false) && collect($play['animation']['players'] ?? [])->contains(fn ($p) => $p['side'] === $offense && $p['role'] === 'RB');
+            $state['personnel_usage'][$offense]['rb_snaps'] = (int) ($before['personnel_usage'][$offense]['rb_snaps'] ?? $before['stats'][$offense]['plays'] ?? 0) + (int) $usedBack;
+        }
         $notices = [];
         $participants = $play['animation']['players'] ?? [];
         foreach ($rosters as $side => $roster) {

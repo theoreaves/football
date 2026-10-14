@@ -11,5 +11,6 @@ in the lineup on the field. Manual changes and injury/fatigue replacements share
 the existing Skip player change control. In the same browser tab, a submitted
 call also carries the current visible lineup into a substitution animation
 before breaking the next huddle when the actual play needs different personnel.
-These presentation seconds never advance the simulation clock. This does not
-introduce new offensive personnel packages beyond the existing formations.
+These presentation seconds never advance the simulation clock. Formation-based
+personnel packages and planned RB/receiver rotation are described in
+[personnel-rotation.md](docs/personnel-rotation.md).

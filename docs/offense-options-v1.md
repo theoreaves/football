@@ -2,8 +2,8 @@
 
 The formation → play → motion workflow remains. Bunch, Empty and Goal Line join
 the existing Singleback, I-Formation, Shotgun, Pistol, Spread and Trips layouts.
-The selected offensive unit is retained; automatic formation-specific personnel
-package substitution is a future addition. Special-teams and conversion menus
+Formation-specific personnel packages and planned rotation are now available;
+see [personnel-rotation.md](personnel-rotation.md). Special-teams and conversion menus
 remain separate. Legacy play calls remain supported.
 
 New choices: inside zone, outside zone, stretch, toss, counter, power, lead,

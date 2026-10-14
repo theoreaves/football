@@ -4,6 +4,7 @@ return [
     // These are coaching tendencies, not fixed percentages of all snaps.
     'coaching' => [
         'pass' => ['Offensive balance', 'Run-heavy', 'Pass-heavy'],
+        'rb_workload' => ['Running back workload', 'Committee · 50/45/5', 'Workhorse · 80/15/5'],
         'qb_run' => ['Designed QB runs', 'Rare', 'Frequent'],
         'depth' => ['Passing approach', 'Short passes', 'Deep passes'],
         'tempo' => ['Offensive tempo', 'Clock control', 'Hurry-up'],

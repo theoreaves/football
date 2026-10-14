@@ -109,6 +109,12 @@ class ExhibitionController extends Controller
         $coachSuggestion = $coach->offense($exhibition->state, $personnel);
         $coachDefense = $coach->defense($exhibition->state, $coachSuggestion['call']);
         $plannedCall = $cpuPlan['call'] ?? $calls[0];
+        $formationPersonnel = [];
+        foreach (array_keys(ExhibitionEngine::OFFENSE_FORMATIONS) as $formation) {
+            $kickCall = in_array($formation, ['punt', 'field_goal'], true) ? $formation : null;
+            $unit = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state, $kickCall, $formation)[$offenseSide];
+            $formationPersonnel[$formation] = array_map(fn ($p) => $p['name'], array_intersect_key($unit['players'], array_flip($unit['offensive_roles'])));
+        }
         $humanDefenseOptions = ExhibitionEngine::defensesForCall($plannedCall);
 
         // Display-only personnel: no resolution, random rolls, clock or state writes.
@@ -127,12 +133,16 @@ class ExhibitionController extends Controller
                 || ($last['before']['quarter'] === 2 && $exhibition->state['quarter'] === 3)
                 || $exhibition->state['status'] === 'final');
         if (! $replayOnly && ! ($exhibition->state['penalty_pending'] ?? false) && $exhibition->state['status'] !== 'final') {
+            $previewFormation = $cpuPlan['formation'] ?? ($last['offense_formation'] ?? 'shotgun');
+            if (in_array($previewFormation, ['punt', 'field_goal'], true) && ! in_array($plannedCall, ['punt', 'field_goal', ...\App\Services\Simulation\SpecialTeamsTricks::FAKES], true)) {
+                $previewFormation = 'shotgun';
+            }
             $nextPreview = ['before' => $exhibition->state, 'call' => $plannedCall, 'outcome' => 'tackle',
                 'carrier' => in_array($plannedCall, ['field_goal', 'extra_point', 'kickoff'], true) ? 'K' : ($plannedCall === 'punt' ? 'P' : 'RB'),
                 'gain' => 0, 'target' => 0, 'summary' => 'Incoming unit',
-                'offense_formation' => $coachSuggestion['formation'] ?? 'shotgun',
+                'offense_formation' => $previewFormation,
                 'defense_formation' => $coachDefense['formation'] ?? 'base_4_3'];
-            $nextPersonnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state, $plannedCall);
+            $nextPersonnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state, $plannedCall, $previewFormation);
             $fake = in_array($plannedCall, \App\Services\Simulation\SpecialTeamsTricks::FAKES, true);
             if ($fake) {
                 $nextPersonnel = \App\Services\Simulation\SpecialTeamsTricks::personnel($nextPersonnel, $exhibition->state['possession'], $plannedCall);
@@ -161,7 +171,7 @@ class ExhibitionController extends Controller
             $exhibition->state = $last['after'] ?? $last['before'];
         }
 
-        return view('exhibitions.show', compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange'));
+        return view('exhibitions.show', compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel'));
     }
 
     public function finish(Request $request, Exhibition $exhibition)
@@ -238,7 +248,7 @@ class ExhibitionController extends Controller
         }
         $rules['expect'] = ['sometimes', Rule::in(['balanced', 'run', 'pass'])];
         $rules['blitz'] = ['sometimes', 'boolean'];
-        $rules['motion'] = ['sometimes', Rule::in(['none', 'WR1', 'WR2', 'WR3', 'TE', 'RB'])];
+        $rules['motion'] = ['sometimes', Rule::in(['none', 'WR1', 'WR2', 'WR3', 'WR4', 'TE', 'TE2', 'FB', 'RB'])];
         // Force injuries are available only to local developers, never on deployed servers.
         $forceInjuryAllowed = app()->environment('local') && (bool) config('app.debug');
         if ($forceInjuryAllowed && $action === 'play') {

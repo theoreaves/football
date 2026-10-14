@@ -41,6 +41,10 @@ export function formationPoints(side, formation) {
         offense.H=[-7,26.7]; offense.K=[-10,30];
         offense.WR1=[-1,19]; offense.WR2=[-1,36]; offense.WR3=[-2,21];
     }
+    if (formation === 'singleback') {delete offense.WR3;offense.TE2=[-1,20];}
+    if (formation === 'i_form') {delete offense.WR3;offense.FB=[-4,26.7];}
+    if (formation === 'goal_line') {delete offense.WR2;delete offense.WR3;offense.FB=[-4,26.7];offense.TE2=[-1,20];}
+    if (formation === 'empty') {delete offense.RB;offense.WR4=[-2,6];}
     return side === 'offense' ? offense : defense;
 }
 
@@ -53,7 +57,7 @@ export function playGraphic(kind, value, formation = 'shotgun') {
         return '<circle cx="'+x+'" cy="'+y+'" r="6" fill="'+(defensive?'#fb7185':'#93c5fd')+'"/><text x="'+x+'" y="'+(y+16)+'" text-anchor="middle" fill="#e2e8f0" font-size="9">'+role+'</text>';
     }).join('');
     const route = (role, depth, width, color='#facc15') => {
-        const [x,y]=xy(points[role] || points.QB || points.LB2);
+        const [x,y]=xy(points[role] || points.FB || points.QB || points.LB2);
         const [endX,endY]=xy([depth,width]);
         const tailY=endY+(endY<y?5:-5);
         return '<path d="M '+x+' '+y+' L '+x+' '+((y+endY)/2)+' L '+endX+' '+endY+'" fill="none" stroke="'+color+'" stroke-width="3"/><path d="M '+(endX-4)+' '+tailY+' L '+endX+' '+endY+' L '+(endX+4)+' '+tailY+'" fill="none" stroke="'+color+'" stroke-width="2"/>';

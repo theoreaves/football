@@ -92,7 +92,9 @@ class CpuCoach
         }
         $formations = array_keys(array_filter(OffensiveOptions::FORMATIONS, fn ($calls) => in_array($call, $calls, true)));
         $formation = $formations[$this->roll($state, 'offensive-formation') % count($formations)];
-        $roles = array_values(array_filter($formation === 'spread' ? ['WR1', 'WR2', 'WR3'] : ['WR1', 'WR2', 'TE', 'RB'], fn ($role) => isset($players[$role])));
+        $package = PersonnelRotation::PACKAGES[$formation] ?? null;
+        $motionRoles = $package ? array_diff($package, ['QB']) : ($formation === 'spread' ? ['WR1', 'WR2', 'WR3'] : ['WR1', 'WR2', 'TE', 'RB']);
+        $roles = array_values(array_filter($motionRoles, fn ($role) => isset($players[$role])));
         // PFF's 2025 pre-snap motion rate: 64% (not motion at the snap).
         $motion = $roles && $this->roll($state, 'motion') < 64 ? $roles[$this->roll($state, 'motion-player') % count($roles)] : 'none';
 

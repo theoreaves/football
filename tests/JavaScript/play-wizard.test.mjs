@@ -25,7 +25,7 @@ test('formation diagrams contain eleven players and distinguish each alignment',
         assert.equal(new Set(layouts).size,types.length);
     }
     assert.equal(formationPoints('defense','nickel').CB3[0],5);
-    assert.equal(formationPoints('offense','i_form').WR3[1],26.7);
+    assert.equal(formationPoints('offense','i_form').FB[1],26.7);
 });
 
 test('play and coverage graphics distinguish routes coverage and blitz types', () => {
@@ -50,10 +50,10 @@ test('kick formations keep formation and play steps and automatic opening waits 
     }
 });
 
-test('designed QB and crossing concepts have distinct diagrams and empty spreads its back',()=>{
+test('designed QB and crossing concepts have distinct diagrams and empty fields a fourth receiver',()=>{
     assert.notEqual(playGraphic('play','qb_draw'),playGraphic('play','qb_power'));
     assert.notEqual(playGraphic('play','qb_sneak'),playGraphic('play','qb_sweep'));
     assert.notEqual(playGraphic('play','mesh'),playGraphic('play','flood'));
-    assert.equal(formationPoints('offense','empty').RB[1],6);
+    assert.equal(formationPoints('offense','empty').WR4[1],6);
     assert.equal(formationPoints('offense','bunch').WR2[1],43);
 });
