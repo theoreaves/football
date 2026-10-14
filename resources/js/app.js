@@ -1,3 +1,4 @@
+import {mountTeamPlayEditors} from './team-play-editor.js';
 import { mountButtonFeedback } from './button-feedback.js';
 import { mountSimProgress } from './sim-progress.js';
 import { mountSeasonBoxScores } from './season-box-scores.js';
@@ -43,6 +44,7 @@ function initializePractice() {
     });
     mountSeasonBoxScores();
     mountSeasonDepth();
+    mountTeamPlayEditors();
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
     const root = document.querySelector('[data-practice]');

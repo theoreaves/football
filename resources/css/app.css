@@ -346,3 +346,11 @@ button:active, input[type="submit"]:active, input[type="button"]:active, .button
 .personnel-row select { grid-column: 1 / -1; min-width: 0; background: #0f172a; border: 1px solid #64748b; border-radius: 6px; padding: 8px; }
 .one-play-personnel button { padding: 10px 14px; min-height: 44px; border: 1px solid #64748b; border-radius: 6px; margin: 10px 8px 0 0; }
 @media (max-width: 640px) { .personnel-grid { grid-template-columns: minmax(0, 1fr); } .one-play-personnel { padding: 10px; } }
+
+.team-play-list { display: grid; gap: 12px; margin-top: 16px; }
+.team-play-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; border: 1px solid #475569; border-radius: 8px; padding: 14px; }
+.team-play-item h3 { font-weight: 600; }.team-play-item small { color: #94a3b8; }
+.team-play-positions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.team-play-positions select { display: block; width: 100%; min-width: 0; min-height: 44px; padding: 8px; background: #0f172a; border: 1px solid #64748b; border-radius: 6px; }
+.team-play-heading { grid-column: 1 / -1; font-weight: 600; color: #93c5fd; margin-top: 12px; }
+@media(max-width:640px) { .team-play-positions { grid-template-columns: minmax(0,1fr); } .team-play-item { align-items: start; flex-direction: column; } }

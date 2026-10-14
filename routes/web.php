@@ -49,6 +49,8 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/seasons/{season}/teams/{team}', [\App\Http\Controllers\SeasonController::class, 'team'])->name('seasons.team');
         Route::put('/seasons/{season}/teams/{team}/depth', [\App\Http\Controllers\SeasonController::class, 'depth'])->name('seasons.depth');
         Route::put('/seasons/{season}/teams/{team}/specialists', [\App\Http\Controllers\SeasonController::class, 'specialists'])->name('seasons.specialists');
+        Route::post('/seasons/{season}/teams/{team}/plays', [\App\Http\Controllers\SeasonController::class, 'saveTeamPlay'])->name('seasons.plays.save');
+        Route::delete('/seasons/{season}/teams/{team}/plays/{play}', [\App\Http\Controllers\SeasonController::class, 'deleteTeamPlay'])->whereUuid('play')->name('seasons.plays.delete');
 
         Route::get('/teams/{team}/audio/{clip}', [\App\Http\Controllers\PracticeController::class, 'audio'])->name('teams.audio');
         Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');

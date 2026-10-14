@@ -1,3 +1,4 @@
+import {mountTeamPlaySelections} from './team-play-options.js';
 import {createOnePlayPersonnel} from './one-play-personnel.js';
 import {isSpecialTeamCall} from './special-teams-options.js';
 import {manualGameScreens} from './screen-timers.js';
@@ -132,6 +133,7 @@ export function mountPlayWizard(root) {
     form.prepend(source);
     const ui=document.createElement('section'); ui.className='play-wizard-ui'; source.after(ui);
     const field=name=>form.elements.namedItem(name);
+    const teamPlays = mountTeamPlaySelections(root, form);
     const onePlayPersonnel = createOnePlayPersonnel(root, form);
     let step=0;
     const state = JSON.parse(root.dataset.afterState || '{}');
@@ -184,7 +186,7 @@ export function mountPlayWizard(root) {
         const cards=ui.querySelector('.wizard-cards');
         form.querySelector('[data-snap]').hidden=true;
         if(current.kind==='review') {
-            cards.innerHTML='<div class="wizard-review"><h3>Selected calls</h3><ul>'+summary()+'</ul></div>';
+            cards.innerHTML='<div class="wizard-review"><h3>Selected calls</h3><ul>'+summary()+teamPlays.selected().map(play=>'<li>Team Play · '+escape(play.name)+'</li>').join('')+'</ul></div>';
             if (root.dataset.personnelUrl) {
                 const personnel = document.createElement('section'); personnel.className = 'one-play-personnel';
                 cards.append(personnel);
@@ -204,7 +206,7 @@ export function mountPlayWizard(root) {
                 const formation=current.kind.includes('formation')?option.value:field(current.kind.startsWith('defense')?'defense_formation':'offense_formation')?.value;
                 button.innerHTML=playGraphic(current.kind==='formation' && ['punt','field_goal'].includes(option.value)?'play':current.kind,option.value,formation)+'<span>'+escape(option.text)+'</span>';
                 button.addEventListener('click',()=>{
-                    if(current.kind==='defense-type') {field('expect').value=option.value.split(':')[0];field('blitz').checked=option.value.endsWith(':blitz');}
+                    if(current.kind==='defense-type') {teamPlays.clear('defense');field('expect').value=option.value.split(':')[0];field('blitz').checked=option.value.endsWith(':blitz');}
                     else {field(current.name).value=option.value;field(current.name).dispatchEvent(new Event('change',{bubbles:true}));}
                     step++;
                     render();
@@ -214,6 +216,17 @@ export function mountPlayWizard(root) {
                     ui.scrollIntoView({block:'start'});
                 });cards.append(button);
             });
+            const kind = current.kind === 'play' ? 'offense' : current.kind === 'defense-coverage' && !special(field('call')?.value || (root.dataset.cpuSpecial === 'true' ? 'kickoff' : 'inside_run')) ? 'defense' : null;
+            const named = kind ? teamPlays.options(kind) : [];
+            if (named.length) {
+                const heading = document.createElement('h3');heading.className='team-play-heading';heading.textContent='Team Plays';cards.append(heading);
+                named.forEach(play=>{
+                    const button=document.createElement('button');button.type='button';button.className='wizard-card';
+                    button.setAttribute('aria-pressed',String(teamPlays.current(kind)?.id===play.id));
+                    button.innerHTML=playGraphic(kind==='offense'?'play':'defense-coverage',play.call,play.formation)+'<span>'+escape(play.name)+'</span><small>'+escape(play.call.replaceAll('_',' '))+(kind==='defense'?' · '+escape(play.expect)+(play.blitz?' + Blitz':''):'')+'</small>';
+                    button.addEventListener('click',()=>{teamPlays.choose(play);step+=kind==='defense'?2:1;render();ui.scrollIntoView({block:'start'});});cards.append(button);
+                });
+            }
         }
         ui.querySelector('[data-wizard-close]').onclick=()=>dialog.close();
         ui.querySelector('[data-wizard-back]').onclick=()=>{step--;render();};

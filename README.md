@@ -17,3 +17,5 @@ personnel packages and planned RB/receiver rotation are described in
 
 Human play-calling review screens include searchable one-play personnel replacements.
 See [one-play-personnel.md](docs/one-play-personnel.md) for supported plays, selection priority, and replay behavior.
+
+Season team pages include **Team Plays**: named offensive/defensive variations with optional cross-position personnel. See [team-plays.md](docs/team-plays.md) for capture and play-calling behavior.

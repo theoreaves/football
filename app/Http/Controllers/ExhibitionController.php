@@ -211,11 +211,12 @@ class ExhibitionController extends Controller
 
     public function personnel(Request $request, Exhibition $exhibition)
     {
-        $data = $request->validate(array_merge(\App\Services\Simulation\OnePlayPersonnel::rules(), [
+        $data = $request->validate(array_merge(\App\Services\Simulation\OnePlayPersonnel::rules(), \App\Services\Simulation\TeamPlays::rules(), [
             'version' => ['required', 'integer', 'min:0'],
             'call' => ['sometimes', Rule::in(ExhibitionEngine::OFFENSE)],
             'offense_formation' => ['sometimes', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))],
             'defense_formation' => ['sometimes', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))],
+            'defense' => ['sometimes', Rule::in(ExhibitionEngine::DEFENSE)], 'expect' => ['sometimes', Rule::in(['balanced', 'run', 'pass'])], 'blitz' => ['sometimes', 'boolean'],
         ]));
         $state = $exhibition->state;
         abort_if($state['version'] !== (int) $data['version'], 409, 'The game changed. Reload before choosing personnel.');
@@ -225,9 +226,10 @@ class ExhibitionController extends Controller
         $side = $state['possession'];
         $other = $side === 'home' ? 'away' : 'home';
         $offense = $controls[$side] === 'cpu' ? $coach->offense($state, app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $state)) : ['call' => $data['call'] ?? 'inside_run', 'formation' => $data['offense_formation'] ?? 'shotgun'];
-        $defense = $controls[$other] === 'cpu' ? $coach->defense($state, $offense['call']) : ['formation' => $data['defense_formation'] ?? 'base_4_3'];
+        $defense = $controls[$other] === 'cpu' ? $coach->defense($state, $offense['call']) : ['call' => $data['defense'] ?? 'zone', 'formation' => $data['defense_formation'] ?? 'base_4_3', 'expect' => $data['expect'] ?? 'balanced', 'blitz' => (bool) ($data['blitz'] ?? false)];
         $service = app(\App\Services\Simulation\OnePlayPersonnel::class);
-        $state = $service->apply($state, $exhibition->rosters, $data['one_play'] ?? [], $offense['call'], $offense['formation'], $defense['formation']);
+        $prepared = app(\App\Services\Simulation\TeamPlays::class)->prepare($state, $exhibition->rosters, $data['team_play'] ?? [], $data['one_play'] ?? [], $offense, $defense);
+        $state = $prepared['state'];
         if (! $service->supported($state, $offense['call'])) {
             return response()->json(['supported' => false, 'teams' => []]);
         }
@@ -245,7 +247,7 @@ class ExhibitionController extends Controller
             ];
         }
 
-        return response()->json(['supported' => true, 'teams' => $teams]);
+        return response()->json(['supported' => true, 'teams' => $teams, 'notices' => $prepared['notices']]);
     }
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
@@ -296,7 +298,7 @@ class ExhibitionController extends Controller
             $rules['dev_injury_role'] = ['sometimes', Rule::in(['carrier', 'QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'C', 'LB1', 'CB1'])];
         }
         if ($action === 'play') {
-            $rules = array_merge($rules, \App\Services\Simulation\OnePlayPersonnel::rules());
+            $rules = array_merge($rules, \App\Services\Simulation\OnePlayPersonnel::rules(), \App\Services\Simulation\TeamPlays::rules());
         }
         $data = $request->validate($rules);
         DB::transaction(function () use ($exhibition, $engine, $data, $request, $forceInjuryAllowed) {
@@ -406,8 +408,12 @@ class ExhibitionController extends Controller
                     $defense = ['call' => $human['defense'], 'formation' => $human['defense_formation'] ?? 'base_4_3'];
                 }
                 $management = $controls[$side] === 'cpu' ? $coach->management($game->state) : ['tempo' => $data['tempo'] ?? 'normal', 'clock_strategy' => $data['clock_strategy'] ?? 'normal'];
-                $snapState = app(\App\Services\Simulation\OnePlayPersonnel::class)->apply($game->state, $game->rosters, $data['one_play'] ?? [], $offense['call'], $offense['formation'], $defense['formation']);
+                $defense['expect'] = $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced'));
+                $defense['blitz'] = $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false);
+                $prepared = app(\App\Services\Simulation\TeamPlays::class)->prepare($game->state, $game->rosters, $data['team_play'] ?? [], $data['one_play'] ?? [], $offense, $defense);
+                $snapState = $prepared['state'];
                 $result = $engine->resolve($snapState, $game->rosters, $offense['call'], $defense['call'], $offense['formation'], $defense['formation'], $management['tempo'], $management['clock_strategy'], $controls[$other] === 'human' ? ($data['expect'] ?? 'balanced') : ($game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')), $controls[$other] === 'human' && (bool) ($data['blitz'] ?? false), $controls[$side] === 'human' ? ($data['motion'] ?? 'none') : ($offense['motion'] ?? 'none'), $forceInjuryAllowed ? ($data['dev_force_result'] ?? 'none') : 'none');
+                $result = app(\App\Services\Simulation\TeamPlays::class)->annotate($result, $prepared);
             }
             // Presentation and persistence use the same injury state as natural injuries.
             // This happens after the engine resolves the play, without altering its outcome.

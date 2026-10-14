@@ -53,7 +53,7 @@ export function createOnePlayPersonnel(root, form) {
         summary.textContent = `Personnel${count() ? ` · ${count()} changes` : ' · View players / replace for this play'}`;
         details.append(summary);
         const note = document.createElement('p');
-        note.textContent = 'For this play only. Automatic uses your current lineup and specialists. Any roster position can fill a role; actual player attributes apply.';
+        note.textContent = 'For this play only. Automatic uses the selected Team Play, current lineup and specialists. Any roster position can fill a role; actual player attributes apply.';
         note.className = 'personnel-note'; details.append(note);
         const searchLabel = document.createElement('label'); searchLabel.textContent = 'Find a replacement';
         const searchInput = document.createElement('input'); searchInput.type = 'search'; searchInput.placeholder = 'Name, number or position'; searchInput.value = search;
@@ -96,6 +96,9 @@ export function createOnePlayPersonnel(root, form) {
         searchInput.addEventListener('input', () => { search = searchInput.value; selects.forEach(({select, team, role}) => options(select, team, role)); });
         const reset = document.createElement('button'); reset.type = 'button'; reset.textContent = 'Reset all to Automatic';
         reset.addEventListener('click', () => { choices = {}; sync(); refresh(); }); details.append(reset);
+        for (const notice of data.notices || []) {
+            const message = document.createElement('p'); message.className = 'personnel-note'; message.textContent = notice; host.append(message);
+        }
         host.append(details);
     }
     async function refresh() {
@@ -124,7 +127,7 @@ export function createOnePlayPersonnel(root, form) {
     return {
         render(container, button) {
             host = container; submit = button;
-            const nextSignature = ['call','offense_formation','defense_formation'].map(key => form.elements.namedItem(key)?.value || '').join(':');
+            const nextSignature = ['call','offense_formation','defense_formation','team_play[home]','team_play[away]'].map(key => form.elements.namedItem(key)?.value || '').join(':');
             if (signature && nextSignature !== signature) { choices = {}; sync(); }
             signature = nextSignature;
             refresh();

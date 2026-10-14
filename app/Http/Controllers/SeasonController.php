@@ -230,7 +230,11 @@ class SeasonController extends Controller
     {
         abort_unless(isset($season->settings['members'][$team->id]), 404);
         $tab = $request->query('tab', 'overview');
-        abort_unless(in_array($tab, ['overview', 'roster', 'depth', 'specialists', 'schedule', 'stats', 'injuries', 'settings'], true), 404);
+        abort_unless(in_array($tab, ['overview', 'roster', 'depth', 'specialists', 'plays', 'schedule', 'stats', 'injuries', 'settings'], true), 404);
+        if ($tab === 'plays') {
+            $request->validate(['edit' => ['sometimes', 'uuid']]);
+            abort_if($request->has('edit') && ! isset($season->settings['team_plays'][$team->id][$request->query('edit')]), 404);
+        }
         $players = $team->players()->wherePivot('team_year', (string) $season->year)->orderBy('team_players.depth_chart_position')->get();
         $positions = $players->pluck('pivot.position')->unique()->sort()->values();
         $request->validate(['position' => ['sometimes', 'string', 'max:10']]);
@@ -251,8 +255,72 @@ class SeasonController extends Controller
             'teamStats' => in_array($tab, ['stats', 'overview']) ? app(\App\Services\Seasons\SeasonStats::class)->team($season, $team->id) : null,
             'record' => app(\App\Services\Seasons\SeasonGames::class)->standings($season)[$team->id],
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])->mapWithKeys(fn ($t) => [$t->id => route('teams.art', ['team' => $t, 'asset' => 'team_logo'])]),
+            'editingPlay' => $tab === 'plays' ? ($season->settings['team_plays'][$team->id][$request->query('edit', '')] ?? null) : null,
+            'playCatalogue' => $tab === 'plays' ? \App\Services\Simulation\TeamPlays::catalogue() : [],
             'players' => $players, 'positions' => $positions, 'position' => $position, 'depthPlayers' => $depthPlayers,
             'fixtures' => $season->fixtures()->where(fn ($q) => $q->where('home_team_id', $team->id)->orWhere('away_team_id', $team->id))->orderBy('week')->get()]);
+    }
+
+    public function saveTeamPlay(Request $request, Season $season, Team $team)
+    {
+        abort_unless(isset($season->settings['members'][$team->id]), 404);
+        $catalogue = \App\Services\Simulation\TeamPlays::catalogue();
+        $data = $request->validate([
+            'id' => ['nullable', 'uuid'], 'name' => ['required', 'string', 'max:60'],
+            'kind' => ['required', Rule::in(['offense', 'defense'])], 'formation' => ['required', 'string', 'max:30'],
+            'call' => ['required', 'string', 'max:30'], 'expect' => ['sometimes', Rule::in(['balanced', 'run', 'pass'])],
+            'blitz' => ['sometimes', 'boolean'], 'personnel' => ['sometimes', 'array:'.implode(',', array_keys(\App\Services\Simulation\RosterBuilder::GROUPS))],
+            'personnel.*' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $entry = $catalogue[$data['kind']][$data['formation']] ?? null;
+        if (! $entry || ! in_array($data['call'], $entry['calls'], true) || array_diff(array_keys($data['personnel'] ?? []), $entry['roles'])) {
+            throw ValidationException::withMessages(['call' => 'Choose a play and positions from the selected formation.']);
+        }
+        DB::transaction(function () use ($season, $team, $data) {
+            $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            $settings = $locked->settings;
+            $plays = $settings['team_plays'][$team->id] ?? [];
+            $id = $data['id'] ?? (string) \Illuminate\Support\Str::uuid();
+            abort_if(isset($data['id']) && ! isset($plays[$id]), 404);
+            if (! isset($plays[$id]) && count($plays) >= \App\Services\Simulation\TeamPlays::LIMIT) {
+                throw ValidationException::withMessages(['name' => 'This team already has 40 plays. Remove a play before adding another.']);
+            }
+            $name = trim($data['name']);
+            if ($name === '') {
+                throw ValidationException::withMessages(['name' => 'Give this team play a name.']);
+            }
+            foreach ($plays as $key => $play) {
+                if ($key !== $id && $play['kind'] === $data['kind'] && $play['formation'] === $data['formation'] && mb_strtolower($play['name']) === mb_strtolower($name)) {
+                    throw ValidationException::withMessages(['name' => 'That formation already has a team play with this name.']);
+                }
+            }
+            $personnel = array_map('intval', array_filter($data['personnel'] ?? [], fn ($id) => $id !== null));
+            $eligible = $team->players()->wherePivot('team_year', (string) $locked->year)->pluck('players.id')->map(fn ($id) => (int) $id)->all();
+            if (array_diff($personnel, $eligible) || count($personnel) !== count(array_unique($personnel))) {
+                throw ValidationException::withMessages(['personnel' => 'Use this season’s team roster and select each player only once.']);
+            }
+            $plays[$id] = ['id' => $id, 'name' => $name, 'kind' => $data['kind'], 'formation' => $data['formation'], 'call' => $data['call'],
+                'expect' => $data['kind'] === 'defense' ? ($data['expect'] ?? 'balanced') : 'balanced',
+                'blitz' => $data['kind'] === 'defense' && (bool) ($data['blitz'] ?? false), 'personnel' => $personnel];
+            $settings['team_plays'][$team->id] = $plays;
+            $locked->update(['settings' => $settings]);
+        });
+
+        return redirect()->route('seasons.team', ['season' => $season, 'team' => $team, 'tab' => 'plays'])->with('status', 'Team play saved. Newly started season games will include it.');
+    }
+
+    public function deleteTeamPlay(Season $season, Team $team, string $play)
+    {
+        abort_unless(isset($season->settings['members'][$team->id]), 404);
+        DB::transaction(function () use ($season, $team, $play) {
+            $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            $settings = $locked->settings;
+            abort_unless(isset($settings['team_plays'][$team->id][$play]), 404);
+            unset($settings['team_plays'][$team->id][$play]);
+            $locked->update(['settings' => $settings]);
+        });
+
+        return redirect()->route('seasons.team', ['season' => $season, 'team' => $team, 'tab' => 'plays'])->with('status', 'Team play removed. Games already started keep their captured playbook.');
     }
 
     public function specialists(Request $request, Season $season, Team $team)
