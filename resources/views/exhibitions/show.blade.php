@@ -241,7 +241,12 @@
                     @if($noticePlayer && !str_contains($notice, 'cleared to return'))
                         @include('exhibitions.partials.player-portrait', ['portraitPlayer' => $noticePlayer, 'portraitSide' => $noticeSide])
                     @endif
-                    <p>{{ $noticeText }}</p>
+                    <p>
+                        @if($noticePlayer['position'] ?? null)
+                            <span data-injury-position class="inline-block rounded bg-gray-700 px-2 py-1 mr-2 text-sm font-semibold">{{ $noticePlayer['position'] }}</span>
+                        @endif
+                        {{ $noticeText }}
+                    </p>
                 </div>
             @endforeach
             @endif
