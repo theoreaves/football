@@ -1,3 +1,4 @@
+import {mountExchangeSkipButton} from './exchange-skip-button.js';
 import {mountTeamPlaySelections} from './team-play-options.js';
 import {createOnePlayPersonnel} from './one-play-personnel.js';
 import {isSpecialTeamCall} from './special-teams-options.js';
@@ -115,7 +116,7 @@ export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
     return list;
 }
 
-export function mountPlayWizard(root) {
+export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStatus = () => ({active:false,fastForwarding:false})} = {}) {
     const form = root.querySelector('[data-call-form]');
     if (!form || (!form.elements.call && !form.elements.defense)) return;
     const dialog = document.createElement('dialog');
@@ -136,6 +137,7 @@ export function mountPlayWizard(root) {
     const teamPlays = mountTeamPlaySelections(root, form);
     const onePlayPersonnel = createOnePlayPersonnel(root, form);
     let step=0, playersReady=true, currentKind=null;
+    let updateExchangeSkip = () => {};
     const updateReviewButton = () => {
         if (currentKind !== 'review') return;
         const button = ui.querySelector('[data-wizard-next]');
@@ -165,7 +167,7 @@ export function mountPlayWizard(root) {
         ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
         const list=steps(); step=Math.min(step,list.length-1); const current=list[step]; currentKind=current.kind;
         const labels = scoreboardText(state, names);
-        ui.innerHTML='<p class="wizard-situation">'+escape((names[state.possession] || '')+' · '+labels.compact+' · '+labels.clock+' · Clock '+labels.clockStatus.toLowerCase())+'</p><div class="wizard-heading"><div><p>Step '+(step+1)+' of '+list.length+'</p><h2>'+current.title+'</h2></div><div class="wizard-heading-actions"><button type="button" data-wizard-coach>Coach pick</button><button type="button" data-wizard-close>Close</button></div></div><p class="wizard-progress">'+list.map((item,index)=>'<span class="'+(index===step?'current':'')+'">'+escape(item.title)+'</span>').join(' → ')+'</p><div class="wizard-cards"></div><div class="wizard-nav"><button type="button" data-wizard-back '+(step===0?'disabled':'')+'>Back</button><button type="button" data-wizard-next>'+(current.kind==='review'?'Call play & watch':'Next')+'</button></div>';
+        ui.innerHTML='<p class="wizard-situation">'+escape((names[state.possession] || '')+' · '+labels.compact+' · '+labels.clock+' · Clock '+labels.clockStatus.toLowerCase())+'</p><div class="wizard-heading"><div><p>Step '+(step+1)+' of '+list.length+'</p><h2>'+current.title+'</h2></div><div class="wizard-heading-actions"><button type="button" data-wizard-skip-exchange hidden>Skip player change</button><button type="button" data-wizard-coach>Coach pick</button><button type="button" data-wizard-close>Close</button></div></div><p class="wizard-progress">'+list.map((item,index)=>'<span class="'+(index===step?'current':'')+'">'+escape(item.title)+'</span>').join(' → ')+'</p><div class="wizard-cards"></div><div class="wizard-nav"><button type="button" data-wizard-back '+(step===0?'disabled':'')+'>Back</button><button type="button" data-wizard-next>'+(current.kind==='review'?'Call play & watch':'Next')+'</button></div>';
         const situation = ui.querySelector('.wizard-situation');
         const logo = appearance[state.possession]?.team_logo;
         if (logo) {
@@ -236,6 +238,7 @@ export function mountPlayWizard(root) {
                 });
             }
         }
+        updateExchangeSkip = mountExchangeSkipButton(ui.querySelector('[data-wizard-skip-exchange]'), exchangeStatus, skipPlayerChange);
         ui.querySelector('[data-wizard-close]').onclick=()=>dialog.close();
         ui.querySelector('[data-wizard-back]').onclick=()=>{step--;render();};
         ui.querySelector('[data-wizard-next]').onclick=()=>{
@@ -263,6 +266,7 @@ export function mountPlayWizard(root) {
     open.addEventListener('click', openWizard);
     return ({delta, ready, personnelReady = true}) => {
         playersReady = personnelReady;
+        updateExchangeSkip();
         updateReviewButton();
         const seconds = countdown.tick(delta, personnelReady && dialog.open && !document.hidden && root.isConnected);
         if (seconds !== null) {

@@ -354,3 +354,9 @@ button:active, input[type="submit"]:active, input[type="button"]:active, .button
 .team-play-positions select { display: block; width: 100%; min-width: 0; min-height: 44px; padding: 8px; background: #0f172a; border: 1px solid #64748b; border-radius: 6px; }
 .team-play-heading { grid-column: 1 / -1; font-weight: 600; color: #93c5fd; margin-top: 12px; }
 @media(max-width:640px) { .team-play-positions { grid-template-columns: minmax(0,1fr); } .team-play-item { align-items: start; flex-direction: column; } }
+
+.play-wizard [data-wizard-skip-exchange] { color: #bfdbfe; border-color: #60a5fa; }
+@media(max-width:640px) {
+    .play-wizard .wizard-heading { flex-wrap: wrap; align-items: flex-start; }
+    .play-wizard .wizard-heading-actions { width: 100%; justify-content: flex-start; }
+}

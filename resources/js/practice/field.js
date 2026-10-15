@@ -398,6 +398,13 @@ export function mountPractice(root, onReady = () => {}) {
         const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
         mesh.visible = false;scene.add(mesh);return mesh;
     });
+    const skipPlayerChange = () => {
+        if (phase === 'substituting' && preExchange) {
+            exchangeRate = Math.max(1,(preExchange.duration-preExchangeElapsed)/.6);return;
+        }
+        if (phase !== 'huddle' || !exchange || exchangeElapsed >= exchange.duration) return;
+        exchangeRate = Math.max(1,(exchange.duration-exchangeElapsed)/.6);
+    };
     const skipExchangeButtons = [...new Set([
         root.querySelector('.game-actions'),root.querySelector('[data-drive-dialog]'),root.querySelector('[data-quarter-dialog]'),
     ].filter(Boolean))].map(host => {
@@ -405,13 +412,7 @@ export function mountPractice(root, onReady = () => {}) {
         button.dataset.skipExchange = '';button.textContent = 'Skip player change';
         button.className = 'mt-2 rounded border border-blue-400 px-3 py-2 text-sm text-blue-200';
         button.style.display = 'none';host.append(button);
-        button.addEventListener('click', () => {
-            if (phase === 'substituting' && preExchange) {
-                exchangeRate = Math.max(1,(preExchange.duration-preExchangeElapsed)/.6);return;
-            }
-            if (phase !== 'huddle' || !exchange || exchangeElapsed >= exchange.duration) return;
-            exchangeRate = Math.max(1,(exchange.duration-exchangeElapsed)/.6);
-        });
+        button.addEventListener('click', skipPlayerChange);
         return button;
     });
     const turnoverGroup = turnoverCelebrants(animation,sample(type,duration));
@@ -1373,7 +1374,13 @@ export function mountPractice(root, onReady = () => {}) {
             callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
         });
     }
-    const tickPlayWizard = mountPlayWizard(root);
+    const tickPlayWizard = mountPlayWizard(root, {
+        skipPlayerChange,
+        exchangeStatus: () => ({
+            active: (phase === 'huddle' && Boolean(exchange) && exchangeElapsed < exchange.duration) || phase === 'substituting',
+            fastForwarding: exchangeRate > 1,
+        }),
+    });
     const disposeMobileControls = mobileControls(root);
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
     const rememberField = purpose => {
