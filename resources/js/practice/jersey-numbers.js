@@ -14,4 +14,18 @@ export function addJerseyNumbers(jersey, player, document, uniform = {}, placeme
         number.rotation.y = facing === 1 ? 0 : Math.PI;
         jersey.add(number);
     }
+    return numberMaterial;
+}
+
+// Share the chest/back texture and material; attach decals to the moving sleeves.
+export function addShoulderNumbers(arms, material) {
+    if (!material) return;
+    arms.forEach((arm, index) => {
+        const sign = index === 0 ? -1 : 1;
+        const number = new THREE.Mesh(new THREE.PlaneGeometry(.34, .18), material);
+        number.name = sign < 0 ? 'jersey-number-shoulder-left' : 'jersey-number-shoulder-right';
+        number.position.set(sign * .157, .025, 0);
+        number.rotation.y = sign * Math.PI / 2;
+        arm.add(number);
+    });
 }

@@ -8,7 +8,7 @@ import {entranceMusic} from './entrance-music.js';
 import {entranceSchedule} from './tunnel-entrance.js';
 import {turnoverCelebrants} from './turnover-group.js';
 import {presentationAmbience,playCallVisible} from './presentation-ambience.js';
-import {unitExchange,playerKey} from './unit-exchange.js';
+import {unitExchange,playerKey,exchangeCallAvailability} from './unit-exchange.js';
 import {buildSidelineCheerleaders} from './sideline-cheerleaders.js';
 import {buildSidelineMascot, mascotBigPlayCue} from './sideline-mascot.js';
 import {buildSidelineCoaches} from './coach-model.js';
@@ -1740,7 +1740,7 @@ export function mountPractice(root, onReady = () => {}) {
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
-        tickPlayWizard?.({delta, ready: !entrance.active && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running))});
+        tickPlayWizard?.({delta,...exchangeCallAvailability({phase,exchange,elapsed:exchangeElapsed,entrance:entrance.active,calling:playCallVisible(callForm),huddleReady:huddleProgress===1,initial:root.dataset.playNumber==='0',running})});
         idleTime+=Math.max(0,Math.min(.1,delta));
         stadium.updateCrowd(delta);
         if(entrance.active){entranceSound.tick(entrance.seconds,!document.hidden && !entrance.finishing);entrance.seconds=Math.min(entranceTiming.end,entrance.seconds+Math.min(.1,Math.max(0,delta)));if(entranceComplete({active:entrance.active,finishing:entrance.finishing,seconds:entrance.seconds,end:entranceTiming.end,visible:!document.hidden}))finishEntrance();

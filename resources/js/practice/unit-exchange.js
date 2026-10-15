@@ -4,8 +4,9 @@ export function sidelineSlot(side, index) {
     return {x: 18 + (index % 36) * 2.3, y: 0,
         z: side === 'home' ? -6 - Math.floor(index / 36) * 2.8 : 59.33 + Math.floor(index / 36) * 2.8};
 }
-// A comfortable jog with acceleration/deceleration. These seconds never touch the clock.
-const speed = 6, ramp = .7;
+// A brisk jog with acceleration/deceleration. These seconds never touch the clock.
+export const exchangeSpeed = 7.5;
+const speed = exchangeSpeed, ramp = .55;
 function travel(start, end, seconds, delay = 0) {
     const distance = Math.hypot(end.x-start.x,end.z-start.z);
     const duration = Math.max(ramp*2, distance/speed + ramp);
@@ -42,4 +43,12 @@ export function unitExchange(finalFrame, incomingFrame, line, possession, homeDi
         complete:seconds >= duration,
     });
     return {duration,sample};
+}
+
+// Calling and snapping have different readiness: choose while jogging, snap when set.
+export function exchangeCallAvailability({phase,exchange,elapsed=0,entrance=false,calling=false,huddleReady=false,initial=false,running=false}) {
+    return {
+        personnelReady: !exchange || phase !== 'huddle' || elapsed >= exchange.duration,
+        ready: !entrance && calling && ((phase === 'huddle' && (huddleReady || Boolean(exchange))) || (initial && !running)),
+    };
 }

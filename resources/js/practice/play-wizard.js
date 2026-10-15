@@ -135,7 +135,15 @@ export function mountPlayWizard(root) {
     const field=name=>form.elements.namedItem(name);
     const teamPlays = mountTeamPlaySelections(root, form);
     const onePlayPersonnel = createOnePlayPersonnel(root, form);
-    let step=0;
+    let step=0, playersReady=true, currentKind=null;
+    const updateReviewButton = () => {
+        if (currentKind !== 'review') return;
+        const button = ui.querySelector('[data-wizard-next]');
+        if (!button) return;
+        button.disabled = !playersReady || !onePlayPersonnel.ready() || form.querySelector('[data-snap]').disabled;
+        if (!playersReady) button.textContent = 'Players changing…';
+        else if (button.textContent === 'Players changing…') button.textContent = 'Call play & watch';
+    };
     const state = JSON.parse(root.dataset.afterState || '{}');
     const names = JSON.parse(root.dataset.teamNames || '{}');
     const appearance = JSON.parse(root.dataset.appearance || '{}');
@@ -155,7 +163,7 @@ export function mountPlayWizard(root) {
         countdown.cancel();
         onePlayPersonnel.cancel();
         ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
-        const list=steps(); step=Math.min(step,list.length-1); const current=list[step];
+        const list=steps(); step=Math.min(step,list.length-1); const current=list[step]; currentKind=current.kind;
         const labels = scoreboardText(state, names);
         ui.innerHTML='<p class="wizard-situation">'+escape((names[state.possession] || '')+' · '+labels.compact+' · '+labels.clock+' · Clock '+labels.clockStatus.toLowerCase())+'</p><div class="wizard-heading"><div><p>Step '+(step+1)+' of '+list.length+'</p><h2>'+current.title+'</h2></div><div class="wizard-heading-actions"><button type="button" data-wizard-coach>Coach pick</button><button type="button" data-wizard-close>Close</button></div></div><p class="wizard-progress">'+list.map((item,index)=>'<span class="'+(index===step?'current':'')+'">'+escape(item.title)+'</span>').join(' → ')+'</p><div class="wizard-cards"></div><div class="wizard-nav"><button type="button" data-wizard-back '+(step===0?'disabled':'')+'>Back</button><button type="button" data-wizard-next>'+(current.kind==='review'?'Call play & watch':'Next')+'</button></div>';
         const situation = ui.querySelector('.wizard-situation');
@@ -231,7 +239,7 @@ export function mountPlayWizard(root) {
         ui.querySelector('[data-wizard-close]').onclick=()=>dialog.close();
         ui.querySelector('[data-wizard-back]').onclick=()=>{step--;render();};
         ui.querySelector('[data-wizard-next]').onclick=()=>{
-            if(current.kind==='review') {if (onePlayPersonnel.ready() && !form.querySelector('[data-snap]').disabled) { form.requestSubmit();dialog.close(); }}
+            if(current.kind==='review') {if (playersReady && onePlayPersonnel.ready() && !form.querySelector('[data-snap]').disabled) { form.requestSubmit();dialog.close(); }}
             else {step++;render();ui.scrollIntoView({block:'start'});}
         };
         ui.querySelector('[data-wizard-coach]').onclick=()=>{
@@ -244,6 +252,7 @@ export function mountPlayWizard(root) {
             countdown.start();
             ui.querySelector('[data-wizard-next]').textContent = 'Call play & watch · 5s';
         }
+        updateReviewButton();
     }
     const openWizard = () => {
         opened = true;
@@ -252,8 +261,10 @@ export function mountPlayWizard(root) {
         step=0;render();dialog.showModal();
     };
     open.addEventListener('click', openWizard);
-    return ({delta, ready}) => {
-        const seconds = countdown.tick(delta, dialog.open && !document.hidden && root.isConnected);
+    return ({delta, ready, personnelReady = true}) => {
+        playersReady = personnelReady;
+        updateReviewButton();
+        const seconds = countdown.tick(delta, personnelReady && dialog.open && !document.hidden && root.isConnected);
         if (seconds !== null) {
             const button = ui.querySelector('[data-wizard-next]');
             button.textContent = 'Call play & watch · '+seconds+'s';

@@ -34,11 +34,11 @@ function documentFixture() {
     }};
     return {calls,document};
 }
-test('number atlas selects roster numbers and draws both jersey faces with team number colors',()=>{
+test('number atlas selects roster numbers and draws chest back and both shoulders with team number colors',()=>{
     const f=documentFixture(),people=[{id:1,number:12},{id:2,number:87}];
     const {geometry,material}=sidelineNumbers(people,{number:'#ffffff'},f.document);
     assert.deepEqual([...geometry.getAttribute('numberCell').array],[2,8,7,1]);
-    assert.equal(geometry.attributes.position.count,8);
+    assert.equal(geometry.attributes.position.count,16);
     assert.ok(f.calls.some(([n,x,y])=>n==='87'&&x===480&&y===562));
     const shader={vertexShader:'#include <uv_vertex>'};material.onBeforeCompile(shader);
     assert.ok(shader.vertexShader.includes('attribute vec2 numberCell'));

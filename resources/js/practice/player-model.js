@@ -4,7 +4,7 @@ import { buildPlayerFace } from './player-face.js';
 import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry } from './helmet-shell.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
-import { addJerseyNumbers } from './jersey-numbers.js';
+import { addJerseyNumbers, addShoulderNumbers } from './jersey-numbers.js';
 
 export function buildFootballPlayer(player, kit, document, textureFor = () => null) {
     const group = new THREE.Group();
@@ -114,7 +114,8 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         helmet.add(logo);
     }
     const labelStart = group.children.length;
-    addJerseyNumbers(group, player, document, kit, {depth: .253, height: 1.27});
+    const numberMaterial = addJerseyNumbers(group, player, document, kit, {depth: .253, height: 1.27});
+    addShoulderNumbers(arms, numberMaterial);
     addJerseyName(group, player, document, kit);
     const height = Math.max(48, Math.min(96, Number(player.height_inches) || 72)) / 72;
     const bulk = Math.max(.8, Math.min(1.35, Math.sqrt((Number(player.weight_pounds) || 215) / 215)));

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {unitExchange,playerKey,sidelineSlot} from '../../resources/js/practice/unit-exchange.js';
+import {unitExchange,playerKey,sidelineSlot,exchangeSpeed} from '../../resources/js/practice/unit-exchange.js';
 import {buildSidelinePlayers} from '../../resources/js/practice/sideline-players.js';
 import {presentationAmbience} from '../../resources/js/practice/presentation-ambience.js';
 const oldFrame={players:[{id:1,side:'home',team:'offense',role:'QB',x:48,z:26.7},
@@ -31,7 +31,7 @@ test('players jog within the speed cap and accelerate from their current spot',(
     for(let t=0;t<exchange.duration;t+=step) {
         const a=exchange.sample(t),b=exchange.sample(t+step);
         for(const group of ['outgoing','incoming']) a[group].forEach((player,i)=>{
-            assert.ok(Math.hypot(b[group][i].x-player.x,b[group][i].z-player.z)/step<=6.001);
+            assert.ok(Math.hypot(b[group][i].x-player.x,b[group][i].z-player.z)/step<=exchangeSpeed+.001);
         });
     }
 });
@@ -84,7 +84,7 @@ test('individual replacements keep retained players on the field with one visibl
             const keys=[...f.outgoing,...f.incoming].filter(p=>p.visible).map(playerKey);
             assert.equal(new Set(keys).size,keys.length);
             assert.ok(f.incoming[0].z>20&&f.incoming[0].z<33);
-            assert.ok(Math.hypot(future.incoming[0].x-f.incoming[0].x,future.incoming[0].z-f.incoming[0].z)/.05<=6.001);
+            assert.ok(Math.hypot(future.incoming[0].x-f.incoming[0].x,future.incoming[0].z-f.incoming[0].z)/.05<=exchangeSpeed+.001);
         }
         const end=exchange.sample(exchange.duration);
         assert.equal(end.complete,true);assert.ok(end.outgoing.every(p=>!p.visible));
@@ -92,4 +92,14 @@ test('individual replacements keep retained players on the field with one visibl
         assert.deepEqual(end.incoming.map(playerKey),next.players.map(playerKey));
     }
     assert.equal(JSON.stringify([oldFrame,next,roster]),saved);
+});
+
+test('normal exchange finishes sooner than the old six-yard jog without teleporting',()=>{
+    const exchange=unitExchange(oldFrame,null,50,'away',1,roster);
+    const oldDuration=Math.max(...oldFrame.players.map(player=>{
+        const bench=sidelineSlot(player.side,0);
+        return Math.hypot(player.x-bench.x,player.z-bench.z)/6+.7;
+    }));
+    assert.ok(exchange.duration<oldDuration*.85);
+    assert.ok(exchange.sample(exchange.duration).outgoing.every(player=>player.arrived&&!player.visible));
 });

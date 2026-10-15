@@ -17,7 +17,9 @@ export function sidelineNumbers(people, kit, document) {
     material.customProgramCacheKey=()=> 'sideline-number-atlas-v1';
     const front=new THREE.PlaneGeometry(.65,.65).translate(0,1.25,.265);
     const back=new THREE.PlaneGeometry(.65,.65).rotateY(Math.PI).translate(0,1.25,-.265);
-    const geometry=mergeGeometries([front,back]);front.dispose();back.dispose();
+    const shoulders=[-1,1].map(sign=>new THREE.PlaneGeometry(.28,.18).rotateY(sign*Math.PI/2).translate(sign*.68,1.4,0));
+    const geometry=mergeGeometries([front,back,...shoulders]);
+    [front,back,...shoulders].forEach(part=>part.dispose());
     geometry.setAttribute('numberCell',new THREE.InstancedBufferAttribute(new Float32Array(people.flatMap(p=>{
         const n=Math.max(0,Math.min(99,Math.trunc(Number(p.number)||0)));return [n%10,9-Math.floor(n/10)];
     })),2));
