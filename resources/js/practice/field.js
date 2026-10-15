@@ -1,3 +1,4 @@
+import {queuedPlayCall} from './queued-play-call.js';
 import {entranceComplete,hideOpeningUnits} from './opening-presentation.js';
 import {isSpecialTeamCall,kickFormation} from './special-teams-options.js';
 import {manualGameScreens,screenTimerExpired} from './screen-timers.js';
@@ -367,7 +368,7 @@ export function mountPractice(root, onReady = () => {}) {
     let exchange = root.dataset.unitChange === 'true' || partialExchange
         ? unitExchange(sample(type,duration),nextAnimation ? sampleEnginePlay(nextAnimation,0) : null,
             nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster,{partial:partialExchange}) : null;
-    let exchangeElapsed = 0, exchangeSnapLocked = false, exchangeRate = 1;
+    let exchangeElapsed = 0, exchangeRate = 1;
     // Carry only presentation positions across a submitted call. Match the saved
     // version so refreshes/replays cannot apply a stale substitution to a snap.
     const personnelKey = cameraKey + '-personnel';
@@ -1289,11 +1290,6 @@ export function mountPractice(root, onReady = () => {}) {
         showState(false);
         refereePostTime = 0; refereeHuddleTime = 0; refereeResetPath = null;
         phase = 'play'; lineupProgress = 0; setElapsed = 0; postElapsed = 0; huddleProgress = 0;
-        if (exchangeSnapLocked) {
-            exchangeSnapLocked = false;
-            if (snapButton) snapButton.disabled = Boolean(driveDialog?.open || quarterDialog?.open
-                || (driveDialog && !driveShown) || (quarterDialog && !quarterShown));
-        }
         if (resultPopup) resultPopup.hidden = true;
         moveFocus(animation?.line ?? 40, playDirection);
         scrimmageLine.position.x = animation?.line ?? 40;
@@ -1389,13 +1385,23 @@ export function mountPractice(root, onReady = () => {}) {
             sessionStorage.setItem(personnelKey,JSON.stringify({version:afterState?.version,players:current,purpose}));
         } catch { /* Presentation only; the saved game remains authoritative. */ }
     };
+    const queuedNotice = document.createElement('p');
+    queuedNotice.className = 'game-call-pending';queuedNotice.hidden = true;queuedNotice.setAttribute('role','status');root.append(queuedNotice);
+    const queuedCall = callForm ? queuedPlayCall(callForm, root, {
+        ready: () => !document.hidden && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration),
+        onQueued: () => {
+            root.classList.remove('game-replay-controls');
+            queuedNotice.textContent = 'Play selected · Finishing player change…';queuedNotice.hidden = false;
+            playButton.disabled = slider.disabled = true;
+            for(const control of root.querySelectorAll('[data-reset],[data-play-type]'))control.disabled=true;
+            if(snapButton)snapButton.disabled=true;
+        },
+        onRelease: () => {rememberField('snap');saveCamera();queuedNotice.textContent='Calling play…';},
+    }) : null;
     root.querySelectorAll('form').forEach(form => {
         if (form.querySelector('[name="action"]')?.value === 'lineup') form.addEventListener('submit',()=>rememberField('lineup'));
     });
     callForm?.addEventListener('submit', event => {
-        if (phase === 'huddle' && exchange && exchangeElapsed < exchange.duration) {
-            event.preventDefault();event.stopImmediatePropagation();return;
-        }
         root.classList.remove('game-replay-controls');
         rememberField('snap');
         saveCamera();
@@ -1623,12 +1629,6 @@ export function mountPractice(root, onReady = () => {}) {
         if (phase === 'huddle' && refereeResetPath) refereeHuddleTime += Math.min(delta, .1) * exchangeRate;
         if (!entrance.active && phase === 'huddle' && exchange) {
             exchangeElapsed = Math.min(exchange.duration,exchangeElapsed + Math.min(delta,.1) * exchangeRate);
-            if (exchangeElapsed < exchange.duration && snapButton) {snapButton.disabled = true;exchangeSnapLocked = true;}
-            else if (exchangeSnapLocked && snapButton) {
-                exchangeSnapLocked = false;
-                snapButton.disabled = Boolean(driveDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open
-                    || (driveDialog && !driveShown) || (quarterDialog && !quarterShown));
-            }
         }
         lastTime = now;
         if (bannerRemaining > 0) {
@@ -1761,6 +1761,7 @@ export function mountPractice(root, onReady = () => {}) {
         ball.visible=!entrance.active;
         if(entrance.active){sideline.update(new Set(),entranceClock());hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);carrierArrow.visible=carrierRing.visible=ballGlow.visible=false;}
         else if(entrancePanel && entrance.seconds>0){entrance.seconds=0;}
+        queuedCall?.tick();
         resultReferee.update(document.hidden ? 0 : delta);
         controls.update(); renderer.render(scene, camera);
         onReady(); onReady = () => {};
@@ -1777,6 +1778,7 @@ export function mountPractice(root, onReady = () => {}) {
         if (disposed) return;
         disposed = true;
         disposeNavigation();
+        queuedCall?.dispose();
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();
         audio.dispose(options.handoff === true);

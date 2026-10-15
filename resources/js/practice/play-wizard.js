@@ -136,15 +136,13 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     const field=name=>form.elements.namedItem(name);
     const teamPlays = mountTeamPlaySelections(root, form);
     const onePlayPersonnel = createOnePlayPersonnel(root, form);
-    let step=0, playersReady=true, currentKind=null;
+    let step=0, currentKind=null;
     let updateExchangeSkip = () => {};
     const updateReviewButton = () => {
         if (currentKind !== 'review') return;
         const button = ui.querySelector('[data-wizard-next]');
         if (!button) return;
-        button.disabled = !playersReady || !onePlayPersonnel.ready() || form.querySelector('[data-snap]').disabled;
-        if (!playersReady) button.textContent = 'Players changing…';
-        else if (button.textContent === 'Players changing…') button.textContent = 'Call play & watch';
+        button.disabled = form.dataset.playPending === 'true' || !onePlayPersonnel.ready() || form.querySelector('[data-snap]').disabled;
     };
     const state = JSON.parse(root.dataset.afterState || '{}');
     const names = JSON.parse(root.dataset.teamNames || '{}');
@@ -242,7 +240,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
         ui.querySelector('[data-wizard-close]').onclick=()=>dialog.close();
         ui.querySelector('[data-wizard-back]').onclick=()=>{step--;render();};
         ui.querySelector('[data-wizard-next]').onclick=()=>{
-            if(current.kind==='review') {if (playersReady && onePlayPersonnel.ready() && !form.querySelector('[data-snap]').disabled) { form.requestSubmit();dialog.close(); }}
+            if(current.kind==='review') {if (form.dataset.playPending !== 'true' && onePlayPersonnel.ready() && !form.querySelector('[data-snap]').disabled) { form.requestSubmit();dialog.close(); }}
             else {step++;render();ui.scrollIntoView({block:'start'});}
         };
         ui.querySelector('[data-wizard-coach]').onclick=()=>{
@@ -258,6 +256,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
         updateReviewButton();
     }
     const openWizard = () => {
+        if (form.dataset.playPending === 'true') return;
         opened = true;
         // Close the compact Call play sheet before opening the centered wizard.
         const parent=launch.closest('dialog'); if(parent?.open)parent.close();
@@ -265,7 +264,8 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     };
     open.addEventListener('click', openWizard);
     return ({delta, ready, personnelReady = true}) => {
-        playersReady = personnelReady;
+        open.disabled = form.dataset.playPending === 'true';
+        if (open.disabled) open.textContent = 'Play selected…';
         updateExchangeSkip();
         updateReviewButton();
         const seconds = countdown.tick(delta, personnelReady && dialog.open && !document.hidden && root.isConnected);

@@ -360,3 +360,5 @@ button:active, input[type="submit"]:active, input[type="button"]:active, .button
     .play-wizard .wizard-heading { flex-wrap: wrap; align-items: flex-start; }
     .play-wizard .wizard-heading-actions { width: 100%; justify-content: flex-start; }
 }
+
+.game-call-pending { position: absolute; left: 50%; bottom: 6rem; transform: translateX(-50%); z-index: 40; max-width: 90%; padding: 12px 18px; border: 1px solid #60a5fa; border-radius: 10px; background: #111e30; color: #dbeafe; text-align: center; pointer-events: none; }
