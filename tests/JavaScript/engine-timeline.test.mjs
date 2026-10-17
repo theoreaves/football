@@ -34,7 +34,7 @@ test('camera follows the snap point while retaining orbit zoom pan and camera mo
     assert.equal(restoreCamera({mode: 'broadcast', offset: [NaN, 2, 3], pan: [0, 0, 0]}, [60, 0, 26.7]), null);
 });
 
-test('both teams move smoothly into separate huddles without changing the saved play', async () => {
+test('offense huddles and defense returns to its side of the line without changing the saved play', async () => {
     const { sampleHuddle } = await import('../../resources/js/practice/huddle.js');
     const frame = { players: Array.from({length:22},(_,i)=>({id:i,side:i<11?'home':'away',x:40+i/2,z:12+i})), ball:{x:52,y:1,z:27},event:'Tackle' };
     const snapshot=JSON.stringify(frame);
