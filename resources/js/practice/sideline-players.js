@@ -75,9 +75,9 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
         }
     }
     let previous = '';
-    return {update(active,entranceSeconds=null,idleTime=null) {
+    return {update(active,entranceSeconds=null,idleTime=null,postgame=null) {
         const signature = [...active].sort().join('|');
-        if (entranceSeconds===null && idleTime===null && signature === previous && previous !== '') return;
+        if (!postgame && entranceSeconds===null && idleTime===null && signature === previous && previous !== '') return;
         previous = entranceSeconds===null?signature:'';
         for (const {mesh,people,side,offset,hideMissingNumber} of groups) {
             people.forEach((person,i) => {
@@ -93,7 +93,12 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
                     if(pose.moving && offset[1]<.8)dummy.position.z+=Math.sin(seconds*12+(offset[0]<0?0:Math.PI))*.12;
                     dummy.rotation.y=angle;dummy.scale.setScalar(!pose.visible || (hideMissingNumber && person.number==null)?0:height);
                 }
-                if(entranceSeconds===null && idleTime!==null)dummy.position.y+=Math.sin(idleTime*1.8+i*.7)*.012;
+                if(postgame){
+                    const pose=postgame(side,i,slot),angle=pose.yaw;
+                    dummy.position.set(pose.x+offset[0]*Math.cos(angle)+offset[2]*Math.sin(angle),offset[1]*height+(pose.moving?pose.bob:0),pose.z-offset[0]*Math.sin(angle)+offset[2]*Math.cos(angle));
+                    dummy.rotation.y=angle;dummy.scale.setScalar(!pose.visible || active.has(playerKey({...person,side})) || (hideMissingNumber && person.number==null)?0:height);
+                }
+                if(!postgame && entranceSeconds===null && idleTime!==null)dummy.position.y+=Math.sin(idleTime*1.8+i*.7)*.012;
                 dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
             });
             mesh.instanceMatrix.needsUpdate = true;

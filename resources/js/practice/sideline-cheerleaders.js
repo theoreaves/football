@@ -25,7 +25,7 @@ export function buildSidelineCheerleaders(scene,appearance,textureFor=()=>null) 
         group.add(mesh);parts.push({source:part,mesh});
     });
     let time=0,remaining=0;
-    const update=(delta,entranceSeconds=null)=>{
+    const update=(delta,entranceSeconds=null,postgame=null)=>{
         const step=Number.isFinite(delta)?Math.max(0,Math.min(.1,delta)):0;time+=step;remaining=Math.max(0,remaining-step);
         template.getObjectByName('cheer-team-logo')?.onBeforeRender();
         CHEERLEADER_SLOTS.forEach((slot,index)=>{
@@ -33,6 +33,7 @@ export function buildSidelineCheerleaders(scene,appearance,textureFor=()=>null) 
             template.position.x=slot.x;template.position.z=slot.z;template.rotation.y=remaining>0?0:Math.PI;
             template.position.y=0;template.scale.setScalar(1);
             if(entranceSeconds!==null){const pose=typeof entranceSeconds==='object'?greetingPose(index,slot,entranceSeconds.cheer,entranceSeconds.home):entrancePose('home',index,slot,entranceSeconds);template.position.set(pose.x,pose.moving?pose.bob:0,pose.z);template.rotation.y=pose.yaw;template.scale.setScalar(pose.visible?1:0);}
+            if(postgame){const pose=postgame(index,slot);template.position.set(pose.x,pose.bob,pose.z);template.rotation.y=pose.yaw;template.scale.setScalar(pose.visible?1:0);}
             template.updateMatrixWorld(true);
             for(const {source,mesh} of parts)mesh.setMatrixAt(index,source.matrixWorld);
         });

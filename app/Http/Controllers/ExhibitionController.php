@@ -122,7 +122,7 @@ class ExhibitionController extends Controller
         foreach ($exhibition->rosters as $side => $roster) {
             $people = collect($roster['pool'] ?? $roster['players'])->unique('id')->sortBy('id');
             $sidelineRoster[$side] = $people->map(fn ($player) => array_intersect_key($player, array_flip([
-                'id', 'name', 'number', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance',
+                'id', 'name', 'number', 'position', 'depth', 'height_inches', 'weight_pounds', 'skin_tone', 'appearance',
             ])))->values()->all();
         }
         $nextAnimation = null;

@@ -18,6 +18,8 @@ export function crowdPlan(seatCount, settings = {}) {
     }));
 }
 
+export const FAN_SCALE = 1.18;
+
 export function buildStadiumCrowd(seats, settings, home, away) {
     const group = new THREE.Group(); group.name = 'stadium-crowd';
     const plan = crowdPlan(seats.length, settings);
@@ -37,19 +39,19 @@ export function buildStadiumCrowd(seats, settings, home, away) {
     const skin = ['#edc5a3', '#dca778', '#bf855c', '#925c3c', '#593b2c'];
     const dummy = new THREE.Object3D();
     plan.forEach((fan, i) => {
-        const seat = seats[fan.seat]; dummy.rotation.y = seat.yaw;
-        dummy.position.set(seat.x, seat.y + .6, seat.z); dummy.updateMatrix(); bodies.setMatrixAt(i, dummy.matrix);
+        const seat = seats[fan.seat]; dummy.rotation.y = seat.yaw; dummy.scale.setScalar(FAN_SCALE);
+        dummy.position.set(seat.x, seat.y + .6*FAN_SCALE, seat.z); dummy.updateMatrix(); bodies.setMatrixAt(i, dummy.matrix);
         const team = fan.allegiance === 'away' ? away : home;
         const teamColor = fan.shade > .75 ? team.secondary_color || team.primary_color : team.primary_color;
         const color = fan.allegiance === 'neutral' ? neutral[fan.clothing] : teamColor || team.uniform?.shirt || team.stadium_seat_color || (fan.allegiance === 'home' ? '#3997ff' : '#eeeeee');
         bodies.setColorAt(i, new THREE.Color(color).lerp(new THREE.Color(fan.shade < .5 ? '#222222' : '#ffffff'), .12));
-        dummy.position.y = seat.y + 1.1; dummy.updateMatrix(); heads.setMatrixAt(i, dummy.matrix); heads.setColorAt(i, new THREE.Color(skin[fan.skin]));
+        dummy.position.y = seat.y + 1.1*FAN_SCALE; dummy.updateMatrix(); heads.setMatrixAt(i, dummy.matrix); heads.setColorAt(i, new THREE.Color(skin[fan.skin]));
         arms.forEach((mesh,index)=>{
             const sign=index===0?-1:1;
-            dummy.position.set(seat.x + Math.cos(seat.yaw)*sign*.35,seat.y+.9,seat.z-Math.sin(seat.yaw)*sign*.35);
+            dummy.position.set(seat.x + Math.cos(seat.yaw)*sign*.35*FAN_SCALE,seat.y+.9*FAN_SCALE,seat.z-Math.sin(seat.yaw)*sign*.35*FAN_SCALE);
             dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,new THREE.Color(skin[fan.skin]));
         });
-        dummy.position.set(seat.x + Math.sin(seat.yaw) * .1, seat.y + .18, seat.z + Math.cos(seat.yaw) * .1);
+        dummy.position.set(seat.x + Math.sin(seat.yaw) * .1, seat.y + .18*FAN_SCALE, seat.z + Math.cos(seat.yaw) * .1);
         dummy.updateMatrix(); legs.setMatrixAt(i, dummy.matrix); legs.setColorAt(i, new THREE.Color(fan.clothing % 2 ? '#354759' : '#676257'));
     });
     group.add(bodies, heads, legs, ...arms); return group;

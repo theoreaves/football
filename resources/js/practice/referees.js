@@ -71,6 +71,7 @@ export function buildReferees(scene) {
         group.visible = visible;
         crew.forEach((ref, index) => {
             const pose = poses[index];
+            ref.body.visible = true;
             ref.body.position.set(pose.x, 0, pose.z);
             const moving = Math.abs(pose.velocity) > .1;
             const canSignal = active && !moving && (signal === 'first_down' ? index === 0
@@ -96,7 +97,7 @@ export function buildReferees(scene) {
             }
         });
     };
-    return {group, update};
+    return {group, crew, update};
 }
 
 // Fixed-step paths make seeking/replaying independent of render frame rate.

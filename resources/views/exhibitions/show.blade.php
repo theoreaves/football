@@ -164,40 +164,7 @@
         <p class="mt-2">{{ $last['summary'] }}</p>
         @foreach($last['team_play_notices'] ?? [] as $notice)<p class="mt-2 text-sm text-amber-200">{{ $notice }}</p>@endforeach
         @php
-            $resultSide = $last['before']['possession'] ?? 'home';
-            $otherSide = $resultSide === 'home' ? 'away' : 'home';
-            $resultCall = $last['call'] ?? '';
-            $resultOutcome = $last['outcome'] ?? '';
-            $resultReceiver = $last['receiver_role'] ?? null;
-            $resultCarrier = $last['carrier'] ?? 'RB';
-            $resultPlayers = [];
-            $resultRoster = app(\App\Services\Simulation\SavedPlayPersonnel::class)->rosters($exhibition->rosters, $last);
-            $addResultPlayer = function (string $side, string $role, string $label) use (&$resultPlayers, $resultRoster) {
-                $person = $resultRoster[$side]['players'][$role] ?? null;
-                if (!$person) return;
-                foreach ($resultPlayers as $existing) {
-                    if (($existing['player']['id'] ?? null) === ($person['id'] ?? null)) return;
-                }
-                $resultPlayers[] = ['player' => $person, 'side' => $side, 'role' => $role, 'label' => $label];
-            };
-            if (in_array($resultCall, ['field_goal', 'extra_point'], true)) {
-                $addResultPlayer($resultSide, 'K', 'Kicker');
-            } elseif ($resultCall === 'punt') {
-                $addResultPlayer($resultSide, 'P', 'Punter');
-            } elseif (in_array($resultCall, ['kickoff'], true)) {
-                $addResultPlayer($resultSide, 'K', 'Kicker');
-            } elseif ($resultReceiver !== null && isset($resultRoster[$resultSide]['players'][$resultReceiver])) {
-                $addResultPlayer($resultSide, 'QB', 'Quarterback');
-                $addResultPlayer($resultSide, $resultReceiver, 'Target');
-                if ($resultOutcome === 'interception') $addResultPlayer($otherSide, 'CB1', 'Interception');
-                elseif ($resultOutcome !== 'incomplete') $addResultPlayer($otherSide, 'CB1', 'Defense');
-            } elseif ($resultCarrier === 'QB' && in_array($resultOutcome, ['sack', 'fumble'], true)) {
-                $addResultPlayer($resultSide, 'QB', 'Quarterback');
-                $addResultPlayer($otherSide, 'LB2', 'Defense');
-            } else {
-                $addResultPlayer($resultSide, $resultCarrier, 'Ball carrier');
-                $addResultPlayer($otherSide, 'LB2', 'Defense');
-            }
+            $resultPlayers = app(\App\Services\Simulation\PlayResultPlayers::class)->forPlay($exhibition->rosters, $last);
         @endphp
         @if(count($resultPlayers))
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Players involved in this play">

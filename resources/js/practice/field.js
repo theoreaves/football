@@ -1,3 +1,4 @@
+import {POSTGAME_END,exitPose,handshakePose,mascotFarewell,postgameStage} from './postgame.js';
 import {queuedPlayCall} from './queued-play-call.js';
 import {entranceComplete,hideOpeningUnits} from './opening-presentation.js';
 import {isSpecialTeamCall,kickFormation} from './special-teams-options.js';
@@ -1283,6 +1284,7 @@ export function mountPractice(root, onReady = () => {}) {
         moveAnchor([line, 0, 26.7]); controls.update(); saveCamera();
     };
     const replayView = () => {
+        ending.active=ending.done=false;endingPanel.hidden=true;ending.quarterbacks.forEach(e=>e.model.visible=false);stadium.departCrowd(0);
         cadenceTime = 0; audio.stopPlayerVoices();stadium.resetCrowd();sidelineMascot.reset();sidelineCheerleaders.reset();mascotCueTime=-2;
         earlyExitElapsed = 0;celebrationSpots = null;exchangeRate = 1;
         clearTurnoverBanner(); turnoverTime = -1;
@@ -1602,7 +1604,78 @@ export function mountPractice(root, onReady = () => {}) {
     coinDialog?.addEventListener('close', () => { if (snapButton) snapButton.disabled = false; });
     if (coinDialog?.open && snapButton) snapButton.disabled = true;
     if (((quarterDialog && !quarterShown) || (driveDialog && !driveShown)) && snapButton) snapButton.disabled = true;
-    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) gameStats?.open('box'); });
+    const ending={active:false,done:false,seconds:0,refs:[],coaches:[],quarterbacks:[],field:new Map(),mascot:null};
+    const endingPanel=document.createElement('div');endingPanel.className='game-postgame';endingPanel.hidden=true;
+    const endingText=document.createElement('p'),endingSkip=document.createElement('button');
+    endingSkip.type='button';endingSkip.textContent='Skip to final stats';endingPanel.append(endingText,endingSkip);root.append(endingPanel);
+    const completeEnding=()=>{
+        if(!ending.active)return;
+        ending.seconds=ending.mascot?POSTGAME_END:55;ending.active=false;ending.done=true;endingPanel.hidden=true;
+        playButton.disabled=slider.disabled=false;
+        gameStats?.open('box');
+    };
+    endingSkip.addEventListener('click',completeEnding);
+    const startEnding=()=>{
+        if(ending.active || ending.done || root.dataset.replayOnly==='true' || root.dataset.summary==='true')return;
+        ending.active=true;endingPanel.hidden=false;running=false;setCpuAuto(false);
+        resultPopup && (resultPopup.hidden=true);playButton.disabled=slider.disabled=true;
+        const finish=sample(type,duration);
+        finish.players.forEach((p,i)=>ending.field.set(playerKey(p),{x:players[i].position.x,z:players[i].position.z}));
+        ending.refs=referees.group.children.map(body=>({x:body.position.x,z:body.position.z}));
+        ending.coaches=(sidelineCoaches.coaches || []).map(entry=>({...entry,start:{x:entry.coach.position.x,z:entry.coach.position.z}}));
+        ending.mascot=sidelineMascot.model?{x:sidelineMascot.model.position.x,z:sidelineMascot.model.position.z}:null;
+        for(const side of ['home','away']){
+            const track=animation?.players?.find(p=>p.side===side && p.role==='QB');
+            const people=sidelineRoster[side] || [];
+            const person=people.find(p=>track && p.id===track.id) || people.find(p=>p.depth==='QB1') || people.find(p=>p.position==='QB');
+            if(!person)continue;
+            const team=appearance[side] || {};
+            const model=buildFootballPlayer(person,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+            scene.add(model);
+            const index=people.indexOf(person),start=ending.field.get(playerKey({...person,side})) || {x:18+(index%36)*2.3,z:side==='home'?-6:59.33};
+            ending.quarterbacks.push({model,side,person,start,index});
+        }
+        moveFocus(60,1);
+        camera.position.set(60,47,84);controls.target.set(60,0,26.7);
+    };
+    const updateEnding=delta=>{
+        if(!ending.active && !ending.done)return;
+        if(ending.active && !document.hidden)ending.seconds=Math.min(ending.mascot?POSTGAME_END:55,ending.seconds+Math.min(.1,Math.max(0,delta)));
+        const t=ending.seconds;endingText.textContent=!ending.mascot && t>=35?'Thank you for watching · The stadium empties':postgameStage(t);
+        hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);
+        ball.visible=carrierArrow.visible=carrierRing.visible=ballGlow.visible=false;
+        const apply=(model,pose)=>{model.visible=pose.visible;model.position.set(pose.x,pose.bob || 0,pose.z);model.rotation.y=pose.yaw;};
+        referees.crew.forEach((ref,i)=>{
+            const pose=exitPose(i%2?'away':'home',i,ending.refs[i],t,0);apply(ref.body,pose);
+            ref.legs.forEach((leg,j)=>leg.rotation.x=pose.moving?Math.sin(t*10+j*Math.PI)*.45:0);
+            ref.arms.forEach((arm,j)=>arm.rotation.x=pose.moving?Math.sin(t*10+j*Math.PI)*.3:0);
+        });
+        for(const entry of ending.coaches){
+            const pose=entry.coach.name==='coach-head'?handshakePose(entry.side,entry.index,entry.start,t):exitPose(entry.side,entry.index,entry.start,t,14);
+            apply(entry.coach,pose);
+            const arm=entry.coach.getObjectByName('coach-arm-1');
+            if(arm)arm.rotation.x=pose.shake?-1.15+Math.sin(t*7)*.1:pose.moving?Math.sin(t*10)*.35:0;
+        }
+        const qbKeys=new Set();
+        ending.quarterbacks.forEach(entry=>{
+            qbKeys.add(playerKey({...entry.person,side:entry.side}));
+            const pose=handshakePose(entry.side,entry.index,entry.start,t,'qb');apply(entry.model,pose);
+            animateFootballPlayer(entry.model,pose.moving,t,entry.index);
+            if(pose.shake && entry.model.userData.arms?.[1])entry.model.userData.arms[1].rotation.x=-1.15+Math.sin(t*7)*.1;
+        });
+        sideline.update(qbKeys,null,null,(side,i,slot)=>{
+            const person=sidelineRoster[side][i],start=ending.field.get(playerKey({...person,side})) || slot;
+            return exitPose(side,i,start,t,14+(i%8)*.25);
+        });
+        sidelineCheerleaders.update(0,null,(i,slot)=>exitPose('home',i,slot,t,20+i*.12));
+        if(sidelineMascot.model && ending.mascot){
+            const pose=mascotFarewell(ending.mascot,t);apply(sidelineMascot.model,pose);
+            if(pose.wave){sidelineMascot.model.rotation.y=Math.PI;const arm=sidelineMascot.model.getObjectByName('mascot-arm-1');if(arm)arm.rotation.x=-2.4+Math.sin(t*5)*.3;}
+        }
+        stadium.departCrowd(Math.min(1,t/(ending.mascot?75:50)));
+        if(t>=(ending.mascot?POSTGAME_END:55) && ending.active)completeEnding();
+    };
+    quarterDialog?.addEventListener('close', () => { playButton.textContent = 'Replay'; if (snapButton) snapButton.disabled = false; if (afterState?.status === 'final' && !afterState?.penalty_pending) startEnding(); });
     driveDialog?.addEventListener('close',()=>{if(snapButton && (!quarterDialog || quarterShown))snapButton.disabled=false;showQuarter();});
     penaltyDialog?.addEventListener('close', () => {if (phase === 'penalty') finishPenaltyAnnouncement();});
     injuryDialog?.addEventListener('close', showQuarter);
@@ -1718,7 +1791,7 @@ export function mountPractice(root, onReady = () => {}) {
         const ambience = presentationAmbience({visible: !document.hidden, callingPlay, flagOpen: Boolean(penaltyDialog?.open),
             final: afterState?.status === 'final', recapOpen: Boolean(driveDialog?.open || quarterDialog?.open),
             inspectionOpen: Boolean(logDialog?.open || highlightsDialog?.open || boxDialog?.open)});
-        audio.setPlayback(audible, ambience);
+        audio.setPlayback(audible, ambience || (ending.active && !document.hidden));
         // A separate cursor keeps pre-snap voices out of result/third-down cues.
         // Replay and seeking begin at the snap and never backfill a cadence.
         const quarterbackTime = phase === 'liningup' ? -setDuration : phase === 'set' ? setElapsed - setDuration : 0;
@@ -1761,6 +1834,7 @@ export function mountPractice(root, onReady = () => {}) {
         ball.visible=!entrance.active;
         if(entrance.active){sideline.update(new Set(),entranceClock());hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);carrierArrow.visible=carrierRing.visible=ballGlow.visible=false;}
         else if(entrancePanel && entrance.seconds>0){entrance.seconds=0;}
+        updateEnding(delta);
         queuedCall?.tick();
         resultReferee.update(document.hidden ? 0 : delta);
         controls.update(); renderer.render(scene, camera);

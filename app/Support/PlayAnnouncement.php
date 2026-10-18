@@ -19,7 +19,8 @@ class PlayAnnouncement
         $gain = (int) ($play['gain'] ?? 0);
         $yardage = $gain.' '.(abs($gain) === 1 ? 'Yard' : 'Yards');
         $pass = in_array($call, ['short_pass', 'medium_pass', 'deep_pass', 'screen_pass', 'two_point_pass'], true)
-            || str_contains($call, 'pass');
+            || str_contains($call, 'pass')
+            || (! empty($play['receiver_role']) && ($play['carrier'] ?? null) !== 'QB');
 
         if (str_contains($outcome, 'touchdown') || str_contains($summary, 'touchdown')) {
             return ['TOUCHDOWN!'];

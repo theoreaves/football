@@ -205,7 +205,7 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         image.onload = () => { logoImages[side] = image; last = ''; updateScoreboard(displayState, displayNames); };
         image.src = team.team_logo;
     }
-    return {group,updateScoreboard,updateCrowd(delta){fans.userData.animation?.tick(delta);},
+    return {group,updateScoreboard,departCrowd(progress){fans.userData.animation?.depart(progress);},updateCrowd(delta){fans.userData.animation?.tick(delta);},
         crowdCue(cue){if(cue.type==='crowd')fans.userData.animation?.cheer(cue.mood==='groan'?'away':'home');
             else if(cue.type==='third_down')fans.userData.animation?.cheer('home');},
         resetCrowd(){fans.userData.animation?.reset();}};
