@@ -504,3 +504,39 @@ test('season specialists validate roster eligibility and snapshot overrides only
     expect($game->fresh()->rosters['home']['specialists']['third_down_back'])->toBe($backs[1]->id);
     expect($team->fresh()->team_settings['specialists'] ?? [])->toBe([]);
 });
+
+test('leader rebuild calculates each game once for both teams and publishes newer weeks', function () {
+    $fixture = $this->fixture;
+    $game = app(SeasonGames::class)->start($this->season, $fixture, true);
+    $real = new \App\Services\Simulation\ExhibitionBoxScore;
+    $expected = $real->build($game);
+    $mock = Mockery::mock(\App\Services\Simulation\ExhibitionBoxScore::class);
+    $mock->shouldReceive('build')->once()->withArgs(fn ($g) => $g->id === $game->id)->andReturn($expected);
+    app()->instance(\App\Services\Simulation\ExhibitionBoxScore::class, $mock);
+    $leaders = app(\App\Services\Seasons\LeagueLeaders::class);
+    $leaders->rebuild($this->season);
+    $teams = $leaders->teamStats($this->season);
+    expect($leaders->publishedThroughWeek($this->season))->toBe(1)
+        ->and($teams[$fixture->home_team_id]['totals']['yards'])->toBe($expected['teams']['home']['yards'])
+        ->and($teams[$fixture->away_team_id]['totals']['yards'])->toBe($expected['teams']['away']['yards']);
+    $mock->shouldReceive('build')->once()->andReturn($expected);
+    $fixture->fresh()->update(['week' => 2]);
+    $leaders->rebuild($this->season);
+    expect($leaders->publishedThroughWeek($this->season))->toBe(2);
+    $this->artisan('season:rebuild-leaders', ['--list' => true])->expectsOutputToContain('Stats through week')->assertSuccessful();
+});
+
+test('leader jobs restore world scope after success and failure and stay below queue retry interval', function () {
+    $context = app(\App\Support\CurrentWorld::class);
+    $context->id = null;
+    $previous = null;
+    $job = new \App\Jobs\RebuildSeasonLeaders((int) $this->season->world_id, (int) $this->season->id);
+    $leaders = Mockery::mock(\App\Services\Seasons\LeagueLeaders::class);
+    $leaders->shouldReceive('rebuild')->once()->andReturn([]);
+    $job->handle($leaders);
+    expect($context->id)->toBe($previous)
+        ->and(config('queue.connections.database.retry_after'))->toBeGreaterThan($job->timeout);
+    $leaders->shouldReceive('rebuild')->once()->andThrow(new RuntimeException('Test failure'));
+    expect(fn () => $job->handle($leaders))->toThrow(RuntimeException::class, 'Test failure');
+    expect($context->id)->toBe($previous);
+});

@@ -5,7 +5,6 @@ namespace App\Services\Seasons;
 use App\Models\Exhibition;
 use App\Models\Season;
 use App\Services\Simulation\ExhibitionBoxScore;
-use App\Services\Simulation\GamePersonnel;
 
 class SeasonStats
 {
@@ -21,57 +20,75 @@ class SeasonStats
 
     public function team(Season $season, int $teamId): array
     {
-        $totals = ['games' => 0, 'points_for' => 0, 'points_against' => 0];
-        $opponents = [];
-        $players = [];
-        $fixtures = $season->fixtures()->where('status', 'final')->where(fn ($q) => $q->where('home_team_id', $teamId)->orWhere('away_team_id', $teamId))->get();
+        return $this->summaries($season, $teamId)['teams'][$teamId] ?? $this->emptyTeam();
+    }
+
+    private function emptyTeam(): array
+    {
+        return ['totals' => ['games' => 0, 'points_for' => 0, 'points_against' => 0], 'opponents' => [], 'players' => []];
+    }
+
+    /** Build each completed game's identity-aware box score only once. */
+    public function summaries(Season $season, ?int $teamId = null): array
+    {
+        $teams = [];
+        $throughWeek = 0;
+        // Snapshot lightweight fixture metadata, then hold only one game's history at a time.
+        $fixtures = $season->fixtures()->where('status', 'final')
+            ->when($teamId !== null, fn ($q) => $q->where(fn ($q) => $q->where('home_team_id', $teamId)->orWhere('away_team_id', $teamId)))
+            ->orderBy('id')->get(['id', 'week', 'home_team_id', 'away_team_id', 'exhibition_id']);
         foreach ($fixtures as $fixture) {
-            $game = Exhibition::find($fixture->exhibition_id);
+            $game = Exhibition::select(['id', 'world_id', 'state', 'rosters', 'history'])->find($fixture->exhibition_id);
             if (! $game || $game->state['status'] !== 'final' || ($game->state['penalty_pending'] ?? false)) {
                 continue;
             }
-            $side = (int) $fixture->home_team_id === $teamId ? 'home' : 'away';
-            $other = $side === 'home' ? 'away' : 'home';
             $box = app(ExhibitionBoxScore::class)->build($game);
-            $totals['games']++;
-            $totals['points_for'] += $game->state[$side.'_score'];
-            $totals['points_against'] += $game->state[$other.'_score'];
-            foreach ($box['teams'][$side] as $key => $value) {
-                $totals[$key] = ($totals[$key] ?? 0) + $value;
-            }
-            foreach ($box['teams'][$other] as $key => $value) {
-                $opponents[$key] = ($opponents[$key] ?? 0) + $value;
-            }
-            $appeared = [];
-            foreach ($game->history as $play) {
-                // Reconstruct that snap's personnel so substitutes keep their own statistics.
-                $rosters = app(GamePersonnel::class)->active($game->rosters, $play['before']);
-                $single = new Exhibition(['state' => $game->state, 'rosters' => $rosters, 'history' => [$play]]);
-                $snap = app(ExhibitionBoxScore::class)->build($single);
-                foreach ($snap['players'][$side] as $person) {
-                    $id = $person['id'];
+            $throughWeek = max($throughWeek, (int) $fixture->week);
+            foreach (['home', 'away'] as $side) {
+                $id = (int) $fixture->{$side.'_team_id'};
+                if ($teamId !== null && $id !== $teamId) {
+                    continue;
+                }
+                $other = $side === 'home' ? 'away' : 'home';
+                $teams[$id] ??= $this->emptyTeam();
+                $summary = &$teams[$id];
+                $summary['totals']['games']++;
+                $summary['totals']['points_for'] += $game->state[$side.'_score'];
+                $summary['totals']['points_against'] += $game->state[$other.'_score'];
+                foreach ($box['teams'][$side] as $key => $value) {
+                    $summary['totals'][$key] = ($summary['totals'][$key] ?? 0) + $value;
+                }
+                foreach ($box['teams'][$other] as $key => $value) {
+                    $summary['opponents'][$key] = ($summary['opponents'][$key] ?? 0) + $value;
+                }
+                foreach ($box['players'][$side] as $person) {
                     $values = array_filter($person, fn ($value, $key) => is_numeric($value) && ! in_array($key, ['id', 'number'], true), ARRAY_FILTER_USE_BOTH);
                     if (! array_filter($values)) {
                         continue;
                     }
-                    $players[$id] ??= ['id' => $id, 'name' => $person['name'], 'number' => $person['number'], 'games' => 0];
-                    $appeared[$id] = true;
+                    $playerId = $person['id'];
+                    $summary['players'][$playerId] ??= ['id' => $playerId, 'name' => $person['name'], 'number' => $person['number'], 'games' => 0];
+                    $summary['players'][$playerId]['games']++;
                     foreach ($values as $key => $value) {
-                        $players[$id][$key] = ($players[$id][$key] ?? 0) + $value;
+                        $summary['players'][$playerId][$key] = ($summary['players'][$playerId][$key] ?? 0) + $value;
                     }
                 }
+                unset($summary);
             }
-            foreach (array_keys($appeared) as $id) {
-                $players[$id]['games']++;
+            unset($box, $game);
+        }
+        foreach ($teams as &$summary) {
+            $players = &$summary['players'];
+            foreach ($players as &$player) {
+                $attempts = $player['pass_attempts'] ?? 0;
+                $player['passer_rating'] = $attempts ? round((min(2.375, max(0, (($player['completions'] ?? 0) / $attempts - .3) * 5)) + min(2.375, max(0, (($player['passing_yards'] ?? 0) / $attempts - 3) * .25)) + min(2.375, max(0, ($player['passing_td'] ?? 0) / $attempts * 20)) + min(2.375, max(0, 2.375 - ($player['interceptions'] ?? 0) / $attempts * 25))) / 6 * 100, 1) : null;
             }
+            unset($player);
+            unset($players);
         }
-        foreach ($players as &$player) {
-            $attempts = $player['pass_attempts'] ?? 0;
-            $player['passer_rating'] = $attempts ? round((min(2.375, max(0, (($player['completions'] ?? 0) / $attempts - .3) * 5)) + min(2.375, max(0, (($player['passing_yards'] ?? 0) / $attempts - 3) * .25)) + min(2.375, max(0, ($player['passing_td'] ?? 0) / $attempts * 20)) + min(2.375, max(0, 2.375 - ($player['interceptions'] ?? 0) / $attempts * 25))) / 6 * 100, 1) : null;
-        }
-        unset($player);
+        unset($summary);
 
-        return compact('totals', 'opponents', 'players');
+        return ['teams' => $teams, 'through_week' => $throughWeek];
     }
 
     public function playerHistory(int $playerId, ?Season $current): array

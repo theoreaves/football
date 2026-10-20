@@ -74,9 +74,9 @@ class LeagueLeaders
         $members = $season->settings['members'] ?? [];
         $players = [];
         $teams = [];
-        $stats = app(SeasonStats::class);
+        $stats = app(SeasonStats::class)->summaries($season);
         foreach ($members as $teamId => $member) {
-            $summary = $stats->team($season, (int) $teamId);
+            $summary = $stats['teams'][$teamId] ?? ['totals' => ['games' => 0, 'points_for' => 0, 'points_against' => 0], 'opponents' => [], 'players' => []];
             $teams[$teamId] = ['name' => $member['name'], 'totals' => $summary['totals'], 'opponents' => $summary['opponents']];
             foreach ($summary['players'] as $person) {
                 $players[] = $person + [
@@ -103,10 +103,9 @@ class LeagueLeaders
             'fingerprint' => $this->fingerprint($season),
             'leaders' => $leaders,
             'teams' => $teams,
-            'through_week' => (int) ($season->fixtures()->where('status', 'final')->max('week') ?? 0),
+            'through_week' => $stats['through_week'],
         ]);
 
         return $leaders;
     }
 }
-

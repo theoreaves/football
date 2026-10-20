@@ -12,17 +12,19 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class RebuildSeasonLeaders implements ShouldQueue, ShouldBeUnique
+class RebuildSeasonLeaders implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 300;
+
     public int $tries = 3;
+
     public int $uniqueFor = 3600;
 
-    public function __construct(public int $worldId, public int $seasonId)
-    {
-    }
+    public array $backoff = [15, 60];
+
+    public function __construct(public int $worldId, public int $seasonId) {}
 
     public function uniqueId(): string
     {
@@ -31,10 +33,16 @@ class RebuildSeasonLeaders implements ShouldQueue, ShouldBeUnique
 
     public function handle(LeagueLeaders $leaders): void
     {
-        app(CurrentWorld::class)->id = $this->worldId;
-        $season = Season::find($this->seasonId);
-        if ($season) {
-            $leaders->rebuild($season);
+        $context = app(CurrentWorld::class);
+        $previous = $context->id;
+        try {
+            $context->id = $this->worldId;
+            $season = Season::find($this->seasonId);
+            if ($season) {
+                $leaders->rebuild($season);
+            }
+        } finally {
+            $context->id = $previous;
         }
     }
 }
