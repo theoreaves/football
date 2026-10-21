@@ -51,6 +51,33 @@ export function stadiumTierWallColor(home,deck) {
     return separate && profile.tier_wall_colors?.[['lower','middle','upper'][deck]] || home.stadium_wall_color || '#657587';
 }
 
+// Equal arc-length spacing avoids squeezed seats at the ends of the oval.
+export function stadiumRow(rx, rz, pitch = 1.05) {
+    const segments = 2048, arc = [0];
+    let previous = {x: rx, z: 0};
+    for (let i = 1; i <= segments; i++) {
+        const angle = i / segments * Math.PI * 2;
+        const next = {x: rx * Math.cos(angle), z: rz * Math.sin(angle)};
+        arc.push(arc.at(-1) + Math.hypot(next.x - previous.x, next.z - previous.z));
+        previous = next;
+    }
+    const circumference = arc.at(-1), count = Math.floor(circumference / pitch);
+    const angles = [];
+    let segment = 1;
+    for (let i = 0; i < count; i++) {
+        const distance = (i + .5) * circumference / count;
+        while (arc[segment] < distance) segment++;
+        angles.push((segment - 1 + (distance - arc[segment - 1]) / (arc[segment] - arc[segment - 1])) / segments * Math.PI * 2);
+    }
+    return angles;
+}
+
+export function stadiumAisle(angle, rx, rz) {
+    const section = Math.PI * 2 / 16;
+    const nearest = Math.round(angle / section) * section;
+    return Math.abs(angle - nearest) * Math.hypot(rx * Math.sin(nearest), rz * Math.cos(nearest)) < 1.05;
+}
+
 export function buildStadium(home, document, away = {}, crowd = {}, textureFor=()=>null) {
     const design = stadiumDesign(home),profile=home.stadium || {};
     const enabled=value=>value!==false && value!==0 && value!=='0';
@@ -76,30 +103,42 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -.26;
     const fanSeats = [];
+    const rowDepth = design.width * .8, aislePaint = paint('#9ca3a6');
     let offset = 0, height = 1;
     for (let deck = 0; deck < design.decks; deck++) {
         const deckWalls=stadiumTierWallColor(home,deck)===(home.stadium_wall_color || '#657587')?walls:paint(stadiumTierWallColor(home,deck));
         const deckGroup = new THREE.Group(); deckGroup.name = `seating-deck-${deck + 1}`; group.add(deckGroup);
-        const count = Math.floor(210 + offset * 3), chairCount = count * design.rows;
+        const chairCount = Math.ceil(2 * Math.PI * (80 + offset + rowDepth * design.rows) / 1.05) * design.rows;
+        const aisles = new THREE.InstancedMesh(new THREE.BoxGeometry(1.7, .05, rowDepth + .02), aislePaint, 16 * design.rows);
+        aisles.name = `seating-aisles-${deck + 1}`;
+        let aisleInstance = 0;
         const chairs = new THREE.InstancedMesh(new THREE.BoxGeometry(.65, .5, .65), deck===0?seats:paint(stadiumTierColor(home,deck)), chairCount);
         chairs.name = `seats-${deck + 1}`;
         const dummy = new THREE.Object3D(); let instance = 0;
         for (let row = 0; row < design.rows; row++) {
             const rx = 80 + offset, rz = 48 + offset;
-            const terrace = new THREE.Mesh(band(rx, rz, design.width, height, 0, allowed), deckWalls);
+            const terrace = new THREE.Mesh(band(rx, rz, rowDepth, height, 0, allowed), deckWalls);
             terrace.name = 'terrace'; deckGroup.add(terrace);
-            const riser = new THREE.Mesh(band(rx + design.width, rz + design.width, 0, height, design.step, allowed), deckWalls);
+            const riser = new THREE.Mesh(band(rx + rowDepth, rz + rowDepth, 0, height, design.step, allowed), deckWalls);
             riser.name='riser';deckGroup.add(riser);
-            for (let i = 0; i < count; i++) {
-                const angle = i / count * Math.PI * 2;
-                if (!allowed(angle) || (design.asymmetric && deck === 2 && Math.sin(angle) > .2)) continue;
-                dummy.position.set((rx + .7) * Math.cos(angle), height + .3, (rz + .7) * Math.sin(angle));
+            const rowAllowed = angle => allowed(angle) && !(design.asymmetric && deck === 2 && Math.sin(angle) > .2);
+            for (let section = 0; section < 16; section++) {
+                const angle = section / 16 * Math.PI * 2;
+                if (!rowAllowed(angle)) continue;
+                dummy.position.set((rx + rowDepth / 2) * Math.cos(angle), height + .025, (rz + rowDepth / 2) * Math.sin(angle));
+                dummy.rotation.y = -angle - Math.PI / 2;
+                dummy.updateMatrix(); aisles.setMatrixAt(aisleInstance++, dummy.matrix);
+            }
+            for (const angle of stadiumRow(rx + rowDepth / 2, rz + rowDepth / 2)) {
+                if (!rowAllowed(angle) || stadiumAisle(angle, rx + rowDepth / 2, rz + rowDepth / 2)) continue;
+                dummy.position.set((rx + rowDepth / 2) * Math.cos(angle), height + .3, (rz + rowDepth / 2) * Math.sin(angle));
                 dummy.rotation.y = -angle - Math.PI / 2;
                 fanSeats.push({ x: dummy.position.x, y: dummy.position.y, z: dummy.position.z, yaw: dummy.rotation.y });
                 dummy.updateMatrix(); chairs.setMatrixAt(instance++, dummy.matrix);
             }
-            offset += design.width; height += design.step;
+            offset += rowDepth; height += design.step;
         }
+        aisles.count = aisleInstance; aisles.instanceMatrix.needsUpdate = true; deckGroup.add(aisles);
         chairs.count = instance; chairs.instanceMatrix.needsUpdate = true; deckGroup.add(chairs);
         add(band(80 + offset, 48 + offset, 4, height, 0, allowed), deckWalls, 'concourse');
         offset += 4; height += 2;

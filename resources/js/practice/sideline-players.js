@@ -8,6 +8,8 @@ import {playerKey,sidelineSlot} from './unit-exchange.js';
 // Shared geometry and instanced parts keep a full bench inexpensive to draw.
 export function buildSidelinePlayers(scene, roster, appearance, document = globalThis.document, textureFor = () => null) {
     const groups = [], dummy = new THREE.Object3D();
+    const benchSeat = appearance.home?.secondary_color || '#eeeeee';
+    const benchBack = appearance.home?.primary_color || '#315b85';
     for (const side of ['home','away']) {
         const people = roster[side] || [], kit = appearance[side]?.uniform || {};
         if (!people.length) continue;
@@ -23,8 +25,8 @@ export function buildSidelinePlayers(scene, roster, appearance, document = globa
         for (const x of [17,103]) addBox([.12,.03,8.4],[x,.015,centerZ],'#f3f1d9');
         const benchZ = side === 'home' ? -12.3 : 65.63;
         for (const x of [35,60,85]) {
-            addBox([8.5,.14,.9],[x,.55,benchZ],kit.helmet || '#eeeeee');
-            addBox([8.5,.65,.12],[x,1,benchZ + (side === 'home' ? -.4 : .4)],kit.shirt || '#3997ff');
+            addBox([8.5,.14,.9],[x,.55,benchZ],benchSeat).name = `${side}-bench-seat`;
+            addBox([8.5,.65,.12],[x,1,benchZ + (side === 'home' ? -.4 : .4)],benchBack).name = `${side}-bench-back`;
             for (const dx of [-3,3]) addBox([.12,.55,.65],[x+dx,.27,benchZ],'#657587');
         }
         const addDetail = (geometry,material,offset,name,hideMissingNumber=false) => {

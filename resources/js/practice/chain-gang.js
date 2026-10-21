@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {exitPose} from './postgame.js';
 
 // All dimensions are in the existing field coordinate system (one unit per yard).
 // This group is presentation-only; no game state is changed.
@@ -65,10 +66,11 @@ export function buildChainGang(scene, document) {
     group.add(chain);
     const makeWorker = () => {
         const worker = new THREE.Group();
+        worker.userData.legs = [];
         makeBox(worker, [.66, .73, .34], shirt, [0, 1.32, 0]);
         makeBox(worker, [.42, .24, .33], pants, [0, .84, 0]);
         for (const sign of [-1, 1]) {
-            makeBox(worker, [.21, .71, .23], pants, [sign * .14, .41, 0]);
+            worker.userData.legs.push(makeBox(worker, [.21, .71, .23], pants, [sign * .14, .41, 0]));
             makeBox(worker, [.2, .63, .24], shirt, [sign * .43, 1.29, 0]);
             makeBox(worker, [.21, .12, .32], black, [sign * .14, .06, .08]);
         }
@@ -80,6 +82,7 @@ export function buildChainGang(scene, document) {
         return worker;
     };
     const crew = [makeWorker(), makeWorker(), makeWorker()];
+    let departure = null;
     // Field of play begins at z=0; the near sideline is at negative z.
     // A higher z is closer to the field, not closer to the camera.
     const sideline = -2.9;
@@ -88,12 +91,15 @@ export function buildChainGang(scene, document) {
     const clamp = x => Math.max(0, Math.min(120, Number(x) || 0));
 
     const update = (scrimmage, lineToGain, downNumber, direction = 1, visible = true) => {
+        departure = null;
         const los = clamp(scrimmage);
         const goal = lineToGain == null ? null : clamp(lineToGain);
         // Chains mark the original ten-yard series, not the new ball spot.
         // In goal-to-go, clamp to the playable field edge.
         const originalSpot = goal == null ? los : clamp(goal - (direction >= 0 ? 10 : -10));
         group.visible = visible;
+        crew.forEach(worker => { worker.rotation.y = 0; worker.userData.legs.forEach(leg => leg.rotation.x = 0); });
+        crew[2].visible = down.visible = true;
         setDown(downNumber);
         down.position.set(los, 0, downMarkerLane);
         // LOS and line to gain are different when the ball has advanced
@@ -112,5 +118,25 @@ export function buildChainGang(scene, document) {
         crew[2].position.set(los - 1.0, 0, downMarkerLane - .15);
         crew[0].visible = crew[1].visible = goal !== null;
     };
-    return { group, update };
+    const startDeparture = () => {
+        departure = {visible: group.visible, workers: crew.map(worker => ({x: worker.position.x, z: worker.position.z, visible: worker.visible})),
+            poles: [rear, front, down].map((pole, i) => ({dx: pole.position.x - crew[i].position.x, dz: pole.position.z - crew[i].position.z, visible: pole.visible}))};
+    };
+    const depart = seconds => {
+        if (!departure) return;
+        group.visible = departure.visible;
+        chain.visible = false; // Collected before walking off; never stretch it across the field.
+        crew.forEach((worker, i) => {
+            const start = departure.workers[i], pose = exitPose('home', i, start, seconds);
+            worker.position.set(pose.x, pose.bob || 0, pose.z);
+            worker.rotation.y = pose.yaw;
+            worker.userData.legs.forEach((leg, j) => leg.rotation.x = pose.moving ? Math.sin(seconds * 10 + j * Math.PI) * .35 : 0);
+            worker.visible = start.visible && pose.visible;
+            const pole = [rear, front, down][i], offset = departure.poles[i];
+            pole.position.set(pose.x + Math.cos(pose.yaw) * offset.dx + Math.sin(pose.yaw) * offset.dz, pose.bob || 0,
+                pose.z - Math.sin(pose.yaw) * offset.dx + Math.cos(pose.yaw) * offset.dz);
+            pole.visible = offset.visible && pose.visible;
+        });
+    };
+    return { group, update, startDeparture, depart };
 }

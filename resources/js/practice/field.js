@@ -1628,6 +1628,7 @@ export function mountPractice(root, onReady = () => {}) {
         resultPopup && (resultPopup.hidden=true);playButton.disabled=slider.disabled=true;
         const finish=sample(type,duration);
         finish.players.forEach((p,i)=>ending.field.set(playerKey(p),{x:players[i].position.x,z:players[i].position.z}));
+        chainGang.startDeparture();
         ending.refs=referees.group.children.map(body=>({x:body.position.x,z:body.position.z}));
         ending.coaches=(sidelineCoaches.coaches || []).map(entry=>({...entry,start:{x:entry.coach.position.x,z:entry.coach.position.z}}));
         ending.mascot=sidelineMascot.model?{x:sidelineMascot.model.position.x,z:sidelineMascot.model.position.z}:null;
@@ -1652,6 +1653,7 @@ export function mountPractice(root, onReady = () => {}) {
         hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);
         ball.visible=carrierArrow.visible=carrierRing.visible=ballGlow.visible=false;
         const apply=(model,pose)=>{model.visible=pose.visible;model.position.set(pose.x,pose.bob || 0,pose.z);model.rotation.y=pose.yaw;};
+        chainGang.depart(t);
         referees.crew.forEach((ref,i)=>{
             const pose=exitPose(i%2?'away':'home',i,ending.refs[i],t,0);apply(ref.body,pose);
             ref.legs.forEach((leg,j)=>leg.rotation.x=pose.moving?Math.sin(t*10+j*Math.PI)*.45:0);
