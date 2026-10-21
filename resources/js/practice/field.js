@@ -25,6 +25,7 @@ import { buildStadium } from './stadium.js';
 import { samplePreSnapMotion } from './motion.js';
 import { mountPlayWizard } from './play-wizard.js';
 import { mobileControls } from './mobile-controls.js';
+import {gameViewport} from './game-viewport.js';
 import { stadiumAudio } from './stadium-audio.js';
 import { soundCues, crossedCues, cadenceCues, presentationSoundTime } from './sound-cues.js';
 import { fitLogo } from './logo-fit.js';
@@ -1273,10 +1274,11 @@ export function mountPractice(root, onReady = () => {}) {
         root.querySelector('[data-time]').textContent = phase === 'liningup' ? `Forming up · ${(lineupProgress * lineupDuration).toFixed(1)} / ${lineupDuration.toFixed(1)}s` : phase === 'set' ? `Ready · ${(setDuration - setElapsed).toFixed(1)}s` : `${elapsed.toFixed(1)} / ${duration.toFixed(1)}s`;
     };
     const resize = () => {
-        const width = host.clientWidth, height = Math.max(400, host.clientHeight);
+        const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
         renderer.setSize(width, height, false);
         camera.aspect = width / height; camera.updateProjectionMatrix();
     };
+    const disposeViewport = gameViewport(root);
     const observer = new ResizeObserver(resize); observer.observe(host); resize();
     const moveFocus = (line, direction = cameraDirection) => {
         if (cameraMode === 'quarterback' && direction !== cameraDirection) {
@@ -1873,6 +1875,7 @@ export function mountPractice(root, onReady = () => {}) {
         queuedCall?.dispose();
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();
+        disposeViewport();
         audio.dispose(options.handoff === true);
         penaltyPresentation.dispose();
         resultReferee.dispose();

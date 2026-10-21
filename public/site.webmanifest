@@ -1,0 +1,13 @@
+{
+    "name": "WebSports Football",
+    "short_name": "WebSports",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#101a2b",
+    "theme_color": "#101a2b",
+    "icons": [
+        {"src": "/branding/app-icon-192-v1.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "/branding/app-icon-512-v1.png", "sizes": "512x512", "type": "image/png"}
+    ]
+}

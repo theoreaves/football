@@ -365,3 +365,23 @@ button:active, input[type="submit"]:active, input[type="button"]:active, .button
 
 .game-postgame {position:absolute;bottom:6rem;left:50%;transform:translateX(-50%);z-index:45;background:#111e30ee;color:#fff;border:1px solid #60a5fa;border-radius:12px;padding:14px;text-align:center;max-width:90%;}
 .game-postgame button {margin-top:10px;background:#1d4ed8;border-radius:8px;padding:8px 16px;}
+
+/* Keep phone controls above the canvas through viewport and orientation changes. */
+.game-field canvas { display: block; width: 100%; height: 100%; }
+.game-status, [data-result-referee] { pointer-events: none; }
+.game-stage button, .game-stage summary, .game-stage a { touch-action: manipulation; }
+@media (max-width: 950px), (max-height: 500px), (hover: none) and (pointer: coarse) {
+    .game-stage { height: var(--game-viewport-height, 100dvh); }
+    .game-stage > .game-status { display: none; }
+    .game-stage > .game-mobile-toolbar {
+        position: fixed; z-index: 45; isolation: isolate;
+        left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    }
+    .game-scoreboard, .game-mobile-toolbar { backdrop-filter: none; }
+    .game-stage > dialog { max-height: calc(var(--game-viewport-height, 100dvh) * .9); }
+    .game-stage > [data-result-popup] {
+        bottom: calc(var(--game-viewport-height, 100dvh) * .18);
+        max-height: calc(var(--game-viewport-height, 100dvh) * .65);
+        overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    }
+}

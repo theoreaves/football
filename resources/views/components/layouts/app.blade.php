@@ -3,9 +3,14 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>WebSports Football</title>
     <meta name="application-name" content="WebSports Football">
+    <meta name="apple-mobile-web-app-title" content="WebSports Football">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#101a2b">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('branding/apple-touch-icon-v1.png') }}">
+    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
     <link rel="icon" type="image/png" href="{{ asset('branding/websports-football.png') }}">
 
 
