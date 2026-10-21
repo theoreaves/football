@@ -142,7 +142,14 @@ class ExhibitionController extends Controller
                 'gain' => 0, 'target' => 0, 'summary' => 'Incoming unit',
                 'offense_formation' => $previewFormation,
                 'defense_formation' => $coachDefense['formation'] ?? 'base_4_3'];
-            $nextPersonnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $exhibition->state, $plannedCall, $previewFormation);
+            $previewState = $exhibition->state;
+            if (\App\Services\Simulation\HurryUp::available($previewState) && (($previewState['no_huddle'] ?? false) || ($cpuOffense && $coach->management($previewState)['tempo'] === 'hurry')) && ! in_array($plannedCall, ['punt', 'field_goal', ...\App\Services\Simulation\SpecialTeamsTricks::FAKES], true)) {
+                $previewState['_hold_personnel'] = true;
+                $previewFormation = $previewState['on_field']['offense_formation'];
+                $nextPreview['offense_formation'] = $previewFormation;
+                $nextPreview['defense_formation'] = $previewState['on_field']['defense_formation'];
+            }
+            $nextPersonnel = app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $previewState, $plannedCall, $previewFormation);
             $fake = in_array($plannedCall, \App\Services\Simulation\SpecialTeamsTricks::FAKES, true);
             if ($fake) {
                 $nextPersonnel = \App\Services\Simulation\SpecialTeamsTricks::personnel($nextPersonnel, $exhibition->state['possession'], $plannedCall);
@@ -160,7 +167,7 @@ class ExhibitionController extends Controller
             $nextAnimation = \App\Services\Simulation\FieldOrientation::animation($nextTimeline, $exhibition->state);
             $keys = fn ($tracks) => collect($tracks)->map(fn ($p) => $p['side'].':'.$p['id'])->sort()->values()->all();
             $substitutionChange = ! $unitChange && ($keys($animation['players']) !== $keys($nextAnimation['players']) || session('lineup_changed'));
-            if (! $unitChange && ! $substitutionChange) {
+            if (! $unitChange && ! $substitutionChange && ! isset($exhibition->state['on_field'])) {
                 $nextAnimation = null;
             }
         }
@@ -213,6 +220,7 @@ class ExhibitionController extends Controller
     {
         $data = $request->validate(array_merge(\App\Services\Simulation\OnePlayPersonnel::rules(), \App\Services\Simulation\TeamPlays::rules(), [
             'version' => ['required', 'integer', 'min:0'],
+            'tempo' => ['sometimes', Rule::in(['normal', 'hurry', 'drain'])],
             'call' => ['sometimes', Rule::in(ExhibitionEngine::OFFENSE)],
             'offense_formation' => ['sometimes', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))],
             'defense_formation' => ['sometimes', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))],
@@ -227,6 +235,8 @@ class ExhibitionController extends Controller
         $other = $side === 'home' ? 'away' : 'home';
         $offense = $controls[$side] === 'cpu' ? $coach->offense($state, app(\App\Services\Simulation\GamePersonnel::class)->active($exhibition->rosters, $state)) : ['call' => $data['call'] ?? 'inside_run', 'formation' => $data['offense_formation'] ?? 'shotgun'];
         $defense = $controls[$other] === 'cpu' ? $coach->defense($state, $offense['call']) : ['call' => $data['defense'] ?? 'zone', 'formation' => $data['defense_formation'] ?? 'base_4_3', 'expect' => $data['expect'] ?? 'balanced', 'blitz' => (bool) ($data['blitz'] ?? false)];
+        $tempo = $controls[$side] === 'cpu' ? $coach->management($state)['tempo'] : ($data['tempo'] ?? 'normal');
+        $state = \App\Services\Simulation\HurryUp::prepare($state, $tempo, $offense['call'], $offense['formation'], $defense['formation']);
         $service = app(\App\Services\Simulation\OnePlayPersonnel::class);
         $prepared = app(\App\Services\Simulation\TeamPlays::class)->prepare($state, $exhibition->rosters, $data['team_play'] ?? [], $data['one_play'] ?? [], $offense, $defense);
         $state = $prepared['state'];
@@ -256,7 +266,7 @@ class ExhibitionController extends Controller
         $side = $exhibition->state['possession'];
         $rules = ['version' => ['required', 'integer', 'min:0']];
         $action = $request->input('action', 'play');
-        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'])];
+        $rules['action'] = ['sometimes', Rule::in(['play', 'timeout', 'cpu_timeout', 'penalty', 'coin', 'lineup', 'ot_call', 'ot_choice'])];
         if ($action === 'ot_call') {
             $rules['toss_call'] = ['required', Rule::in(['heads', 'tails'])];
         }
@@ -273,6 +283,11 @@ class ExhibitionController extends Controller
         }
         if ($action === 'timeout') {
             $rules['timeout_team'] = ['required', Rule::in(['home', 'away'])];
+            $rules['timeout_timing'] = ['sometimes', Rule::in(\App\Services\Simulation\TimeoutRules::TIMINGS)];
+            $rules['defense'] = ['sometimes', Rule::in(ExhibitionEngine::DEFENSE)];
+            $rules['call'] = ['sometimes', Rule::in(ExhibitionEngine::callsForState($exhibition->state))];
+            $rules['offense_formation'] = ['sometimes', Rule::in(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))];
+            $rules['defense_formation'] = ['sometimes', Rule::in(array_keys(ExhibitionEngine::DEFENSE_FORMATIONS))];
         }
         if ($action === 'play' && $controls[$side] === 'human') {
             $rules['call'] = ['required', Rule::in(ExhibitionEngine::OFFENSE)];
@@ -383,12 +398,15 @@ class ExhibitionController extends Controller
             $other = $side === 'home' ? 'away' : 'home';
             $game->state = app(GameClock::class)->normalize($game->state);
             $timeoutTeam = $request->input('action') === 'timeout' ? $data['timeout_team'] : $coach->timeoutTeam($game->state);
+            abort_if($request->input('action') === 'cpu_timeout' && ! $timeoutTeam, 409, 'The CPU no longer needs a timeout. Reload the game.');
             if ($timeoutTeam) {
                 if ($request->input('action') === 'timeout') {
                     abort_if($controls[$timeoutTeam] !== 'human', 422, 'CPU teams manage their own timeouts.');
                 }
-                abort_if(! $game->state['clock_running'] || $game->state['timeouts'][$timeoutTeam] <= 0, 422, 'No timeout is available, or the clock is already stopped.');
-                $result = $engine->timeout($game->state, $game->rosters, $timeoutTeam);
+                abort_unless(\App\Services\Simulation\TimeoutRules::canCall($game->state, $timeoutTeam), 422, 'No timeout is available, or this team already called timeout before this snap.');
+                $timing = $data['timeout_timing'] ?? 'now';
+                $plan = $timing === 'after_lineup' ? \App\Services\Simulation\TimeoutRules::plan($game->state, $game->rosters, $data) : [];
+                $result = $engine->timeout($game->state, $game->rosters, $timeoutTeam, $timing, $plan);
             } else {
                 if ($controls[$side] === 'cpu') {
                     $offense = $coach->offense($game->state, app(\App\Services\Simulation\GamePersonnel::class)->active($game->rosters, $game->state));

@@ -68,9 +68,11 @@ test('timeouts stop the clock without a snap and reset at halftime only', functi
         expect($result['state']['stats']['home']['plays'])->toBe(0);
         $state = $result['state'];
         $state['clock_running'] = true;
+        // Separate timeout opportunities, with an intervening snap.
+        unset($state['timeout_used_since_snap']);
     }
     expect(fn () => $engine->timeout($state, clockRosters(), 'away'))->toThrow(LogicException::class);
-    expect(fn () => $engine->timeout(clockState(), clockRosters(), 'home'))->toThrow(LogicException::class);
+    expect($engine->timeout(clockState(), clockRosters(), 'home')['state']['timeouts']['home'])->toBe(2);
     $state['quarter'] = 1;
     $state['clock'] = 1;
     $quarter = $engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man');
@@ -410,4 +412,83 @@ test('new toolbox penalties are local-only live snaps with human decisions and e
         expect($engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man', devForceResult: $type))
             ->toBe($engine->resolve($state, clockRosters(), 'inside_run', 'man_to_man'));
     }
+});
+
+test('out of bounds runs the clock outside late-half windows and preserves normal runoff', function () {
+    $clock = app(\App\Services\Simulation\GameClock::class);
+    foreach ([[1, 100, true], [2, 140, true], [2, 100, false], [3, 100, true], [4, 320, true], [4, 250, false], [5, 500, false]] as [$quarter, $seconds, $running]) {
+        $before = clockState(['quarter' => $quarter, 'clock' => $seconds]);
+        $play = ['call' => 'outside_run', 'outcome' => 'tackle', 'out_of_bounds' => true, 'summary' => 'Runner steps out'];
+        $state = $clock->advance($before, $before, $play, 5);
+        expect($state['clock_running'])->toBe($running)->and($state['clock_restart_on_ready'])->toBeFalse()
+            ->and($clock->runoff($state, 'normal'))->toBe($running ? 34 : 0)
+            ->and($play['summary'])->toContain($running ? 'clock running' : 'clock stopped');
+    }
+});
+
+test('sideline intent has bounded pass success and most runs stay inbounds', function () {
+    $engine = app(ExhibitionEngine::class);
+    $counts = ['pass' => 0, 'run' => 0];
+    foreach (range(1, 250) as $seed) {
+        $state = clockState(['quarter' => 4, 'clock' => 90, 'seed' => $seed]);
+        foreach (['pass' => 'short_pass', 'run' => 'outside_run'] as $kind => $call) {
+            $result = $engine->resolve($state, clockRosters(), $call, 'zone', 'singleback', 'base_4_3', 'hurry', 'sideline', 'pass');
+            $counts[$kind] += (int) $result['play']['out_of_bounds'];
+        }
+    }
+    expect($counts['run'])->toBeLessThan(40)->and($counts['pass'])->toBeGreaterThan(10)->toBeLessThan(100);
+});
+
+test('CPU timeout can be processed before any human play selection', function () {
+    $this->withoutVite();
+    $world = World::create(['name' => 'CPU timeout before call']);
+    LocalSetting::updateOrCreate(['id' => 1], ['current_world_id' => $world->id]);
+    openFootballSave($world);
+    $this->artisan('world:seed-demo', ['world' => $world->id, '--teams' => 2])->assertSuccessful();
+    $teams = Team::all();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'away_control' => 'cpu', 'quarter_length' => 900])->assertSessionHasNoErrors()->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    app(CurrentWorld::class)->id = $world->id;
+    $state = $game->state;
+    $state = array_replace($state, ['quarter' => 4, 'clock' => 90, 'phase' => 'scrimmage', 'possession' => 'home', 'home_score' => 14, 'away_score' => 7, 'clock_running' => true]);
+    unset($state['coin_toss']);
+    $game->update(['state' => $state]);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('data-cpu-timeout-form', false);
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'cpu_timeout'])->assertRedirect();
+    $game->refresh();
+    expect($game->state['clock'])->toBe(90)->and($game->state['timeouts']['away'])->toBe(2)
+        ->and($game->history[0]['outcome'])->toBe('timeout')->and($game->history[0]['no_snap'])->toBeTrue();
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'action' => 'cpu_timeout'])->assertStatus(409);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertDontSee('data-cpu-timeout-form', false);
+});
+
+test('timeout timing uses the shorter clock and handles stopped-clock icing without a snap', function () {
+    $engine = app(ExhibitionEngine::class);
+    foreach ([[50, true, 11, 39], [20, true, 1, 19], [50, false, 50, 39]] as [$seconds, $running, $expected, $wait]) {
+        $state = clockState(['quarter' => 2, 'clock' => $seconds, 'clock_running' => $running]);
+        $result = $engine->timeout($state, clockRosters(), 'home', 'at_one');
+        expect($result['state']['clock'])->toBe($expected)->and($result['state']['timeouts']['home'])->toBe(2)
+            ->and($result['play']['timeout_wait_seconds'])->toBe($wait)
+            ->and($result['play']['clock_seconds'])->toBe($running ? $wait : 0)
+            ->and($result['state']['stats'])->toBe(app(\App\Services\Simulation\GameClock::class)->normalize($state)['stats']);
+        expect(fn () => $engine->timeout($result['state'], clockRosters(), 'home'))->toThrow(LogicException::class);
+    }
+    $state = clockState(['quarter' => 4, 'clock' => 3, 'spot' => 80, 'clock_running' => false]);
+    $plan = \App\Services\Simulation\TimeoutRules::plan($state, clockRosters(), ['call' => 'field_goal', 'offense_formation' => 'field_goal', 'defense_formation' => 'base_4_3', 'defense' => 'field_goal_block']);
+    expect($plan['defense'])->toBe('field_goal_block');
+    $result = $engine->timeout($state, clockRosters(), 'away', 'after_lineup', $plan);
+    expect($result['state']['clock'])->toBe(3)->and($result['state']['home_score'])->toBe(0)
+        ->and($result['state']['away_score'])->toBe(0)->and($result['state']['stats'])->toBe(app(\App\Services\Simulation\GameClock::class)->normalize($state)['stats'])
+        ->and($result['play']['no_snap'])->toBeTrue()->and($result['play']['animation']['no_snap'])->toBeTrue()
+        ->and($result['play']['animation']['timeout_at'])->toBe(3.5)
+        ->and($result['play']['animation']['ballHolders'])->toBe([[0, null, null]]);
+    expect(\App\Support\PlayAnnouncement::titles($result['play']))->toBe(['TIMEOUT']);
+    expect(collect($result['play']['animation']['players'])->contains(fn ($p) => $p['side'] === 'home' && $p['id'] === clockRosters()['home']['players']['K']['id']))->toBeTrue();
+});
+
+test('a delayed timeout stops at the two-minute warning without spending a team timeout', function () {
+    $state = clockState(['quarter' => 2, 'clock' => 135, 'clock_running' => true]);
+    $result = app(ExhibitionEngine::class)->timeout($state, clockRosters(), 'home', 'at_one');
+    expect($result['state']['clock'])->toBe(120)->and($result['state']['timeouts']['home'])->toBe(3)
+        ->and($result['play']['outcome'])->toBe('two_minute_warning');
 });

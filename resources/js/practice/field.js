@@ -37,7 +37,7 @@ import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
 import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
-import { sampleHuddle, sampleBreakHuddle } from './huddle.js';
+import { sampleHuddle as regularHuddle, sampleBreakHuddle, sampleNoHuddle } from './huddle.js';
 import { penaltyMoment, foulMovement, penaltyAlignment, offsideLateralAlignment, buildPenaltyPresentation } from './penalty-presentation.js';
 import { buildPenaltyContact, applyPenaltyContact, resetPenaltyContactPose } from './penalty-contact.js';
 import { buildChainGang } from './chain-gang.js';
@@ -431,6 +431,11 @@ export function mountPractice(root, onReady = () => {}) {
     const sidelineMascot = buildSidelineMascot(scene,appearance,textureFor,`${cameraKey}:mascot-time`);
     const sidelineCoaches = buildSidelineCoaches(scene,appearance,textureFor);
     const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
+    const wantsHurry=()=>Boolean(afterState?.on_field && (callForm?.elements.namedItem('tempo')?.value==='hurry' || (!callForm?.elements.namedItem('tempo') && root.dataset.cpuSpecial!=='true' && (afterState.no_huddle || root.dataset.cpuHurry==='true'))));
+    let hurryWasActive=null,hurryStart=null,hurryProgress=1;
+    const sampleHuddle=(frame,line,possession,progress,homeDirection)=>wantsHurry() && nextAnimation
+        ? sampleNoHuddle(hurryStart || frame,sampleEnginePlay(nextAnimation,0),hurryStart?hurryProgress:progress)
+        : regularHuddle(frame,line,possession,progress,homeDirection);
     const renderState = () => {
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
         let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress, nextHomeDirection) : sample(type, elapsed);
@@ -478,8 +483,8 @@ export function mountPractice(root, onReady = () => {}) {
         sideline.update(activeSidelinePlayers,null,!running && ['result','huddle','set'].includes(phase)?idleTime:null);
         if (phase === 'liningup') {
             const formation = samplePreSnapMotion(sample(type, 0), animation, 0);
-            frame = sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress, playDirection * (offenseSide === 'home' ? 1 : -1));
-            future = sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02), playDirection * (offenseSide === 'home' ? 1 : -1));
+            frame = animation?.no_huddle ? sampleNoHuddle(previousField || formation,formation,lineupProgress) : sampleBreakHuddle(formation, animation.line, animation.possession, lineupProgress, playDirection * (offenseSide === 'home' ? 1 : -1));
+            future = animation?.no_huddle ? sampleNoHuddle(previousField || formation,formation,Math.min(1,lineupProgress+.02)) : sampleBreakHuddle(formation, animation.line, animation.possession, Math.min(1, lineupProgress + .02), playDirection * (offenseSide === 'home' ? 1 : -1));
         }
         if (phase === 'set') {
             const formation = { ...sample(type, 0), event: `Set · Snap in ${Math.ceil(setDuration - setElapsed)}s` };
@@ -685,7 +690,7 @@ export function mountPractice(root, onReady = () => {}) {
             const earlySnap = phase === 'play' && elapsed < .28;
             // Crouch only after the break-huddle jog, not while travelling.
             const presnap = phase === 'set' || earlySnap || (phase === 'liningup' && lineupProgress >= .85);
-            const huddlePhase = phase === 'huddle' && !exchangeFrame;
+            const huddlePhase = phase === 'huddle' && !exchangeFrame && !wantsHurry();
             const setFacing = target => {
                 const dx = (target.x ?? 0) - mesh.position.x;
                 const dz = (target.z ?? 0) - mesh.position.z;
@@ -1372,6 +1377,8 @@ export function mountPractice(root, onReady = () => {}) {
             callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
         });
     }
+    const cpuTimeoutForm=root.querySelector('[data-cpu-timeout-form]');
+    let cpuTimeoutSent=false;
     const tickPlayWizard = mountPlayWizard(root, {
         skipPlayerChange,
         exchangeStatus: () => ({
@@ -1820,6 +1827,9 @@ export function mountPractice(root, onReady = () => {}) {
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
+        if(cpuTimeoutForm && !cpuTimeoutSent && ((phase==='huddle' && huddleProgress===1) || (root.dataset.playNumber==='0' && !running)) && !document.hidden && !quarterDialog?.open && !driveDialog?.open && !injuryDialog?.open && !penaltyDialog?.open && !logDialog?.open){
+            cpuTimeoutSent=true;cpuTimeoutForm.requestSubmit();
+        }
         tickPlayWizard?.({delta,...exchangeCallAvailability({phase,exchange,elapsed:exchangeElapsed,entrance:entrance.active,calling:playCallVisible(callForm),huddleReady:huddleProgress===1,initial:root.dataset.playNumber==='0',running})});
         idleTime+=Math.max(0,Math.min(.1,delta));
         stadium.updateCrowd(delta);
@@ -1829,6 +1839,12 @@ export function mountPractice(root, onReady = () => {}) {
 }
         sidelineCoaches.update(delta,entranceClock());
         if(!document.hidden){sidelineMascot.update(delta,entrance.active?entrance.seconds-entranceTiming.leadStart:null);sidelineCheerleaders.update(delta,entranceClock());}
+        const hurry=wantsHurry();
+        if(hurry && hurryWasActive===false && phase==='huddle'){
+            hurryStart={...sample(type,duration),players:sample(type,duration).players.map((p,i)=>({...p,x:players[i].position.x,z:players[i].position.z}))};hurryProgress=0;
+        }
+        hurryWasActive=hurry;
+        if(hurryStart){hurryProgress=Math.min(1,hurryProgress+Math.min(.1,Math.max(0,delta))/1.5);if(hurryProgress===1 || !hurry)hurryStart=null;}
         renderState();
         if(!entrance.active && !running && ['result','huddle','set'].includes(phase)){players.forEach((model,index)=>idlePlayerPose(model,idleTime,index));}
         ball.visible=!entrance.active;
@@ -1841,7 +1857,7 @@ export function mountPractice(root, onReady = () => {}) {
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled, dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled || Boolean(cpuTimeoutForm), dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

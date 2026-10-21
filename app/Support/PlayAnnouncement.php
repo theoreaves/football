@@ -22,6 +22,9 @@ class PlayAnnouncement
             || str_contains($call, 'pass')
             || (! empty($play['receiver_role']) && ($play['carrier'] ?? null) !== 'QB');
 
+        if ($outcome === 'timeout') {
+            return ['TIMEOUT'];
+        }
         if (str_contains($outcome, 'touchdown') || str_contains($summary, 'touchdown')) {
             return ['TOUCHDOWN!'];
         }

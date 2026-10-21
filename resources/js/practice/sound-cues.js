@@ -14,6 +14,7 @@ export function soundCues(animation, before, after, penalty = null) {
     const reactionAt = penalty ? Math.max(resultAt,animation.duration ?? resultAt) + .2 : resultAt;
     const summary = animation.events?.at(-1)?.[1]?.toLowerCase() || '';
     cues.push(...contactSoundCues(animation), ...ballSoundCues(animation));
+    if(Number.isFinite(animation.timeout_at))add(animation.timeout_at,'whistle','stop');
     if (call !== 'clock_event') {
         const stoppedAt = animation.contact_at ?? animation.result_at ?? resultAt;
         const at = noSnap ? .48 : stoppedAt + .1;

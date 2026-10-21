@@ -153,3 +153,23 @@ test('empty formations advance offensive usage without consuming an RB rotation 
     expect(app(GamePersonnel::class)->active($this->rosters, $next, 'inside_run', 'shotgun')['home']['players']['RB']['id'])
         ->not->toBe($this->rosters['home']['players']['RB']['id']);
 });
+
+test('hurry up retains both formations and identities despite rotation specialist and fatigue changes', function () {
+    $engine = app(ExhibitionEngine::class);
+    $first = $engine->resolve($this->state, $this->rosters, 'inside_run', 'man_to_man', 'singleback', 'nickel', 'hurry');
+    $state = $first['state'];
+    expect($state)->toHaveKey('on_field');
+    $ids = $state['on_field']['players'];
+    $state['fatigue']['home'][$ids['home']['RB']] = 90;
+    $state['personnel_usage']['home'] = ['rb_snaps' => 5, 'offensive_snaps' => 8];
+    $state['down'] = 3;
+    $state['distance'] = 2;
+    $second = $engine->resolve($state, $this->rosters, 'inside_run', 'zone', 'singleback', 'base_3_4', 'hurry');
+    expect($second['play']['offense_formation'])->toBe('singleback')->and($second['play']['defense_formation'])->toBe('nickel')
+        ->and($second['play']['animation']['no_huddle'])->toBeTrue();
+    foreach ($second['play']['animation']['players'] as $track) {
+        expect($track['id'])->toBe($ids[$track['side']][$track['role']]);
+    }
+    $timeout = $engine->timeout($first['state'], $this->rosters, 'home');
+    expect($timeout['state'])->not->toHaveKey('on_field');
+});

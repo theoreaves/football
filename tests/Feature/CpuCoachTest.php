@@ -137,3 +137,16 @@ test('CPU mixes short routes on early downs and favors longer routes on conversi
         expect($earlyShort)->toBeGreaterThan($conversionShort);
     }
 });
+
+test('CPU hurry up favors passes and keeps the formation already on the field', function () {
+    $coach = app(CpuCoach::class);
+    $runs = 0;
+    foreach (range(1, 300) as $seed) {
+        $state = array_replace(app(ExhibitionEngine::class)->initial(900, $seed, false), ['quarter' => 4, 'clock' => 90, 'home_score' => 0, 'away_score' => 7]);
+        $state['on_field'] = ['offense_formation' => 'singleback', 'defense_formation' => 'nickel', 'players' => []];
+        $offense = $coach->offense($state, cpuRosters());
+        expect($offense['formation'])->toBe('singleback')->and(in_array($offense['call'], \App\Services\Simulation\OffensiveOptions::FORMATIONS['singleback'], true))->toBeTrue();
+        $runs += (int) in_array(\App\Services\Simulation\OffensiveOptions::canonical($offense['call']), ['inside_run', 'outside_run'], true);
+    }
+    expect($runs)->toBeLessThan(40);
+});

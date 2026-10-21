@@ -44,3 +44,13 @@ export function sampleBreakHuddle(formation, line, possession, progress, homeDir
         ball: { ...formation.ball, y: .25 + (formation.ball.y - .25) * blend },
         event: fraction < 1 ? 'Breaking huddle · Moving into formation' : 'Set · Ready for the snap' };
 }
+
+// Return directly to the selected formation, matching identities rather than array order.
+export function sampleNoHuddle(finalFrame, formation, progress) {
+    const t=Math.max(0,Math.min(1,progress)),blend=t*t*(3-2*t);
+    const targets=new Map(formation.players.map(p=>[`${p.side}:${p.id ?? p.role}`,p]));
+    return {...formation,players:finalFrame.players.map(p=>{
+        const target=targets.get(`${p.side}:${p.id ?? p.role}`) || p;
+        return {...p,x:p.x+(target.x-p.x)*blend,z:p.z+(target.z-p.z)*blend,facingX:target.x+1,facingZ:target.z};
+    }),event:'Hurry-up · Returning straight to the line',huddle:t===1};
+}

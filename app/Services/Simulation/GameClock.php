@@ -6,9 +6,10 @@ class GameClock
 {
     public function normalize(array $state): array
     {
-        $state += ['timeouts' => ['home' => 3, 'away' => 3], 'clock_running' => false, 'warnings' => ['2' => false, '4' => false], 'untimed_down' => false, 'rules' => ['penalties' => true]];
+        $state += ['timeouts' => ['home' => 3, 'away' => 3], 'clock_running' => false, 'warnings' => ['2' => false, '4' => false], 'untimed_down' => false, 'play_clock' => 40, 'rules' => ['penalties' => true]];
         if (($state['phase'] ?? '') === 'extra_point') {
             $state['clock_running'] = false;
+            $state['play_clock'] = 25;
         }
         foreach (['home', 'away'] as $side) {
             $state['stats'][$side] += ['penalties' => 0, 'penalty_yards' => 0];
@@ -24,11 +25,16 @@ class GameClock
             || ($state['quarter'] >= 5 && $state['clock'] <= 120);
     }
 
+    public function outOfBoundsStops(array $state): bool
+    {
+        return ($state['quarter'] === 2 && $state['clock'] <= 120)
+            || ($state['quarter'] === 4 && $state['clock'] <= 300) || $state['quarter'] >= 5;
+    }
+
     public function runoff(array $state, string $tempo): int
     {
-        // The clock stops when the runner goes out, then restarts on the
-        // ready-for-play outside the final 2 minutes of Q2 / 5 minutes of Q4.
-        // Model that restart during the next pre-snap runoff.
+        // Early out-of-bounds plays use the same runoff as an inbounds down.
+        // Honor the ready flag too when continuing an older saved game.
         if (! ($state['clock_running'] || ($state['clock_restart_on_ready'] ?? false))
             || $state['untimed_down'] || ($state['phase'] ?? 'scrimmage') !== 'scrimmage') {
             return 0;
@@ -56,14 +62,12 @@ class GameClock
         $state['clock'] = max(0, $state['clock'] - $seconds);
         $state['clock_running'] = ! ($play['no_snap'] ?? false) && ($state['phase'] ?? 'scrimmage') === 'scrimmage'
             && $state['possession'] === $before['possession'] && ! in_array($play['outcome'], ['incomplete', 'interception', 'fumble', 'spike', 'penalty', 'onside_recovered'], true)
-            && ! ($play['out_of_bounds'] ?? false);
-        // The ball remains dead/out of bounds for the current play. Whether
-        // the clock resumes at the ready signal is stored for the next snap.
-        $state['clock_restart_on_ready'] = ($play['out_of_bounds'] ?? false)
-            && $state['phase'] === 'scrimmage'
-            && $state['possession'] === $before['possession']
-            && ! (($state['quarter'] === 2 && $state['clock'] <= 120)
-                || ($state['quarter'] === 4 && $state['clock'] <= 300));
+            && ! (($play['out_of_bounds'] ?? false) && $this->outOfBoundsStops($state));
+        $state['play_clock'] = (($play['no_snap'] ?? false) || isset($play['penalty']) || ($play['two_minute_warning'] ?? false) || $state['phase'] === 'extra_point') ? 25 : 40;
+        $state['clock_restart_on_ready'] = false;
+        if ($play['out_of_bounds'] ?? false) {
+            $play['summary'] .= $state['clock_running'] ? ', clock running' : ', clock stopped';
+        }
         if ($warning || ($play['two_minute_warning'] ?? false)) {
             $state['warnings'][$before['quarter']] = true;
             $state['clock_running'] = false;

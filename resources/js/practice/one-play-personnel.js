@@ -132,6 +132,7 @@ export function createOnePlayPersonnel(root, form) {
             signature = nextSignature;
             refresh();
         },
+        hold() {++generation;controller?.abort();pending=false;failed=false;choices={};sync();},
         cancel() { ++generation; controller?.abort(); pending = false; },
         ready: () => !pending && !failed,
     };

@@ -46,6 +46,7 @@ class ExhibitionEngine
         if (isset(OffensiveOptions::ALIASES[$call]) && ! in_array($call, OffensiveOptions::FORMATIONS[$offenseFormation] ?? [], true)) {
             throw new LogicException('Choose a play offered by this offensive formation.');
         }
+        $state = HurryUp::prepare($state, $tempo, $call, $offenseFormation, $defenseFormation);
         $design = $call;
         $fake = in_array($design, SpecialTeamsTricks::FAKES, true);
         $qbDesigned = OffensiveOptions::quarterbackRun($design) || ($fake && str_ends_with($design, '_run'));
@@ -223,10 +224,12 @@ class ExhibitionEngine
         $forcedOut = false;
         if ($outcome === 'tackle') {
             $lateSideline = $clockStrategy === 'sideline' && $clock->lateHalf($before);
-            $chance = $targetRole !== null && ! $scramble ? .11
-                : ($call === 'outside_run' ? .19 : ($scramble ? .08 : .035));
+            $passPlay = $targetRole !== null && ! $scramble;
+            $chance = $passPlay ? .11 : ($call === 'outside_run' ? .06 : ($scramble ? .05 : .015));
             if ($lateSideline) {
-                $chance = $targetRole !== null && ! $scramble ? .75 : ($call === 'outside_run' ? .65 : .3);
+                // Sideline intent helps, but coverage/tackling can keep a receiver inside.
+                $chance = $passPlay ? ($expect === 'pass' || $defense === 'zone' ? .25 : .38)
+                    : ($call === 'outside_run' ? .10 : ($scramble ? .07 : .025));
             }
             $outOfBounds = $roll() < $chance;
             if ($outOfBounds) {
@@ -354,7 +357,7 @@ class ExhibitionEngine
             }
         }
         if ($outOfBounds && $outcome !== 'touchdown') {
-            $summary .= $forcedOut ? ' · forced out of bounds, clock stopped' : ' · steps out of bounds, clock stopped';
+            $summary .= $forcedOut ? ' · forced out of bounds' : ' · steps out of bounds';
         }
         $seconds = $yards($roll(), 5, 9);
 
@@ -413,6 +416,7 @@ class ExhibitionEngine
         $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)
             ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
 
+        $play['animation']['no_huddle'] = (bool) ($snapBefore['_hold_personnel'] ?? false);
         $play['animation'] = FieldOrientation::animation($play['animation'], $before);
 
         // Keep choices in the saved before-state for replays, never in the next-play state.
@@ -420,6 +424,10 @@ class ExhibitionEngine
         $personnel = app(GamePersonnel::class)->afterPlay($state, $before, $play, $rosters);
         $state = $personnel['state'];
         $play['personnel_notices'] = $personnel['notices'];
+        $state = HurryUp::remember($state, $before, $play, $rosters);
+        if (! ($play['no_snap'] ?? false) || $state['quarter'] !== $before['quarter']) {
+            unset($state['timeout_used_since_snap']);
+        }
         $play['after'] = $state;
         if ($personnel['notices']) {
             $play['summary'] .= ' · '.implode(' · ', $personnel['notices']);
@@ -436,18 +444,35 @@ class ExhibitionEngine
         return ['state' => $state, 'play' => $play];
     }
 
-    public function timeout(array $state, array $rosters, string $side): array
+    public function timeout(array $state, array $rosters, string $side, string $timing = 'now', array $plan = []): array
     {
-        $rosters = app(GamePersonnel::class)->active($rosters, $state);
         $state = app(GameClock::class)->normalize($state);
-        if ($state['status'] !== 'playing' || ! in_array($side, ['home', 'away'], true) || $state['timeouts'][$side] <= 0 || ! $state['clock_running']) {
-            throw new LogicException('A timeout needs a running clock and an available timeout.');
+        if (! TimeoutRules::canCall($state, $side) || ! in_array($timing, TimeoutRules::TIMINGS, true)) {
+            throw new LogicException('A timeout needs an available timeout and no previous timeout by this team since the last snap.');
         }
         $before = $state;
-        $state['timeouts'][$side]--;
-        $state['clock_running'] = false;
+        $wait = TimeoutRules::wait($state, $timing);
+        $runoff = $state['clock_running'] ? $wait : 0;
+        if (app(GameClock::class)->warningDue($state, $runoff)) {
+            $state['clock'] = 120;
 
-        return $this->finish($state, $before, $this->stoppage(ucfirst($side).' timeout · '.$state['timeouts'][$side].' remaining this half', 'timeout'), $rosters, 0);
+            return $this->finish($state, $before, $this->stoppage('Official timeout', 'two_minute_warning') + ['two_minute_warning' => true, 'runoff_seconds' => $before['clock'] - 120], $rosters, 0);
+        }
+        $rosters = app(GamePersonnel::class)->active($rosters, $state, $plan['call'] ?? null, $plan['offense_formation'] ?? null);
+        $state['clock'] -= $runoff;
+        $state['timeouts'][$side]--;
+        $state['timeout_used_since_snap'][$side] = true;
+        $state['clock_running'] = $state['clock_restart_on_ready'] = false;
+        $play = $this->stoppage(ucfirst($side).' timeout · '.$state['timeouts'][$side].' remaining this half', 'timeout');
+        $play += ['timeout_timing' => $timing, 'timeout_wait_seconds' => $wait, 'runoff_seconds' => $runoff, 'timeout_plan' => $plan];
+        if ($timing === 'after_lineup') {
+            $play['summary'] .= ' · called after both teams line up, before the snap';
+        }
+        if ($timing === 'at_one') {
+            $play['summary'] .= ' · called with 1 second on the limiting clock';
+        }
+
+        return $this->finish($state, $before, $play, $rosters, 0);
     }
 
     private function stoppage(string $summary, string $outcome): array

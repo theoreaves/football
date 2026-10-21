@@ -1,3 +1,5 @@
+import {playTimeouts} from './play-timeouts.js';
+import {hurryUpCalling} from './hurry-up.js';
 import {mountExchangeSkipButton} from './exchange-skip-button.js';
 import {mountTeamPlaySelections} from './team-play-options.js';
 import {createOnePlayPersonnel} from './one-play-personnel.js';
@@ -118,6 +120,7 @@ export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
 
 export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStatus = () => ({active:false,fastForwarding:false})} = {}) {
     const form = root.querySelector('[data-call-form]');
+    if (root.querySelector('[data-cpu-timeout-form]')) {if(form)form.inert=true;root.querySelectorAll('[data-timeout-form]').forEach(source=>source.hidden=true);return;}
     if (!form || (!form.elements.call && !form.elements.defense)) return;
     const dialog = document.createElement('dialog');
     dialog.className='game-dialog play-wizard'; dialog.dataset.playWizard='';
@@ -136,6 +139,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     const field=name=>form.elements.namedItem(name);
     const teamPlays = mountTeamPlaySelections(root, form);
     const onePlayPersonnel = createOnePlayPersonnel(root, form);
+    const renderTimeouts=playTimeouts(root,form,()=>{onePlayPersonnel.cancel();dialog.close();});
     let step=0, currentKind=null;
     let updateExchangeSkip = () => {};
     const updateReviewButton = () => {
@@ -157,9 +161,15 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     if (field('offense_formation') && field('call')) {
         [...field('offense_formation').options].filter(option => ['punt','field_goal'].includes(option.value) && (state.phase || 'scrimmage') !== 'scrimmage').forEach(option=>option.remove());
     }
+    const hurryCalling=hurryUpCalling(root,form);
+    field('tempo')?.addEventListener('change',()=>{
+        if(form.dataset.noHuddle==='true'){onePlayPersonnel.hold();teamPlays.clear('offense');teamPlays.clear('defense');}
+        if(dialog.open)render();
+    });
     const steps=()=>wizardSteps(Boolean(field('call')), Boolean(field('defense')), field('call')?.value || (root.dataset.cpuSpecial==='true'?'kickoff':'inside_run'), field('call') ? [...field('call').options].map(option=>option.value) : []);
     const summary=()=>['offense_formation','call','motion','defense_formation','defense'].filter(name=>field(name)).map(name=>'<li>'+escape(field(name).selectedOptions[0]?.textContent || '')+'</li>').join('')+(field('expect')?'<li>'+escape(field('expect').value)+(field('blitz').checked?' + blitz':' · regular')+'</li>':'');
     function render() {
+        hurryCalling();
         countdown.cancel();
         onePlayPersonnel.cancel();
         ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
@@ -195,7 +205,8 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
         form.querySelector('[data-snap]').hidden=true;
         if(current.kind==='review') {
             cards.innerHTML='<div class="wizard-review"><h3>Selected calls</h3><ul>'+summary()+teamPlays.selected().map(play=>'<li>Team Play · '+escape(play.name)+'</li>').join('')+'</ul></div>';
-            if (root.dataset.personnelUrl) {
+            if(form.dataset.noHuddle==='true'){const note=document.createElement('p');note.textContent='No huddle · Current formations and players stay on the field.';cards.append(note);}
+            if (root.dataset.personnelUrl && form.dataset.noHuddle!=='true') {
                 const personnel = document.createElement('section'); personnel.className = 'one-play-personnel';
                 cards.append(personnel);
                 onePlayPersonnel.render(personnel, ui.querySelector('[data-wizard-next]'));
@@ -205,9 +216,10 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
             });
         } else {
             ['tempo','clock_strategy'].forEach(name=>{if(field(name))source.append(field(name).parentElement);});
+            if(current.kind==='formation' && field('tempo')){const label=field('tempo').parentElement;label.hidden=false;label.style.gridColumn='1 / -1';cards.append(label);}
             const options=current.kind==='defense-type'
                 ? ['balanced','run','pass'].flatMap(expect=>[ {value:expect+':regular',text:expect[0].toUpperCase()+expect.slice(1)+' · Regular'}, {value:expect+':blitz',text:expect[0].toUpperCase()+expect.slice(1)+' + Blitz'} ])
-                : [...field(current.name).options].map(option=>({value:option.value,text:option.textContent}));
+                : [...field(current.name).options].filter(option=>!option.disabled).map(option=>({value:option.value,text:option.textContent}));
             const selected=current.kind==='defense-type'?field('expect').value+':'+(field('blitz').checked?'blitz':'regular'):field(current.name).value;
             options.forEach(option=>{
                 const button=document.createElement('button');button.type='button';button.className='wizard-card';button.setAttribute('aria-pressed',String(selected===option.value));
@@ -225,7 +237,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
                 });cards.append(button);
             });
             const kind = current.kind === 'play' ? 'offense' : current.kind === 'defense-coverage' && !special(field('call')?.value || (root.dataset.cpuSpecial === 'true' ? 'kickoff' : 'inside_run')) ? 'defense' : null;
-            const named = kind ? teamPlays.options(kind) : [];
+            const named = kind && form.dataset.noHuddle!=='true' ? teamPlays.options(kind) : [];
             if (named.length) {
                 const heading = document.createElement('h3');heading.className='team-play-heading';heading.textContent='Team Plays';cards.append(heading);
                 named.forEach(play=>{
@@ -236,6 +248,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
                 });
             }
         }
+        renderTimeouts(cards);
         updateExchangeSkip = mountExchangeSkipButton(ui.querySelector('[data-wizard-skip-exchange]'), exchangeStatus, skipPlayerChange);
         ui.querySelector('[data-wizard-close]').onclick=()=>dialog.close();
         ui.querySelector('[data-wizard-back]').onclick=()=>{step--;render();};
@@ -266,6 +279,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     return ({delta, ready, personnelReady = true}) => {
         open.disabled = form.dataset.playPending === 'true';
         if (open.disabled) open.textContent = 'Play selected…';
+        hurryCalling();
         updateExchangeSkip();
         updateReviewButton();
         const seconds = countdown.tick(delta, personnelReady && dialog.open && !document.hidden && root.isConnected);

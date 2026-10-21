@@ -6,6 +6,10 @@ class GamePersonnel
 {
     public function active(array $rosters, array $state, ?string $call = null, ?string $formation = null): array
     {
+        $hold = ($state['_hold_personnel'] ?? false) || (($state['no_huddle'] ?? false) && HurryUp::available($state));
+        if ($hold) {
+            $state['_snap_lineup'] = $state['on_field']['players'] ?? $state['_snap_lineup'] ?? [];
+        }
         foreach ($rosters as $side => &$roster) {
             if (! isset($roster['pool'])) {
                 $roster = app(PersonnelRotation::class)->apply($roster, $state, $side, $call, $formation, $state['game_lineup'][$side] ?? []);
@@ -68,7 +72,7 @@ class GamePersonnel
                 $candidates = array_values(array_filter($eligible, fn ($player) => in_array($player['position'], $positions, true)));
                 usort($candidates, fn ($a, $b) => $rank($a) <=> $rank($b));
                 $player = $candidates[0] ?? null;
-                if ($player && ($state['fatigue'][$side][$player['id']] ?? 0) >= 65) {
+                if (! $hold && $player && ($state['fatigue'][$side][$player['id']] ?? 0) >= 65) {
                     foreach ($candidates as $backup) {
                         if (($state['fatigue'][$side][$backup['id']] ?? 0) < 45) {
                             $player = $backup;

@@ -66,7 +66,11 @@ class CpuCoach
         if ($late) {
             $passChance += $margin < 0 ? 25 : ($margin > 0 ? -25 : 0);
         }
-        if ($this->roll($state, 'offense') > max(15, min(90, $passChance))) {
+        $hurry = $this->management($state)['tempo'] === 'hurry';
+        if ($hurry) {
+            $passChance = max(92, $passChance);
+        }
+        if ($this->roll($state, 'offense') > max(15, min($hurry ? 96 : 90, $passChance))) {
             $call = $this->roll($state, 'run') < 70 ? 'inside_run' : 'outside_run';
         } else {
             $call = $this->passingCall($state);
@@ -92,6 +96,14 @@ class CpuCoach
         }
         $formations = array_keys(array_filter(OffensiveOptions::FORMATIONS, fn ($calls) => in_array($call, $calls, true)));
         $formation = $formations[$this->roll($state, 'offensive-formation') % count($formations)];
+        if ($hurry && HurryUp::available($state)) {
+            $formation = $state['on_field']['offense_formation'];
+            $available = OffensiveOptions::FORMATIONS[$formation];
+            if (! in_array($call, $available, true)) {
+                $passing = array_values(array_filter($available, fn ($c) => in_array(OffensiveOptions::canonical($c), ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)));
+                $call = $passing ? $passing[$this->roll($state, 'hurry-call') % count($passing)] : $available[0];
+            }
+        }
         $package = PersonnelRotation::PACKAGES[$formation] ?? null;
         $motionRoles = $package ? array_diff($package, ['QB']) : ($formation === 'spread' ? ['WR1', 'WR2', 'WR3'] : ['WR1', 'WR2', 'TE', 'RB']);
         $roles = array_values(array_filter($motionRoles, fn ($role) => isset($players[$role])));
@@ -136,7 +148,7 @@ class CpuCoach
             }
         }
 
-        return ['call' => $call, 'formation' => $call === 'zone' && $state['spot'] < 80 ? 'nickel' : ($call === 'blitz' ? 'single_high' : ($call === 'run_stop' ? 'base_3_5' : 'base_4_3'))];
+        return ['call' => $call, 'formation' => HurryUp::available($state) && (($state['no_huddle'] ?? false) || $this->management($state)['tempo'] === 'hurry') ? $state['on_field']['defense_formation'] : ($call === 'zone' && $state['spot'] < 80 ? 'nickel' : ($call === 'blitz' ? 'single_high' : ($call === 'run_stop' ? 'base_3_5' : 'base_4_3')))];
     }
 
     public function management(array $state): array
@@ -167,10 +179,10 @@ class CpuCoach
         $side = $state['possession'];
         $other = $side === 'home' ? 'away' : 'home';
         $margin = $state[$side.'_score'] - $state[$other.'_score'];
-        if ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin > 0 && $controls[$other] === 'cpu' && ($state['timeouts'][$other] ?? 3) > 0) {
+        if ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin > 0 && $controls[$other] === 'cpu' && ($state['timeouts'][$other] ?? 3) > 0 && ! ($state['timeout_used_since_snap'][$other] ?? false)) {
             return $other;
         }
-        if (app(GameClock::class)->lateHalf($state) && $state['clock'] <= 30 && ($state['quarter'] === 2 || $margin <= 0) && $controls[$side] === 'cpu' && ($state['timeouts'][$side] ?? 3) > 0) {
+        if (app(GameClock::class)->lateHalf($state) && $state['clock'] <= 30 && ($state['quarter'] === 2 || $margin <= 0) && $controls[$side] === 'cpu' && ($state['timeouts'][$side] ?? 3) > 0 && ! ($state['timeout_used_since_snap'][$side] ?? false)) {
             return $side;
         }
 
