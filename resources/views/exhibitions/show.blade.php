@@ -76,7 +76,7 @@
     @endif
     <div class="game-brand-watermark" aria-hidden="true"><x-brand-logo /></div>
     <div class="game-scoreboard">
-        @if($exhibition->seasonFixture)<a href="{{ route('seasons.show', $exhibition->seasonFixture->season_id) }}" class="score-exit">Season · Week {{ $exhibition->seasonFixture->week }}</a>@else<a href="{{ route('exhibitions.index') }}" class="score-exit">Exhibitions</a>@endif
+        @if($exhibition->seasonFixture)<a href="{{ route('seasons.show', $exhibition->seasonFixture->season_id) }}" class="score-exit">Season · Week {{ $exhibition->seasonFixture->week }}</a>@elseif(isset($state['playoff']['season_id']))<a href="{{ route('seasons.show', ['season' => $state['playoff']['season_id'], 'tab' => 'playoffs']) }}" class="score-exit">← Back to Playoffs</a>@else<a href="{{ route('exhibitions.index') }}" class="score-exit">Exhibitions</a>@endif
         @foreach(['away', 'home'] as $scoreSide)
         <div class="score-team">
             @if($appearance[$scoreSide]['team_logo'] ?? null)<img class="score-team-logo" src="{{ $appearance[$scoreSide]['team_logo'] }}" alt="{{ $teamNames[$scoreSide] }} logo">@endif
