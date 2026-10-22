@@ -180,6 +180,14 @@ class SeasonController extends Controller
             'boxScore' => app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition)]);
     }
 
+    public function createPlayoffBracket(Season $season)
+    {
+        app(\App\Services\Seasons\PlayoffBracket::class)->create($season);
+
+        return redirect()->route('seasons.show', ['season' => $season, 'tab' => 'playoffs'])
+            ->with('status', 'Opening playoff bracket saved.');
+    }
+
     public function advance(Request $request, Season $season)
     {
         $data = $request->validate(['week' => ['required', 'integer', 'min:1']]);

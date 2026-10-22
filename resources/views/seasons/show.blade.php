@@ -5,7 +5,7 @@
 @if(session('status'))<p class="season-notice" role="status">{{ session('status') }}</p>@endif
 @if($errors->any())<p class="season-notice text-red-300" role="alert">{{ $errors->first() }}</p>@endif
 @if($tab === 'overview')
-    <p class="season-notice">{{ $season->phase === 'regular_season' ? 'Play or Quick Sim the current week, then advance after all games are final.' : ($season->phase === 'playoffs_pending' ? 'Regular season complete. Playoff qualification and brackets are the next milestone.' : 'Season complete.') }}</p>
+    <p class="season-notice">{{ $season->phase === 'regular_season' ? 'Play or Quick Sim the current week, then advance after all games are final.' : ($season->phase === 'playoffs_pending' ? 'Regular season complete. Open the Playoffs tab to save the opening-round bracket.' : 'Season complete.') }}</p>
     <livewire:season-week-games :season-id="$season->id" tab="overview" />
     <div class="season-grid">@foreach(collect($members)->sortBy(fn($member) => $member['control'] === 'human' ? 0 : 1) as $id => $member)<a class="season-panel {{ $member['control'] === 'human' ? 'season-human-team' : '' }}" href="{{ route('seasons.team', [$season, $id]) }}">@if($member['control'] === 'human')<span class="season-human-label">Human controlled</span>@endif<div class="season-team-heading">@if(isset($logos[$id]))<img class="season-card-logo" src="{{ $logos[$id] }}" alt="{{ $member['name'] }} logo" loading="lazy">@endif<h2>{{ $member['name'] }}</h2></div><p>{{ $member['conference_name'] }} · {{ $member['division'] }}</p><span class="text-blue-300">{{ strtoupper($member['control']) }} · Open team hub →</span></a>@endforeach</div>
 @elseif($tab === 'schedule')

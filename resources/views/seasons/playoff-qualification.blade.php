@@ -14,6 +14,14 @@
                 @endforeach
             </tbody></table></div>
         @endforeach
-        <p>Bracket creation, finalized tiebreakers, game play, and advancement are not enabled in this milestone.</p>
+        @if(isset($season->settings['playoff_bracket']))
+            @include('seasons.playoff-bracket', ['playoffBracket' => $season->settings['playoff_bracket']])
+        @elseif($playoffQualification['ready'])
+            <form method="POST" action="{{ route('seasons.playoffs.bracket', $season) }}" class="season-actions">
+                @csrf
+                <button class="landing-button">Save opening bracket</button>
+            </form>
+            <p>This locks the provisional qualification snapshot into a first-round bracket; full NFL tiebreakers remain pending.</p>
+        @endif
     @endif
 </section>
