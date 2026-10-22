@@ -1,6 +1,6 @@
 <section class="season-panel">
     <h2>Opening playoff bracket</h2>
-    <p>This opening-round bracket is saved to the season and will not change if team settings are edited. Game play and later-round advancement are not enabled yet.</p>
+    <p>Opening qualification and seedings are preserved. Use the postseason games below to play or simulate each round.</p>
     @foreach($playoffBracket['conferences'] as $conference => $bracket)
         <h3>{{ $conference === 'league' ? 'League' : ($members[$bracket['seeds'][0]['team_id']]['conference_name'] ?? $conference) }}</h3>
         @if($bracket['byes'])
@@ -18,3 +18,5 @@
         </tbody></table></div>
     @endforeach
 </section>
+
+@include('seasons.playoff-games')

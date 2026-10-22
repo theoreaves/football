@@ -17,7 +17,7 @@ class ExhibitionController extends Controller
     public function index()
     {
         // Sort narrow rows: MySQL can otherwise copy large replay JSON into its sort buffer.
-        $games = Exhibition::select('id')->whereDoesntHave('seasonFixture')->latest()->orderByDesc('id')->paginate(20);
+        $games = Exhibition::select('id')->whereDoesntHave('seasonFixture')->whereNull('state->playoff->season_id')->latest()->orderByDesc('id')->paginate(20);
         $summaries = Exhibition::select(['id', 'world_id', 'home_team_id', 'away_team_id', 'state'])
             ->with(['homeTeam', 'awayTeam'])->whereIn('id', $games->getCollection()->pluck('id'))
             ->get()->keyBy('id');
@@ -29,7 +29,7 @@ class ExhibitionController extends Controller
 
     public function destroy(Exhibition $exhibition)
     {
-        abort_if($exhibition->seasonFixture()->exists(), 409, 'Season games cannot be deleted as exhibitions.');
+        abort_if($exhibition->seasonFixture()->exists() || isset($exhibition->state['playoff']), 409, 'Season and playoff games cannot be deleted as exhibitions.');
         $exhibition->delete();
 
         return redirect()->route('exhibitions.index')->with('status', 'Exhibition deleted.');

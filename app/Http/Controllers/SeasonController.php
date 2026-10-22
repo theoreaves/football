@@ -180,6 +180,25 @@ class SeasonController extends Controller
             'boxScore' => app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($exhibition)]);
     }
 
+    public function playoffGame(Request $request, Season $season, string $conference, int $index)
+    {
+        $data = $request->validate(['quick_sim' => ['sometimes', 'boolean']]);
+        $quick = (bool) ($data['quick_sim'] ?? false);
+        $game = app(\App\Services\Seasons\PlayoffGames::class)->start($season, $conference, $index, $quick);
+
+        return $quick
+            ? redirect()->route('seasons.show', ['season' => $season, 'tab' => 'playoffs'])->with('status', 'Playoff game simulated. Refresh to view final score.')
+            : redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => ($game->state['status'] ?? '') === 'final' ? 1 : 0]);
+    }
+
+    public function advancePlayoffRound(Season $season)
+    {
+        app(\App\Services\Seasons\PlayoffGames::class)->advance($season);
+
+        return redirect()->route('seasons.show', ['season' => $season, 'tab' => 'playoffs'])
+            ->with('status', 'Playoff round completed.');
+    }
+
     public function createPlayoffBracket(Season $season)
     {
         app(\App\Services\Seasons\PlayoffBracket::class)->create($season);

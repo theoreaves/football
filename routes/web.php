@@ -44,6 +44,8 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/seasons/{season}/fixtures/{fixture}/box-score', [\App\Http\Controllers\SeasonController::class, 'boxScore'])->name('seasons.box-score');
         Route::post('/seasons/{season}/sim-cpu', [\App\Http\Controllers\SeasonController::class, 'simCpu'])->name('seasons.sim-cpu');
         Route::post('/seasons/{season}/playoffs/bracket', [\App\Http\Controllers\SeasonController::class, 'createPlayoffBracket'])->name('seasons.playoffs.bracket');
+        Route::post('/seasons/{season}/playoffs/advance', [\App\Http\Controllers\SeasonController::class, 'advancePlayoffRound'])->name('seasons.playoffs.advance');
+        Route::post('/seasons/{season}/playoffs/games/{conference}/{index}', [\App\Http\Controllers\SeasonController::class, 'playoffGame'])->whereNumber('index')->name('seasons.playoffs.game');
         Route::post('/seasons/{season}/advance', [\App\Http\Controllers\SeasonController::class, 'advance'])->name('seasons.advance');
         Route::put('/seasons/{season}/rules', [\App\Http\Controllers\SeasonController::class, 'rules'])->name('seasons.rules');
         Route::put('/seasons/{season}/controls', [\App\Http\Controllers\SeasonController::class, 'controls'])->name('seasons.controls');
