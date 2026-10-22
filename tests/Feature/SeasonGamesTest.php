@@ -237,6 +237,7 @@ test('box score routes require a started fixture from the requested season and w
 });
 
 test('bulk CPU sim finishes only unstarted CPU games in the current week and is repeatable', function () {
+    \Illuminate\Support\Facades\Queue::fake();
     $season = $this->season;
     $members = $season->settings['members'];
     $current = $season->fixtures()->where('week', 1)->get();
@@ -245,7 +246,12 @@ test('bulk CPU sim finishes only unstarted CPU games in the current week and is 
     $this->get(route('seasons.show', $season))->assertOk()->assertSee('season-human-game', false)->assertSee('Human team')->assertSee('Sim all CPU vs CPU Games (1)');
     $this->post(route('seasons.sim-cpu', $season), ['week' => 1, 'return_tab' => 'schedule'])
         ->assertRedirect(route('seasons.show', ['season' => $season, 'tab' => 'schedule']))->assertSessionHasNoErrors();
-    expect($cpu->fresh()->status)->toBe('final')->and($human->fresh()->exhibition_id)->toBeNull();
+    expect($cpu->fresh()->simulation_status)->toBe('queued')->and($human->fresh()->exhibition_id)->toBeNull();
+    $this->assertDatabaseCount('exhibitions', 0);
+    $this->post(route('seasons.sim-cpu', $season), ['week' => 1])->assertRedirect();
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\DispatchCpuWeek::class, 1);
+    runSeasonQueueJobs();
+    expect($cpu->fresh()->status)->toBe('final')->and($cpu->fresh()->simulation_status)->toBeNull();
     expect($season->fixtures()->where('week', '>', 1)->whereNotNull('exhibition_id')->count())->toBe(0);
     $this->assertDatabaseCount('exhibitions', 1);
     $this->post(route('seasons.sim-cpu', $season), ['week' => 1])->assertRedirect();
@@ -431,47 +437,146 @@ test('splitting Quick Sim at a quarter preserves the deterministic game outcomes
     expect($continued['state'])->toEqual($whole['state'])->and($continued['history'])->toEqual($whole['history']);
 });
 
-test('bulk CPU HTTP requests commit one game at a time and report resumable progress', function () {
-    $season = $this->season;
+function runSeasonQueueJobs(): void
+{
+    foreach (\Illuminate\Support\Facades\Queue::pushed(\App\Jobs\DispatchCpuWeek::class) as $entry) {
+        $entry->handle();
+    }
+    foreach (\Illuminate\Support\Facades\Queue::pushed(\App\Jobs\SimulateSeasonGame::class) as $entry) {
+        $entry->handle(app(\App\Services\Seasons\QueuedSeasonGames::class));
+    }
+}
+
+function allSeasonTeamsCpu(Season $season): void
+{
     $settings = $season->settings;
     foreach ($settings['members'] as &$member) {
         $member['control'] = 'cpu';
     }
     unset($member);
     $season->update(['settings' => $settings]);
-    expect($season->fixtures()->where('week', 1)->count())->toBe(2);
+}
+
+test('weekly queue dispatches one job per game and repeated jobs cannot change saved results', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    $season = $this->season;
+    allSeasonTeamsCpu($season);
     $url = route('seasons.sim-cpu', $season);
-    $this->postJson($url, ['week' => 1, 'return_tab' => 'schedule'])->assertOk()->assertJson([
-        'simulated' => 1, 'remaining' => 1, 'redirect' => route('seasons.show', ['season' => $season, 'tab' => 'schedule']),
-    ]);
-    $saved = Exhibition::firstOrFail()->only(['id', 'state', 'history', 'rosters']);
-    expect($season->fixtures()->where('week', 1)->where('status', 'final')->count())->toBe(1);
-    $this->assertDatabaseCount('exhibitions', 1);
-    // A later click/resume does not rerun the result that was already committed.
-    $this->postJson($url, ['week' => 1])->assertOk()->assertJson(['simulated' => 1, 'remaining' => 0]);
-    expect(Exhibition::findOrFail($saved['id'])->only(['id', 'state', 'history', 'rosters']))->toBe($saved);
-    expect($season->fixtures()->where('week', 1)->where('status', 'final')->count())->toBe(2);
-    $this->postJson($url, ['week' => 1])->assertOk()->assertJson(['simulated' => 0, 'remaining' => 0]);
-    $this->assertDatabaseCount('exhibitions', 2);
+    $this->postJson($url, ['week' => 1])->assertStatus(202)->assertJson(['queued' => 2]);
+    $this->assertDatabaseCount('exhibitions', 0);
+    expect($season->fixtures()->where('simulation_status', 'queued')->count())->toBe(2);
+    $this->postJson($url, ['week' => 1])->assertStatus(202)->assertJson(['queued' => 0]);
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\DispatchCpuWeek::class, 1);
+    runSeasonQueueJobs();
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\SimulateSeasonGame::class, 2);
+    expect($season->fixtures()->where('status', 'final')->count())->toBe(2);
+    $saved = Exhibition::all()->map->only(['id', 'state', 'history'])->all();
+    runSeasonQueueJobs();
+    expect(Exhibition::all()->map->only(['id', 'state', 'history'])->all())->toBe($saved);
     $this->postJson($url, ['week' => 2])->assertStatus(409);
 });
 
-test('bulk sim keeps earlier commits if a subsequent game cannot start', function () {
+test('one failed queued game preserves completed results and can be retried independently', function () {
+    \Illuminate\Support\Facades\Queue::fake();
     $season = $this->season;
-    $settings = $season->settings;
-    foreach ($settings['members'] as &$member) {
-        $member['control'] = 'cpu';
-    }
-    unset($member);
-    $season->update(['settings' => $settings]);
-    $this->postJson(route('seasons.sim-cpu', $season), ['week' => 1])->assertOk()->assertJson(['remaining' => 1]);
+    allSeasonTeamsCpu($season);
+    app(\App\Services\Seasons\QueuedSeasonGames::class)->queue($season, 1);
+    $dispatcher = \Illuminate\Support\Facades\Queue::pushed(\App\Jobs\DispatchCpuWeek::class)->first();
+    $dispatcher->handle();
+    $jobs = \Illuminate\Support\Facades\Queue::pushed(\App\Jobs\SimulateSeasonGame::class)->values();
+    $jobs[0]->handle(app(\App\Services\Seasons\QueuedSeasonGames::class));
     $saved = Exhibition::firstOrFail()->only(['id', 'state', 'history']);
-    $remaining = $season->fixtures()->where('week', 1)->whereNull('exhibition_id')->firstOrFail();
-    $remaining->homeTeam->players()->detach();
-    $this->postJson(route('seasons.sim-cpu', $season), ['week' => 1])->assertStatus(422);
+    $remaining = $season->fixtures()->findOrFail($jobs[1]->fixtureId);
+    $team = $remaining->homeTeam;
+    $roster = \Illuminate\Support\Facades\DB::table('team_players')->where('team_id', $team->id)->get()->map(fn ($row) => (array) $row)->all();
+    $team->players()->detach();
+    expect(fn () => $jobs[1]->handle(app(\App\Services\Seasons\QueuedSeasonGames::class)))->toThrow(\Illuminate\Validation\ValidationException::class);
+    $jobs[1]->failed(new RuntimeException('Roster unavailable'));
+    expect($remaining->fresh()->simulation_status)->toBe('failed');
     $this->assertDatabaseCount('exhibitions', 1);
+    expect(Exhibition::firstOrFail()->only(['id', 'state', 'history']))->toBe($saved);
+    \Illuminate\Support\Facades\DB::table('team_players')->insert($roster);
+    expect(app(\App\Services\Seasons\QueuedSeasonGames::class)->queue($season, 1))->toBe(1);
+    $token = $remaining->fresh()->simulation_token;
+    // Old failed jobs cannot overwrite a newly queued attempt.
+    $jobs[1]->failed(new RuntimeException('Old retry'));
+    expect($remaining->fresh()->simulation_status)->toBe('queued');
+    (new \App\Jobs\SimulateSeasonGame($season->world_id, $season->id, $remaining->id, $token))->handle(app(\App\Services\Seasons\QueuedSeasonGames::class));
+    expect($remaining->fresh()->status)->toBe('final');
     expect(Exhibition::findOrFail($saved['id'])->only(['id', 'state', 'history']))->toBe($saved);
-    expect($remaining->fresh()->exhibition_id)->toBeNull()->and($remaining->fresh()->status)->toBe('scheduled');
+});
+
+test('queued games are blocked on direct routes and Livewire polls only while processing', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    $season = $this->season;
+    allSeasonTeamsCpu($season);
+    $component = \Livewire\Livewire::test(\App\Livewire\SeasonWeekGames::class, ['seasonId' => $season->id])
+        ->assertDontSee('wire:poll.3s', false)->call('queueGames')->assertSee('wire:poll.3s', false)->assertSee('Queued');
+    $fixture = $season->fixtures()->where('week', 1)->first();
+    $this->post(route('seasons.game', [$season, $fixture]))->assertStatus(409);
+    // Create the initial saved snapshot as the worker does, then reject direct access.
+    $fixture->update(['simulation_status' => 'running']);
+    $game = app(SeasonGames::class)->start($season, $fixture, false, $fixture->simulation_token);
+    $this->get(route('exhibitions.show', $game))->assertStatus(409);
+    $this->get(route('seasons.box-score', [$season, $fixture]))->assertStatus(409);
+    $this->post(route('exhibitions.finish', $game), ['version' => 0])->assertStatus(409);
+    runSeasonQueueJobs();
+    $component->call('$refresh')->assertDontSee('wire:poll.3s', false)->assertSee('Final');
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'summary' => 1]))->assertOk();
+});
+
+test('queue backend failure rolls back queued fixture markers', function () {
+    \Illuminate\Support\Facades\Queue::shouldReceive('connection')->once()->with('database')->andThrow(new RuntimeException('Queue unavailable'));
+    expect(fn () => app(\App\Services\Seasons\QueuedSeasonGames::class)->queue($this->season, 1))->toThrow(RuntimeException::class, 'Queue unavailable');
+    expect($this->season->fixtures()->whereNotNull('simulation_status')->count())->toBe(0);
+    $this->assertDatabaseCount('exhibitions', 0);
+});
+
+test('a worker retry preserves its initial snapshot and executes through the queue middleware', function () {
+    $realQueue = \Illuminate\Support\Facades\Queue::getFacadeRoot();
+    \Illuminate\Support\Facades\Queue::fake();
+    $season = $this->season;
+    allSeasonTeamsCpu($season);
+    app(\App\Services\Seasons\QueuedSeasonGames::class)->queue($season, 1);
+    $fixture = $season->fixtures()->where('week', 1)->first();
+    $job = new \App\Jobs\SimulateSeasonGame($season->world_id, $season->id, $fixture->id, $fixture->simulation_token);
+    $this->instance(\App\Services\Simulation\QuickSimulator::class, \Mockery::mock(\App\Services\Simulation\QuickSimulator::class, fn ($mock) => $mock->shouldReceive('run')->once()->andThrow(new RuntimeException('Worker interrupted'))));
+    $context = app(\App\Support\CurrentWorld::class);
+    $context->id = 987654;
+    expect(fn () => $job->handle(app(\App\Services\Seasons\QueuedSeasonGames::class)))->toThrow(RuntimeException::class);
+    expect($context->id)->toBe(987654);
+    $context->id = $season->world_id;
+    $game = $fixture->fresh()->exhibition;
+    $snapshot = $game->only(['id', 'state', 'rosters']);
+    expect($fixture->fresh()->simulation_status)->toBe('queued');
+    app()->forgetInstance(\App\Services\Simulation\QuickSimulator::class);
+    // Real synchronous dispatch exercises serialization and WithoutOverlapping.
+    \Illuminate\Support\Facades\Queue::swap($realQueue);
+    \Illuminate\Support\Facades\Bus::dispatchSync(unserialize(serialize($job)));
+    expect($fixture->fresh()->status)->toBe('final');
+    expect($game->fresh()->rosters)->toBe($snapshot['rosters']);
+    expect($game->fresh()->history[0]['before']['seed'])->toBe($snapshot['state']['seed']);
+    $this->assertDatabaseCount('exhibitions', 1);
+});
+
+test('workers restore world context and skip a queued game switched to human control', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    $season = $this->season;
+    allSeasonTeamsCpu($season);
+    app(\App\Services\Seasons\QueuedSeasonGames::class)->queue($season, 1);
+    $fixture = $season->fixtures()->where('week', 1)->first();
+    $settings = $season->settings;
+    $settings['members'][$fixture->home_team_id]['control'] = 'human';
+    $season->update(['settings' => $settings]);
+    $context = app(\App\Support\CurrentWorld::class);
+    $context->id = 999999;
+    (new \App\Jobs\SimulateSeasonGame($season->world_id, $season->id, $fixture->id, $fixture->simulation_token))->handle(app(\App\Services\Seasons\QueuedSeasonGames::class));
+    expect($context->id)->toBe(999999);
+    $context->id = $season->world_id;
+    expect($fixture->fresh()->simulation_status)->toBeNull()->and($fixture->fresh()->exhibition_id)->toBeNull();
+    openFootballSave(World::create(['name' => 'Other queue world']));
+    $this->postJson(route('seasons.sim-cpu', $season), ['week' => 1])->assertNotFound();
+    expect(fn () => \Livewire\Livewire::test(\App\Livewire\SeasonWeekGames::class, ['seasonId' => $season->id]))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
 });
 
 test('season specialists validate roster eligibility and snapshot overrides only in new games', function () {

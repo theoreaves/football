@@ -14,11 +14,12 @@ use Illuminate\Validation\ValidationException;
 
 class SeasonGames
 {
-    public function start(Season $season, SeasonFixture $fixture, bool $quick): Exhibition
+    public function start(Season $season, SeasonFixture $fixture, bool $quick, ?string $simulationToken = null): Exhibition
     {
-        return DB::transaction(function () use ($season, $fixture, $quick) {
+        return DB::transaction(function () use ($season, $fixture, $quick, $simulationToken) {
             $season = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
             $fixture = $season->fixtures()->whereKey($fixture->id)->lockForUpdate()->firstOrFail();
+            abort_if($fixture->simulation_status !== null && $fixture->simulation_token !== $simulationToken, 409, 'This game is processing in the background.');
             if ($fixture->exhibition_id) {
                 return $fixture->exhibition()->firstOrFail();
             }
@@ -61,36 +62,6 @@ class SeasonGames
 
             return $game;
         }, 3);
-    }
-
-    public function simCpuWeek(Season $season, int $week): int
-    {
-        return DB::transaction(function () use ($season, $week) {
-            $season = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
-            abort_unless($season->phase === 'regular_season' && (int) $season->current_week === $week, 409, 'Reload the current season week before simulating.');
-            // One game per HTTP request: commit its result before the browser
-            // requests another. The season lock serializes competing clicks.
-            $fixture = $this->pendingCpuGames($season, $week)->orderBy('id')->first();
-            if (! $fixture) {
-                return 0;
-            }
-            $this->start($season, $fixture, true);
-
-            return 1;
-        }, 3);
-    }
-
-    public function remainingCpuGames(Season $season, int $week): int
-    {
-        return $this->pendingCpuGames($season, $week)->count();
-    }
-
-    private function pendingCpuGames(Season $season, int $week)
-    {
-        $cpuTeams = array_keys(array_filter($season->settings['members'], fn ($member) => ($member['control'] ?? 'human') === 'cpu'));
-
-        return $season->fixtures()->where('week', $week)->whereNull('exhibition_id')->where('status', 'scheduled')
-            ->whereIn('home_team_id', $cpuTeams)->whereIn('away_team_id', $cpuTeams);
     }
 
     public function record(Exhibition $game): void

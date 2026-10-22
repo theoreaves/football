@@ -1,6 +1,6 @@
 export function mountSeasonBoxScores() {
     const root = document.querySelector('.season-page');
-    if (!root || root.dataset.boxMounted || !root.querySelector('[data-season-box]')) return;
+    if (!root || root.dataset.boxMounted) return;
     root.dataset.boxMounted = 'true';
     const dialog = document.createElement('dialog');
     dialog.className = 'season-box-dialog';
@@ -12,8 +12,10 @@ export function mountSeasonBoxScores() {
     dialog.append(close, frame); root.append(dialog);
     close.addEventListener('click', () => dialog.close());
     dialog.addEventListener('close', () => { frame.src = 'about:blank'; });
-    root.querySelectorAll('[data-season-box]').forEach(link => link.addEventListener('click', event => {
+    root.addEventListener('click', event => {
+        const link = event.target.closest('[data-season-box]');
+        if (!link || !root.contains(link)) return;
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault(); frame.src = link.href; dialog.showModal();
-    }));
+    });
 }

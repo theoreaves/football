@@ -157,26 +157,21 @@ class SeasonController extends Controller
     public function simCpu(Request $request, Season $season)
     {
         $data = $request->validate(['week' => ['required', 'integer', 'min:1'], 'return_tab' => ['sometimes', Rule::in(['overview', 'schedule'])]]);
-        $games = app(\App\Services\Seasons\SeasonGames::class);
-        $count = $games->simCpuWeek($season, (int) $data['week']);
-        $remaining = $games->remainingCpuGames($season->fresh(), (int) $data['week']);
+        $count = app(\App\Services\Seasons\QueuedSeasonGames::class)->queue($season, (int) $data['week']);
         $redirect = route('seasons.show', ['season' => $season, 'tab' => $data['return_tab'] ?? 'overview']);
         if ($request->expectsJson()) {
-            if ($remaining === 0) {
-                $request->session()->flash('status', 'CPU simulation complete. Results are below.');
-            }
-
-            return response()->json(['simulated' => $count, 'remaining' => $remaining, 'redirect' => $redirect]);
+            return response()->json(['queued' => $count, 'redirect' => $redirect], 202);
         }
 
         return redirect($redirect)->with('status', $count
-            ? "Simulated {$count} CPU vs CPU game(s). Results are below.".($remaining ? " {$remaining} remain; click Sim all CPU vs CPU Games to continue." : '')
+            ? "Queued {$count} CPU game(s). Results update automatically."
             : 'No unstarted CPU vs CPU games remain this week.');
     }
 
     public function boxScore(Season $season, \App\Models\SeasonFixture $fixture)
     {
         abort_unless((int) $fixture->season_id === (int) $season->id && $fixture->exhibition_id, 404);
+        abort_if($fixture->simulation_status !== null, 409, 'This game is processing in the background.');
         $exhibition = $fixture->exhibition()->with(['homeTeam', 'awayTeam'])->firstOrFail();
 
         return view('seasons.box-score', ['season' => $season, 'exhibition' => $exhibition, 'state' => $exhibition->state,
@@ -221,6 +216,9 @@ class SeasonController extends Controller
             }
             unset($member);
             $locked->update(['settings' => $settings]);
+            $locked->fixtures()->where('simulation_status', 'failed')
+                ->where(fn ($q) => $q->whereIn('home_team_id', $data['human'] ?? [])->orWhereIn('away_team_id', $data['human'] ?? []))
+                ->update(['simulation_status' => null, 'simulation_token' => null]);
         });
 
         return redirect()->route('seasons.show', ['season' => $season, 'tab' => 'settings'])->with('status', 'Team control updated.');

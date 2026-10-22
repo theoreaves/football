@@ -1,13 +1,13 @@
 @if($season->phase === 'regular_season')
-@php
-    $cpuGames = $fixtures->filter(fn($game) => (int) $game->week === (int) $season->current_week && !$game->exhibition_id && $game->status === 'scheduled' && ($season->settings['members'][$game->home_team_id]['control'] ?? 'human') === 'cpu' && ($season->settings['members'][$game->away_team_id]['control'] ?? 'human') === 'cpu')->count();
-@endphp
-<form data-sim-cpu data-sim-count="{{ $cpuGames }}" method="POST" action="{{ route('seasons.sim-cpu', $season) }}" class="season-actions">
+<form wire:submit="queueGames" method="POST" action="{{ route('seasons.sim-cpu', $season) }}" class="season-actions">
     @csrf
     <input type="hidden" name="week" value="{{ $season->current_week }}">
-    <input type="hidden" name="return_tab" value="{{ request('tab') === 'schedule' ? 'schedule' : 'overview' }}">
-    <button class="landing-button" @disabled(!$cpuGames)>Sim all CPU vs CPU Games ({{ $cpuGames }})</button>
-    <span>Week {{ $season->current_week }} · Unstarted games only</span>
-    <p data-sim-status hidden role="status" aria-live="polite" class="w-full text-blue-200"></p>
+    <input type="hidden" name="return_tab" value="{{ $tab === 'schedule' ? 'schedule' : 'overview' }}">
+    <button class="landing-button" wire:loading.attr="disabled" wire:target="queueGames" @disabled(!$cpuGames)>
+        <span wire:loading.remove wire:target="queueGames">Sim all CPU vs CPU Games ({{ $cpuGames }})</span>
+        <span wire:loading wire:target="queueGames">Queueing games…</span>
+    </button>
+    <span>Week {{ $season->current_week }} · Unstarted games and failed simulations</span>
+    @if($active)<p class="w-full text-blue-200" role="status"><span class="button-feedback-spinner" aria-hidden="true"></span> Games are processing in the background. Results update automatically.</p>@endif
 </form>
 @endif

@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetCurrentWorld::class,
             \App\Http\Middleware\RequireWorld::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\BlockQueuedSeasonGame::class,
             \Illuminate\Auth\Middleware\Authorize::class,
         ]);
     })

@@ -19,27 +19,21 @@ class Form extends Element {
     querySelector(k){return k==='button'?this.button:k==='[data-sim-status]'?this.status:null;}
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
-test('simulation popup uses a modal and active progress survives repeated initialization and pageshow',async()=>{
-    const names=['document','window','HTMLFormElement','FormData','fetch'];const original=Object.fromEntries(names.map(n=>[n,globalThis[n]]));
-    const docEvents=new Map(),winEvents=new Map(),body=new Element('body');let resolveRequest;const destinations=[];
-    globalThis.document={body,createElement:tag=>new Element(tag),addEventListener:(k,fn)=>docEvents.set(k,fn),removeEventListener:k=>docEvents.delete(k)};
-    globalThis.window={addEventListener:(k,fn)=>winEvents.set(k,fn),removeEventListener:k=>winEvents.delete(k),location:{assign:url=>destinations.push(url)}};
-    globalThis.HTMLFormElement=Form;globalThis.FormData=class{};
-    globalThis.fetch=()=>new Promise(resolve=>resolveRequest=resolve);
+test('single quick sims keep their modal while queued weekly submission stays non-blocking',()=>{
+    const names=['document','window','HTMLFormElement'];const original=Object.fromEntries(names.map(n=>[n,globalThis[n]]));
+    const docEvents=new Map(),winEvents=new Map(),body=new Element('body');
+    globalThis.document={body,createElement:tag=>new Element(tag),addEventListener:(k,fn)=>docEvents.set(k,fn)};
+    globalThis.window={addEventListener:(k,fn)=>winEvents.set(k,fn)};
+    globalThis.HTMLFormElement=Form;
     try {
-        showSimProgress(true);const first=body.children[0];assert.equal(first.tagName,'DIALOG');assert.equal(first.modal,true);assert.match(first.html,/role="status"/);
-        let cancelled=false;first.listeners.get('cancel')({preventDefault(){cancelled=true;}});assert.equal(cancelled,true);
-        hideSimProgress();assert.equal(body.children.length,0);
-        mountSimProgress();const form=new Form();form.button.disabled=false;
-        docEvents.get('submit')({target:form,submitter:form.button,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}});
-        const popup=body.children[0];assert.equal(popup.modal,true);assert.equal(form.button.disabled,true);
-        assert.equal(form.status.hidden,false);assert.match(form.status.textContent,/Completed 0 of 2/);
-        mountSimProgress();winEvents.get('pageshow')();assert.equal(body.children[0],popup);assert.equal(popup.isConnected,true);
-        resolveRequest({ok:true,headers:{get:()=> 'application/json'},json:async()=>({simulated:1,remaining:1,redirect:'/seasons/1'})});
-        await flush();assert.match(form.status.textContent,/Completed 1 of 2/);assert.equal(popup.querySelector('p').textContent,form.status.textContent);
-        mountSimProgress();assert.equal(body.children[0],popup);
-        resolveRequest({ok:true,headers:{get:()=> 'application/json'},json:async()=>({simulated:1,remaining:0,redirect:'/seasons/1'})});
-        await flush();assert.deepEqual(destinations,['/seasons/1']);assert.equal(form.button.disabled,false);
+        mountSimProgress();
+        const form=new Form();let prevented=false;
+        docEvents.get('submit')({target:form,submitter:form.button,defaultPrevented:false,preventDefault(){prevented=true;}});
+        assert.equal(body.children.length,0);assert.equal(prevented,false);
+        form.button.name='quick_sim';form.button.value='1';
+        docEvents.get('submit')({target:form,submitter:form.button,defaultPrevented:false,preventDefault(){prevented=true;}});
+        const popup=body.children[0];assert.equal(popup.tagName,'DIALOG');assert.equal(popup.modal,true);assert.match(popup.html,/role="status"/);
+        let cancelled=false;popup.listeners.get('cancel')({preventDefault(){cancelled=true;}});assert.equal(cancelled,true);
         winEvents.get('pageshow')();assert.equal(body.children.length,0);
     } finally {hideSimProgress();for(const n of names){if(original[n]===undefined)delete globalThis[n];else globalThis[n]=original[n];}}
 });

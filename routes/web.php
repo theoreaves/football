@@ -33,7 +33,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
     Route::post('/worlds/close', [\App\Http\Controllers\WorldController::class, 'close'])->name('worlds.close');
     Route::get('/practice', \App\Http\Controllers\PracticeController::class)->name('practice');
 
-    Route::middleware([\App\Http\Middleware\RequireWorld::class])->group(function () {
+    Route::middleware([\App\Http\Middleware\RequireWorld::class, \App\Http\Middleware\BlockQueuedSeasonGame::class])->group(function () {
 
         Route::get('/seasons', [\App\Http\Controllers\SeasonController::class, 'index'])->name('seasons.index');
         Route::get('/seasons/create', [\App\Http\Controllers\SeasonController::class, 'create'])->name('seasons.create');
