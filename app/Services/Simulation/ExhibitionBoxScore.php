@@ -8,13 +8,19 @@ class ExhibitionBoxScore
 {
     public function build(Exhibition $game): array
     {
-        $quarters = ['home' => array_fill(1, max(4, $game->state['quarter']), 0), 'away' => array_fill(1, max(4, $game->state['quarter']), 0)];
+        // Array casts decode JSON on every model read. Keep one decoded snapshot
+        // for the whole game, especially the roster used by every saved snap.
+        $state = $game->state;
+        $rosters = $game->rosters;
+        $history = $game->history;
+        $personnel = app(SavedPlayPersonnel::class);
+        $quarters = ['home' => array_fill(1, max(4, $state['quarter']), 0), 'away' => array_fill(1, max(4, $state['quarter']), 0)];
         $teams = [];
         $players = ['home' => [], 'away' => []];
         $scoring = [];
         foreach (['home', 'away'] as $side) {
             $teams[$side] = ['plays' => 0, 'yards' => 0, 'rushing_yards' => 0, 'passing_yards' => 0, 'first_downs' => 0, 'turnovers' => 0, 'penalties' => 0, 'penalty_yards' => 0, 'possession_seconds' => 0];
-            foreach ($game->rosters[$side]['players'] as $role => $person) {
+            foreach ($rosters[$side]['players'] as $role => $person) {
                 $players[$side][$role] = $this->playerRow($person, $role);
             }
         }
@@ -25,8 +31,8 @@ class ExhibitionBoxScore
                 $identityKeys[$side][$row['id']] = $key;
             }
         }
-        foreach ($game->history as $play) {
-            $snap = app(SavedPlayPersonnel::class)->rosters($game->rosters, $play);
+        foreach ($history as $play) {
+            $snap = $personnel->rosters($rosters, $play);
             foreach ($snap as $snapSide => $roster) {
                 foreach ($roster['players'] as $role => $person) {
                     $key = $identityKeys[$snapSide][$person['id']] ??= 'player-'.$person['id'];

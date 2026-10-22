@@ -624,7 +624,7 @@ test('leader rebuild calculates each game once for both teams and publishes newe
     expect($leaders->publishedThroughWeek($this->season))->toBe(1)
         ->and($teams[$fixture->home_team_id]['totals']['yards'])->toBe($expected['teams']['home']['yards'])
         ->and($teams[$fixture->away_team_id]['totals']['yards'])->toBe($expected['teams']['away']['yards']);
-    $mock->shouldReceive('build')->once()->andReturn($expected);
+    // Moving publication forward reuses the persisted completed-game box score.
     $fixture->fresh()->update(['week' => 2]);
     $leaders->rebuild($this->season);
     expect($leaders->publishedThroughWeek($this->season))->toBe(2);
@@ -644,4 +644,74 @@ test('leader jobs restore world scope after success and failure and stay below q
     $leaders->shouldReceive('rebuild')->once()->andThrow(new RuntimeException('Test failure'));
     expect(fn () => $job->handle($leaders))->toThrow(RuntimeException::class, 'Test failure');
     expect($context->id)->toBe($previous);
+});
+
+test('box scores decode saved JSON once per game rather than once per play', function () {
+    $this->post(route('seasons.game', [$this->season, $this->fixture]), ['quick_sim' => 1])->assertRedirect();
+    $game = $this->fixture->fresh()->exhibition;
+    $counted = new class extends Exhibition
+    {
+        public array $decoded = [];
+
+        protected function castAttribute($key, $value)
+        {
+            $this->decoded[$key] = ($this->decoded[$key] ?? 0) + 1;
+
+            return parent::castAttribute($key, $value);
+        }
+    };
+    $counted->setRawAttributes($game->getAttributes(), true);
+    $box = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($counted);
+    expect($counted->decoded)->toBe(['state' => 1, 'rosters' => 1, 'history' => 1]);
+    expect($box)->toBe(app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game));
+    expect($game->fresh()->getAttributes())->toBe($game->getAttributes());
+});
+
+test('completed game summaries reuse compact boxes without loading replay history and rebuild obsolete versions', function () {
+    $game = app(SeasonGames::class)->start($this->season, $this->fixture, true);
+    $original = $game->only(['state', 'rosters', 'history']);
+    $service = app(\App\Services\Seasons\SeasonStats::class);
+    $first = $service->summaries($this->season);
+    expect($game->fresh()->box_score_cache['schema'])->toBe(\App\Services\Seasons\CompletedGameStats::SCHEMA);
+    $queries = [];
+    \Illuminate\Support\Facades\DB::listen(function ($query) use (&$queries) {
+        $queries[] = $query->sql;
+    });
+    expect($service->summaries($this->season))->toBe($first);
+    foreach ($queries as $sql) {
+        if (str_contains($sql, 'exhibitions')) {
+            expect($sql)->not->toContain('history')->not->toContain('rosters');
+        }
+    }
+    $cache = $game->fresh()->box_score_cache;
+    $cache['schema'] = -1;
+    $game->update(['box_score_cache' => $cache]);
+    expect($service->summaries($this->season))->toBe($first);
+    expect($game->fresh()->box_score_cache['schema'])->toBe(\App\Services\Seasons\CompletedGameStats::SCHEMA);
+    $state = $game->state;
+    $state['version']++;
+    $game->update(['state' => $state]);
+    expect($service->summaries($this->season))->toBe($first);
+    expect($game->fresh()->box_score_cache['version'])->toBe($state['version']);
+    expect($game->fresh()->history)->toBe($original['history'])->and($game->fresh()->rosters)->toBe($original['rosters']);
+});
+
+test('leader rebuild retries reuse completed cache checkpoints without publishing a partial leaderboard', function () {
+    allSeasonTeamsCpu($this->season);
+    foreach ($this->season->fixtures()->where('week', 1)->get() as $fixture) {
+        app(SeasonGames::class)->start($this->season, $fixture, true);
+    }
+    $real = new \App\Services\Simulation\ExhibitionBoxScore;
+    $mock = Mockery::mock(\App\Services\Simulation\ExhibitionBoxScore::class);
+    $mock->shouldReceive('build')->once()->andReturnUsing(fn ($game) => $real->build($game));
+    $mock->shouldReceive('build')->once()->andThrow(new RuntimeException('Interrupted rebuild'));
+    app()->instance(\App\Services\Simulation\ExhibitionBoxScore::class, $mock);
+    $leaders = app(\App\Services\Seasons\LeagueLeaders::class);
+    expect(fn () => $leaders->rebuild($this->season))->toThrow(RuntimeException::class, 'Interrupted rebuild');
+    expect(Exhibition::whereNotNull('box_score_cache')->count())->toBe(1);
+    expect($leaders->isReady($this->season))->toBeFalse();
+    app()->forgetInstance(\App\Services\Simulation\ExhibitionBoxScore::class);
+    $leaders->rebuild($this->season);
+    expect(Exhibition::whereNotNull('box_score_cache')->count())->toBe(2);
+    expect($leaders->publishedThroughWeek($this->season))->toBe(1);
 });

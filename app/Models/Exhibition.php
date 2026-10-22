@@ -10,7 +10,7 @@ class Exhibition extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['state' => 'array', 'rosters' => 'array', 'history' => 'array'];
+    protected $casts = ['state' => 'array', 'rosters' => 'array', 'history' => 'array', 'box_score_cache' => 'array'];
 
     public function seasonFixture()
     {

@@ -4,7 +4,6 @@ namespace App\Services\Seasons;
 
 use App\Models\Exhibition;
 use App\Models\Season;
-use App\Services\Simulation\ExhibitionBoxScore;
 
 class SeasonStats
 {
@@ -38,11 +37,12 @@ class SeasonStats
             ->when($teamId !== null, fn ($q) => $q->where(fn ($q) => $q->where('home_team_id', $teamId)->orWhere('away_team_id', $teamId)))
             ->orderBy('id')->get(['id', 'week', 'home_team_id', 'away_team_id', 'exhibition_id']);
         foreach ($fixtures as $fixture) {
-            $game = Exhibition::select(['id', 'world_id', 'state', 'rosters', 'history'])->find($fixture->exhibition_id);
-            if (! $game || $game->state['status'] !== 'final' || ($game->state['penalty_pending'] ?? false)) {
+            $game = Exhibition::select(['id', 'world_id', 'state', 'box_score_cache'])->find($fixture->exhibition_id);
+            $state = $game?->state;
+            if (! $state || $state['status'] !== 'final' || ($state['penalty_pending'] ?? false)) {
                 continue;
             }
-            $box = app(ExhibitionBoxScore::class)->build($game);
+            $box = app(CompletedGameStats::class)->box($game, $state);
             $throughWeek = max($throughWeek, (int) $fixture->week);
             foreach (['home', 'away'] as $side) {
                 $id = (int) $fixture->{$side.'_team_id'};
@@ -53,8 +53,8 @@ class SeasonStats
                 $teams[$id] ??= $this->emptyTeam();
                 $summary = &$teams[$id];
                 $summary['totals']['games']++;
-                $summary['totals']['points_for'] += $game->state[$side.'_score'];
-                $summary['totals']['points_against'] += $game->state[$other.'_score'];
+                $summary['totals']['points_for'] += $state[$side.'_score'];
+                $summary['totals']['points_against'] += $state[$other.'_score'];
                 foreach ($box['teams'][$side] as $key => $value) {
                     $summary['totals'][$key] = ($summary['totals'][$key] ?? 0) + $value;
                 }
@@ -75,7 +75,7 @@ class SeasonStats
                 }
                 unset($summary);
             }
-            unset($box, $game);
+            unset($box, $game, $state);
         }
         foreach ($teams as &$summary) {
             $players = &$summary['players'];
