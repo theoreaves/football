@@ -131,6 +131,7 @@ class SeasonController extends Controller
 
         return view('seasons.show', ['activeInjuries' => $tab === 'injuries' ? app(\App\Services\Seasons\ActiveSeasonInjuries::class)->forSeason($season) : [],
             'leaders' => $tab === 'leaders' ? app(\App\Services\Seasons\LeagueLeaders::class)->forSeason($season) : [],
+            'playoffQualification' => $tab === 'playoffs' ? app(\App\Services\Seasons\PlayoffQualification::class)->snapshot($season) : null,
             'standings' => app(\App\Services\Seasons\SeasonGames::class)->standings($season), 'season' => $season, 'tab' => $tab, 'members' => $season->settings['members'],
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])
                 ->filter(fn ($team) => (bool) $team->team_logo)->mapWithKeys(fn ($team) => [$team->id => route('teams.art', ['team' => $team, 'asset' => 'team_logo'])]),

@@ -43,7 +43,7 @@
 @elseif($tab === 'injuries')
     @include('seasons.active-injuries', ['showTeam' => true])
 @elseif($tab === 'playoffs')
-    <section class="season-panel"><h2>Playoff format</h2><p>{{ \App\Services\Seasons\SeasonOptions::PLAYOFFS[$season->settings['playoffs']] }}</p><p>Qualification, seeding, and the bracket will be connected after regular-season game processing.</p></section>
+    @include('seasons.playoff-qualification')
 @else
     <section class="season-panel"><h2>{{ ['leaders'=>'League Leaders','stats'=>'Team Stats','injuries'=>'League Injuries'][$tab] }}</h2><p>{{ $tab === 'injuries' ? 'Persistent season injuries and weekly recovery are planned for the roster milestone.' : 'Season game statistics and sortable leaders will be connected in the stats milestone.' }}</p></section>
 @endif
