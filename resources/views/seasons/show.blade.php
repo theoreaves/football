@@ -41,6 +41,17 @@
     @php($leagueTeamStats = app(\App\Services\Seasons\LeagueLeaders::class)->teamStats($season))
     @include('seasons.league-team-stats')
 @elseif($tab === 'settings')
+    <section class="season-panel"><h2>Championship stadium</h2>
+        <p>Select the stadium for the league championship. You may change it until the championship game begins. The selected team can also qualify for the championship.</p>
+        <form method="POST" action="{{ route('seasons.championship-venue', $season) }}" class="season-fields">@csrf @method('PUT')
+            <label>Venue<select name="championship_venue_team_id" required>
+                @foreach(\App\Models\Team::orderBy('city')->orderBy('name')->get() as $venue)
+                    <option value="{{ $venue->id }}" @selected(($season->settings['championship_venue_team_id'] ?? null) == $venue->id)>{{ $venue->team_settings['stadium']['name'] ?? ($venue->city.' '.$venue->name.' stadium') }} · {{ $venue->city }} {{ $venue->name }}</option>
+                @endforeach
+            </select></label><button class="landing-button">Save championship stadium</button>
+        </form>
+        <p class="text-sm">Venue selection is saved now. Special championship field artwork and game-day venue rendering are being implemented separately.</p>
+    </section>
     <section class="season-panel"><h2>Season rules</h2><p>{{ $season->settings['games'] }} games · {{ $season->settings['bye'] ? 'One bye' : 'No byes' }} · {{ \App\Services\Seasons\SeasonOptions::PLAYOFFS[$season->settings['playoffs']] }}</p><p>The saved layout and schedule are fixed. Team control and quarter length can change at any time.</p><form method="POST" action="{{ route('seasons.rules', $season) }}" class="season-fields">@csrf @method('PUT')<label>Quarter length<select name="quarter_length">@foreach(\App\Services\Seasons\SeasonOptions::QUARTER_LENGTHS as $seconds => $minutes)<option value="{{ $seconds }}" @selected(old('quarter_length', $season->settings['quarter_length'] ?? 900) == $seconds)>{{ $minutes }} minutes</option>@endforeach</select></label><button class="landing-button">Save quarter length</button></form><p>Applies to season games that have not started. Existing seasons default to 15 minutes.</p></section>
     <section class="season-panel"><h2>Human / CPU control</h2><p>Check as many teams as you want. Unchecked teams use CPU control. Changes apply to games that have not started.</p><form method="POST" action="{{ route('seasons.controls', $season) }}" class="space-y-3">@csrf @method('PUT')
     @foreach($members as $id => $member)<label class="block"><input type="checkbox" name="human[]" value="{{ $id }}" @checked($member['control'] === 'human')> {{ $member['name'] }} · Human</label>@endforeach

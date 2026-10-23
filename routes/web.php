@@ -47,6 +47,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::post('/seasons/{season}/playoffs/advance', [\App\Http\Controllers\SeasonController::class, 'advancePlayoffRound'])->name('seasons.playoffs.advance');
         Route::post('/seasons/{season}/playoffs/games/{conference}/{index}', [\App\Http\Controllers\SeasonController::class, 'playoffGame'])->whereNumber('index')->name('seasons.playoffs.game');
         Route::post('/seasons/{season}/advance', [\App\Http\Controllers\SeasonController::class, 'advance'])->name('seasons.advance');
+        Route::put('/seasons/{season}/championship-venue', [\App\Http\Controllers\SeasonController::class, 'championshipVenue'])->name('seasons.championship-venue');
         Route::put('/seasons/{season}/rules', [\App\Http\Controllers\SeasonController::class, 'rules'])->name('seasons.rules');
         Route::put('/seasons/{season}/controls', [\App\Http\Controllers\SeasonController::class, 'controls'])->name('seasons.controls');
         Route::get('/seasons/{season}/teams/{team}', [\App\Http\Controllers\SeasonController::class, 'team'])->name('seasons.team');
