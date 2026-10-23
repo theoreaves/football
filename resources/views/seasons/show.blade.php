@@ -1,6 +1,6 @@
 <x-layouts.app>
 <main class="season-page">
-<header class="season-header"><div><p class="season-eyebrow">{{ $season->year }} · Week {{ $season->current_week }}</p><h1>{{ $season->name }}</h1><p>{{ count($members) }} teams · {{ $season->settings['games'] }} games per team</p></div><a href="{{ route('seasons.index') }}">All seasons</a></header>
+<header class="season-header"><div class="flex items-center gap-4">@if($season->league?->logo_path)<a href="{{ route('seasons.show', ['season' => $season, 'tab' => 'settings']) }}" title="{{ $season->league->name }} league branding"><img src="{{ route('leagues.logo', $season->league) }}" alt="{{ $season->league->name }} logo" style="max-width:90px;max-height:85px;object-fit:contain"></a>@endif<div><p class="season-eyebrow">{{ $season->year }} · Week {{ $season->current_week }}</p><h1>{{ $season->name }}</h1><p>{{ count($members) }} teams · {{ $season->settings['games'] }} games per team</p></div></div><a href="{{ route('seasons.index') }}">All seasons</a></header>
 <nav class="season-tabs" aria-label="League sections">@foreach(['overview'=>'Overview','standings'=>'Standings','schedule'=>'Schedule / Results','leaders'=>'League Leaders','stats'=>'Team Stats','injuries'=>'Injuries','playoffs'=>'Playoffs','settings'=>'Settings'] as $key => $label)<a @if($tab === $key) aria-current="page" @endif href="{{ route('seasons.show', ['season' => $season, 'tab' => $key]) }}">{{ $label }}</a>@endforeach</nav>
 @if(session('status'))<p class="season-notice" role="status">{{ session('status') }}</p>@endif
 @if($errors->any())<p class="season-notice text-red-300" role="alert">{{ $errors->first() }}</p>@endif
@@ -41,7 +41,7 @@
     @php($leagueTeamStats = app(\App\Services\Seasons\LeagueLeaders::class)->teamStats($season))
     @include('seasons.league-team-stats')
 @elseif($tab === 'settings')
-    <section class="season-panel"><h2>League branding</h2><p>League logo is shared by every season in this league. It will be used at midfield in future championship rendering.</p>
+    <section class="season-panel"><h2>League branding</h2><p>League logo is shared by every season in this league and appears in the season header and at midfield for newly started championship games. Existing saved games require an explicit appearance refresh.</p>
         @if($season->league->logo_path)<img alt="{{ $season->league->name }} logo" src="{{ route('leagues.logo', $season->league) }}" style="max-width:160px; max-height:100px">@endif
         <form method="POST" enctype="multipart/form-data" action="{{ route('leagues.branding', $season->league) }}" class="season-fields">@csrf @method('PUT')
             <input type="hidden" name="season_id" value="{{ $season->id }}">
@@ -59,7 +59,7 @@
                 @endforeach
             </select></label><button class="landing-button">Save championship stadium</button>
         </form>
-        <p class="text-sm">Venue selection is saved now. Special championship field artwork and game-day venue rendering are being implemented separately.</p>
+        <p class="text-sm">The selected stadium is used for newly started championship games. Already-started games retain their visual snapshot unless deliberately refreshed with the development Artisan command.</p>
     </section>
     <section class="season-panel"><h2>Season rules</h2><p>{{ $season->settings['games'] }} games · {{ $season->settings['bye'] ? 'One bye' : 'No byes' }} · {{ \App\Services\Seasons\SeasonOptions::PLAYOFFS[$season->settings['playoffs']] }}</p><p>The saved layout and schedule are fixed. Team control and quarter length can change at any time.</p><form method="POST" action="{{ route('seasons.rules', $season) }}" class="season-fields">@csrf @method('PUT')<label>Quarter length<select name="quarter_length">@foreach(\App\Services\Seasons\SeasonOptions::QUARTER_LENGTHS as $seconds => $minutes)<option value="{{ $seconds }}" @selected(old('quarter_length', $season->settings['quarter_length'] ?? 900) == $seconds)>{{ $minutes }} minutes</option>@endforeach</select></label><button class="landing-button">Save quarter length</button></form><p>Applies to season games that have not started. Existing seasons default to 15 minutes.</p></section>
     <section class="season-panel"><h2>Human / CPU control</h2><p>Check as many teams as you want. Unchecked teams use CPU control. Changes apply to games that have not started.</p><form method="POST" action="{{ route('seasons.controls', $season) }}" class="space-y-3">@csrf @method('PUT')
