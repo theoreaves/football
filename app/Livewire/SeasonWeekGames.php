@@ -44,6 +44,7 @@ class SeasonWeekGames extends Component
             'season' => $season, 'fixtures' => $fixtures, 'tab' => $this->tab,
             'active' => $fixtures->contains(fn ($game) => in_array($game->simulation_status, ['queued', 'running'], true)),
             'cpuGames' => app(QueuedSeasonGames::class)->eligible($season)->count(),
+            'records' => app(\App\Services\Seasons\SeasonGames::class)->standings($season),
             'logos' => Team::whereIn('id', array_keys($season->settings['members']))->whereNotNull('team_logo')->get(['id', 'team_logo'])
                 ->filter(fn ($team) => (bool) $team->team_logo)->mapWithKeys(fn ($team) => [$team->id => route('teams.art', ['team' => $team, 'asset' => 'team_logo'])]),
         ]);
