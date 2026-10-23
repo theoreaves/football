@@ -167,17 +167,37 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     }
     // The open end faces the field; entrance paths use this same layout.
     if(enabled(profile.tunnels))for(const [side,team] of [['home',home],['away',away]]){
-        const {x,z,direction}=TUNNEL_LAYOUT[side],color=side==='home'?paint(home.primary_color || '#315b85'):walls;
+        const {x,z,direction}=TUNNEL_LAYOUT[side],championship=home.championship_field === true;
+        const color=(championship || side==='home')?paint(team.primary_color || '#315b85'):walls;
         box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
         for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);
         box([8,.6,10.6],[x,5,z],color,`tunnel-${side}-roof`);
         box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
-        if(side==='home' && home.team_logo){
-            const texture=textureFor(home.team_logo);
+        if((home.championship_field === true || side === 'home') && team.team_logo){
+            const texture=textureFor(team.team_logo);
             if(texture){
-                const emblem=add(new THREE.PlaneGeometry(6,8),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),'home-tunnel-logo');
+                const emblem=add(new THREE.PlaneGeometry(6,8),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),`tunnel-${side}-logo`);
                 emblem.position.set(x,5.315,z);emblem.rotation.x=-Math.PI/2;
                 let dimensions='';emblem.onBeforeRender=()=>{if(!texture.image)return;const key=`${texture.image.width}:${texture.image.height}`;if(key===dimensions)return;const size=fitLogo(texture.image.width,texture.image.height,6,8);emblem.geometry.dispose();emblem.geometry=new THREE.PlaneGeometry(size.width,size.height);dimensions=key;};
+            }
+        }
+    }
+    // Championship-only sideline/bench branding. This is presentation-only geometry:
+    // no changes to team side, plays, simulation ratings or regular games.
+    if (home.championship_field === true) {
+        for (const [side,team] of [['home',home],['away',away]]) {
+            const z=side==='home' ? -9.5 : 62.8;
+            const paintTeam=paint(team.primary_color || '#315b85');
+            box([33,.14,2],[52,.11,z],paintTeam,`championship-${side}-bench-band`);
+            box([33,1.5,.4],[52,.9,z+(side==='home'?-1.1:1.1)],paintTeam,`championship-${side}-bench-backing`);
+            const logoUrl=team.team_logo;
+            if (logoUrl) {
+                const texture=textureFor(logoUrl);
+                if (texture) {
+                    const emblem=add(new THREE.PlaneGeometry(6,6),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),`championship-${side}-bench-logo`);
+                    emblem.rotation.x=-Math.PI/2;
+                    emblem.position.set(52,.2,z);
+                }
             }
         }
     }
