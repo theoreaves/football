@@ -27,11 +27,14 @@ class TeamRosterController extends Controller
             ->filter()
             ->values();
 
-        $positionCounts = $team->players()
-            ->wherePivot('team_year', $year)
-            ->selectRaw('team_players.position as position, COUNT(*) as cnt')
-            ->groupBy('team_players.position')
-            ->orderBy('team_players.position')
+        // Query the pivot directly: belongsToMany adds ungrouped pivot columns
+        // that fail under MySQL ONLY_FULL_GROUP_BY.
+        $positionCounts = DB::table('team_players')
+            ->where('team_id', $team->id)
+            ->where('team_year', $year)
+            ->selectRaw('position, COUNT(*) as cnt')
+            ->groupBy('position')
+            ->orderBy('position')
             ->get();
 
         $totalCount = (int) $positionCounts->sum('cnt');

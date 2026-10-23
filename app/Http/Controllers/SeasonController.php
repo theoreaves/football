@@ -60,6 +60,32 @@ class SeasonController extends Controller
         if (! SeasonOptions::compatible((int) $data['team_count'], $data['layout'], $data['playoffs'])) {
             $fail('playoffs', 'That playoff format does not fit this league layout.');
         }
+        // Validate the requested roster year before previewing or saving a schedule.
+        // Game creation reads team_players.team_year exactly; it does not fall back.
+        // Count distinct players in the same role order used by RosterBuilder.
+        $requiredRoles = array_diff_key(
+            \App\Services\Simulation\RosterBuilder::GROUPS,
+            array_flip(['LB4', 'LB5', 'CB3', 'CB4', 'TE2', 'FB', 'WR4'])
+        );
+        foreach ($teams as $team) {
+            $roster = DB::table('team_players')
+                ->where('team_id', $team->id)
+                ->where('team_year', (string) $data['year'])
+                ->orderBy('depth_chart_position')
+                ->orderBy('player_id')
+                ->get(['player_id', 'position']);
+            $used = [];
+            foreach ($requiredRoles as $role => $positions) {
+                $available = $roster->first(fn ($row) =>
+                    !in_array((int) $row->player_id, $used, true)
+                    && in_array(strtoupper((string) $row->position), $positions, true)
+                );
+                if (!$available) {
+                    $fail('year', "{$team->city} {$team->name} needs a {$role} in roster year {$data['year']}. Assign a playable roster to this year before creating a season.");
+                }
+                $used[] = (int) $available->player_id;
+            }
+        }
         $definitions = SeasonOptions::groups((int) $data['team_count'], $data['layout']);
         $defaults = [];
         foreach ($definitions as $key => $definition) {
