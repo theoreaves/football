@@ -12,15 +12,28 @@
                 @if($round === 1 && !empty($group['byes']))
                     <p><strong>Byes:</strong> @foreach($group['byes'] as $teamId) {{ $members[$teamId]['name'] ?? ('Team '.$teamId) }}@unless($loop->last), @endunless @endforeach</p>
                 @endif
-                <div class="season-table-scroll"><table class="season-table"><thead><tr><th>Away</th><th>Home</th><th>Result</th></tr></thead><tbody>
+                <div class="season-table-scroll"><table class="season-table"><thead><tr><th>Away</th><th>Home</th><th>Result</th><th>Game</th></tr></thead><tbody>
                     @foreach($games as $game)
                         @php($saved = !empty($game['exhibition_id']) ? \App\Models\Exhibition::find($game['exhibition_id']) : null)
                         @php($state = $saved?->state ?? [])
                         @php($final = ($state['status'] ?? null) === 'final' && !($state['penalty_pending'] ?? false))
                         <tr>
-                            <td>#{{ $game['away_seed'] }} {{ $members[$game['away_team_id']]['name'] ?? $game['away_team_id'] }}</td>
-                            <td>#{{ $game['home_seed'] }} {{ $members[$game['home_team_id']]['name'] ?? $game['home_team_id'] }}</td>
+                            <td @if($final && (int) ($state['away_score'] ?? 0) > (int) ($state['home_score'] ?? 0)) class="font-bold text-green-300" @endif>#{{ $game['away_seed'] }} {{ $members[$game['away_team_id']]['name'] ?? $game['away_team_id'] }} @if($final && (int) ($state['away_score'] ?? 0) > (int) ($state['home_score'] ?? 0)) <span aria-label="Winner">★</span> @endif</td>
+                            <td @if($final && (int) ($state['home_score'] ?? 0) > (int) ($state['away_score'] ?? 0)) class="font-bold text-green-300" @endif>#{{ $game['home_seed'] }} {{ $members[$game['home_team_id']]['name'] ?? $game['home_team_id'] }} @if($final && (int) ($state['home_score'] ?? 0) > (int) ($state['away_score'] ?? 0)) <span aria-label="Winner">★</span> @endif</td>
                             <td>@if($final)Final: {{ $state['away_score'] }}–{{ $state['home_score'] }}@elseif($saved)In progress@else{{ $round === $activeRound ? 'Scheduled' : 'Pending' }}@endif</td>
+                            <td>
+                                @if($saved)
+                                    @if($final)
+                                        <a href="{{ route('exhibitions.show', ['exhibition' => $saved->id, 'summary' => 1]) }}">Box Score</a>
+                                        <span aria-hidden="true"> · </span>
+                                        <a href="{{ route('exhibitions.show', ['exhibition' => $saved->id, 'highlights' => 1]) }}">Highlights / Replays</a>
+                                    @else
+                                        <a href="{{ route('exhibitions.show', ['exhibition' => $saved->id]) }}">Resume Game</a>
+                                    @endif
+                                @else
+                                    <span class="text-gray-400">—</span>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody></table></div>
