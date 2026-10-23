@@ -49,7 +49,7 @@
             @endif
 
             <div role="tablist" aria-label="Team settings" class="flex flex-wrap gap-2 border-b pb-3">
-                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'audio' => 'Audio', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching', 'specialists' => 'Specialists'] as $key => $label)
+                @foreach(['team' => 'Team', 'uniforms' => 'Uniforms', 'stadium' => 'Stadium', 'championship' => 'Championship', 'audio' => 'Audio', 'cheerleaders' => 'Cheerleaders', 'mascot' => 'Mascot', 'coaching' => 'Coaching', 'specialists' => 'Specialists'] as $key => $label)
                     <button type="button" role="tab" id="tab-{{ $key }}" aria-controls="panel-{{ $key }}" aria-selected="{{ $key === 'team' ? 'true' : 'false' }}" data-team-tab="{{ $key }}" class="px-4 py-2 rounded border">{{ $label }}</button>
                 @endforeach
             </div>
@@ -170,6 +170,25 @@
 @include('teams.editor.art')
 @endforeach
 </div>
+            </section>
+            <section role="tabpanel" id="panel-championship" aria-labelledby="tab-championship" data-team-panel="championship" hidden class="space-y-4">
+                <h2 class="text-xl font-semibold">Championship End Zone</h2>
+                <p class="text-sm text-gray-600">Independent from regular-season end zones. Leave everything unchanged to use the normal design. Changes apply only to championship games started afterward.</p>
+                @php($champ = $team->team_settings['championship_endzone'] ?? [])
+                <label class="block"><input type="hidden" name="team_settings[championship_endzone][enabled]" value="0"><input type="checkbox" name="team_settings[championship_endzone][enabled]" value="1" @checked(old('team_settings.championship_endzone.enabled', $champ['enabled'] ?? false))> Use custom championship end zone</label>
+                <label class="block">End zone text<input name="team_settings[championship_endzone][text]" maxlength="40" value="{{ old('team_settings.championship_endzone.text', $champ['text'] ?? $team->endzone_text ?? $team->name) }}" class="block w-full border rounded p-2"></label>
+                <div class="grid grid-cols-2 gap-4">
+                    <label>Background color<input type="color" name="team_settings[championship_endzone][background]" value="{{ old('team_settings.championship_endzone.background', $champ['background'] ?? $team->endzone_background ?? '#174880') }}" class="block w-full h-10 border rounded"></label>
+                    <label>Lettering color<input type="color" name="team_settings[championship_endzone][text_color]" value="{{ old('team_settings.championship_endzone.text_color', $champ['text_color'] ?? $team->endzone_text_color ?? '#ffffff') }}" class="block w-full h-10 border rounded"></label>
+                </div>
+                <label class="block"><input type="hidden" name="team_settings[championship_endzone][transparent]" value="0"><input type="checkbox" name="team_settings[championship_endzone][transparent]" value="1" @checked(old('team_settings.championship_endzone.transparent', $champ['transparent'] ?? $team->endzone_transparent))> Grass end zones (transparent background)</label>
+                <p class="text-sm text-gray-600">Upload a transparent PNG for each side, as with regular end-zone artwork. Existing uploaded graphics are retained until replaced or cleared.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @foreach(['left' => 'Left end-zone art', 'right' => 'Right end-zone art'] as $side => $label)
+                        <div><label class="block">{{ $label }}<input type="file" name="championship_endzone_{{ $side }}" accept="image/png,image/jpeg,image/webp" class="block w-full border rounded p-2"></label>
+                        @if(!empty($champ['art_'.$side]))<a class="text-blue-700 underline" href="{{ route('teams.championship-art', [$team, $side]) }}" target="_blank">View current artwork</a> <label><input type="checkbox" name="championship_endzone_clear[{{ $side }}]" value="1"> Clear artwork</label>@endif</div>
+                    @endforeach
+                </div>
             </section>
             @include('teams.editor.entertainment')
             @include('teams.editor.coaching')

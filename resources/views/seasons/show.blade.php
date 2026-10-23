@@ -41,6 +41,15 @@
     @php($leagueTeamStats = app(\App\Services\Seasons\LeagueLeaders::class)->teamStats($season))
     @include('seasons.league-team-stats')
 @elseif($tab === 'settings')
+    <section class="season-panel"><h2>League branding</h2><p>League logo is shared by every season in this league. It will be used at midfield in future championship rendering.</p>
+        @if($season->league->logo_path)<img alt="{{ $season->league->name }} logo" src="{{ route('leagues.logo', $season->league) }}" style="max-width:160px; max-height:100px">@endif
+        <form method="POST" enctype="multipart/form-data" action="{{ route('leagues.branding', $season->league) }}" class="season-fields">@csrf @method('PUT')
+            <input type="hidden" name="season_id" value="{{ $season->id }}">
+            <label>League logo<input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="block"></label>
+            @if($season->league->logo_path)<label><input type="checkbox" name="clear_logo" value="1"> Remove current logo</label>@endif
+            <button class="landing-button">Save league logo</button>
+        </form>
+    </section>
     <section class="season-panel"><h2>Championship stadium</h2>
         <p>Select the stadium for the league championship. You may change it until the championship game begins. The selected team can also qualify for the championship.</p>
         <form method="POST" action="{{ route('seasons.championship-venue', $season) }}" class="season-fields">@csrf @method('PUT')

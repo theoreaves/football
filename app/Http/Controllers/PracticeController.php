@@ -28,6 +28,15 @@ class PracticeController extends Controller
         return $disk->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 
+    public function championshipArt(Team $team, string $side)
+    {
+        abort_unless(in_array($side, ['left', 'right'], true), 404);
+        $path = $team->team_settings['championship_endzone']['art_'.$side] ?? null;
+        $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
+        abort_unless($path && $disk->exists($path), 404);
+        return $disk->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
     public function audio(Team $team, string $clip)
     {
         abort_unless(preg_match('/^[a-f0-9-]{36}\.(mp3|wav|ogg)$/', $clip), 404);

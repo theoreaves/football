@@ -56,6 +56,9 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::post('/seasons/{season}/teams/{team}/plays', [\App\Http\Controllers\SeasonController::class, 'saveTeamPlay'])->name('seasons.plays.save');
         Route::delete('/seasons/{season}/teams/{team}/plays/{play}', [\App\Http\Controllers\SeasonController::class, 'deleteTeamPlay'])->whereUuid('play')->name('seasons.plays.delete');
 
+        Route::get('/teams/{team}/championship-art/{side}', [\App\Http\Controllers\PracticeController::class, 'championshipArt'])->whereIn('side', ['left', 'right'])->name('teams.championship-art');
+        Route::get('/leagues/{league}/logo', [\App\Http\Controllers\LeagueBrandingController::class, 'logo'])->name('leagues.logo');
+        Route::put('/leagues/{league}/branding', [\App\Http\Controllers\LeagueBrandingController::class, 'update'])->name('leagues.branding');
         Route::get('/teams/{team}/audio/{clip}', [\App\Http\Controllers\PracticeController::class, 'audio'])->name('teams.audio');
         Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');
 

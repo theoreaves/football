@@ -109,7 +109,13 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone'],
+            'team_settings.championship_endzone' => ['sometimes', 'array:enabled,text,background,text_color,transparent'],
+            'team_settings.championship_endzone.enabled' => ['sometimes', 'boolean'],
+            'team_settings.championship_endzone.transparent' => ['sometimes', 'boolean'],
+            'team_settings.championship_endzone.text' => ['nullable', 'string', 'max:40'],
+            'team_settings.championship_endzone.background' => $hex,
+            'team_settings.championship_endzone.text_color' => $hex,
             'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors,tunnels,scoreboards,scoreboard_size,lighting'],
             'team_settings.stadium.tunnels' => ['sometimes', 'boolean'],
             'team_settings.stadium.scoreboards' => ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right'])],
@@ -184,7 +190,12 @@ class TeamEditor extends Controller
             $audioRules["audio_uploads.{$event}"] = ['nullable', 'file', 'mimes:mp3,wav,ogg', 'extensions:mp3,wav,ogg', 'max:15360'];
             $audioRules["audio_clear.{$event}"] = ['sometimes', 'boolean'];
         }
-        $request->validate($audioRules);
+        $request->validate($audioRules + [
+            'championship_endzone_left' => ['nullable', 'image', 'max:5120'],
+            'championship_endzone_right' => ['nullable', 'image', 'max:5120'],
+            'championship_endzone_clear' => ['sometimes', 'array:left,right'],
+            'championship_endzone_clear.*' => ['boolean'],
+        ]);
 
         return $request->validate(array_merge($appearance, $settings, [
             'city' => ['required', 'string', 'max:255'],
@@ -211,6 +222,16 @@ class TeamEditor extends Controller
                 // Immutable filenames retain the audio used by existing game snapshots.
                 $profile['audio'][$event] = $file->storeAs("teams/{$team->id}/audio",
                     (string) \Illuminate\Support\Str::uuid().'.'.strtolower($file->getClientOriginalExtension()), 'team_art');
+            }
+        }
+        foreach (['left', 'right'] as $side) {
+            if ($request->boolean('championship_endzone_clear.'.$side)) {
+                unset($profile['championship_endzone']['art_'.$side]);
+            }
+            if ($request->hasFile('championship_endzone_'.$side)) {
+                // Immutable paths keep artwork usable in already-started game snapshots.
+                $profile['championship_endzone']['art_'.$side] = $request->file('championship_endzone_'.$side)
+                    ->storeAs("teams/{$team->id}/championship", (string) \Illuminate\Support\Str::uuid().'.'.$request->file('championship_endzone_'.$side)->extension(), 'team_art');
             }
         }
         $team->update(['team_settings' => $profile]);
