@@ -8,6 +8,7 @@ import {idlePlayerPose} from './idle-player.js';
 import {mountGameStats} from './game-stats.js';
 import {entranceMusic} from './entrance-music.js';
 import {entranceSchedule} from './tunnel-entrance.js';
+import {buildChampionshipAwayEntourage} from './championship-entourage.js';
 import {turnoverCelebrants} from './turnover-group.js';
 import {presentationAmbience,playCallVisible} from './presentation-ambience.js';
 import {unitExchange,playerKey,exchangeCallAvailability} from './unit-exchange.js';
@@ -433,6 +434,7 @@ export function mountPractice(root, onReady = () => {}) {
     });
     const sidelineCheerleaders = buildSidelineCheerleaders(scene,appearance,textureFor);
     const sidelineMascot = buildSidelineMascot(scene,appearance,textureFor,`${cameraKey}:mascot-time`);
+    const championshipAwayEntourage = buildChampionshipAwayEntourage(scene,appearance,textureFor);
     const sidelineCoaches = buildSidelineCoaches(scene,appearance,textureFor);
     const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
     const wantsHurry=()=>Boolean(afterState?.on_field && (callForm?.elements.namedItem('tempo')?.value==='hurry' || (!callForm?.elements.namedItem('tempo') && root.dataset.cpuSpecial!=='true' && (afterState.no_huddle || root.dataset.cpuHurry==='true'))));
@@ -1475,6 +1477,20 @@ export function mountPractice(root, onReady = () => {}) {
     const entranceTiming=entranceSchedule(Boolean(sidelineCheerleaders.group),Boolean(sidelineMascot.model));
     const entranceSound=entranceMusic(audio,entranceTiming.cheerStart);
     const entranceClock=()=>entrance.active?{away:entrance.seconds,home:entrance.seconds-entranceTiming.homeStart,cheer:entrance.seconds-entranceTiming.cheerStart}:null;
+    // Replay the opening from an existing saved game without resimulating any plays.
+    // This preview is opt-in, so existing replay and navigation behavior is unchanged.
+    const previewIntro = appearance.home?.championship_field === true && new URLSearchParams(window.location.search).get('championship_intro') === '1';
+    if (previewIntro && entrancePanel && !entrance.active) {
+        entrance.active = true;
+        entrance.seconds = 0;
+    }
+    if (appearance.home?.championship_field === true && entrancePanel) {
+        const skipAway=document.createElement('button');
+        skipAway.type='button';skipAway.textContent='Skip visiting entrance';
+        skipAway.className='rounded bg-blue-700 px-4 py-2 ml-2';
+        skipAway.addEventListener('click',()=>{if(entrance.active)entrance.seconds=Math.max(entrance.seconds,entranceTiming.cheerStart);});
+        entrancePanel.append(skipAway);
+    }
     const entranceCamera={position:camera.position.clone(),target:controls.target.clone()};
     const finishEntrance=async()=>{
         if(!entrance.active || entrance.finishing)return;
@@ -1845,7 +1861,8 @@ export function mountPractice(root, onReady = () => {}) {
                 if(entrance.seconds>=entranceTiming.end)entrancePanel.querySelector('button').textContent='Continue → Lineups';}
 }
         sidelineCoaches.update(delta,entranceClock());
-        if(!document.hidden){sidelineMascot.update(delta,entrance.active?entrance.seconds-entranceTiming.leadStart:null);sidelineCheerleaders.update(delta,entranceClock());}
+        if(!document.hidden){sidelineMascot.update(delta,entrance.active?entrance.seconds-entranceTiming.leadStart:null);sidelineCheerleaders.update(delta,entranceClock());
+            championshipAwayEntourage.update(delta,entrance.active?entrance.seconds:null);}
         const hurry=wantsHurry();
         if(hurry && hurryWasActive===false && phase==='huddle'){
             hurryStart={...sample(type,duration),players:sample(type,duration).players.map((p,i)=>({...p,x:players[i].position.x,z:players[i].position.z}))};hurryProgress=0;

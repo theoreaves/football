@@ -186,17 +186,17 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     // no changes to team side, plays, simulation ratings or regular games.
     if (home.championship_field === true) {
         for (const [side,team] of [['home',home],['away',away]]) {
-            const z=side==='home' ? -9.5 : 62.8;
+            const z=side==='home' ? -12.3 : 65.63;
             const paintTeam=paint(team.primary_color || '#315b85');
-            box([33,.14,2],[52,.11,z],paintTeam,`championship-${side}-bench-band`);
-            box([33,1.5,.4],[52,.9,z+(side==='home'?-1.1:1.1)],paintTeam,`championship-${side}-bench-backing`);
+            // Use small bench-area strips, not long upright signs that overlap the field.
+            box([25,.055,.7],[60,.67,z],paintTeam,`championship-${side}-bench-band`);
             const logoUrl=team.team_logo;
             if (logoUrl) {
                 const texture=textureFor(logoUrl);
                 if (texture) {
                     const emblem=add(new THREE.PlaneGeometry(6,6),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),`championship-${side}-bench-logo`);
                     emblem.rotation.x=-Math.PI/2;
-                    emblem.position.set(52,.2,z);
+                    emblem.position.set(60,.74,z);
                 }
             }
         }
