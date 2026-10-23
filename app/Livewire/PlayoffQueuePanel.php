@@ -28,9 +28,11 @@ class PlayoffQueuePanel extends Component
         $season = Season::findOrFail($this->seasonId);
         $queue = app(QueuedPlayoffGames::class);
         $entries = $queue->entries($season);
+        $playoffBracket = $season->settings['playoff_bracket'] ?? [];
+        $members = $season->settings['members'] ?? [];
         $active = collect($entries)->contains(fn ($entry) => in_array($entry['game']['simulation_status'] ?? null, ['queued', 'running'], true));
         return view('livewire.playoff-queue-panel', [
-            'season' => $season, 'active' => $active,
+            'season' => $season, 'playoffBracket' => $playoffBracket, 'members' => $members, 'active' => $active,
             'eligible' => count($queue->eligible($season)),
             'queued' => collect($entries)->where('game.simulation_status', 'queued')->count(),
             'running' => collect($entries)->where('game.simulation_status', 'running')->count(),
