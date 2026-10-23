@@ -182,12 +182,9 @@
                     <label>Lettering color<input type="color" name="team_settings[championship_endzone][text_color]" value="{{ old('team_settings.championship_endzone.text_color', $champ['text_color'] ?? $team->endzone_text_color ?? '#ffffff') }}" class="block w-full h-10 border rounded"></label>
                 </div>
                 <label class="block"><input type="hidden" name="team_settings[championship_endzone][transparent]" value="0"><input type="checkbox" name="team_settings[championship_endzone][transparent]" value="1" @checked(old('team_settings.championship_endzone.transparent', $champ['transparent'] ?? $team->endzone_transparent))> Grass end zones (transparent background)</label>
-                <p class="text-sm text-gray-600">Upload a transparent PNG for each side, as with regular end-zone artwork. Existing uploaded graphics are retained until replaced or cleared.</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @foreach(['left' => 'Left end-zone art', 'right' => 'Right end-zone art'] as $side => $label)
-                        <div><label class="block">{{ $label }}<input type="file" name="championship_endzone_{{ $side }}" accept="image/png,image/jpeg,image/webp" class="block w-full border rounded p-2"></label>
-                        @if(!empty($champ['art_'.$side]))<a class="text-blue-700 underline" href="{{ route('teams.championship-art', [$team, $side]) }}" target="_blank">View current artwork</a> <label><input type="checkbox" name="championship_endzone_clear[{{ $side }}]" value="1"> Clear artwork</label>@endif</div>
-                    @endforeach
+                <p class="text-sm text-gray-600">One championship end-zone design per team, regardless of home or away designation. Recommended transparent PNG: 1600 × 300. Existing left artwork is kept and used automatically.</p>
+                <div><label class="block">Championship end-zone artwork<input type="file" name="championship_endzone_left" accept="image/png,image/jpeg,image/webp" class="block w-full border rounded p-2"></label>
+                    @if(!empty($champ['art_left']))<a class="text-blue-700 underline" href="{{ route('teams.championship-art', [$team, 'left']) }}" target="_blank">View current artwork</a> <label><input type="checkbox" name="championship_endzone_clear[left]" value="1"> Clear artwork</label>@endif
                 </div>
             </section>
             @include('teams.editor.entertainment')

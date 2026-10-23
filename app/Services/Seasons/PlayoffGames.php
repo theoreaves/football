@@ -51,11 +51,41 @@ class PlayoffGames
             $pending = ! $quick && $controls[$winner] === 'human';
             $choice = $pending ? null : app(CpuCoach::class)->coinChoice($state);
             $receiver = $choice === 'kick' ? ($winner === 'home' ? 'away' : 'home') : $winner;
+            $appearance = app(\App\Http\Controllers\PracticeController::class)
+                ->matchup($teams[$entry['home_team_id']], $teams[$entry['away_team_id']]);
+            if ($conference === 'championship') {
+                $venueId = (int) ($settings['championship_venue_team_id'] ?? 0);
+                $venue = $venueId ? Team::find($venueId) : null;
+                $venue ??= $teams[$entry['home_team_id']];
+                // Only the field and stadium structure come from the venue owner.
+                $venueAppearance = app(\App\Http\Controllers\PracticeController::class)->appearance($venue, 'home');
+                foreach (['stadium', 'stadium_style', 'stadium_seat_color', 'stadium_wall_color', 'stadium_roof_color'] as $key) {
+                    $appearance['home'][$key] = $venueAppearance[$key];
+                }
+                foreach (['home', 'away'] as $side) {
+                    $team = $teams[$entry[$side.'_team_id']];
+                    $design = $team->team_settings['championship_endzone'] ?? [];
+                    if (!empty($design['enabled'])) {
+                        $appearance[$side]['endzone_text'] = $design['text'] ?: $appearance[$side]['endzone_text'];
+                        $appearance[$side]['endzone_background'] = $design['background'] ?: $appearance[$side]['endzone_background'];
+                        $appearance[$side]['endzone_text_color'] = $design['text_color'] ?: $appearance[$side]['endzone_text_color'];
+                        $appearance[$side]['endzone_transparent'] = (bool) ($design['transparent'] ?? false);
+                        $appearance[$side]['championship_endzone_art'] = !empty($design['art_left'])
+                            ? route('teams.championship-art', ['team' => $team, 'side' => 'left']) : null;
+                    } else {
+                        $appearance[$side]['championship_endzone_art'] = $appearance[$side]['endzone_logo_left'] ?: $appearance[$side]['endzone_logo_right'];
+                    }
+                }
+                $league = $season->league;
+                $appearance['home']['midfield_logo'] = $league && $league->logo_path
+                    ? route('leagues.logo', $league) : null;
+                $appearance['home']['championship_field'] = true;
+            }
             $state = array_merge($state, [
                 'playoff' => ['season_id' => (int) $season->id, 'conference' => $conference, 'round' => $round, 'index' => $index],
                 'coaching' => ['home' => $teams[$entry['home_team_id']]->team_settings['coaching'] ?? [],
                                'away' => $teams[$entry['away_team_id']]->team_settings['coaching'] ?? []],
-                'team_appearance' => app(\App\Http\Controllers\PracticeController::class)->matchup($teams[$entry['home_team_id']], $teams[$entry['away_team_id']]),
+                'team_appearance' => $appearance,
                 'controls' => $controls, 'opening_receiver' => $receiver,
                 'possession' => $receiver === 'home' ? 'away' : 'home',
                 'coin_toss' => ['call' => 'heads', 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending],
