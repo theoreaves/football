@@ -3,6 +3,7 @@
     @if(($playoffBracket['status'] ?? '') === 'completed')
         <p class="season-notice">League champion: <strong>{{ $members[$playoffBracket['champion_team_id']]['name'] ?? 'Unknown' }}</strong></p>
     @else
+        <livewire:playoff-queue-panel :season-id="$season->id" />
         @php($round = (int) ($playoffBracket['current_round'] ?? 1))
         <h3>{{ $round === 1 ? 'Opening round' : (($playoffBracket['rounds'][$round]['championship'] ?? null) ? 'League championship' : 'Round '.$round) }}</h3>
         @php($groups = $round === 1 ? $playoffBracket['conferences'] : ($playoffBracket['rounds'][$round] ?? []))
@@ -14,7 +15,9 @@
                 @php($final = $saved && ($saved->state['status'] ?? null) === 'final' && !($saved->state['penalty_pending'] ?? false))
                 <div class="season-actions">
                     <strong>#{{ $match['away_seed'] }} {{ $members[$match['away_team_id']]['name'] ?? $match['away_team_id'] }} at #{{ $match['home_seed'] }} {{ $members[$match['home_team_id']]['name'] ?? $match['home_team_id'] }}</strong>
-                    @if($final)
+                    @if(in_array($match['simulation_status'] ?? null, ['queued', 'running', 'failed'], true))
+                        <span>{{ ($match['simulation_status'] ?? '') === 'failed' ? 'Simulation failed · Retry above' : ucfirst($match['simulation_status']).'…' }}</span>
+                    @elseif($final)
                         <span>Final: {{ $saved->state['away_score'] }}–{{ $saved->state['home_score'] }}</span>
                         <a href="{{ route('exhibitions.show', ['exhibition' => $saved->id, 'highlights' => 1]) }}">Highlights / Replays</a>
                     @elseif($saved)

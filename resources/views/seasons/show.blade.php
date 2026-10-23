@@ -10,6 +10,9 @@
         @include('seasons.playoff-games', ['playoffBracket' => $season->settings['playoff_bracket']])
     @else
         <livewire:season-week-games :season-id="$season->id" tab="overview" />
+    @if(in_array($season->phase, ['playoffs_pending', 'playoffs'], true) && isset($season->settings['playoff_bracket']))
+        <livewire:playoff-queue-panel :season-id="$season->id" />
+    @endif
     @endif
     <div class="season-grid">@foreach(collect($members)->sortBy(fn($member) => $member['control'] === 'human' ? 0 : 1) as $id => $member)<a class="season-panel {{ $member['control'] === 'human' ? 'season-human-team' : '' }}" href="{{ route('seasons.team', [$season, $id]) }}">@if($member['control'] === 'human')<span class="season-human-label">Human controlled</span>@endif<div class="season-team-heading">@if(isset($logos[$id]))<img class="season-card-logo" src="{{ $logos[$id] }}" alt="{{ $member['name'] }} logo" loading="lazy">@endif<h2>{{ $member['name'] }}</h2></div><p>{{ $member['conference_name'] }} · {{ $member['division'] }}</p><span class="text-blue-300">{{ strtoupper($member['control']) }} · Open team hub →</span></a>@endforeach</div>
 @elseif($tab === 'schedule')

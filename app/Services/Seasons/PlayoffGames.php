@@ -15,9 +15,9 @@ use Illuminate\Validation\ValidationException;
 /** Playoff games live in the saved bracket, never in regular-season fixtures. */
 class PlayoffGames
 {
-    public function start(Season $season, string $conference, int $index, bool $quick = false): Exhibition
+    public function start(Season $season, string $conference, int $index, bool $quick = false, ?string $simulationToken = null): Exhibition
     {
-        return DB::transaction(function () use ($season, $conference, $index, $quick) {
+        return DB::transaction(function () use ($season, $conference, $index, $quick, $simulationToken) {
             $season = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
             $settings = $season->settings;
             $bracket = $settings['playoff_bracket'] ?? null;
@@ -26,6 +26,7 @@ class PlayoffGames
             $games = $this->games($bracket, $conference, $round);
             abort_unless(isset($games[$index]), 404);
             $entry = $games[$index];
+            abort_if(($entry['simulation_status'] ?? null) !== null && ($entry['simulation_token'] ?? null) !== $simulationToken, 409, 'This playoff game is being simulated in the background.');
             if (! empty($entry['exhibition_id'])) {
                 $existing = Exhibition::findOrFail($entry['exhibition_id']);
                 abort_unless((int) $existing->world_id === (int) $season->world_id, 404);
