@@ -39,11 +39,11 @@ export function buildSidelineCheerleaders(scene,appearance,textureFor=()=>null) 
                 const championship=home.championship_field === true && typeof entranceSeconds==='object';
                 let pose;
                 if(championship){
-                    const greeting={x:125,z:19+(index%6)*5};
+                    const greeting={x:125+(index%2)*2,z:10+Math.floor(index/2)*7};
                     const start={x:133,z:36.665+(index%2 ? .9 : -.9)};
                     const t=entranceSeconds.cheer;
                     const route=[start,{x:128,z:start.z},greeting];
-                    const retire=[greeting,{x:127,z:36.665},{x:127,z:-7},{x:slot.x,z:-7},slot];
+                    const retire=[greeting,{x:129,z:-9},{x:slot.x,z:-9},slot];
                     pose=entranceSeconds.home<12
                         ? entrancePose('away',index,greeting,t,route)
                         : entrancePose('away',index,slot,entranceSeconds.home-12,retire,false);

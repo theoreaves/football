@@ -46,7 +46,7 @@ export function buildSidelineMascot(scene,appearance,textureFor=()=>null,storage
         const entry=entranceSeconds===null?null:championship
             ? (entranceSeconds<12
                 ? entrancePose('away',0,greeting,entranceSeconds,[{x:133,z:36.665},greeting],false)
-                : entrancePose('away',0,bench,entranceSeconds-12,[greeting,{x:127,z:36.665},{x:127,z:-16},bench],false))
+                : entrancePose('away',0,bench,entranceSeconds-12,[greeting,{x:129,z:-16},bench],false))
             : entrancePose('home',0,bench,entranceSeconds);
         if(entry)time=0;
         const pose=entry?{x:entry.x,z:entry.z,y:entry.bob,moving:entry.moving,facing:entry.yaw}:mascotPose(time),active=cheering>0;

@@ -28,8 +28,8 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
     // must also remain OUTSIDE the playing surface; x=12 was in the end zone.
     // After the visiting introduction the squad travels behind the end line
     // to its own sideline, not across either team's end zone.
-    const greeting = cheerleaders.map((_,i) => ({x:-5-(i%3)*2,z:12+Math.floor(i/3)*12}));
-    const slots = cheerleaders.map((_,i) => ({x:22+i*13,z:63.5+(i%2)*2.5}));
+    const greeting = cheerleaders.map((_,i) => ({x:-6-(i%2)*2.2,z:10+Math.floor(i/2)*6.2}));
+    const slots = cheerleaders.map((_,i) => ({x:16+i*8,z:63.5+(i%2)*2.5}));
     const mascotGreeting = {x:-5,z:36};
     const mascotTarget = {x:45,z:69};
     const entranceStart = {x:-13,z:16.665};
@@ -38,7 +38,7 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
         {x:-7,z:entranceStart.z+(i%2 ? .9 : -.9)},
         target,
     ];
-    const exitRoute = (target,from) => [from,{x:-7,z:59.33},{x:target.x,z:59.33},target];
+    const exitRoute = (target,from) => [from,{x:-8,z:62.3},{x:target.x,z:62.3},target];
     const update = (delta, seconds = null) => {
         for (let i=0;i<cheerleaders.length;i++) {
             const model = cheerleaders[i];

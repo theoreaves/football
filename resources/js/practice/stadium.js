@@ -175,7 +175,9 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
         for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);
         box([8,.6,10.6],[x,5,z],color,`tunnel-${side}-roof`);
-        box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
+        // Interior divider can appear as a black stripe across the championship end zone.
+        // Keep ordinary stadium geometry untouched.
+        if (!championship) box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
         if((championship || side === 'home') && brandedTeam.team_logo){
             const texture=textureFor(brandedTeam.team_logo);
             if(texture){
