@@ -350,6 +350,50 @@ class PlayTimeline
                     ];
                 }
             }
+            // Passing presentation v2: the recorded result remains authoritative,
+            // but separation at the catch point no longer telegraphs that result.
+            // All choices derive from visualVariant; never consume simulation RNG.
+            // Leave the contact tackler alone so its existing tackle animation works.
+            if ($pass && ! ($play['defensive_return'] ?? false)
+                && in_array($play['outcome'], ['incomplete', 'tackle', 'touchdown'], true)
+                && in_array($role, ['CB1', 'CB2', 'S1', 'S2'], true)
+                && ! ($contactEnabled && $role === $contactTackler)) {
+                // Four looks: tight coverage, late recovery, clean separation,
+                // and a second defender closing from inside. Each can occur
+                // on a catch OR an incompletion; the ball/outcome never changes.
+                $coverageLook = $visualVariant % 4;
+                $primary = in_array($role, ['CB1', 'CB2'], true);
+                $chosen = $coverageLook === 3 ? 'S1' : ($receiverRole === 'WR2' ? 'CB2' : 'CB1');
+                // A non-tackling secondary can contest a completion. On an
+                // incompletion the corner can likewise recover late or trail.
+                if ($play['outcome'] !== 'incomplete' && $chosen === 'CB1') {
+                    $chosen = 'CB2';
+                }
+                if ($role === $chosen) {
+                    $near = $coverageLook === 0 || $coverageLook === 3;
+                    $late = $coverageLook === 1;
+                    $gap = $near ? 1.1 : ($late ? 3.0 : 6.2);
+                    $sideOffset = ($visualVariant % 2 ? 1 : -1) * $gap;
+                    $catchX = $play['target'] - ($late ? 2.6 : 0.8);
+                    $path = [
+                        $point(0, $x, $z),
+                        $point(1.6, $x + ($catchX - $x) * .18, $z),
+                        $point(3.8, $catchX, $endZ + $sideOffset),
+                        $point(5.3, $end + 1.5, $endZ + $sideOffset * .75),
+                        $point(6, $end + 1.5, $endZ + $sideOffset * .75),
+                    ];
+                } elseif ($play['outcome'] === 'incomplete' && $role === 'CB1' && $coverageLook === 2) {
+                    // Incomplete despite the receiver having visible space.
+                    $offset = ($visualVariant % 2 ? 1 : -1) * 7.0;
+                    $path = [
+                        $point(0, $x, $z),
+                        $point(2.1, $play['target'] * .4, $z + ($endZ + $offset - $z) * .4),
+                        $point(3.8, $play['target'] - 3.5, $endZ + $offset),
+                        $point(5.3, $end - 2, $endZ + $offset),
+                        $point(6, $end - 2, $endZ + $offset),
+                    ];
+                }
+            }
             if ($contactEnabled && $role === $contactTackler && $carrierContact !== null) {
                 // Bring this defender within one yard of the carrier at contact.
                 // Use world coordinates from the carrier to avoid left/right team drift.
