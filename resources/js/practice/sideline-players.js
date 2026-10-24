@@ -9,8 +9,11 @@ import {playerKey,sidelineSlot} from './unit-exchange.js';
 export function buildSidelinePlayers(scene, roster, appearance, document = globalThis.document, textureFor = () => null) {
     const groups = [], dummy = new THREE.Object3D();
     for (const side of ['home','away']) {
-        const benchSeat = appearance[side]?.secondary_color || '#eeeeee';
-        const benchBack = appearance[side]?.primary_color || '#315b85';
+        // Regular games share the home team's stadium bench colors.
+        // The neutral championship venue uses each team's own bench colors.
+        const benchTeam = appearance.home?.championship_field === true ? appearance[side] : appearance.home;
+        const benchSeat = benchTeam?.secondary_color || '#eeeeee';
+        const benchBack = benchTeam?.primary_color || '#315b85';
         const people = roster[side] || [], kit = appearance[side]?.uniform || {};
         if (!people.length) continue;
         const teamArea = new THREE.Group();teamArea.name = `${side}-team-area`;scene.add(teamArea);
