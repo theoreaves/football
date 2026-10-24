@@ -8,9 +8,9 @@ import {playerKey,sidelineSlot} from './unit-exchange.js';
 // Shared geometry and instanced parts keep a full bench inexpensive to draw.
 export function buildSidelinePlayers(scene, roster, appearance, document = globalThis.document, textureFor = () => null) {
     const groups = [], dummy = new THREE.Object3D();
-    const benchSeat = appearance.home?.secondary_color || '#eeeeee';
-    const benchBack = appearance.home?.primary_color || '#315b85';
     for (const side of ['home','away']) {
+        const benchSeat = appearance[side]?.secondary_color || '#eeeeee';
+        const benchBack = appearance[side]?.primary_color || '#315b85';
         const people = roster[side] || [], kit = appearance[side]?.uniform || {};
         if (!people.length) continue;
         const teamArea = new THREE.Group();teamArea.name = `${side}-team-area`;scene.add(teamArea);
