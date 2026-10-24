@@ -37,7 +37,17 @@ export function buildSidelineMascot(scene,appearance,textureFor=()=>null,storage
         const step=Number.isFinite(delta)?Math.max(0,Math.min(.1,delta)):0;
         // Pause the route while cheering so the mascot never snaps back afterward.
         if(cheering>0){cheering=Math.max(0,cheering-step);cheerTime+=step;}else time+=step;
-        const entry=entranceSeconds===null?null:entrancePose('home',0,{x:35,z:-16},entranceSeconds);
+        // The normal game's home mascot enters at the left tunnel. For the
+        // championship only, the home team owns the RIGHT tunnel and greets
+        // its players outside the right end line before reaching the bench.
+        const championship=appearance.home?.championship_field === true;
+        const greeting={x:125,z:36.665};
+        const bench={x:35,z:-16};
+        const entry=entranceSeconds===null?null:championship
+            ? (entranceSeconds<12
+                ? entrancePose('away',0,greeting,entranceSeconds,[{x:133,z:36.665},greeting],false)
+                : entrancePose('away',0,bench,entranceSeconds-12,[greeting,{x:127,z:36.665},{x:127,z:-16},bench],false))
+            : entrancePose('home',0,bench,entranceSeconds);
         if(entry)time=0;
         const pose=entry?{x:entry.x,z:entry.z,y:entry.bob,moving:entry.moving,facing:entry.yaw}:mascotPose(time),active=cheering>0;
         model.visible=entry?entry.visible:true;
