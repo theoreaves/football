@@ -260,6 +260,19 @@ export function mountPractice(root, onReady = () => {}) {
                 });
             }
         }
+        if (new URLSearchParams(window.location.search).get('jersey_name_debug') === '1') {
+            const label = group.getObjectByName('jersey-name');
+            if (['WORTHY','THORNTON'].some(last =>
+                String(player.lastname || player.name || '').toUpperCase().includes(last))
+                || ['1','2'].includes(String(player.number))) {
+                console.info('[Jersey name debug]', {
+                    name: player.name, lastname: player.lastname, number: player.number,
+                    side, nameEnabled: kit.name_enabled, nameColor: kit.name_color,
+                    meshPresent: Boolean(label), meshText: label?.userData.text,
+                    meshPosition: label?.position.toArray(),
+                });
+            }
+        }
         scene.add(group);
         return group;
     });
@@ -692,6 +705,13 @@ export function mountPractice(root, onReady = () => {}) {
             const plantedPassBlocker = phase === 'play' && animation?.dropback
                 && !animation.no_snap && player.team === 'offense'
                 && ['C', 'LG', 'RG', 'LT', 'RT'].includes(player.role);
+            // Blend reception joints into and out of the catch rather than
+            // snapping instantly between a sprint and an overhead reach.
+            const ease = x => { const v=Math.max(0,Math.min(1,x)); return v*v*(3-2*v); };
+            mesh.userData.receptionBlend = receiving
+                ? ease((elapsed-(catchAt-.45))/.20) *
+                  (1-ease((elapsed-(catchAt+.20))/.24))
+                : 0;
             animateFootballPlayer(mesh, plantedPassBlocker ? false : moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? (elapsed < .6 ? elapsed : Math.max(.6, elapsed - (animation?.throw_at ?? 2.2) + 2.2)) : null, reception);
             // Smooth takeoff, peak and landing; path and ball remain unchanged.
             if (airborne && phase === 'play') {

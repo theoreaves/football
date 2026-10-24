@@ -394,6 +394,31 @@ class PlayTimeline
                     ];
                 }
             }
+            // M15C.2: cap segment speeds for non-tackling pass defenders.
+            // The old coverage look could teleport a safety from deep coverage
+            // to the catch point at a fixed time. Only visual paths are touched.
+            if ($pass && ! $special && $role !== $contactTackler
+                && in_array($role, ['CB1', 'CB2', 'S1', 'S2'], true)) {
+                $limited = [$path[0]];
+                for ($p = 1; $p < count($path); $p++) {
+                    $previous = $limited[$p - 1];
+                    $next = $path[$p];
+                    $seconds = max(.001, $next[0] - $previous[0]);
+                    $dx = $next[1] - $previous[1];
+                    $dz = $next[3] - $previous[3];
+                    $distance = hypot($dx, $dz);
+                    // 8 yards/sec is intentionally conservative for coverage
+                    // reactions and prevents the visually jarring sprint.
+                    $allowed = 8.0 * $seconds;
+                    if ($distance > $allowed) {
+                        $ratio = $allowed / $distance;
+                        $next[1] = $previous[1] + $dx * $ratio;
+                        $next[3] = $previous[3] + $dz * $ratio;
+                    }
+                    $limited[] = $next;
+                }
+                $path = $limited;
+            }
             if ($contactEnabled && $role === $contactTackler && $carrierContact !== null) {
                 // Bring this defender within one yard of the carrier at contact.
                 // Use world coordinates from the carrier to avoid left/right team drift.

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export function jerseyLastName(player) {
-    if (player.lastname != null) return String(player.lastname).trim();
+    if (String(player.lastname ?? '').trim()) return String(player.lastname).trim();
     return String(player.name || '').trim().split(/\s+/).at(-1) || '';
 }
 
