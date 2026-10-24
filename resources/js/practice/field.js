@@ -659,10 +659,17 @@ export function mountPractice(root, onReady = () => {}) {
             const receiving = animation?.receiver_role && player.team === 'offense'
                 && player.role === animation.receiver_role && phase === 'play';
             const catchAt = animation?.catch_at ?? 3.8;
+            // 15C: use the recorded visual variant to diversify the catch window.
+            // This never changes possession, results, trajectories or simulation RNG.
+            const variant = animation?.animation_variant ?? 0;
+            const jumping = receiving && variant % 4 === 2 && elapsed >= catchAt - .38 && elapsed < catchAt + .42;
+            const failed = ['incomplete', 'interception'].includes(animation?.outcome);
             const reception = receiving && elapsed >= catchAt - .45 && elapsed < catchAt + .32
-                ? (['incomplete', 'interception'].includes(animation.outcome) ? 'reach' : 'catch')
+                ? (jumping ? (failed ? 'jump-reach' : 'jump-catch')
+                    : failed ? (variant % 3 === 0 ? 'drop' : 'reach')
+                    : variant % 3 === 0 ? 'high-catch' : 'catch')
                 : receiving && elapsed >= catchAt + .32 && elapsed <= (animation.result_at ?? 5.3)
-                    && !['incomplete', 'interception'].includes(animation.outcome) ? 'tuck' : null;
+                    && !failed ? 'tuck' : null;
             // The arm pose and the football use the same saved possession timeline.
             // Don't cradle a ball during the catch itself or after a fumble.
             const heldOnOffense = phase === 'play' && animation && !animation.no_snap
@@ -681,6 +688,17 @@ export function mountPractice(root, onReady = () => {}) {
                 && !animation.no_snap && player.team === 'offense'
                 && ['C', 'LG', 'RG', 'LT', 'RT'].includes(player.role);
             animateFootballPlayer(mesh, plantedPassBlocker ? false : moving, motionTime, i, (animation?.passing || (!animation && type === 'pass')) && player.role === 'QB' && player.team === 'offense' && phase === 'play' ? (elapsed < .6 ? elapsed : Math.max(.6, elapsed - (animation?.throw_at ?? 2.2) + 2.2)) : null, reception);
+            // Jump is presentation-only and peaks at catchAt. Keep the initial
+            // pose and the landing smooth even when seeking backward in replay.
+            if (receiving && variant % 4 === 2 && phase === 'play') {
+                const progress = (elapsed - catchAt + .38) / .80;
+                if (progress > 0 && progress < 1) {
+                    mesh.position.y += Math.sin(Math.PI * progress) * .65;
+                    mesh.userData.legs?.forEach((leg,j) => {
+                        leg.rotation.x = (j===0 ? -.48 : .36) * Math.sin(Math.PI*progress);
+                    });
+                }
+            }
             // Pass linemen do not cycle through a running gait while protecting.
             // Their pocket drop is rendered separately below.
             const passLineman = phase === 'play' && animation?.dropback && !animation.no_snap

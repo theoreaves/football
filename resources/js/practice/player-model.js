@@ -211,12 +211,14 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
     }
     // Reach at the actual ball-arrival time. Catch and miss poses use the
     // existing arm/elbow joints and never change the recorded ball path.
-    if (reception === 'catch' || reception === 'reach') {
-        group.userData.arms?.forEach((arm, i) => {
-            arm.rotation.x = reception === 'catch' ? -1.2 : -1.65;
-            arm.rotation.z = i === 0 ? -.23 : .23;
+    if (['catch','reach','high-catch','jump-catch','jump-reach','drop'].includes(reception)) {
+        const high = ['high-catch','jump-catch','jump-reach'].includes(reception);
+        const missed = ['reach','jump-reach','drop'].includes(reception);
+        group.userData.arms?.forEach((arm,i) => {
+            arm.rotation.x = high ? -2.35 : missed ? -1.65 : -1.2;
+            arm.rotation.z = (i===0 ? -1 : 1) * (high ? .15 : missed ? .34 : .23);
         });
-        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = -.40; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = high ? -.18 : missed ? -.65 : -.40; });
     } else if (reception === 'tuck') {
         const arm = group.userData.arms?.[1];
         if (arm) { arm.rotation.x = -.88; arm.rotation.z = -.38; }
