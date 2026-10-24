@@ -215,10 +215,11 @@ export function animateFootballPlayer(group, moving, time, index, throwing = nul
         const high = ['high-catch','jump-catch','jump-reach'].includes(reception);
         const missed = ['reach','jump-reach','drop'].includes(reception);
         group.userData.arms?.forEach((arm,i) => {
-            arm.rotation.x = high ? -2.35 : missed ? -1.65 : -1.2;
-            arm.rotation.z = (i===0 ? -1 : 1) * (high ? .15 : missed ? .34 : .23);
+            // A modest overhead extension avoids snapping through the helmet.
+            arm.rotation.x = high ? -1.95 : missed ? -1.55 : -1.2;
+            arm.rotation.z = (i===0 ? -1 : 1) * (high ? .20 : missed ? .30 : .23);
         });
-        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = high ? -.18 : missed ? -.65 : -.40; });
+        group.userData.elbows?.forEach(elbow => { elbow.rotation.x = high ? -.30 : missed ? -.65 : -.40; });
     } else if (reception === 'tuck') {
         const arm = group.userData.arms?.[1];
         if (arm) { arm.rotation.x = -.88; arm.rotation.z = -.38; }
