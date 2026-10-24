@@ -187,18 +187,6 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
             }
         }
     }
-    // Championship-only sideline/bench branding. This is presentation-only geometry:
-    // no changes to team side, plays, simulation ratings or regular games.
-    if (home.championship_field === true) {
-        for (const [side,team] of [['home',home],['away',away]]) {
-            const z=side==='home' ? -12.3 : 65.63;
-            const paintTeam=paint(team.primary_color || '#315b85');
-            // Use small bench-area strips, not long upright signs that overlap the field.
-            box([25,.055,.7],[60,.67,z],paintTeam,`championship-${side}-bench-band`);
-            // Team-colored bench trim remains. Omit large floating logo planes,
-            // which can overlap the end zone from broadcast camera angles.
-        }
-    }
     const lighting=['corners','rim'].includes(profile.lighting)?profile.lighting:'corners';
     const lamp=new THREE.MeshBasicMaterial({color:'#fff4ce'});
     if(lighting==='corners')for(const xsign of [-1,1])for(const zsign of [-1,1]){
