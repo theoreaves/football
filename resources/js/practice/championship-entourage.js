@@ -24,45 +24,38 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
     }
     const mascot = showMascot ? buildMascot(mascotProfile,away.team_logo,textureFor) : null;
     if (mascot) { mascot.name = 'championship-away-mascot'; scene.add(mascot); }
-    // Left-end Colts tunnel is outside the field (x < 0). The greeting line
-    // must also remain OUTSIDE the playing surface; x=12 was in the end zone.
-    // After the visiting introduction the squad travels behind the end line
-    // to its own sideline, not across either team's end zone.
-    const greeting = cheerleaders.map((_,i) => ({x:-6-(i%2)*2.2,z:10+Math.floor(i/2)*6.2}));
-    const slots = cheerleaders.map((_,i) => ({x:16+i*8,z:63.5+(i%2)*2.5}));
-    const mascotGreeting = {x:-5,z:36};
-    const mascotTarget = {x:45,z:69};
-    const entranceStart = {x:-13,z:16.665};
-    const greetingRoute = (i,target) => [
-        {x:entranceStart.x,z:entranceStart.z+(i%2 ? .9 : -.9)},
-        {x:-7,z:entranceStart.z+(i%2 ? .9 : -.9)},
-        target,
-    ];
-    const exitRoute = (target,from) => [from,{x:-8,z:62.3},{x:target.x,z:62.3},target];
-    const update = (delta, seconds = null) => {
+    // Keep the visiting entourage aligned to the EXISTING right-side away tunnel.
+    // Its greeting corridor stays beyond the right end line; retire along the
+    // outside perimeter to the away bench, never across the playing surface.
+    const greet = cheerleaders.map((_,i) => ({x:125+(i%2)*2.2,z:16+Math.floor(i/2)*8}));
+    const spots = cheerleaders.map((_,i) => ({x:80+(i%3)*7,z:65.63+(Math.floor(i/3)*2)}));
+    const mascotGreet = {x:126,z:39};
+    const mascotSpot = {x:75,z:69};
+    const tunnelStart = i => ({x:133,z:36.665+(i%2?.9:-.9)});
+    const greetingRoute = (i,to) => [tunnelStart(i),{x:130,z:tunnelStart(i).z},to];
+    const retireRoute = (from,to) => [from,{x:129,z:63.5},{x:to.x,z:63.5},to];
+    const update = (delta,seconds=null) => {
         for (let i=0;i<cheerleaders.length;i++) {
-            const model = cheerleaders[i];
-            const t = seconds === null ? null : seconds-3;
-            const greet = greeting[i];
-            const pose = t === null ? null : t < 20
-                ? entrancePose('away',i,greet,t,greetingRoute(i,greet))
-                : entrancePose('away',i,slots[i],t-20,exitRoute(slots[i],greet),false);
-            model.visible = pose ? pose.visible : true;
-            if (pose) model.position.set(pose.x,pose.bob,pose.z);
-            else model.position.set(slots[i].x,0,slots[i].z);
-            model.rotation.y = pose?.yaw ?? 0;
-            animateCheerleader(model, Math.max(0,seconds ?? 0),i, seconds !== null && seconds < 35);
+            const model=cheerleaders[i],destination=greet[i];
+            const time=seconds===null?null:seconds-2;
+            const pose=time===null?null:time<19
+                ? entrancePose('away',i,destination,time,greetingRoute(i,destination))
+                : entrancePose('away',i,spots[i],time-19,retireRoute(destination,spots[i]),false);
+            model.visible=pose?pose.visible:true;
+            model.position.set(pose?.x??spots[i].x,pose?.bob??0,pose?.z??spots[i].z);
+            model.rotation.y=pose?.yaw??0;
+            animateCheerleader(model,Math.max(0,seconds??0),i,seconds!==null&&seconds<35);
         }
         if (mascot) {
-            const t = seconds === null ? null : seconds-10;
-            const pose = t === null ? null : t < 13
-                ? entrancePose('away',0,mascotGreeting,t,greetingRoute(0,mascotGreeting),false)
-                : entrancePose('away',0,mascotTarget,t-13,exitRoute(mascotTarget,mascotGreeting),false);
-            mascot.visible = pose ? pose.visible : true;
-            mascot.position.set(pose?.x ?? mascotTarget.x,pose?.bob ?? 0,pose?.z ?? mascotTarget.z);
-            mascot.rotation.y = pose?.yaw ?? 0;
+            const time=seconds===null?null:seconds-9;
+            const pose=time===null?null:time<13
+                ? entrancePose('away',0,mascotGreet,time,greetingRoute(0,mascotGreet),false)
+                : entrancePose('away',0,mascotSpot,time-13,retireRoute(mascotGreet,mascotSpot),false);
+            mascot.visible=pose?pose.visible:true;
+            mascot.position.set(pose?.x??mascotSpot.x,pose?.bob??0,pose?.z??mascotSpot.z);
+            mascot.rotation.y=pose?.yaw??0;
         }
     };
     update(0,null);
-    return {update,available:Boolean(cheerleaders.length || mascot)};
+    return {update,available:Boolean(cheerleaders.length||mascot)};
 }

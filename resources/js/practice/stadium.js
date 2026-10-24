@@ -168,9 +168,9 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     // The open end faces the field; entrance paths use this same layout.
     if(enabled(profile.tunnels))for(const [side,team] of [['home',home],['away',away]]){
         const {x,z,direction}=TUNNEL_LAYOUT[side],championship=home.championship_field === true;
-        // Field left is the away championship end zone (x=5). Brand the LEFT
-        // physical tunnel for away and RIGHT for home. Ordinary games unchanged.
-        const brandedTeam = championship ? (side === 'home' ? away : home) : team;
+        // Championship end zones match the existing proven regular-game tunnel layout:
+        // home at x=5 (left), away at x=115 (right).
+        const brandedTeam = team;
         const color=(championship || side==='home')?paint(brandedTeam.primary_color || '#315b85'):walls;
         box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
         for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);

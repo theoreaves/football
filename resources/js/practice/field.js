@@ -149,7 +149,7 @@ export function mountPractice(root, onReady = () => {}) {
     addBox(120, 0.15, 53.33, 0x285d38, 60, -0.1, 26.665);
     for (let x = 10; x < 110; x += 10) addBox(10, 0.02, 53.33, x % 20 ? 0x31723f : 0x296638, x + 5, 0, 26.665);
     const championshipField = home.championship_field === true;
-    const endzoneAt = x => championshipField && x === 5 ? away : home;
+    const endzoneAt = x => championshipField && x === 115 ? away : home;
     for (const x of [5, 115]) {
         const design = endzoneAt(x);
         if (!design.endzone_transparent) addBox(10, 0.03, 53.33, design.endzone_background || 0x174880, x, 0.02, 26.665);
