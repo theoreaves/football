@@ -24,13 +24,22 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
     }
     const mascot = showMascot ? buildMascot(mascotProfile,away.team_logo,textureFor) : null;
     if (mascot) { mascot.name = 'championship-away-mascot'; scene.add(mascot); }
-    const slots = cheerleaders.map((_,i) => ({x:18+i*13,z:63.5+(i%2)*2.5}));
-    const mascotTarget = {x:45,z:69};
+    // The visiting championship end zone and newly branded tunnel are LEFT.
+    // Form a short greeting lane beside that tunnel instead of marching all
+    // the way to the far sideline through the home team's end zone.
+    const slots = cheerleaders.map((_,i) => ({x:12+(i%3)*3,z:9+(Math.floor(i/3)*3)}));
+    const mascotTarget = {x:17,z:16};
+    const entranceStart = {x:-13,z:16.665};
+    const greetingRoute = (i,target) => [
+        {x:entranceStart.x,z:entranceStart.z+(i%2 ? .9 : -.9)},
+        {x:2,z:entranceStart.z+(i%2 ? .9 : -.9)},
+        {x:target.x,z:target.z},
+    ];
     const update = (delta, seconds = null) => {
         for (let i=0;i<cheerleaders.length;i++) {
             const model = cheerleaders[i];
             const t = seconds === null ? null : seconds-3;
-            const pose = t === null ? null : entrancePose('away',i,slots[i],t);
+            const pose = t === null ? null : entrancePose('home',i,slots[i],t,greetingRoute(i,slots[i]));
             model.visible = pose ? pose.visible : true;
             if (pose) model.position.set(pose.x,pose.bob,pose.z);
             else model.position.set(slots[i].x,0,slots[i].z);
@@ -38,7 +47,7 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
             animateCheerleader(model, Math.max(0,seconds ?? 0),i, seconds !== null && seconds < 35);
         }
         if (mascot) {
-            const pose = seconds === null ? null : entrancePose('away',0,mascotTarget,seconds-10);
+            const pose = seconds === null ? null : entrancePose('home',0,mascotTarget,seconds-10,greetingRoute(0,mascotTarget));
             mascot.visible = pose ? pose.visible : true;
             mascot.position.set(pose?.x ?? mascotTarget.x,pose?.bob ?? 0,pose?.z ?? mascotTarget.z);
             mascot.rotation.y = pose?.yaw ?? 0;

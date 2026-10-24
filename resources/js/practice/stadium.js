@@ -168,13 +168,16 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     // The open end faces the field; entrance paths use this same layout.
     if(enabled(profile.tunnels))for(const [side,team] of [['home',home],['away',away]]){
         const {x,z,direction}=TUNNEL_LAYOUT[side],championship=home.championship_field === true;
-        const color=(championship || side==='home')?paint(team.primary_color || '#315b85'):walls;
+        // Field left is the away championship end zone (x=5). Brand the LEFT
+        // physical tunnel for away and RIGHT for home. Ordinary games unchanged.
+        const brandedTeam = championship ? (side === 'home' ? away : home) : team;
+        const color=(championship || side==='home')?paint(brandedTeam.primary_color || '#315b85'):walls;
         box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
         for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);
         box([8,.6,10.6],[x,5,z],color,`tunnel-${side}-roof`);
         box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
-        if((home.championship_field === true || side === 'home') && team.team_logo){
-            const texture=textureFor(team.team_logo);
+        if((championship || side === 'home') && brandedTeam.team_logo){
+            const texture=textureFor(brandedTeam.team_logo);
             if(texture){
                 const emblem=add(new THREE.PlaneGeometry(6,8),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),`tunnel-${side}-logo`);
                 emblem.position.set(x,5.315,z);emblem.rotation.x=-Math.PI/2;
@@ -190,15 +193,8 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
             const paintTeam=paint(team.primary_color || '#315b85');
             // Use small bench-area strips, not long upright signs that overlap the field.
             box([25,.055,.7],[60,.67,z],paintTeam,`championship-${side}-bench-band`);
-            const logoUrl=team.team_logo;
-            if (logoUrl) {
-                const texture=textureFor(logoUrl);
-                if (texture) {
-                    const emblem=add(new THREE.PlaneGeometry(6,6),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),`championship-${side}-bench-logo`);
-                    emblem.rotation.x=-Math.PI/2;
-                    emblem.position.set(60,.74,z);
-                }
-            }
+            // Team-colored bench trim remains. Omit large floating logo planes,
+            // which can overlap the end zone from broadcast camera angles.
         }
     }
     const lighting=['corners','rim'].includes(profile.lighting)?profile.lighting:'corners';
