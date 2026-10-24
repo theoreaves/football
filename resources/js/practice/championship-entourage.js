@@ -27,20 +27,21 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
     // Keep the visiting entourage aligned to the EXISTING right-side away tunnel.
     // Its greeting corridor stays beyond the right end line; retire along the
     // outside perimeter to the away bench, never across the playing surface.
-    const greet = cheerleaders.map((_,i) => ({x:125+(i%2)*2.2,z:16+Math.floor(i/2)*8}));
+    // Mirror the regular home greeting corridor at the opposite physical tunnel.
+    // Keep the visitor squad in its greeting formation throughout the entire
+    // introduction. Retiring while the players are still entering created the
+    // long L-shaped line seen from above.
+    const greet = cheerleaders.map((_,i) => ({x:122.5+Math.floor(i/2)*1.8,z:17+(i%2)*18}));
     const spots = cheerleaders.map((_,i) => ({x:80+(i%3)*7,z:65.63+(Math.floor(i/3)*2)}));
-    const mascotGreet = {x:126,z:39};
+    const mascotGreet = {x:126,z:36.665};
     const mascotSpot = {x:75,z:69};
     const tunnelStart = i => ({x:133,z:36.665+(i%2?.9:-.9)});
     const greetingRoute = (i,to) => [tunnelStart(i),{x:130,z:tunnelStart(i).z},to];
-    const retireRoute = (from,to) => [from,{x:129,z:63.5},{x:to.x,z:63.5},to];
     const update = (delta,seconds=null) => {
         for (let i=0;i<cheerleaders.length;i++) {
             const model=cheerleaders[i],destination=greet[i];
             const time=seconds===null?null:seconds-2;
-            const pose=time===null?null:time<19
-                ? entrancePose('away',i,destination,time,greetingRoute(i,destination))
-                : entrancePose('away',i,spots[i],time-19,retireRoute(destination,spots[i]),false);
+            const pose=time===null?null:entrancePose('away',i,destination,time,greetingRoute(i,destination));
             model.visible=pose?pose.visible:true;
             model.position.set(pose?.x??spots[i].x,pose?.bob??0,pose?.z??spots[i].z);
             model.rotation.y=pose?.yaw??0;
@@ -48,9 +49,7 @@ export function buildChampionshipAwayEntourage(scene, appearance, textureFor) {
         }
         if (mascot) {
             const time=seconds===null?null:seconds-9;
-            const pose=time===null?null:time<13
-                ? entrancePose('away',0,mascotGreet,time,greetingRoute(0,mascotGreet),false)
-                : entrancePose('away',0,mascotSpot,time-13,retireRoute(mascotGreet,mascotSpot),false);
+            const pose=time===null?null:entrancePose('away',0,mascotGreet,time,greetingRoute(0,mascotGreet),false);
             mascot.visible=pose?pose.visible:true;
             mascot.position.set(pose?.x??mascotSpot.x,pose?.bob??0,pose?.z??mascotSpot.z);
             mascot.rotation.y=pose?.yaw??0;

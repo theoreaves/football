@@ -87,6 +87,28 @@ export function mountPractice(root, onReady = () => {}) {
     scene.fog = new THREE.Fog(0x101a2b, 160, 280);
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 350);
     const controls = new OrbitControls(camera, renderer.domElement);
+    // Opt-in championship mesh inspector. Shift-click the black line in the
+    // browser, then copy the named hit list from the DevTools console.
+    // This only attaches for the explicit diagnostic URL parameter.
+    if (home.championship_field === true && new URLSearchParams(window.location.search).get('championship_mesh_debug') === '1') {
+        const inspectorRay = new THREE.Raycaster();
+        const inspectorPoint = new THREE.Vector2();
+        renderer.domElement.addEventListener('pointerdown', event => {
+            if (!event.shiftKey) return;
+            const bounds = renderer.domElement.getBoundingClientRect();
+            inspectorPoint.set(((event.clientX-bounds.left)/bounds.width)*2-1,-((event.clientY-bounds.top)/bounds.height)*2+1);
+            scene.updateMatrixWorld(true);
+            inspectorRay.setFromCamera(inspectorPoint,camera);
+            const hits=inspectorRay.intersectObjects(scene.children,true).slice(0,15).map(hit => ({
+                name:hit.object.name || '(unnamed)',parent:hit.object.parent?.name || '(unnamed)',
+                distance:Math.round(hit.distance*100)/100,
+                point:hit.point.toArray().map(v=>Math.round(v*100)/100),
+                size:hit.object.geometry?.type || null
+            }));
+            console.info('[Championship mesh debug] Shift-click hits:',hits);
+        });
+        console.info('[Championship mesh debug] Enabled: Shift-click the black artifact to inspect its meshes.');
+    }
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2.1;
     controls.minDistance = 16;
