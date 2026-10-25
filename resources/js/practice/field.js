@@ -598,6 +598,34 @@ export function mountPractice(root, onReady = () => {}) {
             }
             else if (moving) mesh.rotation.y = Math.atan2(next.x - player.x, next.z - player.z);
             else if (phase === 'set' || elapsed === 0) mesh.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
+            // M15C.3: turn the intended receiver toward the quarterback before
+            // the ball arrives, then restore his route-facing direction for YAC.
+            // Rotation is visual only; route coordinates and outcome never change.
+            if (phase === 'play' && animation?.passing && !animation.no_snap
+                && player.team === 'offense' && player.role === animation.receiver_role) {
+                const qb = frame.players.find(p => p.team === 'offense' && p.role === 'QB');
+                if (qb) {
+                    const catchTime = animation.catch_at ?? 3.8;
+                    const design = String(animation.design || animation.call || '').toLowerCase();
+                    const screen = design.includes('screen');
+                    const depth = (player.x - qb.x) * playDirection;
+                    const nearGoal = playDirection > 0 ? player.x >= 103 : player.x <= 17;
+                    const settle = screen || /curl|hitch|comeback|stick|hook|spot|flat/.test(design)
+                        || nearGoal || (player.role.startsWith('TE') && depth < 18);
+                    const short = depth < 14 || ['short_pass','slant','two_point_pass'].includes(animation.call);
+                    const strength = settle ? 1 : short ? .62 : .26;
+                    const smooth = x => { const t=Math.max(0,Math.min(1,x));return t*t*(3-2*t); };
+                    const turnIn = smooth((elapsed-(catchTime-1.10))/.70);
+                    const turnOut = 1-smooth((elapsed-(catchTime+.20))/.70);
+                    const weight = strength*turnIn*turnOut;
+                    if (weight > 0) {
+                        const qbFacing = Math.atan2(qb.x-player.x,qb.z-player.z);
+                        const base = mesh.rotation.y;
+                        const delta = Math.atan2(Math.sin(qbFacing-base),Math.cos(qbFacing-base));
+                        mesh.rotation.y = base+delta*weight;
+                    }
+                }
+            }
             // The QB must receive the snap before turning for a rushing handoff.
             // Only change his presentation rotation; the saved motion path stays intact.
             if (player.team === 'offense' && player.role === 'QB' && animation
