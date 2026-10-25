@@ -4,6 +4,73 @@ namespace App\Services\Simulation;
 
 class SpecialTeamsTimeline
 {
+    /**
+     * Translate ST1b unit positions to the existing 11 animation roles.
+     * These roles are renderer/possession anchors, not player positions.
+     * This changes identities only; saved play outcomes/paths remain intact.
+     */
+    private function assignUnitPersonnel(array &$animation, array $rosters, string $side, string $other, string $call): void
+    {
+        $kickingUnit = match ($call) {
+            'punt' => 'punt_coverage',
+            'kickoff' => 'kickoff_coverage',
+            'field_goal', 'extra_point' => 'field_goal',
+            default => null,
+        };
+        $receivingUnit = match ($call) {
+            'punt' => 'punt_return',
+            'kickoff' => 'kickoff_return',
+            'field_goal', 'extra_point' => 'field_goal_block',
+            default => null,
+        };
+        if ($kickingUnit === null) return;
+
+        // QB renders the punter/kicker in the existing special-teams timeline;
+        // CB1 is the returner and RB the holder. Preserve those roles.
+        $mapping = [
+            'punt_coverage' => ['P'=>'QB','LS'=>'C','PP'=>'RB','G1'=>'LG','G2'=>'RG','T1'=>'LT','T2'=>'RT','WL'=>'TE','WR'=>'WR1','GL'=>'WR2','GR'=>'WR3'],
+            'punt_return' => ['PR'=>'CB1','R1'=>'DE1','R2'=>'DE2','R3'=>'DT1','B1'=>'DT2','B2'=>'LB1','B3'=>'LB2','B4'=>'LB3','B5'=>'CB2','B6'=>'S1','B7'=>'S2'],
+            'kickoff_coverage' => ['K'=>'QB','C1'=>'C','C2'=>'LG','C3'=>'RG','C4'=>'LT','C5'=>'RT','C6'=>'RB','C7'=>'TE','C8'=>'WR1','C9'=>'WR2','C10'=>'WR3'],
+            'kickoff_return' => ['KR'=>'CB1','B1'=>'DE1','B2'=>'DE2','B3'=>'DT1','B4'=>'DT2','B5'=>'LB1','B6'=>'LB2','B7'=>'LB3','B8'=>'CB2','B9'=>'S1','B10'=>'S2'],
+            'field_goal' => ['K'=>'QB','LS'=>'C','H'=>'RB','LG'=>'LG','RG'=>'RG','LT'=>'LT','RT'=>'RT','W1'=>'TE','W2'=>'WR1','B1'=>'WR2','B2'=>'WR3'],
+            'field_goal_block' => ['R1'=>'DE1','R2'=>'DT1','R3'=>'DT2','R4'=>'DE2','R5'=>'LB1','R6'=>'LB2','R7'=>'LB3','R8'=>'CB1','R9'=>'CB2','R10'=>'S1','R11'=>'S2'],
+        ];
+        $identityFields = ['id','name','lastname','number','height_inches','weight_pounds','skin_tone','appearance'];
+        foreach ([[$side, 'offense', $kickingUnit], [$other, 'defense', $receivingUnit]] as [$teamSide, $trackTeam, $unit]) {
+            $assignments = $rosters[$teamSide]['special_teams'][$unit] ?? [];
+            $pool = $rosters[$teamSide]['pool'] ?? [];
+            if (! $assignments || ! $pool) continue;
+            $poolById = [];
+            foreach ($pool as $candidate) $poolById[(int) $candidate['id']] = $candidate;
+            $trackIndexes = [];
+            foreach ($animation['players'] as $index => $track) {
+                if ($track['team'] === $trackTeam) $trackIndexes[$track['role']] = $index;
+            }
+            // Returner and kicking specialists take precedence over blockers.
+            foreach ($mapping[$unit] as $slot => $role) {
+                $id = (int) ($assignments[$slot] ?? 0);
+                if ($id <= 0 || ! isset($poolById[$id], $trackIndexes[$role])) continue;
+                $targetIndex = $trackIndexes[$role];
+                $sourceIndex = null;
+                foreach ($trackIndexes as $existingIndex) {
+                    if ((int) ($animation['players'][$existingIndex]['id'] ?? 0) === $id) {
+                        $sourceIndex = $existingIndex;
+                        break;
+                    }
+                }
+                if ($sourceIndex === $targetIndex) continue;
+                $desired = array_intersect_key($poolById[$id], array_flip($identityFields));
+                $replaced = array_intersect_key($animation['players'][$targetIndex], array_flip($identityFields));
+                if ($sourceIndex !== null) {
+                    // Swap actual player identities rather than duplicating an
+                    // already present player's jersey on another track.
+                    $animation['players'][$sourceIndex] = array_replace($animation['players'][$sourceIndex], $replaced);
+                }
+                $animation['players'][$targetIndex] = array_replace($animation['players'][$targetIndex], $desired);
+            }
+        }
+    }
+
     public function build(array $play, array $rosters): array
     {
         if ($play['call'] === 'onside_kick') {
@@ -115,6 +182,10 @@ class SpecialTeamsTimeline
             $base['tackle_style'] = null;
         }
         $base['firstDown'] = null;
+
+        // ST1c: assign the snapshotted special-teams personnel to actual
+        // animation tracks, after the kick/holder/returner paths are established.
+        $this->assignUnitPersonnel($base, $rosters, $side, $other, $play['call']);
 
         return $base;
     }
