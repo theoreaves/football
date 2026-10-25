@@ -15,7 +15,7 @@ class SpecialTeamsPersonnel
         $fieldGoal = in_array($call, ['field_goal', 'extra_point'], true);
         // Field-goal protection retains starting OL. Return specialists remain in CB1.
         $roles = $fieldGoal ? ($kicking ? ['TE', 'WR3'] : ['LB1', 'LB2', 'CB2', 'S2'])
-            : ['WR3', 'WR2', 'TE', 'RB', 'LB1', 'LB3', 'CB2', 'S2'];
+            : ['WR3', 'WR2', 'TE', 'LB1', 'LB3', 'CB2', 'S2'];
         $used = array_fill_keys(array_column($roster['players'], 'id'), true);
         $assigned = $state['game_lineup'][$side] ?? [];
         $snap = (int) ($state['personnel_snaps'] ?? 0);
