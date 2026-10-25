@@ -308,15 +308,28 @@ class PlayTimeline
                     'inside', 'outside' => 10.5,
                     default => 17.0,
                 };
-                // Keep intermediate waypoints reachable at modest jog speeds.
-                // The off-ball route never controls the saved catch or result.
-                $path = [
-                    $point(0, $x, $z),
-                    $point(1.5, $x + 2.5, $z),
-                    $point(3.8, $depth, $break),
-                    $point(5.3, $depth + 3, $break),
-                    $point(6, $depth + 3, $break),
-                ];
+                // Cap each off-ball leg at a realistic presentation speed.
+                // A fixed destination at 3.8s previously caused 15+ yard
+                // sprints and abrupt lateral bursts when the quarterback threw.
+                // The target receiver, ball path, scoring, and RNG are untouched.
+                $capLeg = static function (array $from, array $to, float $seconds): array {
+                    $dx = $to[1] - $from[1];
+                    $dz = $to[3] - $from[3];
+                    $distance = hypot($dx, $dz);
+                    $limit = 6.5 * $seconds;
+                    if ($distance > $limit && $distance > 0) {
+                        $fraction = $limit / $distance;
+                        $to[1] = $from[1] + $dx * $fraction;
+                        $to[3] = $from[3] + $dz * $fraction;
+                    }
+                    return $to;
+                };
+                $p0 = $point(0, $x, $z);
+                $p1 = $capLeg($p0, $point(1.5, $x + 2.5, $z), 1.5);
+                $p2 = $capLeg($p1, $point(3.8, $depth, $break), 2.3);
+                $p3 = $capLeg($p2, $point(5.3, $depth + 3, $break), 1.5);
+                $p4 = [6, $p3[1], $p3[2], $p3[3]];
+                $path = [$p0, $p1, $p2, $p3, $p4];
             }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
                 $cutZ = [22, 25, 29, 32, 35, 39][$visualVariant % 6];
