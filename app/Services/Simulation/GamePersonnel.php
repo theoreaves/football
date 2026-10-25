@@ -110,6 +110,7 @@ class GamePersonnel
             }
             $roster['players'] = $selected;
             $roster = app(PersonnelRotation::class)->apply($roster, $state, $side, $call, $formation, $preferences);
+            $roster = app(SpecialTeamsPersonnel::class)->apply($roster, $state, $side, $call);
         }
         unset($roster);
 
