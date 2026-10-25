@@ -28,6 +28,13 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         triple: [[-.12, .24], [0, .38], [.12, .24]],
         accent: [[-.11, .20], [0, .55], [.11, .20]],
     }[pattern] || [[0, 1]]);
+    // U2A.1: independent band colors, with the legacy stripe color as fallback.
+    const stripeColor = (part, offset) => {
+        const base = kit[part + '_stripe'] || '#ffffff';
+        const side = offset < 0 ? 'left' : offset > 0 ? 'right' : 'center';
+        return kit[part + '_stripe_' + side] || base;
+    };
+    const bandMaterial = (part, offset) => mat(stripeColor(part, offset));
     const legs = [], arms = [], elbows = [];
     for (const sign of [-1, 1]) {
         const leg = new THREE.Group(); leg.position.set(sign * .23, .84, 0); group.add(leg); legs.push(leg);
@@ -35,10 +42,9 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         box(leg, [.23, .32, .24], [0, -.55, 0], socks);
         box(leg, [.27, .14, .42], [0, -.76, .06], black);
         if (kit.pants_stripe_enabled) {
-            const paint = mat(kit.pants_stripe || '#ffffff');
             for (const [offset, width] of stripeBands(stripePattern('pants'))) {
                 // Keep strips just outside the thigh side, no floating decals.
-                box(leg, [.026, .42, .065 * width], [sign * .155, -.2, offset], paint);
+                box(leg, [.026, .42, .065 * width], [sign * .155, -.2, offset], bandMaterial('pants', offset));
             }
         }
         const arm = new THREE.Group(); arm.position.set(sign * .57, 1.49, 0); arm.rotation.z = sign * .12; group.add(arm); arms.push(arm);
@@ -48,9 +54,8 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         box(elbow, [.17, .29, .19], [0, -.15, .025], skin);
         box(elbow, [.19, .17, .21], [0, -.35, .04], skin);
         if (kit.shoulder_stripe_enabled) {
-            const paint = mat(kit.shoulder_stripe || '#ffffff');
             for (const [offset, width] of stripeBands(stripePattern('shoulder'))) {
-                box(arm, [.305, .07, .5 * width], [0, -.1, offset], paint);
+                box(arm, [.305, .07, .5 * width], [0, -.1, offset], bandMaterial('shoulder', offset));
             }
         }
     }
@@ -108,7 +113,16 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     if(pattern){const paint=mat(kit.helmet_stripe || '#ffffff');paint.flatShading=false;paint.polygonOffset=true;paint.polygonOffsetFactor=-1;paint.polygonOffsetUnits=-1;
         const mesh=new THREE.Mesh(pattern,paint);mesh.name='helmet-design-'+kit.helmet_design;helmet.add(mesh);}
     if (!pattern && kit.helmet_stripe_enabled) {
-        const stripePaint = mat(kit.helmet_stripe || '#ffffff'); stripePaint.flatShading = false;
+        const helmetBandPaint = offset => {
+            const paint = bandMaterial('helmet', offset);
+            paint.flatShading = false;
+            paint.side = THREE.FrontSide;
+            paint.polygonOffset = true;
+            paint.polygonOffsetFactor = -1;
+            paint.polygonOffsetUnits = -1;
+            return paint;
+        };
+        const stripePaint = helmetBandPaint(0);
         stripePaint.side = THREE.FrontSide;
         stripePaint.polygonOffset = true;
         stripePaint.polygonOffsetFactor = -1;
@@ -119,7 +133,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         if (stripePattern('helmet') !== 'single') {
             for (const [offset, width] of stripeBands(stripePattern('helmet'))) {
                 if (offset === 0) continue; // Existing center stripe remains.
-                const accent = new THREE.Mesh(helmetAccentStripeGeometry(offset * .50, .052 * width), stripePaint);
+                const accent = new THREE.Mesh(helmetAccentStripeGeometry(offset * .50, .052 * width), helmetBandPaint(offset));
                 accent.name = 'helmet-stripe-accent'; helmet.add(accent);
             }
         }

@@ -133,6 +133,21 @@
                                 @endforeach
                             </select>
                         </label>
+                        <div class="rounded border p-2 space-y-2" data-stripe-options>
+                            <span class="block text-sm font-semibold">{{ ucfirst($part) }} stripe colors</span>
+                            <div class="grid grid-cols-3 gap-2">
+                                @foreach(['left' => 'Left', 'center' => 'Center', 'right' => 'Right'] as $side => $sideLabel)
+                                    @php
+                                        $colorPath = 'team_settings.uniform_stripe_colors.'.$venue.'.'.$part.'.'.$side;
+                                        $baseColor = $team->{$stripe} ?: '#ffffff';
+                                        $savedColor = $team->team_settings['uniform_stripe_colors'][$venue][$part][$side] ?? $baseColor;
+                                    @endphp
+                                    <label class="text-xs" data-stripe-color="{{ $side }}">{{ $sideLabel }}
+                                        <input type="color" class="block w-full h-9 border rounded" name="team_settings[uniform_stripe_colors][{{ $venue }}][{{ $part }}][{{ $side }}]" value="{{ old($colorPath, $savedColor) }}">
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
                     @endforeach
                     </div>
                 @endforeach

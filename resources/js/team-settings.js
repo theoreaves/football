@@ -13,6 +13,9 @@ export function uniformFromForm(form,venue,art={}) {
     }
     for (const part of ['helmet','shoulder','pants']) {
         uniform[`${part}_stripe_pattern`] = data.getAll(`team_settings[uniform_patterns][${venue}][${part}]`).at(-1) || 'single';
+        for (const side of ['left', 'center', 'right']) {
+            uniform[`${part}_stripe_${side}`] = data.getAll(`team_settings[uniform_stripe_colors][${venue}][${part}][${side}]`).at(-1) || uniform[`${part}_stripe`] || '#ffffff';
+        }
     }
     uniform.helmet_design=data.getAll(`team_settings[helmets][${venue}][design]`).at(-1) || 'standard';
     for(const side of ['left','right'])uniform[`helmet_logo_${side}_flip`]=data.getAll(`team_settings[helmets][flip_${side}]`).at(-1)==='1';
