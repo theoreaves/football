@@ -10,19 +10,20 @@ function drawingDocument() {
     return {draws,document:{createElement(){return {getContext:()=>context};}}};
 }
 
-test('shoulder numbers share the real jersey number texture and follow animated sleeves',()=>{
+test('shoulder numbers share the real jersey number texture and remain on shoulder pads during arm swings',()=>{
     const f=drawingDocument();
     const model=buildFootballPlayer({number:'00',height_inches:77,weight_pounds:300},{number:'#123abc',number_outline:'#fedcba'},f.document);
     const left=model.getObjectByName('jersey-number-shoulder-left'),right=model.getObjectByName('jersey-number-shoulder-right');
-    assert.ok(left&&right);assert.equal(left.parent,model.userData.arms[0]);assert.equal(right.parent,model.userData.arms[1]);
+    assert.ok(left&&right);assert.equal(left.parent,right.parent);assert.ok(left.parent.isMesh);
     assert.equal(left.material,right.material);
     const matching=[];model.traverse(mesh=>{if(mesh.isMesh&&mesh.material===left.material)matching.push(mesh);});
     assert.equal(matching.length,4);assert.deepEqual(f.draws,[['outline','00','#fedcba'],['fill','00','#123abc']]);
     assert.ok(left.position.x<-.15);assert.ok(right.position.x>.15);
-    assert.equal(left.rotation.y,-Math.PI/2);assert.equal(right.rotation.y,Math.PI/2);
+    assert.equal(left.rotation.x,-Math.PI/2);assert.equal(right.rotation.x,-Math.PI/2);
+    assert.equal(left.rotation.z,-Math.PI/2);assert.equal(right.rotation.z,Math.PI/2);
     model.updateMatrixWorld(true);const before=left.getWorldPosition(new THREE.Vector3());
     model.userData.arms[0].rotation.x=.8;model.updateMatrixWorld(true);
-    assert.ok(before.distanceTo(left.getWorldPosition(new THREE.Vector3()))>.001);
+    assert.ok(before.distanceTo(left.getWorldPosition(new THREE.Vector3()))<.001);
     const unnumbered=buildFootballPlayer({}, {},f.document);
     assert.equal(unnumbered.getObjectByName('jersey-number-shoulder-left'),undefined);
 });

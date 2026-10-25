@@ -163,7 +163,13 @@ test('running back substitutions credit saved snap identities across a midgame l
     $game->save();
     $html = $this->get(route('exhibitions.show', $game))->assertOk()->getContent();
     preg_match('/aria-label="Players involved in this play"(.*?)data-result-ok/s', $html, $match);
-    expect($match[1] ?? '')->toContain(e($backup['name']))->not->toContain('Portrait of '.e($starter['name']));
+    expect($match[1] ?? '')->toContain(e($backup['name']));
+    // The full markup may contain portraits elsewhere (lineup/bench). Assert
+    // the actual last-play participant list rather than unrelated page art.
+    $cards = app(\App\Services\Simulation\PlayResultPlayers::class)
+        ->forPlay($game->rosters, $second['play']);
+    expect(collect($cards)->pluck('player.id')->all())->toContain($backup['id'])
+        ->not->toContain($starter['id']);
 
 });
 
