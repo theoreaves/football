@@ -150,6 +150,24 @@
                         </div>
                     @endforeach
                     </div>
+                    <div class="mt-4 rounded border p-3 space-y-2">
+                        <h4 class="font-semibold">Optional jersey artwork — {{ $label }}</h4>
+                        <p class="text-sm text-gray-600">Transparent PNG recommended. The chest image sits above the front number; the sleeve image appears on both sleeves. Uploads are independent for home and away.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach(['chest' => 'Upper chest logo', 'sleeve' => 'Sleeve logo (both arms)'] as $part => $title)
+                                @php $stored = $team->team_settings['uniform_logos'][$venue][$part] ?? null; @endphp
+                                <div class="border rounded p-3 space-y-2 min-w-0" data-uniform-art>
+                                    <label class="font-medium block">{{ $title }}
+                                        <input type="file" name="uniform_logo_uploads[{{ $venue }}][{{ $part }}]" accept="image/png,image/jpeg,image/webp" class="block text-sm w-full mt-2">
+                                    </label>
+                                    @if($mode === 'edit' && $stored)
+                                        <img src="{{ route('teams.art', ['team' => $team, 'asset' => "uniform_{$venue}_{$part}"]) }}" alt="{{ $title }}" class="h-20 w-full object-contain bg-white border rounded">
+                                        <label class="block text-sm"><input type="checkbox" name="uniform_logo_clear[{{ $venue }}][{{ $part }}]" value="1"> Remove this image</label>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 @endforeach
                 <h3 class="font-semibold">Helmet logos</h3>
                 <p class="text-sm">Left and right logos apply to both uniforms. Leave either side empty for no logo.</p>

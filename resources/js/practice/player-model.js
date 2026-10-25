@@ -177,6 +177,38 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     const numberMaterial = addSurfaceJerseyNumbers(torso, player, document, kit, fit);
     addShoulderNumbers(shoulders, numberMaterial);
     addShoulderJerseyName(shoulders, player, document, kit, fit);
+    // U2B artwork is attached to the same rigid jersey / sleeve meshes as
+    // their fabric. Missing images add zero meshes or textures.
+    const jerseyLogo = (url, parent, name, size, position, rotationY = 0) => {
+        const texture = url && textureFor(url);
+        if (!texture) return;
+        const paint = new THREE.MeshBasicMaterial({
+            map: texture, transparent: true, depthWrite: false,
+            polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+            side: THREE.DoubleSide,
+        });
+        const logo = new THREE.Mesh(new THREE.PlaneGeometry(size[0], size[1]), paint);
+        logo.name = name; logo.position.set(...position); logo.rotation.y = rotationY;
+        parent.add(logo);
+        let dimensions = '';
+        logo.onBeforeRender = () => {
+            if (!texture.image) return;
+            const key = `${texture.image.width}:${texture.image.height}`;
+            if (key === dimensions) return;
+            const fitted = fitLogo(texture.image.width, texture.image.height, size[0], size[1]);
+            logo.geometry.dispose();
+            logo.geometry = new THREE.PlaneGeometry(fitted.width, fitted.height);
+            dimensions = key;
+        };
+    };
+    // Chest: shoulder box front z=.28, with slight clearance.
+    jerseyLogo(kit.chest_logo, shoulders, 'jersey-logo-chest', [.23, .14], [0, .018, .283]);
+    // Sleeve decals: upper arms' outside surfaces, carried through arm motion.
+    for (const [i, sign] of [-1, 1].entries()) {
+        jerseyLogo(kit.sleeve_logo, arms[i], sign < 0 ? 'jersey-logo-sleeve-left' : 'jersey-logo-sleeve-right',
+            [.18, .18], [sign * .154, .015, 0], sign * Math.PI / 2);
+    }
+
     const height = Math.max(48, Math.min(96, Number(player.height_inches) || 72)) / 72;
     const bulk = Math.max(.8, Math.min(1.35, Math.sqrt((Number(player.weight_pounds) || 215) / 215)));
     group.scale.set(Math.pow(bulk, .2), height, Math.pow(bulk, .2));

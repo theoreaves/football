@@ -20,8 +20,12 @@ class PracticeController extends Controller
 
     public function art(Team $team, string $asset)
     {
-        abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right'], true), 404);
-        $path = $team->{$asset};
+        if (preg_match('/^uniform_(home|away)_(chest|sleeve)$/', $asset, $matches)) {
+            $path = $team->team_settings['uniform_logos'][$matches[1]][$matches[2]] ?? null;
+        } else {
+            abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right'], true), 404);
+            $path = $team->{$asset};
+        }
         $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
         abort_unless($path && $disk->exists($path), 404);
 
@@ -105,6 +109,11 @@ class PracticeController extends Controller
         $uniform['helmet_logo_right_flip'] = (bool) ($team->team_settings['helmets']['flip_right'] ?? false);
         $uniform['helmet_logo_color'] = $team->team_settings['helmets']['logo_color'] ?? null;
 
+        foreach (['chest', 'sleeve'] as $part) {
+            $uniform[$part.'_logo'] = ! empty($team->team_settings['uniform_logos'][$venue][$part])
+                ? route('teams.art', ['team' => $team, 'asset' => "uniform_{$venue}_{$part}"])
+                : null;
+        }
         $uniform['name_enabled'] = (bool) $team->{"uniform_{$venue}_name_enabled"};
         $uniform['name_color'] = $team->{"uniform_{$venue}_name_color"} ?: $uniform['number'];
 

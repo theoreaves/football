@@ -17,6 +17,7 @@ export function uniformFromForm(form,venue,art={}) {
             uniform[`${part}_stripe_${side}`] = data.getAll(`team_settings[uniform_stripe_colors][${venue}][${part}][${side}]`).at(-1) || uniform[`${part}_stripe`] || '#ffffff';
         }
     }
+    for(const part of ['chest','sleeve']) uniform[`${part}_logo`]=art[`uniform_${venue}_${part}`] || null;
     uniform.helmet_design=data.getAll(`team_settings[helmets][${venue}][design]`).at(-1) || 'standard';
     for(const side of ['left','right'])uniform[`helmet_logo_${side}_flip`]=data.getAll(`team_settings[helmets][flip_${side}]`).at(-1)==='1';
     uniform.helmet_logo_color=data.getAll('team_settings[helmets][logo_color]').at(-1) || null;
@@ -62,6 +63,15 @@ export function mountTeamSettings(form) {
             if(input?.files?.[0]){url=URL.createObjectURL(input.files[0]);urls.add(url);}
             else if(!clear?.checked)url=input?.closest('div.min-w-0')?.querySelector('img')?.src;
             result[field]=url;
+        }
+        for(const venue of ['home','away'])for(const part of ['chest','sleeve']){
+            const key=`uniform_${venue}_${part}`;
+            const input=form.elements.namedItem(`uniform_logo_uploads[${venue}][${part}]`);
+            const clear=form.elements.namedItem(`uniform_logo_clear[${venue}][${part}]`);
+            let url=null;
+            if(input?.files?.[0]){url=URL.createObjectURL(input.files[0]);urls.add(url);}
+            else if(!clear?.checked)url=input?.closest('[data-uniform-art]')?.querySelector('img')?.src || null;
+            result[key]=url;
         }
         return result;
     };

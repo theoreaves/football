@@ -33,6 +33,7 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request);
 
+        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear']);
         $team = Team::create($data);
 
         $this->handleUploads($request, $team);
@@ -56,6 +57,7 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request, $team);
 
+        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear']);
         if (isset($data['team_settings'])) {
             $data['team_settings'] = array_replace_recursive($team->team_settings ?? [], $data['team_settings']);
         }
@@ -109,7 +111,7 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone,uniform_patterns,uniform_stripe_colors'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone,uniform_patterns,uniform_stripe_colors,uniform_logos'],
             'team_settings.championship_endzone' => ['sometimes', 'array:enabled,text,background,text_color,transparent'],
             'team_settings.championship_endzone.enabled' => ['sometimes', 'boolean'],
             'team_settings.championship_endzone.transparent' => ['sometimes', 'boolean'],
@@ -175,6 +177,20 @@ class TeamEditor extends Controller
                     \Illuminate\Validation\Rule::in(['single','double','triple','accent'])];
             }
         }
+        // U2B images are stored in team_settings after upload, not accepted as arbitrary paths.
+        // Validate the upload request prior to saving team data.
+        foreach (['home', 'away'] as $venue) {
+            foreach (['chest', 'sleeve'] as $part) {
+                $settings["uniform_logo_uploads.{$venue}.{$part}"] = ['nullable', 'image', 'max:5120'];
+                $settings["uniform_logo_clear.{$venue}.{$part}"] = ['sometimes', 'boolean'];
+            }
+        }
+        $settings['uniform_logo_uploads'] = ['sometimes', 'array:home,away'];
+        $settings['uniform_logo_uploads.home'] = ['sometimes', 'array:chest,sleeve'];
+        $settings['uniform_logo_uploads.away'] = ['sometimes', 'array:chest,sleeve'];
+        $settings['uniform_logo_clear'] = ['sometimes', 'array:home,away'];
+        $settings['uniform_logo_clear.home'] = ['sometimes', 'array:chest,sleeve'];
+        $settings['uniform_logo_clear.away'] = ['sometimes', 'array:chest,sleeve'];
         $settings['team_settings.helmets'] = ['sometimes', 'array:home,away,flip_left,flip_right,logo_color'];
         $settings['team_settings.helmets.logo_color'] = $hex;
         foreach (['flip_left', 'flip_right'] as $side) {
@@ -250,6 +266,27 @@ class TeamEditor extends Controller
                 // Immutable paths keep artwork usable in already-started game snapshots.
                 $profile['championship_endzone']['art_'.$side] = $request->file('championship_endzone_'.$side)
                     ->storeAs("teams/{$team->id}/championship", (string) \Illuminate\Support\Str::uuid().'.'.$request->file('championship_endzone_'.$side)->extension(), 'team_art');
+            }
+        }
+        $team->update(['team_settings' => $profile]);
+
+        // U2B: two optional transparent uniform graphics per venue.
+        // Immutable filenames keep old exhibition snapshots intact.
+        foreach (['home', 'away'] as $venue) {
+            foreach (['chest', 'sleeve'] as $part) {
+                $old = $profile['uniform_logos'][$venue][$part] ?? null;
+                if ($request->boolean("uniform_logo_clear.{$venue}.{$part}")) {
+                    unset($profile['uniform_logos'][$venue][$part]);
+                    // Don't delete old artwork: saved games may still refer to it.
+                }
+                if ($request->hasFile("uniform_logo_uploads.{$venue}.{$part}")) {
+                    $file = $request->file("uniform_logo_uploads.{$venue}.{$part}");
+                    $profile['uniform_logos'][$venue][$part] = $file->storeAs(
+                        "teams/{$team->id}/uniforms",
+                        (string) \Illuminate\Support\Str::uuid().'.'.$file->extension(),
+                        'team_art'
+                    );
+                }
             }
         }
         $team->update(['team_settings' => $profile]);
