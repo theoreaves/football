@@ -91,6 +91,10 @@ class PracticeController extends Controller
             $uniform[$part.'_stripe_enabled'] = (bool) $team->{"uniform_{$venue}_{$part}_stripe_enabled"};
         }
 
+        foreach (['helmet', 'shoulder', 'pants'] as $part) {
+            $uniform[$part.'_stripe_pattern'] =
+                $team->team_settings['uniform_patterns'][$venue][$part] ?? 'single';
+        }
         $uniform['helmet_design'] = $team->team_settings['helmets'][$venue]['design'] ?? 'standard';
         $uniform['helmet_logo_left_flip'] = (bool) ($team->team_settings['helmets']['flip_left'] ?? false);
         $uniform['helmet_logo_right_flip'] = (bool) ($team->team_settings['helmets']['flip_right'] ?? false);

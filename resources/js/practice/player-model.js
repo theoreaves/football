@@ -1,7 +1,7 @@
 import {helmetDesignGeometry,helmetLogoMaterial} from './helmet-designs.js';
 import { addShoulderJerseyName } from './jersey-names.js';
 import { buildPlayerFace } from './player-face.js';
-import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry } from './helmet-shell.js';
+import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry, helmetAccentStripeGeometry } from './helmet-shell.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
 import { addSurfaceJerseyNumbers, addShoulderNumbers } from './jersey-numbers.js';
@@ -20,20 +20,39 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
     torso.geometry.rotateY(Math.PI / 4); torso.scale.z = .6; torso.position.y = 1.25; torso.castShadow = true; group.add(torso);
     const shoulders = box(group, [1.17, .22, .56], [0, 1.58, 0], shirt);
     const hips = box(group, [.69, .21, .44], [0, .83, 0], pants);
+    // U2A: one legacy stripe or a few shallow, shared-material bands.
+    const stripePattern = part => kit[part + '_stripe_pattern'] || 'single';
+    const stripeBands = pattern => ({
+        single: [[0, 1]],
+        double: [[-.095, .42], [.095, .42]],
+        triple: [[-.12, .24], [0, .38], [.12, .24]],
+        accent: [[-.11, .20], [0, .55], [.11, .20]],
+    }[pattern] || [[0, 1]]);
     const legs = [], arms = [], elbows = [];
     for (const sign of [-1, 1]) {
         const leg = new THREE.Group(); leg.position.set(sign * .23, .84, 0); group.add(leg); legs.push(leg);
         box(leg, [.3, .42, .36], [0, -.2, 0], pants);
         box(leg, [.23, .32, .24], [0, -.55, 0], socks);
         box(leg, [.27, .14, .42], [0, -.76, .06], black);
-        if (kit.pants_stripe_enabled) box(leg, [.025, .42, .065], [sign * .155, -.2, .03], mat(kit.pants_stripe || '#ffffff'));
+        if (kit.pants_stripe_enabled) {
+            const paint = mat(kit.pants_stripe || '#ffffff');
+            for (const [offset, width] of stripeBands(stripePattern('pants'))) {
+                // Keep strips just outside the thigh side, no floating decals.
+                box(leg, [.026, .42, .065 * width], [sign * .155, -.2, offset], paint);
+            }
+        }
         const arm = new THREE.Group(); arm.position.set(sign * .57, 1.49, 0); arm.rotation.z = sign * .12; group.add(arm); arms.push(arm);
         box(arm, [.3, .3, .49], [0, -.04, 0], shirt);
         box(arm, [.2, .33, .22], [0, -.32, 0], skin);
         const elbow = new THREE.Group(); elbow.position.set(0, -.46, 0); arm.add(elbow); elbows.push(elbow);
         box(elbow, [.17, .29, .19], [0, -.15, .025], skin);
         box(elbow, [.19, .17, .21], [0, -.35, .04], skin);
-        if (kit.shoulder_stripe_enabled) box(arm, [.305, .07, .5], [0, -.1, 0], mat(kit.shoulder_stripe || '#ffffff'));
+        if (kit.shoulder_stripe_enabled) {
+            const paint = mat(kit.shoulder_stripe || '#ffffff');
+            for (const [offset, width] of stripeBands(stripePattern('shoulder'))) {
+                box(arm, [.305, .07, .5 * width], [0, -.1, offset], paint);
+            }
+        }
     }
     box(group, [.23, .2, .23], [0, 1.75, 0], skin);
     const headPartsStart = group.children.length;
@@ -96,6 +115,14 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         stripePaint.polygonOffsetUnits = -1;
         const stripe = new THREE.Mesh(helmetStripeGeometry(), stripePaint);
         stripe.name = 'helmet-stripe'; helmet.add(stripe);
+        // Optional slim flanking stripes on the center helmet stripe.
+        if (stripePattern('helmet') !== 'single') {
+            for (const [offset, width] of stripeBands(stripePattern('helmet'))) {
+                if (offset === 0) continue; // Existing center stripe remains.
+                const accent = new THREE.Mesh(helmetAccentStripeGeometry(offset * .50, .052 * width), stripePaint);
+                accent.name = 'helmet-stripe-accent'; helmet.add(accent);
+            }
+        }
     }
     for (const [sign, url] of [[-1, kit.helmet_logo_left], [1, kit.helmet_logo_right]]) {
         const texture = url && textureFor(url); if (!texture) continue;

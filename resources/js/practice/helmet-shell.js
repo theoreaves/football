@@ -67,3 +67,16 @@ export function helmetStripeGeometry() {
         return point.addScaledVector(normal, .0006);
     }, true);
 }
+
+// U2A: narrow parallel stripes conform to the existing helmet shell.
+export function helmetAccentStripeGeometry(centerX, width = .015) {
+    return surface(5, 64, (u, v) => {
+        const angle = -2.238 + v * 3.576;
+        const x = centerX + (u - .5) * width;
+        const radius = Math.sqrt(1 - (x / .355) ** 2);
+        const point = new THREE.Vector3(x, .38 * radius * Math.cos(angle), .405 * radius * Math.sin(angle));
+        const normal = new THREE.Vector3(point.x / (.355 ** 2), point.y / (.38 ** 2), point.z / (.405 ** 2)).normalize();
+        point.z -= .025;
+        return point.addScaledVector(normal, .0010);
+    }, true);
+}

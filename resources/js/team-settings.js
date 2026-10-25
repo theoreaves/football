@@ -11,6 +11,9 @@ export function uniformFromForm(form,venue,art={}) {
         const value=data.getAll(`uniform_${venue}_${part}`).at(-1);
         uniform[part]=part.endsWith('_enabled')?value==='1':value;
     }
+    for (const part of ['helmet','shoulder','pants']) {
+        uniform[`${part}_stripe_pattern`] = data.getAll(`team_settings[uniform_patterns][${venue}][${part}]`).at(-1) || 'single';
+    }
     uniform.helmet_design=data.getAll(`team_settings[helmets][${venue}][design]`).at(-1) || 'standard';
     for(const side of ['left','right'])uniform[`helmet_logo_${side}_flip`]=data.getAll(`team_settings[helmets][flip_${side}]`).at(-1)==='1';
     uniform.helmet_logo_color=data.getAll('team_settings[helmets][logo_color]').at(-1) || null;

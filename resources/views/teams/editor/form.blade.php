@@ -126,6 +126,13 @@
                         @endphp
                         <label><input type="hidden" name="{{ $stripe }}_enabled" value="0"><input type="checkbox" name="{{ $stripe }}_enabled" value="1" @checked(old($stripe.'_enabled', $team->{$stripe.'_enabled'}))> {{ ucfirst($part) }} stripe
                         <input type="color" name="{{ $stripe }}" value="{{ old($stripe, $team->{$stripe} ?? '#ffffff') }}" class="block w-full h-10 border rounded"></label>
+                        <label class="block text-sm">{{ ucfirst($part) }} stripe pattern
+                            <select class="block w-full border rounded p-2" name="team_settings[uniform_patterns][{{ $venue }}][{{ $part }}]">
+                                @foreach(['single' => 'Single (existing)', 'double' => 'Two parallel', 'triple' => 'Three parallel', 'accent' => 'Wide center + slim sides'] as $value => $title)
+                                    <option value="{{ $value }}" @selected(old('team_settings.uniform_patterns.'.$venue.'.'.$part, $team->team_settings['uniform_patterns'][$venue][$part] ?? 'single') === $value)>{{ $title }}</option>
+                                @endforeach
+                            </select>
+                        </label>
                     @endforeach
                     </div>
                 @endforeach

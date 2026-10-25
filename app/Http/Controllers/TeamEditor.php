@@ -109,7 +109,7 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone,uniform_patterns'],
             'team_settings.championship_endzone' => ['sometimes', 'array:enabled,text,background,text_color,transparent'],
             'team_settings.championship_endzone.enabled' => ['sometimes', 'boolean'],
             'team_settings.championship_endzone.transparent' => ['sometimes', 'boolean'],
@@ -156,6 +156,14 @@ class TeamEditor extends Controller
                     $fail('Choose an eligible player from this team’s current roster.');
                 }
             }];
+        }
+        $settings['team_settings.uniform_patterns'] = ['sometimes', 'array:home,away'];
+        foreach (['home', 'away'] as $venue) {
+            $settings['team_settings.uniform_patterns.'.$venue] = ['sometimes', 'array:helmet,shoulder,pants'];
+            foreach (['helmet', 'shoulder', 'pants'] as $part) {
+                $settings['team_settings.uniform_patterns.'.$venue.'.'.$part] = ['sometimes',
+                    \Illuminate\Validation\Rule::in(['single','double','triple','accent'])];
+            }
         }
         $settings['team_settings.helmets'] = ['sometimes', 'array:home,away,flip_left,flip_right,logo_color'];
         $settings['team_settings.helmets.logo_color'] = $hex;
