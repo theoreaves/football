@@ -338,6 +338,10 @@ class PlayTimeline
                     $point(4.1, $play['gain'] * .72, $endZ + ($cutZ - $endZ) * .25),
                     $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
             }
+            // Negative-yardage runs need a coherent route BACK toward the
+            // recorded tackle spot. Previously the first RB cut was clamped to
+            // zero/forward, so the runner lunged ahead before snapping backward.
+            // Build this after the formation-specific RB route overrides below.
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
                 // Keep the ball on the exact RB track once the handoff completes.
                 $runnerPath = $path;
@@ -351,6 +355,24 @@ class PlayTimeline
                 $wrongWay = $endZ < 26.7 ? 31 : 22;
                 $path = [$point(0, $x, $z), $point(1, $handoff, 27), $point(1.5, -2, $wrongWay),
                     $point(2.4, max(0, $play['gain'] * .25), $endZ), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
+                $runnerPath = $path;
+            }
+            // M15D.1: tackles for loss are backward pursuits, not aborted
+            // forward runs. Do not force a forward breakpoint at x=0 or x=1.
+            // Keep the same handoff and EXACT recorded contact/finish point;
+            // no score, gain, ball possession or simulation calculation changes.
+            if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB'
+                && $play['gain'] < 0 && ! $qbDesigned) {
+                $loss = (float) $play['gain'];
+                $breakZ = 26.7 + ($endZ - 26.7) * .35;
+                $path = [
+                    $point(0, $x, $z),
+                    $point(1.0, $handoff, 27),
+                    $point(2.4, $loss * .28, $breakZ),
+                    $point(4.1, $loss * .76, $endZ),
+                    $point(5.3, $loss, $endZ),
+                    $point(6, $loss, $endZ),
+                ];
                 $runnerPath = $path;
             }
             if ($pass && in_array($design, ['mesh', 'flood'], true) && in_array($role, ['WR1', 'WR2', 'WR3', 'WR4', 'TE', 'TE2', 'FB'], true) && $role !== $receiverRole) {
@@ -517,7 +539,8 @@ class PlayTimeline
                 // Use world coordinates from the carrier to avoid left/right team drift.
                 $contactX = $carrierContact[1];
                 $contactZ = $carrierContact[3];
-                $approach = $point(4.55, $end - 1.9, $endZ + ($z < $endZ ? -1.8 : 1.8));
+                $approach = $point(4.55, $end + ($end < 0 ? 1.9 : -1.9),
+                    $endZ + ($z < $endZ ? -1.8 : 1.8));
                 $path = [
                     $path[0],
                     $point(3.4, $end * .55, $z + ($endZ - $z) * .6),
