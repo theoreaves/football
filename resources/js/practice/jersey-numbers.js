@@ -10,22 +10,24 @@ export function addJerseyNumbers(jersey, player, document, uniform = {}, placeme
     const numberMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false });
     for (const facing of [1, -1]) {
         const number = new THREE.Mesh(new THREE.PlaneGeometry(.65, .65), numberMaterial);
-        number.position.set(0, (placement.height ?? 1.25), facing * (placement.depth ?? .435));
+        // Push the decal clear of the torso surface (including bulkier kits).
+        number.position.set(0, (placement.height ?? 1.25), facing * Math.max(.38, placement.depth ?? .435));
         number.rotation.y = facing === 1 ? 0 : Math.PI;
         jersey.add(number);
     }
     return numberMaterial;
 }
 
-// Share the chest/back texture and material; attach decals to the moving sleeves.
+// Attach numbers to the top of the moving upper shoulders, rather than
+// vertically to the outside sleeves. Geometry follows arm animation naturally.
 export function addShoulderNumbers(arms, material) {
     if (!material) return;
     arms.forEach((arm, index) => {
         const sign = index === 0 ? -1 : 1;
-        const number = new THREE.Mesh(new THREE.PlaneGeometry(.34, .18), material);
+        const number = new THREE.Mesh(new THREE.PlaneGeometry(.32, .22), material);
         number.name = sign < 0 ? 'jersey-number-shoulder-left' : 'jersey-number-shoulder-right';
-        number.position.set(sign * .157, .025, 0);
-        number.rotation.y = sign * Math.PI / 2;
+        number.position.set(0, .135, 0);
+        number.rotation.x = -Math.PI / 2;
         arm.add(number);
     });
 }

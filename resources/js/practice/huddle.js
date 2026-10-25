@@ -47,6 +47,8 @@ export function sampleBreakHuddle(formation, line, possession, progress, homeDir
 
 // Return directly to the selected formation, matching identities rather than array order.
 export function sampleNoHuddle(finalFrame, formation, progress) {
+    // A smooth jog that retains velocity through the middle of the route,
+    // with a gradual start/stop rather than a rapid teleport into formation.
     const t=Math.max(0,Math.min(1,progress)),blend=t*t*(3-2*t);
     const targets=new Map(formation.players.map(p=>[`${p.side}:${p.id ?? p.role}`,p]));
     return {...formation,players:finalFrame.players.map(p=>{

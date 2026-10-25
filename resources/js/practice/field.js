@@ -472,8 +472,11 @@ export function mountPractice(root, onReady = () => {}) {
     const championshipAwayEntourage = buildChampionshipAwayEntourage(scene,appearance,textureFor);
     const sidelineCoaches = buildSidelineCoaches(scene,appearance,textureFor);
     const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
-    const wantsHurry=()=>Boolean(afterState?.on_field && (callForm?.elements.namedItem('tempo')?.value==='hurry' || (!callForm?.elements.namedItem('tempo') && root.dataset.cpuSpecial!=='true' && (afterState.no_huddle || root.dataset.cpuHurry==='true'))));
-    let hurryWasActive=null,hurryStart=null,hurryProgress=1;
+    // Fast no-huddle transition applies only with a running game clock.
+    // A stopped clock still permits play calling but uses the usual lineup path.
+    const wantsHurry=()=>Boolean(afterState?.on_field && afterState.clock_running === true
+        && (callForm?.elements.namedItem('tempo')?.value==='hurry' || (!callForm?.elements.namedItem('tempo') && root.dataset.cpuSpecial!=='true' && (afterState.no_huddle || root.dataset.cpuHurry==='true'))));
+    let hurryWasActive=null,hurryStart=null,hurryProgress=1,hurryDuration=1.5;
     const sampleHuddle=(frame,line,possession,progress,homeDirection)=>wantsHurry() && nextAnimation
         ? sampleNoHuddle(hurryStart || frame,sampleEnginePlay(nextAnimation,0),hurryStart?hurryProgress:progress)
         : regularHuddle(frame,line,possession,progress,homeDirection);
@@ -1957,10 +1960,19 @@ export function mountPractice(root, onReady = () => {}) {
             championshipAwayEntourage.update(delta,entrance.active?entrance.seconds:null);}
         const hurry=wantsHurry();
         if(hurry && hurryWasActive===false && phase==='huddle'){
-            hurryStart={...sample(type,duration),players:sample(type,duration).players.map((p,i)=>({...p,x:players[i].position.x,z:players[i].position.z}))};hurryProgress=0;
+            const previous=sample(type,duration);
+            hurryStart={...previous,players:previous.players.map((p,i)=>({...p,x:players[i].position.x,z:players[i].position.z}))};
+            // Estimate actual separation to the next formation, using stable IDs.
+            const targetById=new Map(sampleEnginePlay(nextAnimation,0).players.map(p=>[`${p.side}:${p.id ?? p.role}`,p]));
+            const farthest=Math.max(0,...hurryStart.players.map(p=>{
+                const target=targetById.get(`${p.side}:${p.id ?? p.role}`);
+                return target ? Math.hypot(target.x-p.x,target.z-p.z) : 0;
+            }));
+            hurryDuration=Math.max(2.5,farthest/6.0+0.7);
+            hurryProgress=0;
         }
         hurryWasActive=hurry;
-        if(hurryStart){hurryProgress=Math.min(1,hurryProgress+Math.min(.1,Math.max(0,delta))/1.5);if(hurryProgress===1 || !hurry)hurryStart=null;}
+        if(hurryStart){hurryProgress=Math.min(1,hurryProgress+Math.min(.1,Math.max(0,delta))/hurryDuration);if(hurryProgress===1 || !hurry)hurryStart=null;}
         renderState();
         if(!entrance.active && !running && ['result','huddle','set'].includes(phase)){players.forEach((model,index)=>idlePlayerPose(model,idleTime,index));}
         ball.visible=!entrance.active;
