@@ -453,15 +453,27 @@ class PlayTimeline
                     // the carrier. Offset and reaction vary per saved play.
                     $laneSign = ($supportIndex % 2 === 0) ? 1 : -1;
                     $lag = 0.56 + (($visualVariant + $supportIndex) % 3) * 0.22;
+                    // M15D.3: secondary pursuit reaches the play in waves.
+                    // Closest help may be near contact; the others are still
+                    // closing or pull up as the whistle blows. Never force all
+                    // defenders to the same endpoint at the same timestamp.
                     $offsetZ = $laneSign * (2.5 + $supportIndex * 1.65);
                     $offsetX = $supportIndex === 0 ? -1.4 : (1.2 + $supportIndex);
                     $pursuitX = $pass ? $play['target'] : $end;
+                    $arriveX = $end + $offsetX;
+                    $arriveZ = $endZ + $offsetZ;
+                    $arrivalFraction = [1.0, .75, .48][$supportIndex];
+                    $lateFraction = [1.0, .91, .68][$supportIndex];
+                    $approachX = $x + ($arriveX - $x) * .62;
+                    $approachZ = $z + ($arriveZ - $z) * .57;
                     $path = [
                         $point(0, $x, $z),
                         $point(1.3 + $lag, $x + (($pursuitX - $x) * .13), $z),
-                        $point(3.5 + $lag * .4, $x + (($pursuitX - $x) * .62), $z + (($endZ + $offsetZ - $z) * .57)),
-                        $point(5.3, $end + $offsetX, $endZ + $offsetZ),
-                        $point(6, $end + $offsetX, $endZ + $offsetZ),
+                        $point(3.5 + $lag * .4, $approachX, $approachZ),
+                        $point(5.3, $approachX + ($arriveX - $approachX) * $arrivalFraction,
+                            $approachZ + ($arriveZ - $approachZ) * $arrivalFraction),
+                        $point(6, $approachX + ($arriveX - $approachX) * $lateFraction,
+                            $approachZ + ($arriveZ - $approachZ) * $lateFraction),
                     ];
                 }
             }
@@ -479,8 +491,12 @@ class PlayTimeline
                     $point(0, $x, $z),
                     $point(1.3, $x + (.8 - $x) * .3, $z),
                     $point(3.8, $x + ($targetX - $x) * .55, $z + ($targetZ - $z) * .45),
-                    $point(5.3, $targetX, $targetZ),
-                    $point(6, $targetX, $targetZ),
+                    // Interior help may arrive first; edge help trails. A
+                    // whistle stops late pursuers before everyone piles on.
+                    $point(5.3, $x + ($targetX - $x) * (in_array($role, ['DT1', 'DT2'], true) ? .86 : .69),
+                        $z + ($targetZ - $z) * (in_array($role, ['DT1', 'DT2'], true) ? .86 : .69)),
+                    $point(6, $x + ($targetX - $x) * (in_array($role, ['DT1', 'DT2'], true) ? .95 : .80),
+                        $z + ($targetZ - $z) * (in_array($role, ['DT1', 'DT2'], true) ? .95 : .80)),
                 ];
             }
             // Passing presentation v2: the recorded result remains authoritative,
