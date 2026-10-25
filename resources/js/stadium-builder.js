@@ -60,9 +60,9 @@ export function buildStadiumPreview(home,document,textureFor=(url,onLoad)=>new T
     if(!home.endzone_transparent)for(const x of [5,115])add(10,53.33,x,26.665,home.endzone_background || '#174880').position.y=.025;
     for(let x=10;x<=110;x+=5)add(.12,53.33,x,26.665,'#eeeeee').position.y=.03;
     for(const z of [0,53.33])add(120,.15,60,z,'#eeeeee').position.y=.03;
-    const decal=(name,width,height,x,rotation,map)=>{
+    const decal=(name,width,height,x,rotation,map,z=26.665)=>{
         const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));
-        mesh.name=name;mesh.rotation.set(-Math.PI/2,0,rotation);mesh.position.set(x,.08,26.665);sceneGroup.add(mesh);return mesh;
+        mesh.name=name;mesh.rotation.set(-Math.PI/2,0,rotation);mesh.position.set(x,.08,z);sceneGroup.add(mesh);return mesh;
     };
     if(home.midfield_logo)decal('midfield-logo',14,14,60,0,textureFor(home.midfield_logo));
     const field25Position=home.field_25_position || 'both';
@@ -71,13 +71,14 @@ export function buildStadiumPreview(home,document,textureFor=(url,onLoad)=>new T
             ['left',35,39.8],
             ['right',85,13.5],
         ];
+        let placed=false;
         const placeLogos=texture=>{
-            if(!texture?.image?.width)return;
+            if(placed || !texture?.image?.width)return;
+            placed=true;
             const size=fitLogo(texture.image.width,texture.image.height,2.35,2.35);
             for(const [side,x,z] of placements) {
                 if(field25Position !== 'both' && field25Position !== side)continue;
-                const logo=decal(`field-25-logo-${side}`,size.width,size.height,x,z,texture);
-                logo.scale.set(size.width,size.height,1);
+                decal(`field-25-logo-${side}`,size.width,size.height,x,0,texture,z);
             }
         };
         const texture=textureFor(home.field_25_logo,placeLogos);
