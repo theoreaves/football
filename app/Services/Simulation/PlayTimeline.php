@@ -268,6 +268,17 @@ class PlayTimeline
                         $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
                 }
             }
+            // M15D.4: give completed passes with room to run a measured YAC
+            // cut, while retaining the precise catch and dead-ball locations.
+            if ($pass && $role === $receiverRole
+                && ! in_array($play['outcome'], ['incomplete', 'interception'], true)
+                && ($play['gain'] - $play['target']) >= 4) {
+                $yacCutZ = max(2.5, min(50.8,
+                    $endZ + ($visualVariant % 2 === 0 ? 1.4 : -1.4)));
+                array_splice($path, -2, 0, [
+                    $point(4.5, $play['target'] + ($play['gain'] - $play['target']) * .48, $yacCutZ),
+                ]);
+            }
             // M15C.7: every eligible non-target pass option runs a real route.
             // Previously nearly all off-ball receivers advanced only two yards.
             // Keep Mesh/Flood's established combinations and play-action blocking.
@@ -601,6 +612,21 @@ class PlayTimeline
             $ball = array_merge($ball, [$point(1, $handoff, 27, 1), $point(5.3, $play['gain'], $endZ, 1), $point(6, $play['gain'], $endZ, 1)]);
             if ($play['carrier'] === 'QB') {
                 $ball = [$point(0, -1, 26.7, 1), $point(.35, $qbStart - .35, 26.7, 1), $point(2, $qbSet, 26.7, 1), $point(5.3, $play['gain'], 26.7, 1), $point(6, $play['gain'], 26.7, 1)];
+            }
+        }
+        // Keep football and receiver coincident throughout the post-catch
+        // cut; no change to catch, gain, final spot or simulation outcome.
+        if ($pass && ! ($play['throwaway'] ?? false)
+            && ! in_array($play['outcome'], ['incomplete', 'interception'], true)
+            && ($play['gain'] - $play['target']) >= 4) {
+            $yacCutZ = max(2.5, min(50.8,
+                $endZ + ($visualVariant % 2 === 0 ? 1.4 : -1.4)));
+            $ballCut = $point(4.5,
+                $play['target'] + ($play['gain'] - $play['target']) * .48,
+                $yacCutZ, 1);
+            $at = array_search(5.3, array_column($ball, 0), true);
+            if ($at !== false) {
+                array_splice($ball, $at, 0, [$ballCut]);
             }
         }
         // The runner may cut multiple times. Use the same sampled waypoints for

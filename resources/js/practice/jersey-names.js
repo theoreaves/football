@@ -17,6 +17,6 @@ export function addJerseyName(jersey, player, document, uniform = {}) {
     const name = new THREE.Mesh(new THREE.PlaneGeometry(.92, .17), new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }));
     name.name = 'jersey-name'; name.userData.text = text;
     // Keep the name in front of the jersey's back surface, including bulky models.
-    name.position.set(0, 1.6, -.355); name.rotation.y = Math.PI;
+    name.position.set(0, 1.6, -.305); name.rotation.y = Math.PI;
     jersey.add(name);
 }

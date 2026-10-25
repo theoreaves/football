@@ -11,7 +11,7 @@ export function addJerseyNumbers(jersey, player, document, uniform = {}, placeme
     for (const facing of [1, -1]) {
         const number = new THREE.Mesh(new THREE.PlaneGeometry(.65, .65), numberMaterial);
         // Push the decal clear of the torso surface (including bulkier kits).
-        number.position.set(0, (placement.height ?? 1.25), facing * Math.max(.38, placement.depth ?? .435));
+        number.position.set(0, (placement.height ?? 1.25), facing * Math.max(.335, placement.depth ?? .345));
         number.rotation.y = facing === 1 ? 0 : Math.PI;
         jersey.add(number);
     }
@@ -24,12 +24,14 @@ export function addJerseyNumbers(jersey, player, document, uniform = {}, placeme
 export function addShoulderNumbers(shoulderPads, material) {
     if (!material || !shoulderPads) return;
     for (const sign of [-1, 1]) {
-        const number = new THREE.Mesh(new THREE.PlaneGeometry(.25, .25), material);
+        const number = new THREE.Mesh(new THREE.PlaneGeometry(.30, .30), material);
         number.name = sign < 0 ? 'jersey-number-shoulder-left' : 'jersey-number-shoulder-right';
         // The shoulder box is .22 tall: +.11 is its top surface. Add .014
         // clearance to avoid coplanar z-fighting, even in angled camera views.
         number.position.set(sign * .405, .124, 0);
         number.rotation.x = -Math.PI / 2;
+        // Turn shoulder numerals sideways across the pad, mirrored by side.
+        number.rotation.z = sign * Math.PI / 2;
         shoulderPads.add(number);
     }
 }
