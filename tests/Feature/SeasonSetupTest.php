@@ -12,6 +12,26 @@ beforeEach(function () {
     openFootballSave($this->world);
     $this->league = League::create(['name' => 'Test league']);
     $this->teams = collect(range(1, 4))->map(fn ($n) => Team::create(['city' => 'City '.$n, 'name' => 'Team '.$n]));
+    // Season creation now requires a complete playable roster for every
+    // participating team. Keep this fixture in the correct year and world.
+    $this->startingQbs = [];
+    foreach ($this->teams as $team) {
+        $counts = [];
+        foreach (\App\Services\Simulation\RosterBuilder::GROUPS as $role => $positions) {
+            $position = $positions[0];
+            $counts[$position] = ($counts[$position] ?? 0) + 1;
+            $player = \App\Models\Player::create([
+                'firstname' => $role, 'lastname' => 'Test', 'position' => $position, 'age' => 25,
+            ]);
+            \App\Models\TeamPlayer::create([
+                'team_id' => $team->id, 'player_id' => $player->id,
+                'team_year' => '2026', 'position' => $position,
+                'depth_chart_position' => $position.$counts[$position],
+                'jersey_number' => array_sum($counts),
+            ]);
+            if ($role === 'QB') $this->startingQbs[$team->id] = $player;
+        }
+    }
     $this->setup = ['name' => 'Opening season', 'year' => 2026, 'league_id' => $this->league->id, 'team_count' => 4, 'games' => 6,
         'bye' => 1, 'layout' => 'conferences', 'playoffs' => '4', 'teams' => $this->teams->pluck('id')->all(), 'human' => [$this->teams[0]->id, $this->teams[1]->id]];
 });
@@ -61,8 +81,10 @@ test('human control can change without altering fixtures and seasons remain worl
 });
 
 test('season player editor signals successful save to close and retains the player and roster membership', function () {
-    $player = \App\Models\Player::create(['firstname' => 'Theo', 'lastname' => 'Reaves', 'position' => 'QB', 'age' => 25]);
-    \App\Models\TeamPlayer::create(['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB', 'depth_chart_position' => 'QB1', 'jersey_number' => 12]);
+    $player = $this->startingQbs[$this->teams[0]->id];
+    $player->update(['firstname' => 'Theo', 'lastname' => 'Reaves']);
+    $baselinePlayers = \App\Models\Player::count();
+    $baselineAssignments = \App\Models\TeamPlayer::count();
     $this->post(route('seasons.store'), ['setup' => json_encode($this->setup)])->assertRedirect();
     $season = Season::withoutGlobalScopes()->first();
     $parameters = [$this->teams[0], $player, 'year' => 2026, 'season' => $season->id, 'embedded' => 1];
@@ -73,8 +95,8 @@ test('season player editor signals successful save to close and retains the play
     $this->assertDatabaseHas('players', ['id' => $player->id, 'lastname' => 'Updated', 'height_inches' => 77, 'weight_pounds' => 290]);
     expect($player->fresh()->appearance)->toBe(['head_shape' => 'wide', 'hair' => 'curly', 'hair_color' => '#332211', 'eye_color' => '#2266aa', 'beard' => 'goatee']);
     $this->get(route('teams.editor.teams.players.edit', $parameters))->assertOk()->assertSee('Edit appearance')->assertSee('data-player-body', false)->assertSee('data-player-editor-saved', false);
-    $this->assertDatabaseCount('players', 1);
-    $this->assertDatabaseCount('team_players', 1);
+    $this->assertDatabaseCount('players', $baselinePlayers);
+    $this->assertDatabaseCount('team_players', $baselineAssignments);
     $this->assertDatabaseHas('team_players', ['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB']);
     $this->get(route('seasons.team', ['season' => $season, 'team' => $this->teams[0], 'tab' => 'roster']))->assertOk()->assertSee('Updated');
     $this->put(route('teams.editor.teams.players.update', $parameters), ['firstname' => 'Theo', 'lastname' => 'Invalid', 'position' => 'QB', 'age' => 25, 'depth_chart_position' => 'QB1', 'appearance' => ['hair' => 'invalid'], 'ratings' => array_fill_keys(\App\Services\Simulation\PlayerRatings::FIELDS, 70)])->assertSessionHasErrors('appearance.hair');
@@ -82,12 +104,15 @@ test('season player editor signals successful save to close and retains the play
 });
 
 test('season depth charts save ordered eligible players without changing world roster depth', function () {
-    $ids = [];
-    foreach (['Starter', 'Backup'] as $i => $name) {
-        $player = \App\Models\Player::create(['firstname' => $name, 'lastname' => 'Quarterback', 'position' => 'QB', 'age' => 25]);
-        \App\Models\TeamPlayer::create(['team_id' => $this->teams[0]->id, 'player_id' => $player->id, 'team_year' => '2026', 'position' => 'QB', 'depth_chart_position' => 'QB'.($i + 1)]);
-        $ids[] = $player->id;
-    }
+    $starter = $this->startingQbs[$this->teams[0]->id];
+    $starter->update(['firstname' => 'Starter', 'lastname' => 'Quarterback']);
+    $backup = \App\Models\Player::create(['firstname' => 'Backup', 'lastname' => 'Quarterback', 'position' => 'QB', 'age' => 25]);
+    \App\Models\TeamPlayer::create([
+        'team_id' => $this->teams[0]->id, 'player_id' => $backup->id,
+        'team_year' => '2026', 'position' => 'QB', 'depth_chart_position' => 'QB2',
+        'jersey_number' => 99,
+    ]);
+    $ids = [$starter->id, $backup->id];
     $this->post(route('seasons.store'), ['setup' => json_encode($this->setup)])->assertRedirect();
     $season = Season::withoutGlobalScopes()->first();
     $url = route('seasons.depth', [$season, $this->teams[0]]);

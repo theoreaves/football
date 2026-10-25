@@ -58,7 +58,7 @@ test('startup picker creates a private pro league with complete playable rosters
         expect((bool) $team->uniform_home_name_enabled)->toBeTrue()->and((bool) $team->uniform_away_pants_stripe_enabled)->toBeTrue()
             ->and($team->uniform_home_helmet_stripe)->not->toBe($team->uniform_home_helmet);
         $roster = $builder->build($team);
-        expect($roster['year'])->toBe('2031')->and($roster['pool'])->toHaveCount(53)->and($roster['players'])->toHaveCount(28);
+        expect($roster['year'])->toBe('2031')->and($roster['pool'])->toHaveCount(53)->and($roster['players'])->toHaveCount(count(RosterBuilder::GROUPS));
         foreach ($roster['pool'] as $player) {
             foreach (PlayerRatings::FIELDS as $field) {
                 expect($player['ratings'][$field])->toBeBetween(1, 99);

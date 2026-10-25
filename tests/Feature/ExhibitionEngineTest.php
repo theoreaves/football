@@ -160,8 +160,8 @@ test('the ball and tackler finish at the engine dead-ball spot for both directio
                     continue;
                 }
 
-                expect($ball[1])->toBe(
-                    $side === 'home' ? 10 + $spot : 110 - $spot,
+                expect((float) $ball[1])->toBe(
+                    (float) ($side === 'home' ? 10 + $spot : 110 - $spot),
                     "Side: {$side}, Call: {$call}, Seed: {$seed}, "
                     ."Outcome: {$play['outcome']}, "
                     .'Throwaway: '.json_encode($play['throwaway'] ?? false).', '
