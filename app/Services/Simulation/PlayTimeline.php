@@ -465,6 +465,24 @@ class PlayTimeline
                     ];
                 }
             }
+            // M15D.2: defensive linemen who are free of the initial contact
+            // should react to a nearby RB, rather than freeze on their generic
+            // pass-rush/line track while the ball carrier runs past.
+            // They support the tackle without becoming the primary tackler.
+            if (! $pass && ! $special && ! ($play['defensive_return'] ?? false)
+                && $play['carrier'] === 'RB' && ! in_array($play['outcome'], ['incomplete'], true)
+                && in_array($role, ['DE1', 'DE2', 'DT1', 'DT2'], true)
+                && $role !== $contactTackler) {
+                $targetX = $end - 1.5;
+                $targetZ = $endZ + ($z < $endZ ? -1 : 1) * 2.2;
+                $path = [
+                    $point(0, $x, $z),
+                    $point(1.3, $x + (.8 - $x) * .3, $z),
+                    $point(3.8, $x + ($targetX - $x) * .55, $z + ($targetZ - $z) * .45),
+                    $point(5.3, $targetX, $targetZ),
+                    $point(6, $targetX, $targetZ),
+                ];
+            }
             // Passing presentation v2: the recorded result remains authoritative,
             // but separation at the catch point no longer telegraphs that result.
             // All choices derive from visualVariant; never consume simulation RNG.

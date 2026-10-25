@@ -120,6 +120,32 @@ class RushingAnimationTiming
         };
         foreach ($animation['players'] as &$player) {
             $player['path'] = $retimePath($player['path']);
+            // The carrier dictates the run clock, but other players must not
+            // cover their entire scripted distance in that same time window.
+            // Limit their ACTUAL presentation speeds after the common time map.
+            // Preserve the designated contact tackler for now so tackle poses
+            // still line up with the saved result; never change the football.
+            $primaryTackler = ($play['outcome'] === 'sack') ? 'DE1' : 'LB2';
+            if (! ($player['team'] === 'offense' && $player['role'] === $play['carrier'])
+                && ! ($player['team'] === 'defense' && $player['role'] === $primaryTackler)) {
+                $track = &$player['path'];
+                $maxSpeed = 6.5; // yards / presentation second
+                for ($j = 1; $j < count($track); $j++) {
+                    $from = $track[$j - 1];
+                    $to = $track[$j];
+                    $dt = max(0.0, $to[0] - $from[0]);
+                    $dx = $to[1] - $from[1];
+                    $dz = $to[3] - $from[3];
+                    $distance = hypot($dx, $dz);
+                    $allow = $maxSpeed * $dt;
+                    if ($distance > $allow && $distance > 0.0) {
+                        $fraction = $allow / $distance;
+                        $track[$j][1] = $from[1] + $dx * $fraction;
+                        $track[$j][3] = $from[3] + $dz * $fraction;
+                    }
+                }
+                unset($track);
+            }
         }
         unset($player);
         $animation['ball'] = $retimePath($animation['ball']);
