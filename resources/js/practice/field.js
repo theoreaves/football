@@ -176,6 +176,23 @@ export function mountPractice(root, onReady = () => {}) {
         const design = endzoneAt(x);
         if (!design.endzone_transparent) addBox(10, 0.03, 53.33, design.endzone_background || 0x174880, x, 0.02, 26.665);
     }
+    const field25Position = home.field_25_position || 'both';
+    if(home.field_25_logo && field25Position !== 'none') {
+        for(const [side,x] of [['left',35],['right',85]]) {
+            if(field25Position !== 'both' && field25Position !== side)continue;
+            const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({transparent:true,depthWrite:false}));
+            mesh.name=`field-25-logo-${side}`;
+            mesh.rotation.x=-Math.PI/2;
+            mesh.position.set(x,.09,26.665);
+            scene.add(mesh);
+            new THREE.TextureLoader().load(home.field_25_logo, texture=>{
+                texture.colorSpace=THREE.SRGBColorSpace;
+                const size=fitLogo(texture.image.width,texture.image.height,4.8,4.8);
+                mesh.scale.set(size.width,size.height,1);
+                mesh.material.map=texture;mesh.material.needsUpdate=true;
+            });
+        }
+    }
     if (home.midfield_logo) {
         const logo = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshBasicMaterial({map: textureFor(home.midfield_logo), transparent: true, depthWrite: false}));
         logo.rotation.x = -Math.PI / 2; logo.position.set(60, .095, 26.665); scene.add(logo);

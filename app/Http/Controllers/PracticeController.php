@@ -20,7 +20,9 @@ class PracticeController extends Controller
 
     public function art(Team $team, string $asset)
     {
-        if (preg_match('/^uniform_(home|away)_(chest|sleeve)$/', $asset, $matches)) {
+        if ($asset === 'field_25_logo') {
+            $path = $team->team_settings['field_art']['yard25_logo'] ?? null;
+        } elseif (preg_match('/^uniform_(home|away)_(chest|sleeve)$/', $asset, $matches)) {
             $path = $team->team_settings['uniform_logos'][$matches[1]][$matches[2]] ?? null;
         } else {
             abort_unless(in_array($asset, ['team_logo', 'helmet_logo_left', 'helmet_logo_right', 'midfield_logo', 'endzone_logo_left', 'endzone_logo_right'], true), 404);
@@ -123,6 +125,9 @@ class PracticeController extends Controller
             'helmet_logo_left' => $art('helmet_logo_left'),
             'helmet_logo_right' => $art('helmet_logo_right'),
             'midfield_logo' => $art('midfield_logo') ?: $art('team_logo'),
+            'field_25_logo' => !empty($team->team_settings['field_art']['yard25_logo'])
+                ? route('teams.art', ['team' => $team, 'asset' => 'field_25_logo']) : null,
+            'field_25_position' => $team->team_settings['field_art']['yard25_position'] ?? 'both',
             'endzone_logo_left' => $art('endzone_logo_left'),
             'endzone_logo_right' => $art('endzone_logo_right'),
             'endzone_transparent' => (bool) $team->endzone_transparent,

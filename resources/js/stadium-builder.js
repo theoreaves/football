@@ -65,6 +65,22 @@ export function buildStadiumPreview(home,document,textureFor=(url,onLoad)=>new T
         mesh.name=name;mesh.rotation.set(-Math.PI/2,0,rotation);mesh.position.set(x,.08,26.665);sceneGroup.add(mesh);return mesh;
     };
     if(home.midfield_logo)decal('midfield-logo',14,14,60,0,textureFor(home.midfield_logo));
+    const field25Position=home.field_25_position || 'both';
+    if(home.field_25_logo && field25Position !== 'none') {
+        for(const [side,x] of [['left',35],['right',85]]) {
+            if(field25Position !== 'both' && field25Position !== side)continue;
+            const logo=decal(`field-25-logo-${side}`,1,1,x,0,null);
+            const fit=texture=>{
+                if(!texture?.image?.width)return;
+                const size=fitLogo(texture.image.width,texture.image.height,4.8,4.8);
+                logo.scale.set(size.width,size.height,1);
+            };
+            const texture=textureFor(home.field_25_logo,fit);
+            logo.material.map=texture;
+            if(texture?.image?.width)fit(texture);
+        }
+    }
+
     for(const x of [5,115]){
         const side=x===5?'left':'right',url=home[`endzone_logo_${side}`],rotation=x===5?Math.PI/2:-Math.PI/2;
         if(url){

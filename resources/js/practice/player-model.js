@@ -31,7 +31,7 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         triple: [[-.375, .25], [0, .5], [.375, .25]],
         accent: [[-.4, .2], [0, .6], [.4, .2]],
     }[pattern] || [[0, 1]]);
-    const stripeWidth = part => part === 'pants' ? .19 : part === 'shoulder' ? .46 :
+    const stripeWidth = part => part === 'pants' ? (stripePattern('pants') === 'single' ? .075 : .19) : part === 'shoulder' ? .46 :
         (stripePattern('helmet') === 'single' ? .052 : .102);
     // U2A.1: independent band colors, with the legacy stripe color as fallback.
     const stripeColor = (part, offset) => {

@@ -33,7 +33,7 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request);
 
-        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear']);
+        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear'], $data['field_25_logo_upload'], $data['field_25_logo_clear']);
         $team = Team::create($data);
 
         $this->handleUploads($request, $team);
@@ -57,7 +57,7 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request, $team);
 
-        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear']);
+        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear'], $data['field_25_logo_upload'], $data['field_25_logo_clear']);
         if (isset($data['team_settings'])) {
             $data['team_settings'] = array_replace_recursive($team->team_settings ?? [], $data['team_settings']);
         }
@@ -111,7 +111,7 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone,uniform_patterns,uniform_stripe_colors,uniform_logos'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone,uniform_patterns,uniform_stripe_colors,uniform_logos,field_art'],
             'team_settings.championship_endzone' => ['sometimes', 'array:enabled,text,background,text_color,transparent'],
             'team_settings.championship_endzone.enabled' => ['sometimes', 'boolean'],
             'team_settings.championship_endzone.transparent' => ['sometimes', 'boolean'],
@@ -191,6 +191,10 @@ class TeamEditor extends Controller
         $settings['uniform_logo_clear'] = ['sometimes', 'array:home,away'];
         $settings['uniform_logo_clear.home'] = ['sometimes', 'array:chest,sleeve'];
         $settings['uniform_logo_clear.away'] = ['sometimes', 'array:chest,sleeve'];
+        $settings['team_settings.field_art'] = ['sometimes', 'array:yard25_position'];
+        $settings['team_settings.field_art.yard25_position'] = ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right', 'none'])];
+        $settings['field_25_logo_upload'] = ['nullable', 'image', 'max:5120'];
+        $settings['field_25_logo_clear'] = ['sometimes', 'boolean'];
         $settings['team_settings.helmets'] = ['sometimes', 'array:home,away,flip_left,flip_right,logo_color'];
         $settings['team_settings.helmets.logo_color'] = $hex;
         foreach (['flip_left', 'flip_right'] as $side) {
@@ -288,6 +292,17 @@ class TeamEditor extends Controller
                     );
                 }
             }
+        }
+        $team->update(['team_settings' => $profile]);
+
+        if ($request->boolean('field_25_logo_clear')) {
+            unset($profile['field_art']['yard25_logo']);
+        }
+        if ($request->hasFile('field_25_logo_upload')) {
+            $file = $request->file('field_25_logo_upload');
+            $profile['field_art']['yard25_logo'] = $file->storeAs(
+                "teams/{$team->id}/field", (string) \Illuminate\Support\Str::uuid().'.'.$file->extension(), 'team_art'
+            );
         }
         $team->update(['team_settings' => $profile]);
 

@@ -73,6 +73,15 @@ export function mountTeamSettings(form) {
             else if(!clear?.checked)url=input?.closest('[data-uniform-art]')?.querySelector('img')?.src || null;
             result[key]=url;
         }
+        const fieldInput=form.elements.namedItem('field_25_logo_upload');
+        const fieldClear=form.elements.namedItem('field_25_logo_clear');
+        if(fieldInput?.files?.[0]){
+            result.field_25_logo=URL.createObjectURL(fieldInput.files[0]);
+            urls.add(result.field_25_logo);
+        }else if(!fieldClear?.checked){
+            result.field_25_logo=fieldInput?.closest('div')?.querySelector('img')?.src || null;
+        }
+        result.field_25_position=new FormData(form).get('team_settings[field_art][yard25_position]') || 'both';
         return result;
     };
     const rebuild=()=>{

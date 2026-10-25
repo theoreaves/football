@@ -206,6 +206,24 @@
                 </div>
                 <p class="text-sm text-gray-600">Preview these settings on the practice field. Both end zones use the home team's design.</p>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="rounded border p-3 space-y-2 mt-3">
+    <h3 class="font-semibold">25-yard-line field artwork</h3>
+    <p class="text-sm text-gray-600">Optional transparent logo at the two 25-yard lines. The image scales to fit without stretching.</p>
+    <label class="block">Logo placement
+        <select name="team_settings[field_art][yard25_position]" class="block w-full border rounded p-2">
+            @foreach(['both' => 'Both 25-yard lines', 'left' => 'Left 25 only', 'right' => 'Right 25 only', 'none' => 'None'] as $key => $title)
+                <option value="{{ $key }}" @selected(old('team_settings.field_art.yard25_position', $team->team_settings['field_art']['yard25_position'] ?? 'both') === $key)>{{ $title }}</option>
+            @endforeach
+        </select>
+    </label>
+    <label class="block">25-yard-line logo image
+        <input type="file" name="field_25_logo_upload" accept="image/png,image/jpeg,image/webp" class="block mt-1 w-full text-sm">
+    </label>
+    @if($mode === 'edit' && !empty($team->team_settings['field_art']['yard25_logo']))
+        <img src="{{ route('teams.art', ['team' => $team, 'asset' => 'field_25_logo']) }}" alt="25-yard-line artwork" class="w-28 h-28 object-contain border bg-white">
+        <label class="block text-sm"><input type="checkbox" name="field_25_logo_clear" value="1"> Remove field logo</label>
+    @endif
+</div>
 @foreach(['midfield_logo' => 'Midfield logo', 'endzone_logo_left' => 'End zone logo (left)', 'endzone_logo_right' => 'End zone logo (right)'] as $field => $label)
 @include('teams.editor.art')
 @endforeach
