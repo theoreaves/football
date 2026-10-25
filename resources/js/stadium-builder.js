@@ -67,18 +67,21 @@ export function buildStadiumPreview(home,document,textureFor=(url,onLoad)=>new T
     if(home.midfield_logo)decal('midfield-logo',14,14,60,0,textureFor(home.midfield_logo));
     const field25Position=home.field_25_position || 'both';
     if(home.field_25_logo && field25Position !== 'none') {
-        for(const [side,x] of [['left',35],['right',85]]) {
-            if(field25Position !== 'both' && field25Position !== side)continue;
-            const logo=decal(`field-25-logo-${side}`,1,1,x,0,null);
-            const fit=texture=>{
-                if(!texture?.image?.width)return;
-                const size=fitLogo(texture.image.width,texture.image.height,4.8,4.8);
+        const placements=[
+            ['left',35,39.8],
+            ['right',85,13.5],
+        ];
+        const placeLogos=texture=>{
+            if(!texture?.image?.width)return;
+            const size=fitLogo(texture.image.width,texture.image.height,2.35,2.35);
+            for(const [side,x,z] of placements) {
+                if(field25Position !== 'both' && field25Position !== side)continue;
+                const logo=decal(`field-25-logo-${side}`,size.width,size.height,x,z,texture);
                 logo.scale.set(size.width,size.height,1);
-            };
-            const texture=textureFor(home.field_25_logo,fit);
-            logo.material.map=texture;
-            if(texture?.image?.width)fit(texture);
-        }
+            }
+        };
+        const texture=textureFor(home.field_25_logo,placeLogos);
+        if(texture?.image?.width)placeLogos(texture);
     }
 
     for(const x of [5,115]){

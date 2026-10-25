@@ -178,20 +178,25 @@ export function mountPractice(root, onReady = () => {}) {
     }
     const field25Position = home.field_25_position || 'both';
     if(home.field_25_logo && field25Position !== 'none') {
-        for(const [side,x] of [['left',35],['right',85]]) {
-            if(field25Position !== 'both' && field25Position !== side)continue;
-            const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({transparent:true,depthWrite:false}));
-            mesh.name=`field-25-logo-${side}`;
-            mesh.rotation.x=-Math.PI/2;
-            mesh.position.set(x,.09,26.665);
-            scene.add(mesh);
-            new THREE.TextureLoader().load(home.field_25_logo, texture=>{
-                texture.colorSpace=THREE.SRGBColorSpace;
-                const size=fitLogo(texture.image.width,texture.image.height,4.8,4.8);
-                mesh.scale.set(size.width,size.height,1);
-                mesh.material.map=texture;mesh.material.needsUpdate=true;
-            });
-        }
+        const placements = [
+            ['left', 35, 39.8],
+            ['right', 85, 13.5],
+        ];
+        new THREE.TextureLoader().load(home.field_25_logo, texture=>{
+            texture.colorSpace=THREE.SRGBColorSpace;
+            const size=fitLogo(texture.image.width,texture.image.height,2.35,2.35);
+            for(const [side,x,z] of placements) {
+                if(field25Position !== 'both' && field25Position !== side)continue;
+                const mesh=new THREE.Mesh(
+                    new THREE.PlaneGeometry(size.width,size.height),
+                    new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false})
+                );
+                mesh.name=`field-25-logo-${side}`;
+                mesh.rotation.x=-Math.PI/2;
+                mesh.position.set(x,.09,z);
+                scene.add(mesh);
+            }
+        });
     }
     if (home.midfield_logo) {
         const logo = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshBasicMaterial({map: textureFor(home.midfield_logo), transparent: true, depthWrite: false}));
