@@ -268,6 +268,56 @@ class PlayTimeline
                         $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
                 }
             }
+            // M15C.7: every eligible non-target pass option runs a real route.
+            // Previously nearly all off-ball receivers advanced only two yards.
+            // Keep Mesh/Flood's established combinations and play-action blocking.
+            if ($pass && $role !== $receiverRole
+                && in_array($role, ['WR1', 'WR2', 'WR3', 'WR4', 'TE', 'TE2', 'RB', 'FB'], true)
+                && ! in_array($design, ['mesh', 'flood'], true)
+                && ! ($design === 'play_action' && $role === 'RB')) {
+                $concept = match ($design) {
+                    'hitch', 'curl', 'te_stick' => 'vertical',
+                    'comeback', 'out', 'corner', 'fade' => 'inside',
+                    'dig', 'post', 'te_seam' => 'outside',
+                    'drag', 'rb_flat', 'screen' => 'block',
+                    'wheel' => 'flat',
+                    default => ['outside', 'inside', 'cross', 'vertical'][$visualVariant % 4],
+                };
+                // Mix complementary routes by player role, not simulation RNG.
+                $otherIndex = array_search($role,
+                    ['WR1', 'WR2', 'WR3', 'TE', 'RB', 'WR4', 'TE2', 'FB'], true);
+                $otherIndex = $otherIndex === false ? 0 : $otherIndex;
+                $route = match (($otherIndex + $visualVariant) % 3) {
+                    0 => $concept,
+                    1 => 'cross',
+                    default => 'vertical',
+                };
+                $directionZ = $z < 26.7 ? 1 : -1;
+                $break = match ($route) {
+                    'inside' => $z + $directionZ * 11,
+                    'outside', 'flat' => $z - $directionZ * 8,
+                    'cross' => $z + $directionZ * 15,
+                    'block' => $z + $directionZ * 4,
+                    default => $z,
+                };
+                $break = max(2.5, min(50.8, $break));
+                $depth = match ($route) {
+                    'flat' => 2.5,
+                    'block' => 2.0,
+                    'cross' => 7.0,
+                    'inside', 'outside' => 10.5,
+                    default => 17.0,
+                };
+                // Keep intermediate waypoints reachable at modest jog speeds.
+                // The off-ball route never controls the saved catch or result.
+                $path = [
+                    $point(0, $x, $z),
+                    $point(1.5, $x + 2.5, $z),
+                    $point(3.8, $depth, $break),
+                    $point(5.3, $depth + 3, $break),
+                    $point(6, $depth + 3, $break),
+                ];
+            }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
                 $cutZ = [22, 25, 29, 32, 35, 39][$visualVariant % 6];
                 $path = [$point(0, $x, $z), $point(1, $handoff, 27),
