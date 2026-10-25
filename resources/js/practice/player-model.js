@@ -1,10 +1,10 @@
 import {helmetDesignGeometry,helmetLogoMaterial} from './helmet-designs.js';
-import { addJerseyName } from './jersey-names.js';
+import { addShoulderJerseyName } from './jersey-names.js';
 import { buildPlayerFace } from './player-face.js';
 import { helmetShellGeometry, helmetLogoGeometry, helmetStripeGeometry } from './helmet-shell.js';
 import { fitLogo } from './logo-fit.js';
 import * as THREE from 'three';
-import { addJerseyNumbers, addShoulderNumbers } from './jersey-numbers.js';
+import { addSurfaceJerseyNumbers, addShoulderNumbers } from './jersey-numbers.js';
 
 export function buildFootballPlayer(player, kit, document, textureFor = () => null) {
     const group = new THREE.Group();
@@ -113,16 +113,26 @@ export function buildFootballPlayer(player, kit, document, textureFor = () => nu
         };
         helmet.add(logo);
     }
-    const labelStart = group.children.length;
-    const numberMaterial = addJerseyNumbers(group, player, document, kit, {depth: .253, height: 1.27});
+    // Four measured kit fits; surface labels are children of their real jersey
+    // meshes instead of world-space floating planes.
+    const weight = Number(player.weight_pounds) || 215;
+    const fitName = weight < 190 ? 'skill' : weight < 235 ? 'standard' : weight < 285 ? 'power' : 'lineman';
+    const uniformFits = {
+        skill: { numberWidth: .49, numberHeight: .50, nameWidth: .86 },
+        standard: { numberWidth: .52, numberHeight: .51, nameWidth: .90 },
+        power: { numberWidth: .55, numberHeight: .51, nameWidth: .93 },
+        lineman: { numberWidth: .56, numberHeight: .52, nameWidth: .96 },
+    };
+    const fit = uniformFits[fitName];
+    group.userData.uniformFit = fitName;
+    const numberMaterial = addSurfaceJerseyNumbers(torso, player, document, kit, fit);
     addShoulderNumbers(shoulders, numberMaterial);
-    addJerseyName(group, player, document, kit);
+    addShoulderJerseyName(shoulders, player, document, kit, fit);
     const height = Math.max(48, Math.min(96, Number(player.height_inches) || 72)) / 72;
     const bulk = Math.max(.8, Math.min(1.35, Math.sqrt((Number(player.weight_pounds) || 215) / 215)));
     group.scale.set(Math.pow(bulk, .2), height, Math.pow(bulk, .2));
     shoulders.scale.x = Math.pow(bulk,.6); shoulders.scale.z = Math.pow(bulk,.6); hips.scale.x = Math.pow(bulk,.4); hips.scale.z = Math.pow(bulk,.4);
     torso.scale.x = Math.pow(bulk, .7); torso.scale.z *= Math.pow(bulk, .9);
-    group.children.slice(labelStart).forEach(label => { label.position.z *= Math.pow(bulk, .9); });
     arms.forEach((arm, i) => { arm.position.x = (i === 0 ? -1 : 1) * .57 * Math.pow(bulk, .6); arm.scale.set(Math.pow(bulk,.35),1,Math.pow(bulk,.35)); });
     legs.forEach(leg => { leg.scale.x = Math.pow(bulk,.4); leg.scale.z = Math.pow(bulk,.4); });
     group.userData.legs = legs; group.userData.arms = arms; group.userData.elbows = elbows;
