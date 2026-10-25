@@ -639,10 +639,13 @@ class PlayTimeline
                 // visual: possession stays null and the play is already dead.
                 $skip = $visualVariant % 2 === 0 ? 1 : -1;
                 $ball = array_slice($ball, 0, -2);
-                $ball[] = $point(4.08, $play['target'] + 1.4, $endZ + $skip * .8, .38);
-                $ball[] = $point(4.42, $play['target'] + 2.8, $endZ + $skip * 1.5, .07);
-                $ball[] = $point(5.3, $play['target'] + 3.5, $endZ + $skip * 1.8, 0);
-                $ball[] = $point(6, $play['target'] + 3.5, $endZ + $skip * 1.8, 0);
+                // Ground skips remain around the dead-ball spot. The ball
+                // returns to the engine's recorded final X/Z by result time,
+                // including red-zone throws near the end line.
+                $ball[] = $point(4.08, $play['target'], $endZ + $skip * .65, .38);
+                $ball[] = $point(4.42, $play['target'], $endZ + $skip * 1.1, .07);
+                $ball[] = $point(5.3, $play['target'], $endZ, 0);
+                $ball[] = $point(6, $play['target'], $endZ, 0);
             }
         } else {
             $ball = array_merge($ball, [$point(1, $handoff, 27, 1), $point(5.3, $play['gain'], $endZ, 1), $point(6, $play['gain'], $endZ, 1)]);
