@@ -125,11 +125,19 @@ class PassingAnimationTiming
             // compress their original waypoints, so speed-limit the FINAL
             // retimed path rather than the original pre-retime coordinates.
             // The ball, targeted receiver, results and RNG are untouched.
-            if ($player['team'] === 'offense'
-                && $player['role'] !== $animation['receiver_role']
-                && in_array($player['role'], ['WR1','WR2','WR3','WR4','TE','TE2','RB','FB'], true)) {
+            // The prior limiter covered only offensive route runners.
+            // Untargeted defenders also inherit the compressed catch clock and
+            // can appear to teleport. Keep the QB, intended receiver, the
+            // recorded ball-carrier and designated tackler unmodified: their
+            // movement is synchronized to ball possession and contact.
+            $ballLinked = $player['team'] === 'offense'
+                && in_array($player['role'], ['QB', $animation['receiver_role'], $animation['carrier'] ?? null], true);
+            $tackleLinked = $player['team'] === 'defense'
+                && ($animation['contact_at'] ?? null) !== null
+                && $player['role'] === ($animation['tackler_role'] ?? null);
+            if (! $ballLinked && ! $tackleLinked) {
                 $route = &$player['path'];
-                $maxSpeed = 6.5; // presentation yards per second
+                $maxSpeed = 6.5; // visual yards/second, after retiming
                 for ($i = 1; $i < count($route); $i++) {
                     $previous = $route[$i - 1];
                     $current = $route[$i];
