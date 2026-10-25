@@ -120,6 +120,32 @@ class PassingAnimationTiming
         foreach ($animation['players'] as &$player) {
             $player['path'] = self::retimePath($player['path'],
                 $player['team'] === 'offense' && $player['role'] === 'QB' ? $ballTime : $mapTime);
+            // Off-ball eligible receivers don't need to reach the end of their
+            // routes when the QB releases the ball. The global catch clock may
+            // compress their original waypoints, so speed-limit the FINAL
+            // retimed path rather than the original pre-retime coordinates.
+            // The ball, targeted receiver, results and RNG are untouched.
+            if ($player['team'] === 'offense'
+                && $player['role'] !== $animation['receiver_role']
+                && in_array($player['role'], ['WR1','WR2','WR3','WR4','TE','TE2','RB','FB'], true)) {
+                $route = &$player['path'];
+                $maxSpeed = 6.5; // presentation yards per second
+                for ($i = 1; $i < count($route); $i++) {
+                    $previous = $route[$i - 1];
+                    $current = $route[$i];
+                    $dt = max(0.0, $current[0] - $previous[0]);
+                    $dx = $current[1] - $previous[1];
+                    $dz = $current[3] - $previous[3];
+                    $distance = hypot($dx, $dz);
+                    $allowed = $maxSpeed * $dt;
+                    if ($distance > $allowed && $distance > 0.0) {
+                        $fraction = $allowed / $distance;
+                        $route[$i][1] = $previous[1] + $dx * $fraction;
+                        $route[$i][3] = $previous[3] + $dz * $fraction;
+                    }
+                }
+                unset($route);
+            }
         }
         unset($player);
         $animation['ball'] = self::retimePath($animation['ball'], $ballTime);
