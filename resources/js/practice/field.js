@@ -37,6 +37,7 @@ import { sampleEnginePlay } from './engine-timeline.js';
 import { captureCamera, restoreCamera, cameraPreset, translateCameraAnchor, cameraLimits } from './camera-state.js';
 import { canAdvanceCpu } from './cpu-flow.js';
 import { ballCarrier, carrierLabel } from './ball-carrier.js';
+import { tackleAssistPose } from './tackle-assist.js';
 import { buildFootballPlayer, animateFootballPlayer, applyPreSnapStance } from './player-model.js';
 import { scoreboardText } from './scoreboard.js';
 import { sampleHuddle as regularHuddle, sampleBreakHuddle, sampleNoHuddle } from './huddle.js';
@@ -718,6 +719,21 @@ export function mountPractice(root, onReady = () => {}) {
                     const lean = style === 'wrap' ? Math.PI * .35 : style === 'lunge' ? Math.PI * .53 : Math.PI * .46;
                     mesh.rotation.z = fall * lean;
                     mesh.position.y = fall * (defender ? .08 : .12);
+                }
+            }
+            // M15D.5: close support defenders assist in waves; the primary tackler
+            // and saved ball/carrier positions remain authoritative.
+            if (phase === 'play' && animation?.contact_at != null) {
+                const assist = tackleAssistPose(frame, animation, elapsed, player);
+                if (assist?.blend > 0) {
+                    const distance = Math.hypot(assist.towardX, assist.towardZ);
+                    if (distance > .001) {
+                        mesh.rotation.y = Math.atan2(assist.towardX, assist.towardZ);
+                        mesh.position.x += assist.towardX / distance * assist.displacement;
+                        mesh.position.z += assist.towardZ / distance * assist.displacement;
+                    }
+                    mesh.rotation.z = (player.role.startsWith('LB') ? -.16 : -.12) * assist.blend;
+                    mesh.position.y = 0; // No running bob once contact assistance begins.
                 }
             }
             const fakeHolder = animation?.fake_kick && animation.design?.startsWith('fake_field_goal') && player.team === 'offense' && player.role === 'QB';
