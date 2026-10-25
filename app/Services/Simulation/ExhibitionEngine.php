@@ -179,7 +179,9 @@ class ExhibitionEngine
                 };
                 $target = min($target, 108 - $state['spot']);
                 $receiverRatings = $off[$targetRole]['ratings'];
-                $complete = max(.15, min(.93, .64 + ($off['QB']['ratings']['throwing'] + $receiverRatings['catching'] - 2 * $coverage) * .004
+                // Calibrate routine pass success upward without making deep
+                // throws, tight coverage, or pressure automatic completions.
+                $complete = max(.20, min(.96, .73 + ($off['QB']['ratings']['throwing'] + $receiverRatings['catching'] - 2 * $coverage) * .004
                     + (($receiverRatings['awareness'] ?? 60) - 60) * .0006
                     - match ($call) {
                         'deep_pass' => .2, 'medium_pass' => .1, 'short_pass' => -.06, default => 0

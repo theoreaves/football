@@ -343,10 +343,12 @@ class PlayTimeline
                 $path = [$p0, $p1, $p2, $p3, $p4];
             }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
-                $cutZ = [22, 25, 29, 32, 35, 39][$visualVariant % 6];
+                // Stay in the established lane after clearing the line; do not
+                // outrun a cut and then steer back through defenders to the endpoint.
+                $cutZ = $endZ + (26.7 - $endZ) * .18;
                 $path = [$point(0, $x, $z), $point(1, $handoff, 27),
                     $point(2.4, max(0, $play['gain'] * .25), $cutZ),
-                    $point(4.1, $play['gain'] * .72, $endZ + ($cutZ - $endZ) * .25),
+                    $point(4.1, $play['gain'] * .72, $endZ + ($cutZ - $endZ) * .35),
                     $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
             }
             // Negative-yardage runs need a coherent route BACK toward the
@@ -408,6 +410,20 @@ class PlayTimeline
             if (in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
                 $path = [$point(0, $x, $z), $point(1.2, .3, $z), $point(5.3, $pass ? .3 : 2, $z), $point(6, $pass ? .3 : 2, $z)];
             }
+            // On a genuine long run, selected linemen release after the initial
+            // engagement and seek second-level blocks. Do not send all five downfield.
+            if (! $pass && ! $special && $play['carrier'] === 'RB' && $play['gain'] >= 8
+                && in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
+                $releaseRoles = $play['gain'] >= 15 ? ['C', 'LG', 'RT'] : ['C', 'RG'];
+                if (in_array($role, $releaseRoles, true)) {
+                    $advance = min(7.5, max(3.5, $play['gain'] * .35));
+                    $laneZ = $endZ + ($z - $endZ) * .55;
+                    $path = [$point(0, $x, $z), $point(1.2, .4, $z),
+                        $point(3.5, $advance * .48, $laneZ),
+                        $point(5.3, $advance, $laneZ),
+                        $point(6, $advance, $laneZ)];
+                }
+            }
             if ($design === 'inside_zone' && in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
                 $path = [$point(0, $x, $z), $point(1.2, .4, $z + ($endZ < 26.7 ? -.8 : .8)), $point(5.3, 2.5, $z), $point(6, 2.5, $z)];
             }
@@ -421,6 +437,16 @@ class PlayTimeline
                 $path = $offenseFormation === 'empty'
                     ? [$point(0, $x, $z), $point(1, $x + 1, $z), $point(2.4, 2, $z), $point(5.3, 4, $z), $point(6, 4, $z)]
                     : [$point(0, $x, $z), $point(1, -1, 27), $point(2.4, 2, $endZ), $point(5.3, 4, $endZ), $point(6, 4, $endZ)];
+            }
+            // Reapply the second-level release after scheme-specific line paths.
+            // Guards that pull on power/counter keep their designed lead path.
+            if (! $pass && ! $special && $play['carrier'] === 'RB' && $play['gain'] >= 8
+                && in_array($role, $play['gain'] >= 15 ? ['C', 'RT'] : ['C'], true)) {
+                $advance = min(7.5, max(3.5, $play['gain'] * .35));
+                $laneZ = $endZ + ($z - $endZ) * .55;
+                $path = [$point(0, $x, $z), $point(1.2, .4, $z),
+                    $point(3.5, $advance * .48, $laneZ), $point(5.3, $advance, $laneZ),
+                    $point(6, $advance, $laneZ)];
             }
             $person = $rosters[$side]['players'][$special && $role === 'QB' ? $play['carrier'] : $role];
             // Read the carrier's actual route, not an assumed running lane.
@@ -605,9 +631,19 @@ class PlayTimeline
             $ball = array_merge($ball, [$point(1.8, $qbSet, $qbZ, 1.8), $point(2.2, $qbSet + .5, $qbZ, 2), $point(3, $qbSet + 2, 42, 5), $point(3.8, $qbSet + 3, 53.33, 0), $point(6, $qbSet + 3, 53.33, 0)]);
         } elseif ($pass) {
             $ball = array_merge($ball, [$point(1.8, $qbSet, $qbZ, 1.8), $point(2.2, $qbSet + .5, $qbZ, 2), $point(3, ($play['target'] + $qbSet) / 2, (26.7 + $endZ) / 2, 7),
-                $point(3.8, $play['target'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1),
+                $point(3.8, $play['target'], $endZ, $play['outcome'] === 'incomplete' ? .13 : 1),
                 $point(5.3, $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1),
                 $point(6, $play['outcome'] === 'incomplete' ? $play['target'] : $play['gain'], $endZ, $play['outcome'] === 'incomplete' ? 0 : 1)]);
+            if ($play['outcome'] === 'incomplete') {
+                // A loose ball skips away after hitting the turf. This is purely
+                // visual: possession stays null and the play is already dead.
+                $skip = $visualVariant % 2 === 0 ? 1 : -1;
+                $ball = array_slice($ball, 0, -2);
+                $ball[] = $point(4.08, $play['target'] + 1.4, $endZ + $skip * .8, .38);
+                $ball[] = $point(4.42, $play['target'] + 2.8, $endZ + $skip * 1.5, .07);
+                $ball[] = $point(5.3, $play['target'] + 3.5, $endZ + $skip * 1.8, 0);
+                $ball[] = $point(6, $play['target'] + 3.5, $endZ + $skip * 1.8, 0);
+            }
         } else {
             $ball = array_merge($ball, [$point(1, $handoff, 27, 1), $point(5.3, $play['gain'], $endZ, 1), $point(6, $play['gain'], $endZ, 1)]);
             if ($play['carrier'] === 'QB') {
