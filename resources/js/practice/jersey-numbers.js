@@ -18,16 +18,18 @@ export function addJerseyNumbers(jersey, player, document, uniform = {}, placeme
     return numberMaterial;
 }
 
-// Attach numbers to the top of the moving upper shoulders, rather than
-// vertically to the outside sleeves. Geometry follows arm animation naturally.
-export function addShoulderNumbers(arms, material) {
-    if (!material) return;
-    arms.forEach((arm, index) => {
-        const sign = index === 0 ? -1 : 1;
-        const number = new THREE.Mesh(new THREE.PlaneGeometry(.32, .22), material);
+// Position uniform numerals on the actual shoulder-pad top, not the sleeves.
+// Parent to the padded shoulder mesh so arm swings cannot carry them outward.
+// This also inherits the shoulder pad's per-player width scaling.
+export function addShoulderNumbers(shoulderPads, material) {
+    if (!material || !shoulderPads) return;
+    for (const sign of [-1, 1]) {
+        const number = new THREE.Mesh(new THREE.PlaneGeometry(.25, .25), material);
         number.name = sign < 0 ? 'jersey-number-shoulder-left' : 'jersey-number-shoulder-right';
-        number.position.set(0, .135, 0);
+        // The shoulder box is .22 tall: +.11 is its top surface. Add .014
+        // clearance to avoid coplanar z-fighting, even in angled camera views.
+        number.position.set(sign * .405, .124, 0);
         number.rotation.x = -Math.PI / 2;
-        arm.add(number);
-    });
+        shoulderPads.add(number);
+    }
 }
