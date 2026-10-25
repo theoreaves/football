@@ -111,7 +111,7 @@ class TeamEditor extends Controller
         }
 
         $settings = [
-            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,championship_endzone,uniform_patterns,uniform_stripe_colors,uniform_logos,field_art'],
+            'team_settings' => ['sometimes', 'array:white_at_home,coaching,staff,cheerleaders,mascot,stadium,helmets,specialists,special_teams,championship_endzone,uniform_patterns,uniform_stripe_colors,uniform_logos,field_art'],
             'team_settings.championship_endzone' => ['sometimes', 'array:enabled,text,background,text_color,transparent'],
             'team_settings.championship_endzone.enabled' => ['sometimes', 'boolean'],
             'team_settings.championship_endzone.transparent' => ['sometimes', 'boolean'],
@@ -158,6 +158,29 @@ class TeamEditor extends Controller
                     $fail('Choose an eligible player from this team’s current roster.');
                 }
             }];
+        }
+        // ST1b: explicit depth chart slot IDs. Validate roster membership and
+        // prevent one player occupying multiple slots in the same unit.
+        $stUnits = [
+            'punt_coverage' => ['P','LS','PP','G1','G2','T1','T2','WL','WR','GL','GR'],
+            'punt_return' => ['PR','R1','R2','R3','B1','B2','B3','B4','B5','B6','B7'],
+            'kickoff_coverage' => ['K','C1','C2','C3','C4','C5','C6','C7','C8','C9','C10'],
+            'kickoff_return' => ['KR','B1','B2','B3','B4','B5','B6','B7','B8','B9','B10'],
+            'field_goal' => ['K','LS','H','LG','RG','LT','RT','W1','W2','B1','B2'],
+            'field_goal_block' => ['R1','R2','R3','R4','R5','R6','R7','R8','R9','R10','R11'],
+        ];
+        $settings['team_settings.special_teams'] = ['sometimes', 'array:'.implode(',', array_keys($stUnits))];
+        $currentRosterIds = $team?->players()->wherePivot('team_year', $team->players()->max('team_players.team_year'))->pluck('players.id')->map(fn ($id) => (int) $id)->all() ?? [];
+        foreach ($stUnits as $unit => $slots) {
+            $settings['team_settings.special_teams.'.$unit] = ['sometimes', 'array:'.implode(',', $slots), function ($attribute, $value, $fail) use ($unit) {
+                $ids = array_values(array_filter(array_map('strval', $value), fn ($id) => $id !== ''));
+                if (count($ids) !== count(array_unique($ids))) {
+                    $fail('The '.$unit.' unit cannot assign one player to multiple positions.');
+                }
+            }];
+            foreach ($slots as $slot) {
+                $settings['team_settings.special_teams.'.$unit.'.'.$slot] = ['nullable', 'integer', \Illuminate\Validation\Rule::in($currentRosterIds)];
+            }
         }
         $settings['team_settings.uniform_stripe_colors'] = ['sometimes', 'array:home,away'];
         foreach (['home', 'away'] as $venue) {
