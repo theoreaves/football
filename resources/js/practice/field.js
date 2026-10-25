@@ -547,7 +547,14 @@ export function mountPractice(root, onReady = () => {}) {
             mesh.userData.knees?.forEach(knee => { knee.rotation.x = 0; });
 
             const next = future.players[i];
-            const moving = Math.hypot(next.x - player.x, next.z - player.z) > 0.002;
+            const stepDistance = Math.hypot(next.x - player.x, next.z - player.z);
+            // Tiny timeline corrections are pocket shuffles/defensive reads,
+            // not full strides. Keep the locomotion animation planted until
+            // meaningful travel occurs; actual position paths are untouched.
+            const pocketQB = phase === 'play' && animation?.dropback
+                && player.team === 'offense' && player.role === 'QB'
+                && elapsed < (animation.throw_at ?? 2.2);
+            const moving = stepDistance > (pocketQB ? .065 : phase === 'play' && player.team === 'defense' ? .035 : .012);
             mesh.rotation.x = 0; // Clear any previous pre-snap lean before each render.
             mesh.rotation.z = 0;
             mesh.position.set(player.x, moving ? Math.sin(motionTime * 18 + i) * 0.06 : 0, player.z);

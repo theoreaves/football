@@ -11,7 +11,7 @@ export function addJerseyNumbers(jersey, player, document, uniform = {}, placeme
     for (const facing of [1, -1]) {
         const number = new THREE.Mesh(new THREE.PlaneGeometry(.65, .65), numberMaterial);
         // Push the decal clear of the torso surface (including bulkier kits).
-        number.position.set(0, (placement.height ?? 1.25), facing * Math.max(.335, placement.depth ?? .345));
+        number.position.set(0, (placement.height ?? 1.25), facing * Math.max(.318, placement.depth ?? .326));
         number.rotation.y = facing === 1 ? 0 : Math.PI;
         jersey.add(number);
     }
