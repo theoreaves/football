@@ -686,7 +686,7 @@ export function mountPractice(root, onReady = () => {}) {
             }
             // Coordinate contact around one shared point and fall direction. Individual
             // paths are unchanged until contact; never mutate saved play animation data.
-            if (phase === 'play' && animation?.contact_at != null && elapsed >= animation.contact_at
+            if (['play', 'settling'].includes(phase) && animation?.contact_at != null && elapsed >= animation.contact_at
                 && animation.tackle_style && animation.tackler_role
                 && ((player.team === (animation.contact_carrier_team || 'offense') && player.role === animation.carrier)
                     || (player.team === (animation.contact_tackler_team || 'defense') && player.role === animation.tackler_role))) {
@@ -734,6 +734,55 @@ export function mountPractice(root, onReady = () => {}) {
                     }
                     mesh.rotation.z = (player.role.startsWith('LB') ? -.16 : -.12) * assist.blend;
                     mesh.position.y = 0; // No running bob once contact assistance begins.
+                }
+            }
+            // M15D.5c: after the two-second on-field settling interval,
+            // participants recover gradually while the result is visible.
+            // Only mesh poses change; original play and player paths remain intact.
+            if (phase === 'result' && animation && !animation.no_snap
+                && !earlyExit && animation.contact_at != null && animation.tackle_style) {
+                const carrier = player.team === (animation.contact_carrier_team || 'offense')
+                    && player.role === animation.carrier;
+                const tackler = player.team === (animation.contact_tackler_team || 'defense')
+                    && player.role === animation.tackler_role;
+                if (carrier || tackler) {
+                    const started = Math.max(0, postElapsed - (carrier ? .25 : .48));
+                    const recovery = Math.max(0, Math.min(1, started / (carrier ? 1.65 : 1.40)));
+                    const smooth = recovery * recovery * (3 - 2 * recovery);
+                    const fallAngle = animation.tackle_style === 'wrap' ? Math.PI * .35
+                        : animation.tackle_style === 'lunge' ? Math.PI * .53 : Math.PI * .46;
+                    mesh.rotation.z = fallAngle * (1 - smooth);
+                    mesh.position.y = (carrier ? .12 : .08) * (1 - smooth);
+                    mesh.userData.legs?.forEach((leg, side) => {
+                        leg.rotation.x = (side === 0 ? .34 : -.24) * (1 - smooth);
+                    });
+                    mesh.userData.arms?.forEach((arm, side) => {
+                        arm.rotation.x = (side === 0 ? -.6 : -.35) * (1 - smooth);
+                    });
+                }
+            }
+            // Other players don't immediately run to the next formation:
+            // staggered walking and disengaging starts once the result is up.
+            if (phase === 'result' && animation && !animation.no_snap && !earlyExit
+                && !['touchdown','interception','fumble'].includes(animation.outcome)) {
+                const recovering = animation.contact_at != null
+                    && ((player.team === (animation.contact_carrier_team || 'offense') && player.role === animation.carrier)
+                    || (player.team === (animation.contact_tackler_team || 'defense') && player.role === animation.tackler_role));
+                const delay = recovering ? 2.4 : .25 + (i % 6) * .18;
+                const t = Math.max(0, postElapsed - delay);
+                if (t > 0) {
+                    const drift = Math.min(2.3, t * (recovering ? .6 : 1.35));
+                    // Walk away from the contact area without inventing a new
+                    // off-field destination, or following a sprinting ball carrier.
+                    const direction = player.team === 'offense' ? -playDirection : playDirection;
+                    mesh.position.x += direction * drift;
+                    const gait = Math.sin(t * 6 + i);
+                    mesh.userData.legs?.forEach((leg, side) => {
+                        leg.rotation.x += (side === 0 ? 1 : -1) * .15 * gait;
+                    });
+                    mesh.userData.arms?.forEach((arm, side) => {
+                        arm.rotation.x += (side === 0 ? -1 : 1) * .07 * gait;
+                    });
                 }
             }
             const fakeHolder = animation?.fake_kick && animation.design?.startsWith('fake_field_goal') && player.team === 'offense' && player.role === 'QB';
@@ -1901,8 +1950,16 @@ export function mountPractice(root, onReady = () => {}) {
                 // Give the scorer and teammates an unobstructed celebration
                 // before opening the result popup over the playing field.
                 phase = 'celebration'; postElapsed = 0; resultPopup.hidden = true;
-            } else if (resultPopup) { phase = 'result'; postElapsed = 0; resultPopup.hidden = false; }
+            } else if (resultPopup) { phase = 'settling'; postElapsed = 0; resultPopup.hidden = true; }
             else showQuarter();
+        } else if (phase === 'settling') {
+            // Let the hit, whistle and final on-field pose register before
+            // bringing the results overlay onto the screen.
+            postElapsed += Math.min(delta, .1);
+            if (postElapsed >= 2) {
+                phase = 'result'; postElapsed = 0;
+                if (resultPopup) resultPopup.hidden = false;
+            }
         } else if (phase === 'penalty') {
             postElapsed += Math.min(delta, .1);
             if (screenTimerExpired({manual:manualScreens,elapsed:postElapsed,seconds:4.5,pending:Boolean(afterState?.penalty_pending),visible:!document.hidden})) finishPenaltyAnnouncement();
@@ -1955,7 +2012,7 @@ export function mountPractice(root, onReady = () => {}) {
             postElapsed += delta * exchangeRate; huddleProgress = Math.min(1, postElapsed / 1.5);
             if (huddleProgress === 1) showQuarter();
         }
-        const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
+        const audible = !document.hidden && !driveDialog?.open && !quarterDialog?.open && !penaltyDialog?.open && !logDialog?.open && !highlightsDialog?.open && !boxDialog?.open && (breakWaiting || running || ['result','settling','celebration','big_play'].includes(phase) || (phase === 'huddle' && huddleProgress < 1));
         // Keep the stadium bed under play calling, without enabling stale cues.
         const callingPlay = phase === 'huddle' || playCallVisible(callForm);
         const ambience = presentationAmbience({visible: !document.hidden, callingPlay, flagOpen: Boolean(penaltyDialog?.open),
