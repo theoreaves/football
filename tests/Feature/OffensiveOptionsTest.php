@@ -29,6 +29,14 @@ function offensiveOptionState(int $seed = 42): array
     return $state;
 }
 
+test('every offensive formation concept is accepted by the engine call whitelist', function () {
+    $offered = array_values(array_unique(array_merge(...array_values(OffensiveOptions::FORMATIONS))));
+    expect(array_values(array_diff($offered, ExhibitionEngine::OFFENSE)))->toBe([]);
+    foreach (['hitch', 'curl', 'te_stick', 'drag', 'rb_flat', 'comeback', 'dig', 'out', 'te_seam', 'post', 'corner', 'fade', 'wheel'] as $route) {
+        expect(ExhibitionEngine::callsForState(['phase' => 'scrimmage']))->toContain($route);
+    }
+});
+
 test('new concepts resolve deterministically in every offered formation with bounded ordered animation paths', function () {
     $engine = app(ExhibitionEngine::class);
     foreach (OffensiveOptions::FORMATIONS as $formation => $calls) {

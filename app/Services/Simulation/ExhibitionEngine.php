@@ -6,7 +6,7 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass', 'hitch', 'curl', 'te_stick', 'drag', 'rb_flat', 'comeback', 'dig', 'out', 'te_seam', 'post', 'corner', 'fade', 'wheel'];
 
     public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread', 'i_form' => 'I formation', 'pistol' => 'Pistol', 'trips' => 'Trips', 'bunch' => 'Bunch', 'empty' => 'Empty', 'goal_line' => 'Goal line', 'punt' => 'Punt', 'field_goal' => 'Field goal'];
 
