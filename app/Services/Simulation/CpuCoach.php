@@ -83,8 +83,9 @@ class CpuCoach
         $variants = match ($baseCall) {
             'inside_run' => ['inside_run', 'inside_zone', 'counter', 'power', 'lead', 'draw'],
             'outside_run' => ['outside_run', 'outside_zone', 'stretch', 'toss'],
-            'short_pass' => ['short_pass', 'quick_pass', 'mesh', 'screen'],
-            'medium_pass' => ['medium_pass', 'flood', 'play_action'],
+            'short_pass' => ['short_pass', 'quick_pass', 'mesh', 'screen', 'hitch', 'curl', 'drag', 'te_stick', 'rb_flat'],
+            'medium_pass' => ['medium_pass', 'flood', 'play_action', 'comeback', 'dig', 'out', 'te_seam'],
+            'deep_pass' => ['deep_pass', 'post', 'corner', 'fade', 'wheel'],
             default => [$baseCall],
         };
         $call = $variants[$this->roll($state, 'offensive-concept') % count($variants)];

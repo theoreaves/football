@@ -237,6 +237,36 @@ class PlayTimeline
                 $path = [$point(0, $x, $z), $point(1.35, $breakX * .55, $z),
                     $point(2.2, $breakX, $breakZ), $point(3.8, $play['target'], $endZ),
                     $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
+                // M15C.6: receiver route geometry changes the visual approach,
+                // but the last catch / YAC coordinates stay tied to the recorded
+                // pass, gain, timing and ball flight.
+                $sideline = $z < 26.7 ? 2.5 : 50.8;
+                $center = $z < 26.7 ? 31.5 : 21.5;
+                $route = match ($design) {
+                    'hitch', 'te_stick' => [2.3, $z],
+                    'curl' => [5.5, $z],
+                    'comeback' => [max(4, $play['target'] + 4), $sideline],
+                    'out' => [max(3, $play['target'] * .75), $sideline],
+                    'dig' => [max(3, $play['target'] * .68), $center],
+                    'drag' => [2.5, $center],
+                    'rb_flat' => [1.8, $sideline],
+                    'te_seam' => [max(5, $play['target'] * .7), 26.7 + ($z < 26.7 ? -4 : 4)],
+                    'post' => [max(8, $play['target'] * .7), 26.7],
+                    'corner' => [max(8, $play['target'] * .7), $sideline],
+                    'fade' => [max(8, $play['target'] * .7), $z < 26.7 ? 4 : 49],
+                    'wheel' => [max(6, $play['target'] * .65), $sideline],
+                    default => null,
+                };
+                if ($route !== null) {
+                    [$depth, $lane] = $route;
+                    // A short first leg and one clean break, followed by the
+                    // immutable receiver/ball meeting point at 3.8.
+                    $path = [$point(0, $x, $z),
+                        $point(1.35, min($depth, max(1, $play['target'] * .35)), $z),
+                        $point(2.2, $depth, $lane),
+                        $point(3.8, $play['target'], $endZ),
+                        $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
+                }
             }
             if ($role === 'RB' && ! $pass && ! $special && $play['carrier'] === 'RB') {
                 $cutZ = [22, 25, 29, 32, 35, 39][$visualVariant % 6];
