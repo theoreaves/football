@@ -140,11 +140,40 @@ class SpecialTeamsTimeline
         // kicking result, ball flight, possession and clock are unchanged.
         // Keep QB (punter/kicker) and CB1 (returner) on their specialized paths.
         if (! $goalKick && ! $blocked) {
+            $touchback = $kickoff && str_ends_with($play['outcome'], '_touchback');
             $coverageRoles = ['C', 'LG', 'RG', 'LT', 'RT', 'RB', 'TE', 'WR1', 'WR2', 'WR3'];
             $blockRoles = ['DE1', 'DE2', 'DT1', 'DT2', 'LB1', 'LB2', 'LB3', 'CB2', 'S1', 'S2'];
             $coverageCount = count($coverageRoles);
             foreach ($base['players'] as &$player) {
                 $role = $player['role'];
+                if ($touchback && $player['team'] === 'offense' && in_array($role, $coverageRoles, true)) {
+                    // The ball is dead. Coverage takes a few controlled steps
+                    // out of its kickoff alignment; nobody races to the end zone.
+                    $lane = array_search($role, $coverageRoles, true);
+                    $z = max(3, min(50, 26.7 + ($lane - 4.5) * 4.35));
+                    $x = $kick - 1.1 * $direction;
+                    $player['path'] = [
+                        $point(0, $x, 0, $z),
+                        $point(1.2, $x + 1.2 * $direction, 0, $z),
+                        $point(2.4, $x + 3.5 * $direction, 0, $z),
+                        $point(3.5, $x + 5 * $direction, 0, $z),
+                        $point(6, $x + 5 * $direction, 0, $z),
+                    ];
+                    continue;
+                }
+                if ($touchback && $player['team'] === 'defense' && in_array($role, $blockRoles, true)) {
+                    // Receiving unit waits near its own return alignment.
+                    $lane = array_search($role, $blockRoles, true);
+                    $z = max(3, min(50, 26.7 + ($lane - 4.5) * 4.35));
+                    $x = $landing - 13 * $direction;
+                    $player['path'] = [
+                        $point(0, $x, 0, $z),
+                        $point(1.2, $x, 0, $z),
+                        $point(3.5, $x + 1 * $direction, 0, $z),
+                        $point(6, $x + 1 * $direction, 0, $z),
+                    ];
+                    continue;
+                }
                 if ($player['team'] === 'offense' && in_array($role, $coverageRoles, true)) {
                     $lane = array_search($role, $coverageRoles, true);
                     $wide = ($lane - ($coverageCount - 1) / 2) * 4.35;
@@ -154,9 +183,12 @@ class SpecialTeamsTimeline
                     $startX = $kickoff ? $kick - 1.1 * $direction : $kick + 7 * $direction;
                     $startZ = $z;
                     $breakX = $startX + ($kickoff ? 8 : ($outside ? 12 : 5)) * $direction;
-                    $pursueX = $landing - ($outside ? 11 : 17) * $direction;
-                    // Do not force every coverage player to the final return spot.
-                    $closeX = $landing - ($outside ? 4 : 9) * $direction;
+                    // Until variable return timing is implemented, bound
+                    // travel from the kickoff/punt starting alignment.
+                    $wantedPursue = $landing - ($outside ? 11 : 17) * $direction;
+                    $pursueX = $startX + $direction * max(0, min(17, ($wantedPursue - $startX) * $direction));
+                    $wantedClose = $landing - ($outside ? 4 : 9) * $direction;
+                    $closeX = $startX + $direction * max(0, min(25, ($wantedClose - $startX) * $direction));
                     $closeZ = max(2, min(51, $z + (26.7 - $z) * ($outside ? .32 : .20)));
                     $player['path'] = [
                         $point(0, $startX, 0, $startZ),
