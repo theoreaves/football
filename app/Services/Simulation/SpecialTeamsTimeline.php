@@ -135,6 +135,55 @@ class SpecialTeamsTimeline
                 $player['path'] = [$initial, $point(1.2, $kick + $direction, 0, 26.7), $point(6, $landing, 0, 26.7)];
             }
         } unset($player);
+        // ST1d: the entire punt/kick coverage unit advances in lanes, while
+        // receiving-team players form a staggered blocking screen. Existing
+        // kicking result, ball flight, possession and clock are unchanged.
+        // Keep QB (punter/kicker) and CB1 (returner) on their specialized paths.
+        if (! $goalKick && ! $blocked) {
+            $coverageRoles = ['C', 'LG', 'RG', 'LT', 'RT', 'RB', 'TE', 'WR1', 'WR2', 'WR3'];
+            $blockRoles = ['DE1', 'DE2', 'DT1', 'DT2', 'LB1', 'LB2', 'LB3', 'CB2', 'S1', 'S2'];
+            $coverageCount = count($coverageRoles);
+            foreach ($base['players'] as &$player) {
+                $role = $player['role'];
+                if ($player['team'] === 'offense' && in_array($role, $coverageRoles, true)) {
+                    $lane = array_search($role, $coverageRoles, true);
+                    $wide = ($lane - ($coverageCount - 1) / 2) * 4.35;
+                    $z = max(3, min(50, 26.7 + $wide));
+                    $outside = in_array($role, ['WR2', 'WR3'], true);
+                    // Punt protectors start near scrimmage, gunners start wide.
+                    $startX = $kickoff ? $kick - 1.1 * $direction : $kick + 7 * $direction;
+                    $startZ = $z;
+                    $breakX = $startX + ($kickoff ? 8 : ($outside ? 12 : 5)) * $direction;
+                    $pursueX = $landing - ($outside ? 11 : 17) * $direction;
+                    // Do not force every coverage player to the final return spot.
+                    $closeX = $landing - ($outside ? 4 : 9) * $direction;
+                    $closeZ = max(2, min(51, $z + (26.7 - $z) * ($outside ? .32 : .20)));
+                    $player['path'] = [
+                        $point(0, $startX, 0, $startZ),
+                        $point(1.2, $startX + ($outside ? 3 : 0) * $direction, 0, $startZ),
+                        $point(2.4, $breakX, 0, $startZ),
+                        $point(3.5, $pursueX, 0, $closeZ),
+                        $point(5.3, $closeX, 0, $closeZ),
+                        $point(6, $closeX, 0, $closeZ),
+                    ];
+                } elseif ($player['team'] === 'defense' && in_array($role, $blockRoles, true)) {
+                    $lane = array_search($role, $blockRoles, true);
+                    $z = max(3, min(50, 26.7 + ($lane - 4.5) * 4.35));
+                    $startX = $kickoff ? $landing - 13 * $direction : $kick + 10 * $direction;
+                    $screenX = $kickoff ? $landing - 8 * $direction : $kick + 14 * $direction;
+                    $endX = $kickoff ? $landing - 5 * $direction : $landing - 8 * $direction;
+                    $player['path'] = [
+                        $point(0, $startX, 0, $z),
+                        $point(1.2, $screenX, 0, $z),
+                        $point(2.4, $screenX + 2 * $direction, 0, $z),
+                        $point(3.5, $endX, 0, $z + (26.7 - $z) * .15),
+                        $point(5.3, $endX - 2 * $direction, 0, $z + (26.7 - $z) * .20),
+                        $point(6, $endX - 2 * $direction, 0, $z + (26.7 - $z) * .20),
+                    ];
+                }
+            }
+            unset($player);
+        }
         if ($goalKick) {
             // The QB track is repurposed as the kicker above. Use the RB track for
             // the holder, retaining its own player identity and uniform.
