@@ -139,7 +139,7 @@ class SpecialTeamsTimeline
         // receiving-team players form a staggered blocking screen. Existing
         // kicking result, ball flight, possession and clock are unchanged.
         // Keep QB (punter/kicker) and CB1 (returner) on their specialized paths.
-        if (! $goalKick && ! $blocked) {
+        if (! $goalKick && ! $blocked && ! $kickoff) {
             $touchback = $kickoff && str_ends_with($play['outcome'], '_touchback');
             $coverageRoles = ['C', 'LG', 'RG', 'LT', 'RT', 'RB', 'TE', 'WR1', 'WR2', 'WR3'];
             $blockRoles = ['DE1', 'DE2', 'DT1', 'DT2', 'LB1', 'LB2', 'LB3', 'CB2', 'S1', 'S2'];
@@ -211,6 +211,52 @@ class SpecialTeamsTimeline
                         $point(3.5, $endX, 0, $z + (26.7 - $z) * .15),
                         $point(5.3, $endX - 2 * $direction, 0, $z + (26.7 - $z) * .20),
                         $point(6, $endX - 2 * $direction, 0, $z + (26.7 - $z) * .20),
+                    ];
+                }
+            }
+            unset($player);
+        }
+        // ST1d.2: NFL dynamic kickoff formation. The kicker remains at the
+        // kickoff spot; ten coverage players line up at receiving team's 40,
+        // and all ten receiving blockers occupy the setup zone (35 to 30).
+        // Six are on the receiving 35, four behind. The returner (CB1) is
+        // the only receiving player allowed to track the ball before landing.
+        // These field landmarks are independent of kick length or penalties.
+        if ($kickoff && ! $blocked) {
+            $coverageRoles = ['C', 'LG', 'RG', 'LT', 'RT', 'RB', 'TE', 'WR1', 'WR2', 'WR3'];
+            $blockRoles = ['DE1', 'DE2', 'DT1', 'DT2', 'LB1', 'LB2', 'LB3', 'CB2', 'S1', 'S2'];
+            $coverageLine = $absolute(60); // Receiving team's 40-yard line.
+            $setupLine = $absolute(65);    // Receiving team's 35-yard line.
+            $backLine = $absolute(69);     // Inside the 35-to-30 setup zone.
+            $dead = str_ends_with($play['outcome'], '_touchback');
+            foreach ($base['players'] as &$player) {
+                $role = $player['role'];
+                if ($player['team'] === 'offense' && in_array($role, $coverageRoles, true)) {
+                    $index = array_search($role, $coverageRoles, true);
+                    $z = 4.2 + $index * 5.0;
+                    $after = $dead ? $coverageLine : $coverageLine + $direction * (3 + ($index % 3));
+                    $player['path'] = [
+                        $point(0, $coverageLine, 0, $z),
+                        $point(1.2, $coverageLine, 0, $z),
+                        $point(2.4, $coverageLine, 0, $z),
+                        $point(3.5, $coverageLine, 0, $z),
+                        $point(5.3, $after, 0, $z + (26.7 - $z) * ($dead ? 0 : .07)),
+                        $point(6, $after, 0, $z + (26.7 - $z) * ($dead ? 0 : .07)),
+                    ];
+                } elseif ($player['team'] === 'defense' && in_array($role, $blockRoles, true)) {
+                    $index = array_search($role, $blockRoles, true);
+                    // Six on the restraining line; four staggered behind it.
+                    $front = $index < 6;
+                    $z = $front ? 4.4 + $index * 9 : 9 + ($index - 6) * 11.5;
+                    $x = $front ? $setupLine : $backLine;
+                    $after = $dead ? $x : $x - $direction * (1.5 + $index % 3);
+                    $player['path'] = [
+                        $point(0, $x, 0, $z),
+                        $point(1.2, $x, 0, $z),
+                        $point(2.4, $x, 0, $z),
+                        $point(3.5, $x, 0, $z),
+                        $point(5.3, $after, 0, $z),
+                        $point(6, $after, 0, $z),
                     ];
                 }
             }
