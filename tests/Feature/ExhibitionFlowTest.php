@@ -27,7 +27,15 @@ test('exhibition starts from real rosters and duplicate snaps do not advance twi
     $this->post(route('exhibitions.play', $game), ['call' => 'kickoff', 'defense' => 'kickoff_return', 'version' => 0])->assertStatus(409);
     $game->refresh();
     expect($game->state['version'])->toBe(1)->and($game->history)->toHaveCount(1);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Last play:')->assertSee('QB kneel')->assertSee('Stadium sound')->assertSee('data-sound-volume="crowd"', false);
+    // A seeded kickoff may end in a return touchdown. In that case the
+    // following call is an extra-point try rather than an ordinary scrimmage.
+    $expectedCall = ($game->state['phase'] ?? 'scrimmage') === 'extra_point'
+        ? '1-point kick' : 'QB kneel';
+    $this->get(route('exhibitions.show', $game))->assertOk()
+        ->assertSee('Last play:')
+        ->assertSee($expectedCall)
+        ->assertSee('Stadium sound')
+        ->assertSee('data-sound-volume="crowd"', false);
     $this->post(route('exhibitions.play', $game), ['call' => 'made_up', 'defense' => 'zone', 'version' => 1])->assertSessionHasErrors('call');
 });
 
