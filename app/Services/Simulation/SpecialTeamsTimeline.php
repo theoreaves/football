@@ -135,70 +135,114 @@ class SpecialTeamsTimeline
                 $player['path'] = [$initial, $point(1.2, $kick + $direction, 0, 26.7), $point(6, $landing, 0, 26.7)];
             }
         } unset($player);
-        // ST1e.2: compact punt protection and genuine post-kick coverage.
-        // Gunners may release at the snap; other coverage members finish
-        // protection and only accelerate downfield after the 1.2s punt.
+        // ST1e.3: a compact five-man front, three-player protection shield,
+        // and two outside gunners. Return defense splits into four rushers,
+        // two gunner vices, and four staggered return-wall blockers.
+        // These are animation-only assignments; result, personnel and stats
+        // remain authoritative in the engine.
         if ($play['call'] === 'punt' && ! $blocked) {
             $snapX = $absolute($play['before']['spot']);
+            // Z lane, depth behind LOS, post-kick yards/sec, release delay.
+            // Snapper/guards/tackles provide a tight initial front.
             $coverage = [
-                'C' => [26.7, 0.0, 2.6], 'LG' => [24.6, -.3, 2.45],
-                'RG' => [28.8, -.3, 2.45], 'LT' => [22.3, -.5, 2.7],
-                'RT' => [31.1, -.5, 2.7], 'RB' => [26.7, -4.0, 4.0],
-                'TE' => [19.9, -.7, 4.1], 'WR1' => [33.5, -.7, 4.1],
-                'WR2' => [5.8, 0.4, 7.2], 'WR3' => [47.5, 0.4, 7.2],
+                'C' => [26.7, 0.0, 3.5, .12],
+                'LG' => [24.5, -.35, 3.3, .19],
+                'RG' => [28.9, -.35, 3.3, .23],
+                'LT' => [22.3, -.55, 3.7, .26],
+                'RT' => [31.1, -.55, 3.7, .30],
+                // Three-person shield behind the front, including PP.
+                'RB' => [26.7, -5.1, 4.0, .23],
+                'TE' => [22.5, -4.1, 4.5, .18],
+                'WR1' => [30.9, -4.1, 4.5, .20],
+                // Both gunners can release when the ball is snapped.
+                'WR2' => [5.8, .2, 7.2, 0],
+                'WR3' => [47.5, .2, 7.2, 0],
             ];
+            // Receiving team: four pressure players near the line, a vice
+            // beside each gunner, and four blockers at staggered depths.
             $rush = [
-                'DE1' => [21.0, 1.2], 'DT1' => [24.8, 1.1],
-                'DT2' => [28.6, 1.1], 'DE2' => [32.3, 1.2],
-                'LB1' => [19.3, 2.3], 'LB2' => [26.7, 3.0],
-                'LB3' => [34.0, 2.3], 'CB2' => [38.0, 3.2],
-                'S1' => [6.3, .8], 'S2' => [47.0, .8],
+                'DE1' => [22.0, 1.3, 'rush'],
+                'DT1' => [25.1, 1.0, 'rush'],
+                'DT2' => [28.3, 1.0, 'rush'],
+                'DE2' => [31.4, 1.3, 'rush'],
+                'LB1' => [18.5, 5.0, 'wall'],
+                'LB2' => [25.0, 7.5, 'wall'],
+                'LB3' => [32.0, 9.5, 'wall'],
+                'CB2' => [38.0, 12.0, 'wall'],
+                'S1' => [6.4, .9, 'vice'],
+                'S2' => [46.9, .9, 'vice'],
             ];
             foreach ($base['players'] as &$player) {
                 $role = $player['role'];
                 if ($player['team'] === 'offense' && $role === 'QB') {
-                    // The punter catches the long snap and kicks from deep,
-                    // then stays behind everyone as the final safety.
+                    // The punter remains the last line of defense.
                     $player['path'] = [
                         $point(0, $snapX - 14 * $direction, 0, 26.7),
                         $point(.35, $snapX - 13 * $direction, 0, 26.7),
                         $point(1.2, $snapX - 7 * $direction, 0, 26.7),
-                        $point(2.4, $snapX - 6 * $direction, 0, 26.7),
-                        $point(6, $snapX - 5 * $direction, 0, 26.7),
+                        $point(2.4, $snapX - 6.5 * $direction, 0, 26.7),
+                        $point(6, $snapX - 6 * $direction, 0, 26.7),
                     ];
                 } elseif ($player['team'] === 'offense' && isset($coverage[$role])) {
-                    [$z, $back, $speed] = $coverage[$role];
+                    [$z, $back, $speed, $delay] = $coverage[$role];
                     $gunner = in_array($role, ['WR2', 'WR3'], true);
                     $x = $snapX + $back * $direction;
-                    // Within the first 1.2 seconds linemen hold their
-                    // protection; gunners fight through their initial release.
-                    $early = $gunner ? 2.1 : 0;
-                    $exit = $gunner ? 0 : ($role === 'RB' ? 1.75 : 1.45);
+                    // All protectors release just after the 1.2-second kick;
+                    // gunners have already gained a short head start.
+                    $early = $gunner ? 1.55 : 0;
                     $travel = static fn (float $t): float => $early
-                        + max(0, $t - 1.2 - $exit) * $speed;
+                        + max(0, $t - 1.2 - $delay) * $speed;
+                    $drift = $gunner ? .09 : .035;
                     $player['path'] = [
                         $point(0, $x, 0, $z),
                         $point(1.2, $x + $early * $direction, 0, $z),
                         $point(2.4, $x + $travel(2.4) * $direction, 0, $z),
                         $point(3.5, $x + $travel(3.5) * $direction, 0, $z),
-                        $point(5.3, $x + $travel(5.3) * $direction, 0, $z + (26.7 - $z) * ($gunner ? .07 : .02)),
-                        $point(6, $x + $travel(6) * $direction, 0, $z + (26.7 - $z) * ($gunner ? .08 : .03)),
+                        $point(5.3, $x + $travel(5.3) * $direction, 0,
+                            $z + (26.7 - $z) * $drift),
+                        $point(6, $x + $travel(6) * $direction, 0,
+                            $z + (26.7 - $z) * ($drift + .015)),
                     ];
                 } elseif ($player['team'] === 'defense' && isset($rush[$role])) {
-                    [$z, $depth] = $rush[$role];
+                    [$z, $depth, $assignment] = $rush[$role];
                     $x = $snapX + $depth * $direction;
-                    $outside = in_array($role, ['S1','S2'], true);
-                    // Interior rushers hold up protectors; outside players
-                    // initially contest the gunners, not chase the returner.
-                    $move = $outside ? -1.0 : -0.7;
-                    $player['path'] = [
-                        $point(0, $x, 0, $z),
-                        $point(1.2, $x + $move * $direction, 0, $z),
-                        $point(2.4, $x + $move * $direction, 0, $z),
-                        $point(3.5, $x + ($outside ? -1.6 : -.2) * $direction, 0, $z),
-                        $point(5.3, $x + ($outside ? -2.8 : 1.9) * $direction, 0, $z),
-                        $point(6, $x + ($outside ? -3.3 : 2.7) * $direction, 0, $z),
-                    ];
+                    if ($assignment === 'rush') {
+                        // Rushers first challenge the protection, then turn
+                        // to pursue or begin setting the inside return wall.
+                        $swing = $role === 'DE1' || $role === 'DT1' ? -1 : 1;
+                        $player['path'] = [
+                            $point(0, $x, 0, $z),
+                            $point(1.2, $x - .65 * $direction, 0, $z + $swing * .25),
+                            $point(2.4, $x - 1.2 * $direction, 0, $z + $swing * .45),
+                            $point(3.5, $x + .15 * $direction, 0, $z + $swing * .7),
+                            $point(5.3, $x + 2.4 * $direction, 0, $z + $swing * .9),
+                            $point(6, $x + 3.4 * $direction, 0, $z + $swing * .9),
+                        ];
+                    } elseif ($assignment === 'vice') {
+                        // Double/hold-up responsibility against the gunners;
+                        // no instantaneous dash toward the returner.
+                        $player['path'] = [
+                            $point(0, $x, 0, $z),
+                            $point(1.2, $x - .45 * $direction, 0, $z),
+                            $point(2.4, $x - .5 * $direction, 0, $z),
+                            $point(3.5, $x + 1.3 * $direction, 0, $z),
+                            $point(5.3, $x + 4.4 * $direction, 0, $z),
+                            $point(6, $x + 5.1 * $direction, 0, $z),
+                        ];
+                    } else {
+                        // Return-wall players are deliberately off the line.
+                        // They reposition across staggered levels as coverage
+                        // approaches instead of joining the original rush.
+                        $sign = $z < 26.7 ? 1 : -1;
+                        $player['path'] = [
+                            $point(0, $x, 0, $z),
+                            $point(1.2, $x, 0, $z),
+                            $point(2.4, $x + .3 * $direction, 0, $z + $sign * .3),
+                            $point(3.5, $x + .8 * $direction, 0, $z + $sign * .7),
+                            $point(5.3, $x + 1.2 * $direction, 0, $z + $sign * 1.1),
+                            $point(6, $x + 1.5 * $direction, 0, $z + $sign * 1.3),
+                        ];
+                    }
                 }
             }
             unset($player);
@@ -300,7 +344,10 @@ class SpecialTeamsTimeline
         // Extend the punt after the kick while preserving all authored
         // possession events: a long punt must not complete in six seconds.
         if ($play['call'] === 'punt' && ! $blocked) {
-            $catchAt = 5.3; // Punt hangs in the air before a fair catch/return.
+            // Longer, bounded flight gives staggered coverage time to develop.
+            // Hang time is from the 1.2-second kick, not the snap.
+            $hangSeconds = 4.55 + min(.55, max(0, ($play['gain'] - 35) * .03));
+            $catchAt = 1.2 + $hangSeconds;
             $returnAt = $catchAt + ($return > 0 ? max(1.5, $return / 7.0) : .18);
             $finishAt = $returnAt + .65;
             $remap = static function (float $t) use ($catchAt, $returnAt, $finishAt): float {
