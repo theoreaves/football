@@ -135,82 +135,60 @@ class SpecialTeamsTimeline
                 $player['path'] = [$initial, $point(1.2, $kick + $direction, 0, 26.7), $point(6, $landing, 0, 26.7)];
             }
         } unset($player);
-        // ST1d: the entire punt/kick coverage unit advances in lanes, while
-        // receiving-team players form a staggered blocking screen. Existing
-        // kicking result, ball flight, possession and clock are unchanged.
-        // Keep QB (punter/kicker) and CB1 (returner) on their specialized paths.
-        if (! $goalKick && ! $blocked && ! $kickoff) {
-            $touchback = $kickoff && str_ends_with($play['outcome'], '_touchback');
-            $coverageRoles = ['C', 'LG', 'RG', 'LT', 'RT', 'RB', 'TE', 'WR1', 'WR2', 'WR3'];
-            $blockRoles = ['DE1', 'DE2', 'DT1', 'DT2', 'LB1', 'LB2', 'LB3', 'CB2', 'S1', 'S2'];
-            $coverageCount = count($coverageRoles);
+        // ST1e: punt protection, staggered coverage and paired return blocking.
+        // Punt timing is extended below; the ball and player timelines always
+        // share the same catch and dead-ball timestamps.
+        if ($play['call'] === 'punt' && ! $blocked) {
+            $coverage = ['C', 'LG', 'RG', 'LT', 'RT', 'RB', 'TE', 'WR1', 'WR2', 'WR3'];
+            $blocking = ['DE1', 'DE2', 'DT1', 'DT2', 'LB1', 'LB2', 'LB3', 'CB2', 'S1', 'S2'];
+            $snapX = $absolute($play['before']['spot']);
+            $releaseAt = 2.0;
+            // Gunners outside both numbers; eight protectors start compact.
+            // Values are field Z coordinates, not a uniform cross-field line.
+            $lanes = [26.7, 22.5, 30.9, 18.6, 34.8, 26.7, 39.0, 14.4, 5.4, 47.9];
             foreach ($base['players'] as &$player) {
                 $role = $player['role'];
-                if ($touchback && $player['team'] === 'offense' && in_array($role, $coverageRoles, true)) {
-                    // The ball is dead. Coverage takes a few controlled steps
-                    // out of its kickoff alignment; nobody races to the end zone.
-                    $lane = array_search($role, $coverageRoles, true);
-                    $z = max(3, min(50, 26.7 + ($lane - 4.5) * 4.35));
-                    $x = $kick - 1.1 * $direction;
-                    $player['path'] = [
-                        $point(0, $x, 0, $z),
-                        $point(1.2, $x + 1.2 * $direction, 0, $z),
-                        $point(2.4, $x + 3.5 * $direction, 0, $z),
-                        $point(3.5, $x + 5 * $direction, 0, $z),
-                        $point(6, $x + 5 * $direction, 0, $z),
-                    ];
-                    continue;
-                }
-                if ($touchback && $player['team'] === 'defense' && in_array($role, $blockRoles, true)) {
-                    // Receiving unit waits near its own return alignment.
-                    $lane = array_search($role, $blockRoles, true);
-                    $z = max(3, min(50, 26.7 + ($lane - 4.5) * 4.35));
-                    $x = $landing - 13 * $direction;
-                    $player['path'] = [
-                        $point(0, $x, 0, $z),
-                        $point(1.2, $x, 0, $z),
-                        $point(3.5, $x + 1 * $direction, 0, $z),
-                        $point(6, $x + 1 * $direction, 0, $z),
-                    ];
-                    continue;
-                }
-                if ($player['team'] === 'offense' && in_array($role, $coverageRoles, true)) {
-                    $lane = array_search($role, $coverageRoles, true);
-                    $wide = ($lane - ($coverageCount - 1) / 2) * 4.35;
-                    $z = max(3, min(50, 26.7 + $wide));
-                    $outside = in_array($role, ['WR2', 'WR3'], true);
-                    // Punt protectors start near scrimmage, gunners start wide.
-                    $startX = $kickoff ? $kick - 1.1 * $direction : $kick + 7 * $direction;
-                    $startZ = $z;
-                    $breakX = $startX + ($kickoff ? 8 : ($outside ? 12 : 5)) * $direction;
-                    // Until variable return timing is implemented, bound
-                    // travel from the kickoff/punt starting alignment.
-                    $wantedPursue = $landing - ($outside ? 11 : 17) * $direction;
-                    $pursueX = $startX + $direction * max(0, min(17, ($wantedPursue - $startX) * $direction));
-                    $wantedClose = $landing - ($outside ? 4 : 9) * $direction;
-                    $closeX = $startX + $direction * max(0, min(25, ($wantedClose - $startX) * $direction));
-                    $closeZ = max(2, min(51, $z + (26.7 - $z) * ($outside ? .32 : .20)));
-                    $player['path'] = [
-                        $point(0, $startX, 0, $startZ),
-                        $point(1.2, $startX + ($outside ? 3 : 0) * $direction, 0, $startZ),
-                        $point(2.4, $breakX, 0, $startZ),
-                        $point(3.5, $pursueX, 0, $closeZ),
-                        $point(5.3, $closeX, 0, $closeZ),
-                        $point(6, $closeX, 0, $closeZ),
-                    ];
-                } elseif ($player['team'] === 'defense' && in_array($role, $blockRoles, true)) {
-                    $lane = array_search($role, $blockRoles, true);
-                    $z = max(3, min(50, 26.7 + ($lane - 4.5) * 4.35));
-                    $startX = $kickoff ? $landing - 13 * $direction : $kick + 10 * $direction;
-                    $screenX = $kickoff ? $landing - 8 * $direction : $kick + 14 * $direction;
-                    $endX = $kickoff ? $landing - 5 * $direction : $landing - 8 * $direction;
+                if ($player['team'] === 'offense' && in_array($role, $coverage, true)) {
+                    $index = array_search($role, $coverage, true);
+                    $gunner = $index >= 8;
+                    $startX = $snapX + ($gunner ? .5 : ($index === 5 ? -3.2 : -.35)) * $direction;
+                    $z = $lanes[$index];
+                    $hold = $gunner ? .35 : (1.45 + ($index % 4) * .18);
+                    $released = $gunner ? 4.7 : (2.6 + ($index % 3) * .7);
+                    // Bounded travel, with coverage spreading through the
+                    // first and second levels rather than forming a flat wall.
+                    $step = $gunner ? 8.5 : (5.2 + ($index % 3) * .7);
+                    $late = $gunner ? 15.5 : (9 + ($index % 4));
                     $player['path'] = [
                         $point(0, $startX, 0, $z),
-                        $point(1.2, $screenX, 0, $z),
-                        $point(2.4, $screenX + 2 * $direction, 0, $z),
-                        $point(3.5, $endX, 0, $z + (26.7 - $z) * .15),
-                        $point(5.3, $endX - 2 * $direction, 0, $z + (26.7 - $z) * .20),
-                        $point(6, $endX - 2 * $direction, 0, $z + (26.7 - $z) * .20),
+                        $point($hold, $startX + ($gunner ? 1.5 : .3) * $direction, 0, $z),
+                        $point(2.4, $startX + $released * $direction, 0, $z),
+                        $point(3.5, $startX + $step * $direction, 0, $z),
+                        $point(5.3, $startX + $late * $direction, 0,
+                            $z + (26.7 - $z) * ($gunner ? .10 : .05)),
+                        $point(6, $startX + ($late + 1.8) * $direction, 0,
+                            $z + (26.7 - $z) * ($gunner ? .12 : .07)),
+                    ];
+                } elseif ($player['team'] === 'defense' && in_array($role, $blocking, true)) {
+                    $index = array_search($role, $blocking, true);
+                    // Interior rushers engage the punt protection. Four players
+                    // outside hold up gunners or prepare return lanes.
+                    $outside = $index >= 8;
+                    $matchIndex = $outside ? $index : (($index + 1) % 8);
+                    $z = $outside ? ($index === 8 ? 5.9 : 47.4)
+                        : $lanes[$matchIndex] + ($index % 2 ? -.7 : .7);
+                    $startX = $snapX + ($outside ? 1.1 : 1.6) * $direction;
+                    $screenX = $startX + ($outside ? -.5 : -1.0) * $direction;
+                    $releaseX = $startX + ($outside ? 3.6 : 1.2) * $direction;
+                    $player['path'] = [
+                        $point(0, $startX, 0, $z),
+                        $point(1.0, $screenX, 0, $z),
+                        $point(2.1 + ($index % 3) * .14, $screenX, 0, $z),
+                        $point(3.5, $releaseX, 0, $z + ($outside ? ($index === 8 ? 1 : -1) : 0)),
+                        $point(5.3, $releaseX + ($outside ? 6 : 3.5) * $direction, 0,
+                            $z + (26.7 - $z) * .09),
+                        $point(6, $releaseX + ($outside ? 7.3 : 4.5) * $direction, 0,
+                            $z + (26.7 - $z) * .12),
                     ];
                 }
             }
@@ -309,6 +287,33 @@ class SpecialTeamsTimeline
             $base['tackle_style'] = null;
         }
         $base['firstDown'] = null;
+
+        // Extend the punt after the kick while preserving all authored
+        // possession events: a long punt must not complete in six seconds.
+        if ($play['call'] === 'punt' && ! $blocked) {
+            $catchAt = 5.3; // Punt hangs in the air before a fair catch/return.
+            $returnAt = $catchAt + ($return > 0 ? max(1.5, $return / 7.0) : .18);
+            $finishAt = $returnAt + .65;
+            $remap = static function (float $t) use ($catchAt, $returnAt, $finishAt): float {
+                if ($t < 1.2) return $t;
+                if ($t <= 3.5) return 1.2 + ($t - 1.2) / 2.3 * ($catchAt - 1.2);
+                if ($t <= 5.3) return $catchAt + ($t - 3.5) / 1.8 * ($returnAt - $catchAt);
+                return $returnAt + ($t - 5.3) / .7 * ($finishAt - $returnAt);
+            };
+            foreach ($base['players'] as &$track) {
+                foreach ($track['path'] as &$waypoint) $waypoint[0] = $remap((float) $waypoint[0]);
+                unset($waypoint);
+            }
+            unset($track);
+            foreach (['ball', 'events', 'ballHolders'] as $field) {
+                foreach ($base[$field] as &$waypoint) $waypoint[0] = $remap((float) $waypoint[0]);
+                unset($waypoint);
+            }
+            if ($base['contact_at'] !== null) $base['contact_at'] = $returnAt;
+            $base['duration'] = $finishAt;
+            $base['result_at'] = $returnAt;
+            $base['reveal_at'] = $returnAt;
+        }
 
         // ST1c: assign the snapshotted special-teams personnel to actual
         // animation tracks, after the kick/holder/returner paths are established.
