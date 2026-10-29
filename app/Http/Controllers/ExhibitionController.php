@@ -260,6 +260,37 @@ class ExhibitionController extends Controller
         return response()->json(['supported' => true, 'teams' => $teams, 'notices' => $prepared['notices']]);
     }
 
+    /** GAME1: switch human/CPU coaching at the next play boundary. */
+    public function teamControl(Request $request, Exhibition $exhibition)
+    {
+        $data = $request->validate([
+            'version' => ['required', 'integer', 'min:0'],
+            'home_control' => ['required', Rule::in(['human', 'cpu'])],
+            'away_control' => ['required', Rule::in(['human', 'cpu'])],
+        ]);
+        DB::transaction(function () use ($exhibition, $data) {
+            $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
+            $state = $game->state;
+            abort_if(($state['version'] ?? -1) !== (int) $data['version'], 409,
+                'The game changed. Reload before changing team control.');
+            abort_unless(($state['status'] ?? '') === 'playing', 409,
+                'Team control can only change during an active game.');
+            abort_if(($state['penalty_pending'] ?? false), 409,
+                'Resolve the pending penalty before changing team control.');
+            // Do not touch the play version, seed, roster, stats or history.
+            // Game mode is snapshotted in state and is honored by CPU coaching
+            // and the next rendered play-call interface.
+            $state['controls'] = [
+                'home' => $data['home_control'],
+                'away' => $data['away_control'],
+            ];
+            $game->update(['state' => $state]);
+        }, 3);
+
+        return redirect()->route('exhibitions.show', $exhibition)
+            ->with('status', 'Team control updated for the next play.');
+    }
+
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
     {
         $controls = app(CpuCoach::class)->controls($exhibition->state);

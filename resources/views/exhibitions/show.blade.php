@@ -94,6 +94,26 @@
         <h1 data-scoreboard class="sr-only">{{ $exhibition->awayTeam->name }} {{ $shown['away_score'] }} — {{ $exhibition->homeTeam->name }} {{ $shown['home_score'] }}</h1>
     </div>
     <p class="game-coaches">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
+    @if(session('status'))<p class="text-green-300 text-sm" role="status">{{ session('status') }}</p>@endif
+    @if(!$replayOnly && $state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
+    <details class="max-w-2xl mx-auto mt-2 mb-3 rounded-lg border border-gray-600 p-3" data-team-control>
+        <summary class="cursor-pointer font-semibold">Team Control <span class="text-xs text-gray-400 font-normal">· Switch between Human and CPU between plays</span></summary>
+        <form method="POST" action="{{ route('exhibitions.team-control', $exhibition) }}" class="flex flex-wrap items-end gap-3 mt-3">
+            @csrf
+            <input type="hidden" name="version" value="{{ $state['version'] }}">
+            @foreach(['home' => 'Home', 'away' => 'Away'] as $side => $label)
+                <label class="text-sm">{{ $label }} · {{ $teamNames[$side] }}
+                    <select name="{{ $side }}_control" class="block bg-gray-900 text-white rounded border border-gray-600 p-2 mt-1">
+                        <option value="cpu" @selected(($controls[$side] ?? 'cpu') === 'cpu')>CPU</option>
+                        <option value="human" @selected(($controls[$side] ?? 'cpu') === 'human')>Human</option>
+                    </select>
+                </label>
+            @endforeach
+            <button type="submit" class="border border-blue-400 bg-blue-800 rounded px-4 py-2">Apply Team Control</button>
+            <p class="w-full text-xs text-gray-400">Applies on reload between plays. Saved results and existing replays are unchanged. Both CPU enables CPU autoplay.</p>
+        </form>
+    </details>
+    @endif
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
     @if(!$replayOnly && $state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
     <form data-call-form @if($watching) hidden @endif method="POST" action="{{ route('exhibitions.play', $exhibition) }}" class="game-play-panel flex flex-wrap gap-3 items-end">
