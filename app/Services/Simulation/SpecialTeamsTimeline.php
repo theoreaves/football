@@ -365,7 +365,47 @@ class SpecialTeamsTimeline
                 foreach ($base[$field] as &$waypoint) $waypoint[0] = $remap((float) $waypoint[0]);
                 unset($waypoint);
             }
-            if ($base['contact_at'] !== null) $base['contact_at'] = $returnAt;
+            // ST1e.4: the coverage players can still be many yards from a
+            // punt returner at the final spot. Never pull the designated TE
+            // across the field for a manufactured tackle animation.
+            // This changes presentation only; engine outcome is authoritative.
+            if ($base['contact_at'] !== null) {
+                $tackler = null;
+                $returner = null;
+                foreach ($base['players'] as $track) {
+                    if ($track['team'] === 'offense' && $track['role'] === 'TE') {
+                        $tackler = $track;
+                    } elseif ($track['team'] === 'defense' && $track['role'] === 'CB1') {
+                        $returner = $track;
+                    }
+                }
+                $at = static function (?array $track, float $time): ?array {
+                    if ($track === null) return null;
+                    $last = null;
+                    foreach ($track['path'] as $p) {
+                        if ($p[0] >= $time) {
+                            if ($last === null || $p[0] <= $last[0]) return $p;
+                            $fraction = max(0, min(1, ($time - $last[0]) / ($p[0] - $last[0])));
+                            return [
+                                $time,
+                                $last[1] + ($p[1] - $last[1]) * $fraction,
+                                0,
+                                $last[3] + ($p[3] - $last[3]) * $fraction,
+                            ];
+                        }
+                        $last = $p;
+                    }
+                    return $last;
+                };
+                $a = $at($tackler, $returnAt);
+                $b = $at($returner, $returnAt);
+                if ($a === null || $b === null || hypot($a[1] - $b[1], $a[3] - $b[3]) > 4.5) {
+                    $base['contact_at'] = null;
+                    $base['tackle_style'] = null;
+                } else {
+                    $base['contact_at'] = $returnAt;
+                }
+            }
             $base['duration'] = $finishAt;
             $base['result_at'] = $returnAt;
             $base['reveal_at'] = $returnAt;
