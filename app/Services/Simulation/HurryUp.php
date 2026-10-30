@@ -13,7 +13,7 @@ class HurryUp
     public static function prepare(array $state, string $tempo, string $call, string &$offense, string &$defense): array
     {
         unset($state['_hold_personnel']);
-        if ($tempo !== 'hurry' || ! self::available($state) || in_array($call, ['punt', 'field_goal', ...SpecialTeamsTricks::FAKES], true)) {
+        if ($tempo !== 'hurry' || ! self::available($state) || in_array($call, ['punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'field_goal', ...SpecialTeamsTricks::FAKES], true)) {
             $state['no_huddle'] = false;
 
             return $state;

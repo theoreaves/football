@@ -87,7 +87,7 @@ test('coaching tendencies change deterministic distributions while neutral and l
         }
         foreach (['go_low' => 0, 'go_high' => 100] as $label => $value) {
             $biased = array_replace_recursive($state, ['down' => 4, 'distance' => 2, 'spot' => 50, 'coaching' => ['home' => ['fourth_down' => $value]]]);
-            $counts[$label] += $coach->offense($biased, $rosters)['call'] !== 'punt' ? 1 : 0;
+            $counts[$label] += ! in_array($coach->offense($biased, $rosters)['call'], ['punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin'], true) ? 1 : 0;
         }
         foreach (['run_stop_low' => 0, 'run_stop_high' => 100] as $label => $value) {
             $biased = array_replace_recursive($state, ['coaching' => ['away' => ['run_stop' => $value]]]);
