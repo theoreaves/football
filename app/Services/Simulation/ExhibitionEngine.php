@@ -6,13 +6,13 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass', 'hitch', 'curl', 'te_stick', 'drag', 'rb_flat', 'comeback', 'dig', 'out', 'te_seam', 'post', 'corner', 'fade', 'wheel'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'field_goal', 'kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass', 'hitch', 'curl', 'te_stick', 'drag', 'rb_flat', 'comeback', 'dig', 'out', 'te_seam', 'post', 'corner', 'fade', 'wheel'];
 
     public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread', 'i_form' => 'I formation', 'pistol' => 'Pistol', 'trips' => 'Trips', 'bunch' => 'Bunch', 'empty' => 'Empty', 'goal_line' => 'Goal line', 'punt' => 'Punt', 'field_goal' => 'Field goal'];
 
     public const DEFENSE_FORMATIONS = ['base_4_3' => 'Base 4–3', 'base_3_5' => '3–5', 'nickel' => 'Nickel · 4–2–5', 'two_high' => '4–3 · two high safeties', 'single_high' => '4–3 · single high safety', 'base_3_4' => '3–4', 'dime' => 'Dime · 4–1–6'];
 
-    public const DEFENSE = ['man_to_man', 'run_stop', 'zone', 'blitz', 'punt_return', 'field_goal_block', 'kickoff_return', 'onside_return'];
+    public const DEFENSE = ['man_to_man', 'run_stop', 'zone', 'blitz', 'punt_return', 'punt_return_left', 'punt_return_middle', 'punt_return_right', 'punt_safe', 'punt_block', 'field_goal_block', 'kickoff_return', 'kickoff_return_left', 'kickoff_return_middle', 'kickoff_return_right', 'kickoff_return_safe', 'kickoff_return_aggressive', 'onside_return'];
 
     public function initial(int $quarterLength = 180, ?int $seed = null, bool $openingKickoff = true): array
     {
@@ -43,7 +43,7 @@ class ExhibitionEngine
         if (in_array($offenseFormation, ['punt', 'field_goal'], true) && ! in_array($call, OffensiveOptions::FORMATIONS[$offenseFormation], true)) {
             throw new LogicException('Choose the matching play for this special-teams formation.');
         }
-        if (isset(OffensiveOptions::ALIASES[$call]) && ! in_array($call, OffensiveOptions::FORMATIONS[$offenseFormation] ?? [], true)) {
+        if (isset(OffensiveOptions::ALIASES[$call]) && ! str_starts_with($call, 'kickoff_') && ! in_array($call, OffensiveOptions::FORMATIONS[$offenseFormation] ?? [], true)) {
             throw new LogicException('Choose a play offered by this offensive formation.');
         }
         $state = HurryUp::prepare($state, $tempo, $call, $offenseFormation, $defenseFormation);
@@ -374,15 +374,15 @@ class ExhibitionEngine
     public static function callsForState(array $state): array
     {
         return match ($state['phase'] ?? 'scrimmage') {
-            'kickoff' => ['kickoff', 'onside_kick'], 'extra_point' => ['extra_point', 'two_point_run', 'two_point_pass'], default => array_values(array_diff(self::OFFENSE, ['kickoff', 'onside_kick', 'extra_point', 'two_point_run', 'two_point_pass'])),
+            'kickoff' => ['kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right', 'onside_kick'], 'extra_point' => ['extra_point', 'two_point_run', 'two_point_pass'], default => array_values(array_diff(self::OFFENSE, ['kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right', 'onside_kick', 'extra_point', 'two_point_run', 'two_point_pass'])),
         };
     }
 
     public static function defensesForCall(string $call): array
     {
         return match ($call) {
-            'onside_kick' => ['onside_return'], 'kickoff' => ['kickoff_return'], 'extra_point' => ['field_goal_block'],
-            'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'fake_punt_run', 'fake_punt_pass' => ['punt_return', 'man_to_man', 'blitz'], 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass' => ['field_goal_block', 'man_to_man', 'blitz'],
+            'onside_kick' => ['onside_return'], 'kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right' => ['kickoff_return', 'kickoff_return_left', 'kickoff_return_middle', 'kickoff_return_right', 'kickoff_return_safe', 'kickoff_return_aggressive'], 'extra_point' => ['field_goal_block'],
+            'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'fake_punt_run', 'fake_punt_pass' => ['punt_return', 'punt_return_left', 'punt_return_middle', 'punt_return_right', 'punt_safe', 'punt_block', 'man_to_man', 'blitz'], 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass' => ['field_goal_block', 'man_to_man', 'blitz'],
             default => ['man_to_man', 'run_stop', 'zone', 'blitz'],
         };
     }

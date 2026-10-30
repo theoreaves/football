@@ -71,13 +71,46 @@ class SpecialTeams
                 };
                 $gain = max(16, $gain);
             }
+            // ST3-5: deterministic strategy effects; preserve ordinary punt logic.
+            $kickStyle = $call === 'kickoff' ? match ($design) {
+                'kickoff_deep' => 'deep', 'kickoff_high' => 'high',
+                'kickoff_short' => 'short', 'kickoff_left' => 'left',
+                'kickoff_right' => 'right', default => 'normal',
+            } : 'normal';
+            if ($call === 'kickoff') {
+                $gain += match ($kickStyle) {
+                    'deep' => 12, 'short' => -12, 'high' => -6, default => 0,
+                };
+            }
             $landing = min(110, $before['spot'] + $gain);
             $gain = $landing - $before['spot'];
-            $returnCall = in_array($defense, ['punt_return', 'kickoff_return'], true);
+            $returnStyle = match ($defense) {
+                'punt_return_left', 'kickoff_return_left' => 'left',
+                'punt_return_right', 'kickoff_return_right' => 'right',
+                'punt_return_middle', 'kickoff_return_middle' => 'middle',
+                'punt_safe', 'kickoff_return_safe' => 'safe',
+                'punt_block' => 'block',
+                'kickoff_return_aggressive' => 'aggressive',
+                default => 'normal',
+            };
+            $returnCall = in_array($defense, ['punt_return','punt_return_left','punt_return_middle','punt_return_right',
+                'kickoff_return','kickoff_return_left','kickoff_return_middle','kickoff_return_right',
+                'kickoff_return_safe','kickoff_return_aggressive'], true);
+            if ($call === 'punt' && $defense === 'punt_block') {
+                // An aggressive rush increases block opportunities but gives up the return.
+                $blocked = $roll() < .07;
+            }
             $returner = $def['CB1'];
-            if ($landing >= 100) {
+            if ($blocked && $call === 'punt') {
+                $outcome = 'punt_blocked';
+                $set($other, min(99, max(1, 100 - $before['spot'] + 8)));
+                $landing = max(1, $before['spot'] - 8);
+                $gain = -8;
+            } elseif ($landing >= 100) {
                 $outcome = $call.'_touchback';
-                $set($other, $call === 'punt' ? 20 : 25);
+                $set($other, $call === 'punt' ? 20 : app(KickoffRuleProfile::class)->touchbackSpot(
+                    $before['rules']['kickoff_profile'] ?? 'traditional', false,
+                    (int) ($before['spot'] ?? 35)));
             } else {
                 $outcome = $returnCall ? $call.'_return' : 'punt_fair_catch';
                 $return = $returnCall ? max(0, (int) round($roll() * ($call === 'punt' ? 16 : 28) + ($returner['ratings']['speed'] - $off['TE']['ratings']['tackling']) * .1)) : 0;
@@ -89,6 +122,14 @@ class SpecialTeams
                         'hang' => -7, 'distance' => 4, 'pooch' => -3,
                         'coffin' => -5, default => 0,
                     });
+                }
+                if ($returnCall) {
+                    $return += match ($returnStyle) {
+                        'aggressive' => 5, 'safe' => -6, 'left', 'right' => 1, default => 0,
+                    };
+                    if ($call === 'kickoff' && $kickStyle === 'high') $return -= 3;
+                    if ($call === 'kickoff' && $kickStyle === 'short') $return += 3;
+                    $return = max(0, $return);
                 }
                 $return = min($landing, $return);
                 if ($return >= $landing) {
@@ -107,7 +148,7 @@ class SpecialTeams
                 default => ' punts',
             } : ' kicks off';
             $summary = $name($off[$carrier]).$puntLabel." {$gain} yards; ".match ($outcome) {
-                'punt_touchback', 'kickoff_touchback' => 'touchback', 'punt_fair_catch' => $name($returner).' calls for a fair catch',
+                'punt_touchback', 'kickoff_touchback' => 'touchback', 'punt_blocked' => 'punt blocked', 'punt_fair_catch' => $name($returner).' calls for a fair catch',
                 default => $name($returner)." returns {$return} yards".($state['phase'] === 'extra_point' ? ' · TOUCHDOWN' : '; tackled by '.$name($off['TE'])),
             };
             $seconds = $landing >= 100 ? ($call === 'kickoff' ? 0 : 6) : 10;
@@ -119,6 +160,9 @@ class SpecialTeams
             'design' => $call === 'punt' ? $design : $call,
             'landing' => $landing, 'return_yards' => $return,
             'punt_strategy' => $call === 'punt' ? $puntStrategy : null,
+            'kick_strategy' => $call === 'kickoff' ? $kickStyle : null,
+            'return_strategy' => $returnStyle ?? 'normal',
+            'return_lane' => in_array($returnStyle ?? '', ['left','right','middle'], true) ? $returnStyle : 'middle',
         ], $rosters, $seconds);
     }
 }

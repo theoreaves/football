@@ -93,6 +93,12 @@ class SpecialTeamsTimeline
         $goalKick = in_array($play['call'], ['field_goal', 'extra_point'], true);
         $missed = str_ends_with($play['outcome'], '_missed');
         $endZ = $missed ? 40 : 26.7;
+        if (in_array($play['return_lane'] ?? '', ['left','right'], true)) {
+            $endZ = $play['return_lane'] === 'left' ? 14.5 : 38.5;
+        }
+        if (in_array($play['kick_strategy'] ?? '', ['left','right'], true)) {
+            $endZ = $play['kick_strategy'] === 'left' ? 12 : 41;
+        }
         foreach ($base['players'] as $i => &$player) {
             $initial = $player['path'][0];
             if ($kickoff) {
@@ -124,7 +130,7 @@ class SpecialTeamsTimeline
                     ];
             }
             if ($player['role'] === 'CB1' && ! $goalKick) {
-                $player['path'] = [$point(0, $landing, 0, 26.7), $point(3.5, $landing, 0, 26.7), $point(5.3, $end, 0, 26.7), $point(6, $end, 0, 26.7)];
+                $player['path'] = [$point(0, $landing, 0, $endZ), $point(3.5, $landing, 0, $endZ), $point(5.3, $end, 0, $endZ), $point(6, $end, 0, $endZ)];
             }
             if ($player['role'] === 'TE' && $player['team'] === 'offense' && ! $goalKick) {
                 // Keep the kickoff formation position, not the scrimmage

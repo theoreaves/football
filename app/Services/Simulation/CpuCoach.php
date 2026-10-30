@@ -23,7 +23,10 @@ class CpuCoach
             return ['call' => 'onside_kick', 'formation' => 'singleback'];
         }
         if ($phase !== 'scrimmage') {
-            return ['call' => $phase === 'kickoff' ? 'kickoff' : 'extra_point', 'formation' => 'singleback'];
+            return ['call' => $phase === 'kickoff' ? match ($this->roll($state, 'kick-style') % 5) {
+                0 => 'kickoff_deep', 1 => 'kickoff_high', 2 => 'kickoff_left',
+                3 => 'kickoff_right', default => 'kickoff_short',
+            } : 'extra_point', 'formation' => 'singleback'];
         }
         $side = $state['possession'];
         $other = $side === 'home' ? 'away' : 'home';
@@ -122,9 +125,14 @@ class CpuCoach
     public function defense(array $state, string $call): array
     {
         $special = match ($call) {
-            'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'fake_punt_run', 'fake_punt_pass' => 'punt_return', 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass', 'extra_point' => 'field_goal_block', 'kickoff' => 'kickoff_return', 'onside_kick' => 'onside_return', default => null,
+            'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'fake_punt_run', 'fake_punt_pass' => 'punt_return', 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass', 'extra_point' => 'field_goal_block', 'kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right' => 'kickoff_return', 'onside_kick' => 'onside_return', default => null,
         };
         if ($special) {
+            if ($special === 'punt_return' && !str_starts_with($call, 'fake_')) {
+                $special = ['punt_return_left','punt_return_middle','punt_return_right','punt_safe','punt_block'][$this->roll($state, 'punt-return-style') % 5];
+            } elseif ($special === 'kickoff_return') {
+                $special = ['kickoff_return_left','kickoff_return_middle','kickoff_return_right','kickoff_return_safe','kickoff_return_aggressive'][$this->roll($state, 'kick-return-style') % 5];
+            }
             return ['call' => $special, 'formation' => 'base_4_3'];
         }
         $roll = $this->roll($state, 'defense');

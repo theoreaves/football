@@ -104,7 +104,7 @@ export function playGraphic(kind, value, formation = 'shotgun') {
 export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
     const list=[];
     if(humanOffense) {
-        const onlySpecial=calls.length>0 && calls.every(value=>['kickoff','onside_kick','extra_point'].includes(value)||value.startsWith('two_point'));
+        const onlySpecial=calls.length>0 && calls.every(value=>(['kickoff','onside_kick','extra_point'].includes(value)||value.startsWith('kickoff_'))||value.startsWith('two_point'));
         if(!onlySpecial) list.push({title:'Offense · Formation',kind:'formation',name:'offense_formation'});
         list.push({title:'Offense · Play',kind:'play',name:'call'});
         if(!special(call)&&!['kneel','spike'].includes(call)) list.push({title:'Offense · Motion',kind:'motion',name:'motion'});
