@@ -480,18 +480,16 @@ class SpecialTeamsTimeline
                     unset($blocker);
                 }
             }
-            // ST1e.4: the coverage players can still be many yards from a
-            // punt returner at the final spot. Never pull the designated TE
-            // across the field for a manufactured tackle animation.
-            // This changes presentation only; engine outcome is authoritative.
+            // ST1g.1: choose the coverage player who actually reaches the
+            // returner, not a permanently assigned TE. The saved return spot,
+            // possession and engine tackle result remain unchanged.
             if ($base['contact_at'] !== null) {
                 $tackler = null;
                 $returner = null;
                 foreach ($base['players'] as $track) {
-                    if ($track['team'] === 'offense' && $track['role'] === 'TE') {
-                        $tackler = $track;
-                    } elseif ($track['team'] === 'defense' && $track['role'] === 'CB1') {
+                    if ($track['team'] === 'defense' && $track['role'] === 'CB1') {
                         $returner = $track;
+                        break;
                     }
                 }
                 $at = static function (?array $track, float $time): ?array {
@@ -512,12 +510,27 @@ class SpecialTeamsTimeline
                     }
                     return $last;
                 };
-                $a = $at($tackler, $returnAt);
                 $b = $at($returner, $returnAt);
-                if ($a === null || $b === null || hypot($a[1] - $b[1], $a[3] - $b[3]) > 4.5) {
+                $closest = PHP_FLOAT_MAX;
+                if ($b !== null) {
+                    foreach ($base['players'] as $track) {
+                        if ($track['team'] !== 'offense' || $track['role'] === 'QB') continue;
+                        $position = $at($track, $returnAt);
+                        if ($position === null) continue;
+                        $distance = hypot($position[1] - $b[1], $position[3] - $b[3]);
+                        if ($distance < $closest) {
+                            $closest = $distance;
+                            $tackler = $track;
+                        }
+                    }
+                }
+                // Only a player already within contact range may finish it.
+                // For more distant defenders, keep the clean pursuit finish.
+                if ($tackler === null || $closest > 4.5) {
                     $base['contact_at'] = null;
                     $base['tackle_style'] = null;
                 } else {
+                    $base['tackler_role'] = $tackler['role'];
                     $base['contact_at'] = $returnAt;
                 }
             }
