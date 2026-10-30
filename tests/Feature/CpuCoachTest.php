@@ -22,7 +22,9 @@ test('CPU coach handles kicking phases fourth downs red zone and late deficits d
     $coach = app(CpuCoach::class);
     $state = $engine->initial(180, 42, false);
     expect($coach->controls($state))->toBe(['home' => 'human', 'away' => 'human']);
-    expect($coach->offense(array_merge($state, ['phase' => 'kickoff']), cpuRosters())['call'])->toBe('kickoff');
+    $kick = $coach->offense(array_merge($state, ['phase' => 'kickoff']), cpuRosters());
+    expect($kick['call'])->toBeIn(['kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right'])
+        ->and($kick)->toBe($coach->offense(array_merge($state, ['phase' => 'kickoff']), cpuRosters()));
     expect($coach->offense(array_merge($state, ['phase' => 'extra_point']), cpuRosters())['call'])->toBe('extra_point');
     expect($coach->offense(array_merge($state, ['down' => 4, 'spot' => 25]), cpuRosters())['call'])->toBe('punt');
     expect($coach->offense(array_merge($state, ['down' => 4, 'spot' => 90]), cpuRosters())['call'])->toBe('field_goal');
@@ -36,8 +38,15 @@ test('CPU coach handles kicking phases fourth downs red zone and late deficits d
         expect(array_keys(ExhibitionEngine::OFFENSE_FORMATIONS))->toContain($decision['formation']);
         expect($coach->defense($red, 'inside_run'))->toBe($coach->defense($red, 'medium_pass'));
     }
-    foreach (['punt' => 'punt_return', 'field_goal' => 'field_goal_block', 'extra_point' => 'field_goal_block', 'kickoff' => 'kickoff_return'] as $call => $defense) {
-        expect($coach->defense($state, $call)['call'])->toBe($defense);
+    foreach (['punt' => 'punt_return', 'kickoff' => 'kickoff_return'] as $call => $family) {
+        $choice = $coach->defense($state, $call)['call'];
+        expect($choice)->toBeIn($family === 'punt_return'
+            ? ['punt_return', 'punt_return_left', 'punt_return_middle', 'punt_return_right', 'punt_safe', 'punt_block']
+            : ['kickoff_return', 'kickoff_return_left', 'kickoff_return_middle', 'kickoff_return_right', 'kickoff_return_safe', 'kickoff_return_aggressive']);
+        expect($coach->defense($state, $call)['call'])->toBe($choice);
+    }
+    foreach (['field_goal', 'extra_point'] as $call) {
+        expect($coach->defense($state, $call)['call'])->toBe('field_goal_block');
     }
 });
 
@@ -68,7 +77,13 @@ test('all four control combinations persist and only show selectors for human te
     }
     $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => $offenseControl === 'cpu' ? 'forged' : 'kickoff', 'defense' => $defenseControl === 'cpu' ? 'forged' : 'kickoff_return'])->assertRedirect();
     $game->refresh();
-    expect($game->history[0]['call'])->toBe('kickoff')->and($game->history[0]['defense'])->toBe('kickoff_return');
+    expect($game->history[0]['call'])->toBe('kickoff')
+        ->and($game->history[0]['defense'])->toBeIn($defenseControl === 'cpu'
+            ? ['kickoff_return', 'kickoff_return_left', 'kickoff_return_middle', 'kickoff_return_right', 'kickoff_return_safe', 'kickoff_return_aggressive']
+            : ['kickoff_return'])
+        ->and($game->history[0]['design'] ?? 'kickoff')->toBeIn($offenseControl === 'cpu'
+            ? ['kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right']
+            : ['kickoff']);
     expect($game->state['controls'])->toBe(['home' => $homeControl, 'away' => $awayControl]);
     $page = $this->get(route('exhibitions.show', $game))->assertOk();
     $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => 'kickoff', 'defense' => 'kickoff_return'])->assertStatus(409);

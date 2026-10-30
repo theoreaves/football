@@ -29,7 +29,10 @@ test('2026 onside kick is declared legal in every quarter and at any score with 
     foreach ([1, 2, 3, 4] as $quarter) {
         foreach ([-7, 0, 7] as $margin) {
             $state = trickState(['phase' => 'kickoff', 'quarter' => $quarter, 'home_score' => max(0, $margin), 'away_score' => max(0, -$margin)]);
-            expect(ExhibitionEngine::callsForState($state))->toBe(['kickoff', 'onside_kick']);
+            expect(ExhibitionEngine::callsForState($state))->toBe([
+                'kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short',
+                'kickoff_left', 'kickoff_right', 'onside_kick',
+            ]);
             $result = app(ExhibitionEngine::class)->resolve($state, trickRosters(), 'onside_kick', 'onside_return');
             expect($result['play']['declared_onside'])->toBeTrue()->and($result['play']['gain'])->toBeGreaterThanOrEqual(10);
             expect($result['state']['down'])->toBe(1)->and($result['state']['phase'])->toBe('scrimmage');
@@ -67,7 +70,8 @@ test('CPU selects late comeback onside kicks but preserves ordinary opening and 
     $state = trickState(['phase' => 'kickoff', 'quarter' => 4, 'clock' => 82, 'home_score' => 20, 'away_score' => 22]);
     expect($coach->offense($state, trickRosters())['call'])->toBe('onside_kick');
     foreach ([['quarter' => 1], ['home_score' => 24], ['home_score' => 22], ['clock' => 400], ['clock' => 150, 'timeouts' => ['home' => 3]]] as $override) {
-        expect($coach->offense(array_replace_recursive($state, $override), trickRosters())['call'])->toBe('kickoff');
+        expect($coach->offense(array_replace_recursive($state, $override), trickRosters())['call'])
+            ->toBeIn(['kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right']);
     }
 });
 

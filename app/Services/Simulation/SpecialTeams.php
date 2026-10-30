@@ -157,7 +157,7 @@ class SpecialTeams
         return app(ExhibitionEngine::class)->finish($state, $before, [
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
             'carrier' => $carrier, 'gain' => $gain, 'target' => 0, 'outcome' => $outcome, 'summary' => $summary,
-            'design' => $call === 'punt' ? $design : $call,
+            'design' => in_array($call, ['punt', 'kickoff'], true) ? $design : $call,
             'landing' => $landing, 'return_yards' => $return,
             'punt_strategy' => $call === 'punt' ? $puntStrategy : null,
             'kick_strategy' => $call === 'kickoff' ? $kickStyle : null,
