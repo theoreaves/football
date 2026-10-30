@@ -96,23 +96,6 @@
     <p class="game-coaches">{{ $teamNames['home'] }}: {{ strtoupper($controls['home']) }} · {{ $teamNames['away'] }}: {{ strtoupper($controls['away']) }}</p>
     @if(session('status'))<p class="text-green-300 text-sm" role="status">{{ session('status') }}</p>@endif
     @if(!$replayOnly && $state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
-    <details class="max-w-2xl mx-auto mt-2 mb-3 rounded-lg border border-gray-600 p-3" data-team-control>
-        <summary class="cursor-pointer font-semibold">Team Control <span class="text-xs text-gray-400 font-normal">· Switch between Human and CPU between plays</span></summary>
-        <form method="POST" action="{{ route('exhibitions.team-control', $exhibition) }}" class="flex flex-wrap items-end gap-3 mt-3">
-            @csrf
-            <input type="hidden" name="version" value="{{ $state['version'] }}">
-            @foreach(['home' => 'Home', 'away' => 'Away'] as $side => $label)
-                <label class="text-sm">{{ $label }} · {{ $teamNames[$side] }}
-                    <select name="{{ $side }}_control" class="block bg-gray-900 text-white rounded border border-gray-600 p-2 mt-1">
-                        <option value="cpu" @selected(($controls[$side] ?? 'cpu') === 'cpu')>CPU</option>
-                        <option value="human" @selected(($controls[$side] ?? 'cpu') === 'human')>Human</option>
-                    </select>
-                </label>
-            @endforeach
-            <button type="submit" class="border border-blue-400 bg-blue-800 rounded px-4 py-2">Apply Team Control</button>
-            <p class="w-full text-xs text-gray-400">Applies on reload between plays. Saved results and existing replays are unchanged. Both CPU enables CPU autoplay.</p>
-        </form>
-    </details>
     @endif
     @if($errors->any())<p class="text-red-300">{{ $errors->first() }}</p>@endif
     @if(!$replayOnly && $state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
@@ -378,8 +361,7 @@
     </dialog>
     @endif
     <div class="game-camera-controls flex flex-wrap gap-3 items-center">
-        <label>Camera<select data-camera class="bg-gray-800 text-white rounded p-2 ml-2"><option value="broadcast">Broadcast</option><option value="overhead">Overhead</option><option value="quarterback">Behind QB</option>@if(app()->environment('local') && config('app.debug'))<option value="free">Developer: Free inspection</option>@endif</select></label>
-        <label>Speed<select data-speed class="bg-gray-800 text-white rounded p-2 ml-2"><option value="0.5">Half</option><option value="1" selected>Normal</option><option value="2">Double</option></select></label>
+        
         @if($last && !($last['after']['penalty_pending'] ?? false))
         <form data-save-highlight-form data-hidden-result @if($watching && !$replayOnly) hidden @endif method="POST" action="{{ route('exhibitions.highlights.save', $exhibition) }}">@csrf<input type="hidden" name="number" value="{{ $last['number'] }}"><input type="hidden" name="return_replay" value="{{ $replayOnly ? 1 : 0 }}"><button class="border border-blue-400 rounded px-3 py-2" @disabled($last['saved_highlight'] ?? false)>{{ ($last['saved_highlight'] ?? false) ? 'Highlight saved' : 'Save highlight' }}</button></form>
         @endif
@@ -387,7 +369,47 @@
         <span class="text-xs text-gray-400">Drag to orbit · Right-drag / Shift-drag to pan · Scroll / pinch to zoom</span>
     </div>
     <div data-field class="game-field"></div>
-    <details class="game-audio absolute right-4 top-36 z-20 bg-gray-900/90 border border-gray-600 rounded p-3 text-sm">
+    <div class="game-timeline flex items-center gap-4"><label class="sr-only" for="play-timeline">Replay timeline</label><input id="play-timeline" data-timeline type="range" min="0" max="6" step="0.01" value="0" class="flex-1 accent-blue-400"><span data-time class="text-gray-400 text-sm">0.0 / 6.0s</span></div>
+    <p data-status aria-live="polite" class="game-status text-blue-300">Loading field…</p>
+    @if($last)<p data-hidden-result @if($watching) hidden @endif class="game-last-result">Last play: {{ $last['summary'] }}</p>@endif
+    <p class="game-help text-sm text-gray-400">Home offense moves toward the right end zone; away offense toward the left. The scoreboard updates when the replay reveals the result.</p>
+    <div class="game-stats grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
+    <div class="game-actions">@if($exhibition->seasonFixture)<a class="game-action-exit" href="{{ route('seasons.show', $exhibition->seasonFixture->season_id) }}">Exit to season</a>@elseif(isset($state['playoff']['season_id']))<a class="game-action-exit" href="{{ route('seasons.show', ['season' => $state['playoff']['season_id'], 'tab' => 'playoffs']) }}">Exit to playoffs</a>@else<a class="game-action-exit" href="{{ route('exhibitions.index') }}">Exit game</a>@endif @unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-game-settings class="rounded border border-gray-500 px-3 py-2">Settings</button><button type="button" data-open-quick-sim class="rounded border border-gray-500 px-3 py-2" @if($replayOnly || $state['status'] !== 'playing') hidden @endif>Quick Sim</button><button type="button" data-open-stats>Stats</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-fullscreen>Full screen</button></div>
+    <dialog data-game-settings class="game-dialog" style="width:min(94vw,850px);max-width:850px;max-height:90vh;overflow:auto;">
+        <form method="dialog"><button type="submit" class="float-right border border-gray-600 rounded px-3 py-1">Close</button></form>
+        <h2 class="text-2xl font-semibold mb-3">Game Settings</h2>
+        <nav aria-label="Settings sections" class="flex flex-wrap gap-2 mb-4">
+            <a href="#game-settings-team" class="rounded border px-3 py-2">Team Control</a>
+            <a href="#game-settings-audio" class="rounded border px-3 py-2">Audio</a>
+            <a href="#game-settings-camera" class="rounded border px-3 py-2">Camera &amp; Playback</a>
+            <a href="#game-settings-simulation" class="rounded border px-3 py-2">Simulation</a>
+        </nav>
+        <div class="space-y-6">
+            <section id="game-settings-team"><h3 class="font-semibold mb-2">Team Control</h3>
+            @if(!$replayOnly && $state['status'] === 'playing' && !($state['penalty_pending'] ?? false))
+    <details class="max-w-2xl mx-auto mt-2 mb-3 rounded-lg border border-gray-600 p-3" data-team-control>
+        <summary class="cursor-pointer font-semibold">Team Control <span class="text-xs text-gray-400 font-normal">· Switch between Human and CPU between plays</span></summary>
+        <form method="POST" action="{{ route('exhibitions.team-control', $exhibition) }}" class="flex flex-wrap items-end gap-3 mt-3">
+            @csrf
+            <input type="hidden" name="version" value="{{ $state['version'] }}">
+            @foreach(['home' => 'Home', 'away' => 'Away'] as $side => $label)
+                <label class="text-sm">{{ $label }} · {{ $teamNames[$side] }}
+                    <select name="{{ $side }}_control" class="block bg-gray-900 text-white rounded border border-gray-600 p-2 mt-1">
+                        <option value="cpu" @selected(($controls[$side] ?? 'cpu') === 'cpu')>CPU</option>
+                        <option value="human" @selected(($controls[$side] ?? 'cpu') === 'human')>Human</option>
+                    </select>
+                </label>
+            @endforeach
+            <button type="submit" class="border border-blue-400 bg-blue-800 rounded px-4 py-2">Apply Team Control</button>
+            <p class="w-full text-xs text-gray-400">Applies on reload between plays. Saved results and existing replays are unchanged. Both CPU enables CPU autoplay.</p>
+        </form>
+    </details>
+            @else
+            <p class="text-gray-400 text-sm">Team Control is available between plays.</p>
+            @endif
+            </section>
+            <section id="game-settings-audio"><h3 class="font-semibold mb-2">Audio</h3>
+    <details class="game-audio rounded-lg border border-gray-600 p-3 text-sm">
         <summary class="cursor-pointer">Stadium sound</summary>
         <button type="button" data-sound-toggle class="border border-gray-500 rounded px-3 py-1 mt-2" aria-pressed="true">Sound on</button>
         @foreach(['master' => 'Master volume', 'crowd' => 'Crowd volume', 'players' => 'Player voices', 'effects' => 'Field effects', 'stadium' => 'Stadium music and cues'] as $channel => $label)
@@ -395,12 +417,36 @@
         @endforeach
         <a href="{{ asset('audio/stadium/v1/CREDITS.txt') }}" target="_blank" rel="noopener" class="block mt-3 text-blue-300 underline">Stadium recording credits</a>
     </details>
-    <div class="game-timeline flex items-center gap-4"><label class="sr-only" for="play-timeline">Replay timeline</label><input id="play-timeline" data-timeline type="range" min="0" max="6" step="0.01" value="0" class="flex-1 accent-blue-400"><span data-time class="text-gray-400 text-sm">0.0 / 6.0s</span></div>
-    <p data-status aria-live="polite" class="game-status text-blue-300">Loading field…</p>
-    @if($last)<p data-hidden-result @if($watching) hidden @endif class="game-last-result">Last play: {{ $last['summary'] }}</p>@endif
-    <p class="game-help text-sm text-gray-400">Home offense moves toward the right end zone; away offense toward the left. The scoreboard updates when the replay reveals the result.</p>
-    <div class="game-stats grid grid-cols-2 gap-4 text-sm">@foreach(['home', 'away'] as $side)<p data-stats="{{ $side }}">{{ $side === 'home' ? $exhibition->homeTeam->name : $exhibition->awayTeam->name }}: {{ $shown['stats'][$side]['plays'] }} plays · {{ $shown['stats'][$side]['yards'] }} yards · {{ $shown['stats'][$side]['turnovers'] }} turnovers · {{ $shown['stats'][$side]['penalties'] ?? 0 }} penalties / {{ $shown['stats'][$side]['penalty_yards'] ?? 0 }} yards</p>@endforeach</div>
-    <div class="game-actions">@if($exhibition->seasonFixture)<a class="game-action-exit" href="{{ route('seasons.show', $exhibition->seasonFixture->season_id) }}">Exit to season</a>@elseif(isset($state['playoff']['season_id']))<a class="game-action-exit" href="{{ route('seasons.show', ['season' => $state['playoff']['season_id'], 'tab' => 'playoffs']) }}">Exit to playoffs</a>@else<a class="game-action-exit" href="{{ route('exhibitions.index') }}">Exit game</a>@endif @if(!$replayOnly && ($state['status'] === 'playing' || ($state['penalty_pending'] ?? false)))<form method="POST" action="{{ route('exhibitions.finish', $exhibition) }}" data-finish-sim-form>@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><details data-quick-sim-menu><summary>Quick Sim</summary><div class="flex flex-col gap-2 p-2">@foreach(['drive' => 'Sim Drive', 'quarter' => 'Sim Quarter', 'half' => 'Sim Half', 'game' => 'Sim Game'] as $scope => $label)<button type="submit" name="scope" value="{{ $scope }}">{{ $label }}</button>@endforeach</div></details></form>@endif@unless($replayOnly)<button type="button" data-hidden-result @if($watching) hidden @endif data-open-personnel>Depth chart</button>@endunless<button type="button" data-open-stats>Stats</button><button type="button" data-open-highlights>Highlights</button><button type="button" data-fullscreen>Full screen</button></div>
+            </section>
+            <section id="game-settings-camera"><h3 class="font-semibold mb-2">Camera &amp; Playback</h3>
+                <div class="flex flex-wrap gap-3"><label>Camera<select data-camera class="bg-gray-800 text-white rounded p-2 ml-2"><option value="broadcast">Broadcast</option><option value="overhead">Overhead</option><option value="quarterback">Behind QB</option>@if(app()->environment('local') && config('app.debug'))<option value="free">Developer: Free inspection</option>@endif</select></label>
+        <label>Speed<select data-speed class="bg-gray-800 text-white rounded p-2 ml-2"><option value="0.5">Half</option><option value="1" selected>Normal</option><option value="2">Double</option></select></label></div>
+            </section>
+            <section id="game-settings-simulation"><h3 class="font-semibold mb-2">Simulation</h3>
+                <p class="text-gray-400 text-sm mb-3">Advance and save the live game.</p>
+                @if(!$replayOnly && ($state['status'] === 'playing' || ($state['penalty_pending'] ?? false)))
+<form method="POST" action="{{ route('exhibitions.finish', $exhibition) }}" data-finish-sim-form>@csrf<input type="hidden" name="version" value="{{ $state['version'] }}"><details data-quick-sim-menu><summary>Quick Sim</summary><div class="flex flex-col gap-2 p-2">@foreach(['drive' => 'Sim Drive', 'quarter' => 'Sim Quarter', 'half' => 'Sim Half', 'game' => 'Sim Game'] as $scope => $label)<button type="submit" name="scope" value="{{ $scope }}">{{ $label }}</button>@endforeach</div></details></form>
+                @else
+                <p class="text-gray-400 text-sm">Not available during replay or after the game.</p>
+                @endif
+            </section>
+        </div>
+    </dialog>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dialog = document.querySelector('[data-game-settings]');
+        const openSettings = (simulation = false) => {
+            if (!dialog) return;
+            if (!dialog.open) dialog.showModal();
+            if (simulation) dialog.querySelector('#game-settings-simulation')?.scrollIntoView({block:'nearest'});
+        };
+        document.querySelector('[data-open-game-settings]')?.addEventListener('click', () => openSettings());
+        document.querySelector('[data-open-quick-sim]')?.addEventListener('click', () => openSettings(true));
+        dialog?.querySelector('[data-finish-sim-form] button[name="scope"][value="game"]')?.addEventListener('click', event => {
+            if (!window.confirm('Simulate the rest of this game?')) event.preventDefault();
+        });
+    });
+    </script>
     <dialog data-highlights-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Highlight reel</h2>
         <p class="text-gray-300 mb-4">Gains over 20 yards, scoring plays, turnovers, and your saved plays.</p>
         <ol class="space-y-4">@forelse($highlights as $highlight)<li @if(!$replayOnly && $highlight['number'] === ($last['number'] ?? null)) data-hidden-result @if($watching) hidden @endif @endif>#{{ $highlight['number'] }} · {{ implode(' · ', \App\Support\PlayHighlights::reasons($highlight)) }}{{ ($highlight['saved_highlight'] ?? false) ? ' · Saved by you' : '' }}<p>{{ $highlight['summary'] }}</p><a class="text-blue-300 underline" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $highlight['number'], 'watch' => 1]) }}">Watch highlight</a></li>@empty<li>No highlights yet. You can save any play beside the Replay button.</li>@endforelse</ol>
