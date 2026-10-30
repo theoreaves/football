@@ -400,8 +400,34 @@ class SpecialTeamsTimeline
                     foreach ($base['players'] as &$track) {
                         if ($track['team'] !== 'offense' || ! isset($coverageRoles[$track['role']])) continue;
                         [$speed, $leverage] = $coverageRoles[$track['role']];
-                        $start = $sample($track['path'], $catchAt);
-                            // Existing paths use absolute X/Z coordinates. Only
+                        // Begin coverage during the kick's flight, not at the catch.
+                        // Gunners get a head start; linemen and wings still obey
+                        // their own speed caps. Their target is the *landing area*,
+                        // with lane leverage, rather than the returner's final spot.
+                        $kickAt = 1.2;
+                        $flightMid = $kickAt + ($catchAt - $kickAt) * .55;
+                        $flightStart = $sample($track['path'], $kickAt);
+                        $landTarget = $sample($returner['path'], $catchAt);
+                        $targetZ = max(1.5, min(51.8, $landTarget[3] + $leverage));
+                        // Gunners aim closer to the landing point; slower inside
+                        // coverage maintains depth for containment. Never promise
+                        // arrival when the real running distance is impossible.
+                        $targetX = $landTarget[1] + $direction * (in_array($track['role'], ['WR2','WR3'], true) ? -2.5 : -6.0);
+                        $flightStep = static function (array $from, float $time, float $x, float $z, float $speed): array {
+                            $dx = $x - $from[1]; $dz = $z - $from[3];
+                            $distance = hypot($dx, $dz);
+                            $budget = max(0, $time - $from[0]) * $speed;
+                            $fraction = $distance > .001 ? min(1, $budget / $distance) : 0;
+                            return [$time, $from[1] + $dx * $fraction, 0, $from[3] + $dz * $fraction];
+                        };
+                        $flightHalf = $flightStep($flightStart, $flightMid, $targetX, $targetZ, $speed);
+                        $start = $flightStep($flightHalf, $catchAt, $targetX, $targetZ, $speed);
+                        // Keep kickoff/punt protection and the snap-to-kick path;
+                        // replace the flight-only waypoints with reachable lanes.
+                        $track['path'] = array_values(array_filter($track['path'],
+                            static fn ($p) => $p[0] <= $kickAt));
+                        $track['path'][] = $flightHalf;
+                        // Existing paths use absolute X/Z coordinates. Only
                         // append reachable pursuit waypoints, never teleport.
                         $toward = static function (array $from, array $target, float $time,
                             float $rate, float $leverage): array {
@@ -416,8 +442,6 @@ class SpecialTeamsTimeline
                         $mid = $toward($start, $halfRunner, $halfAt, $speed, $leverage);
                         $finish = $toward($mid, $endRunner, $returnAt, $speed, $leverage);
                         $hold = [$finishAt, $finish[1], 0, $finish[3]];
-                        $track['path'] = array_values(array_filter($track['path'],
-                            static fn ($p) => $p[0] < $catchAt));
                         $track['path'][] = $start;
                         $track['path'][] = $mid;
                         $track['path'][] = $finish;
