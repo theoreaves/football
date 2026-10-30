@@ -365,6 +365,97 @@ class SpecialTeamsTimeline
                 foreach ($base[$field] as &$waypoint) $waypoint[0] = $remap((float) $waypoint[0]);
                 unset($waypoint);
             }
+            // ST1f: coordinated pursuit from the recorded return route. The
+            // pursuit is bounded by each player's available travel time; it
+            // never moves the returner, ball, recorded outcome or field spot.
+            if ($return > 0 && ! str_ends_with($play['outcome'], '_touchback')) {
+                $sample = static function (array $path, float $time): array {
+                    $previous = $path[0];
+                    foreach ($path as $waypoint) {
+                        if ($waypoint[0] >= $time) {
+                            $span = max(.001, $waypoint[0] - $previous[0]);
+                            $blend = max(0, min(1, ($time - $previous[0]) / $span));
+                            return [$time, $previous[1] + ($waypoint[1] - $previous[1]) * $blend,
+                                0, $previous[3] + ($waypoint[3] - $previous[3]) * $blend];
+                        }
+                        $previous = $waypoint;
+                    }
+                    return $previous;
+                };
+                $returner = null;
+                foreach ($base['players'] as $track) {
+                    if ($track['team'] === 'defense' && $track['role'] === 'CB1') {
+                        $returner = $track;
+                        break;
+                    }
+                }
+                if ($returner !== null) {
+                    $halfAt = $catchAt + ($returnAt - $catchAt) * .5;
+                    $halfRunner = $sample($returner['path'], $halfAt);
+                    $endRunner = $sample($returner['path'], $returnAt);
+                    $coverageRoles = ['WR2' => [7.3, -3.3], 'WR3' => [7.3, 3.3],
+                        'TE' => [5.1, -1.1], 'WR1' => [5.1, 1.1], 'RB' => [4.6, 0],
+                        'LT' => [3.6, -4.4], 'LG' => [3.3, -2.2], 'C' => [3.4, 0],
+                        'RG' => [3.3, 2.2], 'RT' => [3.6, 4.4]];
+                    foreach ($base['players'] as &$track) {
+                        if ($track['team'] !== 'offense' || ! isset($coverageRoles[$track['role']])) continue;
+                        [$speed, $leverage] = $coverageRoles[$track['role']];
+                        $start = $sample($track['path'], $catchAt);
+                            // Existing paths use absolute X/Z coordinates. Only
+                        // append reachable pursuit waypoints, never teleport.
+                        $toward = static function (array $from, array $target, float $time,
+                            float $rate, float $leverage): array {
+                            $dz = max(1.5, min(51.8, $target[3] + $leverage)) - $from[3];
+                            $dx = $target[1] - $from[1];
+                            $distance = hypot($dx, $dz);
+                            $max = max(0, $time - $from[0]) * $rate;
+                            $fraction = $distance > .001 ? min(1, $max / $distance) : 0;
+                            return [$time, $from[1] + $dx * $fraction, 0,
+                                $from[3] + $dz * $fraction];
+                        };
+                        $mid = $toward($start, $halfRunner, $halfAt, $speed, $leverage);
+                        $finish = $toward($mid, $endRunner, $returnAt, $speed, $leverage);
+                        $hold = [$finishAt, $finish[1], 0, $finish[3]];
+                        $track['path'] = array_values(array_filter($track['path'],
+                            static fn ($p) => $p[0] < $catchAt));
+                        $track['path'][] = $start;
+                        $track['path'][] = $mid;
+                        $track['path'][] = $finish;
+                        $track['path'][] = $hold;
+                    }
+                    unset($track);
+                    // Return wall follows its matched coverage player, but
+                    // stays in front to screen; no blocker chases a distant
+                    // opponent or accelerates beyond a plausible jog.
+                    $wallRoles = ['S1' => 'WR2', 'S2' => 'WR3', 'LB1' => 'LT',
+                        'LB2' => 'LG', 'LB3' => 'RG', 'CB2' => 'RT'];
+                    foreach ($base['players'] as &$blocker) {
+                        $matchRole = $wallRoles[$blocker['role']] ?? null;
+                        if ($blocker['team'] !== 'defense' || $matchRole === null) continue;
+                        $opponent = null;
+                        foreach ($base['players'] as $coverageTrack) {
+                            if ($coverageTrack['team'] === 'offense' && $coverageTrack['role'] === $matchRole) {
+                                $opponent = $coverageTrack; break;
+                            }
+                        }
+                        if ($opponent === null) continue;
+                        $start = $sample($blocker['path'], $catchAt);
+                        $target = $sample($opponent['path'], $halfAt);
+                        $dx = $target[1] - $start[1]; $dz = $target[3] - $start[3];
+                        $distance = hypot($dx, $dz);
+                        $limit = min($distance, 3.5 * ($halfAt - $catchAt));
+                        $ratio = $distance > .001 ? $limit / $distance : 0;
+                        $mid = [$halfAt, $start[1] + $dx * $ratio, 0, $start[3] + $dz * $ratio];
+                        $blocker['path'] = array_values(array_filter($blocker['path'],
+                            static fn ($p) => $p[0] < $catchAt));
+                        $blocker['path'][] = $start;
+                        $blocker['path'][] = $mid;
+                        $blocker['path'][] = [$returnAt, $mid[1], 0, $mid[3]];
+                        $blocker['path'][] = [$finishAt, $mid[1], 0, $mid[3]];
+                    }
+                    unset($blocker);
+                }
+            }
             // ST1e.4: the coverage players can still be many yards from a
             // punt returner at the final spot. Never pull the designated TE
             // across the field for a manufactured tackle animation.
