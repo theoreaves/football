@@ -346,7 +346,11 @@ class SpecialTeamsTimeline
         if ($play['call'] === 'punt' && ! $blocked) {
             // Longer, bounded flight gives staggered coverage time to develop.
             // Hang time is from the 1.2-second kick, not the snap.
-            $hangSeconds = 4.55 + min(.55, max(0, ($play['gain'] - 35) * .03));
+            $hangSeconds = 4.55 + min(.55, max(0, ($play['gain'] - 35) * .03))
+                + match ($play['punt_strategy'] ?? 'normal') {
+                    'hang' => .65, 'distance' => -.35, 'pooch' => -.25,
+                    'coffin' => .10, default => 0,
+                };
             $catchAt = 1.2 + $hangSeconds;
             $returnAt = $catchAt + ($return > 0 ? max(1.5, $return / 7.0) : .18);
             $finishAt = $returnAt + .65;

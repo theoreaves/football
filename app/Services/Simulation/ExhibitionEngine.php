@@ -6,7 +6,7 @@ use LogicException;
 
 class ExhibitionEngine
 {
-    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass', 'hitch', 'curl', 'te_stick', 'drag', 'rb_flat', 'comeback', 'dig', 'out', 'te_seam', 'post', 'corner', 'fade', 'wheel'];
+    public const OFFENSE = ['inside_run', 'outside_run', 'draw', 'screen', 'slant', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'field_goal', 'kickoff', 'extra_point', 'two_point_run', 'two_point_pass', 'spike', 'kneel', 'inside_zone', 'outside_zone', 'stretch', 'toss', 'counter', 'power', 'lead', 'play_action', 'mesh', 'flood', 'quick_pass', 'qb_sneak', 'qb_draw', 'qb_power', 'qb_sweep', 'onside_kick', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass', 'hitch', 'curl', 'te_stick', 'drag', 'rb_flat', 'comeback', 'dig', 'out', 'te_seam', 'post', 'corner', 'fade', 'wheel'];
 
     public const OFFENSE_FORMATIONS = ['singleback' => 'Singleback', 'shotgun' => 'Shotgun', 'spread' => 'Spread', 'i_form' => 'I formation', 'pistol' => 'Pistol', 'trips' => 'Trips', 'bunch' => 'Bunch', 'empty' => 'Empty', 'goal_line' => 'Goal line', 'punt' => 'Punt', 'field_goal' => 'Field goal'];
 
@@ -104,7 +104,7 @@ class ExhibitionEngine
             return $this->clockPlay($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
         }
         if (in_array($call, ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)) {
-            return app(SpecialTeams::class)->resolve($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
+            return app(SpecialTeams::class)->resolve($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation, $design);
         }
         $state['phase'] = 'scrimmage';
         $before = $state;
@@ -382,7 +382,7 @@ class ExhibitionEngine
     {
         return match ($call) {
             'onside_kick' => ['onside_return'], 'kickoff' => ['kickoff_return'], 'extra_point' => ['field_goal_block'],
-            'punt', 'fake_punt_run', 'fake_punt_pass' => ['punt_return', 'man_to_man', 'blitz'], 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass' => ['field_goal_block', 'man_to_man', 'blitz'],
+            'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'fake_punt_run', 'fake_punt_pass' => ['punt_return', 'man_to_man', 'blitz'], 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass' => ['field_goal_block', 'man_to_man', 'blitz'],
             default => ['man_to_man', 'run_stop', 'zone', 'blitz'],
         };
     }

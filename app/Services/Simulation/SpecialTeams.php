@@ -4,7 +4,7 @@ namespace App\Services\Simulation;
 
 class SpecialTeams
 {
-    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation, string $defenseFormation): array
+    public function resolve(array $state, array $rosters, string $call, string $defense, string $offenseFormation, string $defenseFormation, string $design = 'punt'): array
     {
         if ($call === 'onside_kick') {
             return app(OnsideKick::class)->resolve($state, $rosters, $defense, $offenseFormation, $defenseFormation);
@@ -56,6 +56,21 @@ class SpecialTeams
             $seconds = $call === 'extra_point' ? 0 : 7;
         } else {
             $gain = $call === 'punt' ? (int) round(28 + $off['P']['ratings']['kicking'] * .2 + $roll() * 12) : (int) round(45 + $off['K']['ratings']['kicking'] * .2 + $roll() * 14);
+            // ST2a: strategy is authored at the call level and becomes a
+            // snapshotted play attribute. No new random calls are introduced.
+            $puntStrategy = $call === 'punt' ? match ($design) {
+                'punt_distance' => 'distance', 'punt_hang' => 'hang',
+                'punt_pooch' => 'pooch', 'punt_coffin' => 'coffin',
+                default => 'normal',
+            } : 'normal';
+            if ($call === 'punt') {
+                $gain += match ($puntStrategy) {
+                    'distance' => 8, 'hang' => -5, 'pooch' => -13,
+                    'coffin' => max(-14, min(9, 94 - ($before['spot'] + $gain))),
+                    default => 0,
+                };
+                $gain = max(16, $gain);
+            }
             $landing = min(110, $before['spot'] + $gain);
             $gain = $landing - $before['spot'];
             $returnCall = in_array($defense, ['punt_return', 'kickoff_return'], true);
@@ -69,6 +84,12 @@ class SpecialTeams
                 if ($returnCall && $roll() < .02) {
                     $return += 80;
                 }
+                if ($call === 'punt' && $returnCall) {
+                    $return = max(0, $return + match ($puntStrategy) {
+                        'hang' => -7, 'distance' => 4, 'pooch' => -3,
+                        'coffin' => -5, default => 0,
+                    });
+                }
                 $return = min($landing, $return);
                 if ($return >= $landing) {
                     $state[$other.'_score'] += 6;
@@ -78,7 +99,14 @@ class SpecialTeams
                     $set($other, 100 - $landing + $return);
                 }
             }
-            $summary = $name($off[$carrier]).($call === 'punt' ? ' punts' : ' kicks off')." {$gain} yards; ".match ($outcome) {
+            $puntLabel = $call === 'punt' ? match ($puntStrategy) {
+                'distance' => ' drives a distance punt',
+                'hang' => ' launches a high-hang punt',
+                'pooch' => ' places a pooch punt',
+                'coffin' => ' aims a coffin-corner punt',
+                default => ' punts',
+            } : ' kicks off';
+            $summary = $name($off[$carrier]).$puntLabel." {$gain} yards; ".match ($outcome) {
                 'punt_touchback', 'kickoff_touchback' => 'touchback', 'punt_fair_catch' => $name($returner).' calls for a fair catch',
                 default => $name($returner)." returns {$return} yards".($state['phase'] === 'extra_point' ? ' · TOUCHDOWN' : '; tackled by '.$name($off['TE'])),
             };
@@ -89,6 +117,7 @@ class SpecialTeams
             'call' => $call, 'defense' => $defense, 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation,
             'carrier' => $carrier, 'gain' => $gain, 'target' => 0, 'outcome' => $outcome, 'summary' => $summary,
             'landing' => $landing, 'return_yards' => $return,
+            'punt_strategy' => $call === 'punt' ? $puntStrategy : null,
         ], $rosters, $seconds);
     }
 }
