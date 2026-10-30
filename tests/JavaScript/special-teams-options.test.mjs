@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {wizardSteps,playGraphic} from '../../resources/js/practice/play-wizard.js';
-import {trickCalls,isSpecialTeamCall,kickFormation} from '../../resources/js/practice/special-teams-options.js';
+import {trickCalls,puntStrategyCalls,isSpecialTeamCall,kickFormation} from '../../resources/js/practice/special-teams-options.js';
 test('fake kicks appear under their formations with no motion or defensive formation step',()=>{
     for(const call of trickCalls){
         const formation=call.startsWith('fake_punt')?'punt':'field_goal';
@@ -9,6 +9,15 @@ test('fake kicks appear under their formations with no motion or defensive forma
         const steps=wizardSteps(true,true,call,[call,'punt']);
         assert.equal(steps.some(s=>s.name==='motion'),false);assert.equal(steps.some(s=>s.name==='defense_formation'),false);
         const svg=playGraphic('play',call,formation);assert.match(svg,/<path/);assert.doesNotMatch(svg,/>KICK</);
+    }
+});
+test('all punt variants retain punt formation and special-teams defensive steps',()=>{
+    for(const call of ['punt',...puntStrategyCalls]){
+        assert.equal(isSpecialTeamCall(call),true);
+        assert.equal(kickFormation(call),'punt');
+        const steps=wizardSteps(true,true,call,['punt',...puntStrategyCalls]);
+        assert.deepEqual(steps.map(s=>s.kind),['formation','play','defense-coverage','review']);
+        assert.equal(steps.find(s=>s.kind==='defense-coverage')?.title,'Defense · Special teams');
     }
 });
 test('declared onside is offered at kickoff without an offensive formation step',()=>{
