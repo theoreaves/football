@@ -135,7 +135,14 @@ class PassingAnimationTiming
             $tackleLinked = $player['team'] === 'defense'
                 && ($animation['contact_at'] ?? null) !== null
                 && $player['role'] === ($animation['tackler_role'] ?? null);
-            if (! $ballLinked && ! $tackleLinked) {
+            // INT1a: the interceptor is ball-linked at the instant of the
+            // catch. Limiting CB1 independently after the pass/ball have been
+            // timed moves him away from the recorded catch coordinate.
+            // Preserve this exact possession transition; other off-ball
+            // defenders continue to receive the normal speed cap.
+            $interceptionCatch = ($play['outcome'] ?? null) === 'interception'
+                && $player['team'] === 'defense' && $player['role'] === 'CB1';
+            if (! $ballLinked && ! $tackleLinked && ! $interceptionCatch) {
                 $route = &$player['path'];
                 $maxSpeed = 6.5; // visual yards/second, after retiming
                 for ($i = 1; $i < count($route); $i++) {
