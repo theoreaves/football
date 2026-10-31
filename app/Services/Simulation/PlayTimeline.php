@@ -783,20 +783,92 @@ class PlayTimeline
             $events = [[0, 'Snap'], [2, 'Quarterback takes a knee'], [5.3, $play['summary']]];
         }
 
-        if ($play['defensive_return'] ?? false) {
-            $returner = $pass ? 'CB1' : 'LB2';
+        // INT1: catch and return are one continuous, possession-synchronized
+        // movement. Never assign a defender a 100-yard sprint in 1.5 seconds.
+        if ($play['outcome'] === 'interception') {
+            $catchAt = 3.8;
+            $catch = $point($catchAt, $play['target'], $endZ);
+            $interceptor = null;
+            foreach ($tracks as $index => $track) {
+                if ($track['team'] === 'defense' && $track['role'] === 'CB1') {
+                    $interceptor = $index;
+                    break;
+                }
+            }
+            if ($interceptor !== null) {
+                $original = $tracks[$interceptor]['path'];
+                $start = $original[0];
+                $read = $point(1.65, 3.5, $start[3]);
+                $break = $point(2.65, $play['target'] * .52, $start[3] + ($endZ - $start[3]) * .58);
+                $tracks[$interceptor]['path'] = [$start, $read, $break, $catch];
+                $returnPath = [];
+                if ($play['defensive_return'] ?? false) {
+                    $goal = $side === 'home' ? 7 : 113;
+                    $distance = abs($goal - $catch[1]);
+                    // 7.8 yd/s maximum with the first two seconds used to
+                    // turn and accelerate. The recorded TD stays authoritative.
+                    $runTime = max(2.5, $distance / 7.8 + .75);
+                    $finish = $catchAt + $runTime;
+                    $sign = $goal >= $catch[1] ? 1 : -1;
+                    $returnPath = [
+                        [$catchAt + .4, $catch[1] + $sign * min(1.5, $distance * .12), 0, $catch[3]],
+                        [$catchAt + $runTime * .45, $catch[1] + $sign * $distance * .36, 0,
+                            max(3, min(50, $catch[3] + (($visualVariant % 2) ? 2 : -2)))],
+                        [$finish, $goal, 0, $catch[3]],
+                        [$finish + .65, $goal, 0, $catch[3]],
+                    ];
+                    array_push($tracks[$interceptor]['path'], ...$returnPath);
+                    $ball = array_values(array_filter($ball, static fn ($p) => $p[0] < $catchAt));
+                    $ball[] = [$catchAt, $catch[1], 1, $catch[3]];
+                    foreach ($returnPath as $step) {
+                        $ball[] = [$step[0], $step[1], 1, $step[3]];
+                    }
+                    // Keep chasers behind the interceptor instead of freezing
+                    // all offensive players at the original pass route.
+                    foreach ($tracks as &$track) {
+                        if ($track['team'] !== 'offense' || ! in_array($track['role'], ['WR1', 'WR2', 'WR3', 'TE', 'RB'], true)) {
+                            continue;
+                        }
+                        $last = $track['path'][count($track['path']) - 1];
+                        $chaseX = $catch[1] + $sign * min($distance * .55, 20);
+                        $deltaX = $chaseX - $last[1];
+                        $deltaZ = $catch[3] - $last[3];
+                        $length = hypot($deltaX, $deltaZ);
+                        $fraction = $length > 0 ? min(1, (($finish - $last[0]) * 5.0) / $length) : 0;
+                        $track['path'][] = [$finish, $last[1] + $deltaX * $fraction, 0,
+                            $last[3] + $deltaZ * $fraction];
+                        $track['path'][] = [$finish + .65, $last[1] + $deltaX * $fraction, 0,
+                            $last[3] + $deltaZ * $fraction];
+                    }
+                    unset($track);
+                    $events = [[0, 'Snap'], [2.2, 'Pass in flight'], [$catchAt, 'Interception'],
+                        [$finish, $play['summary']]];
+                    $holders = array_values(array_filter($holders, static fn ($p) => $p[0] < $catchAt));
+                    $holders[] = [$catchAt, 'defense', 'CB1'];
+                } else {
+                    $tracks[$interceptor]['path'][] = $point(5.3, $play['target'], $endZ);
+                    $tracks[$interceptor]['path'][] = $point(6, $play['target'], $endZ);
+                    $ball = array_values(array_filter($ball, static fn ($p) => $p[0] < $catchAt));
+                    $ball[] = [$catchAt, $catch[1], 1, $catch[3]];
+                    $ball[] = $point(5.3, $play['target'], $endZ, 1);
+                    $ball[] = $point(6, $play['target'], $endZ, 1);
+                }
+            }
+        } elseif ($play['defensive_return'] ?? false) {
+            // Defensive fumble recoveries retain their original replay logic.
+            $returner = 'LB2';
             $goal = $side === 'home' ? 7 : 113;
             foreach ($tracks as &$track) {
                 if ($track['team'] === 'defense' && $track['role'] === $returner) {
-                    $track['path'] = [$track['path'][0], $point(3.8, $pass ? $play['target'] : $play['gain'], $endZ), [5.3, $goal, 0, $endZ], [6, $goal, 0, $endZ]];
+                    $track['path'] = [$track['path'][0], $point(3.8, $play['gain'], $endZ), [5.3, $goal, 0, $endZ], [6, $goal, 0, $endZ]];
                 }
             }
             unset($track);
-            $ball = array_values(array_filter($ball, fn ($p) => $p[0] < 3.8));
-            $ball[] = $point(3.8, $pass ? $play['target'] : $play['gain'], $endZ, 1);
+            $ball = array_values(array_filter($ball, static fn ($p) => $p[0] < 3.8));
+            $ball[] = $point(3.8, $play['gain'], $endZ, 1);
             $ball[] = [5.3, $goal, 1, $endZ];
             $ball[] = [6, $goal, 1, $endZ];
-            $holders = array_values(array_filter($holders, fn ($p) => $p[0] < 3.8));
+            $holders = array_values(array_filter($holders, static fn ($p) => $p[0] < 3.8));
             $holders[] = [3.8, 'defense', $returner];
         }
 
