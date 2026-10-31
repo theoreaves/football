@@ -398,13 +398,47 @@ class PlayTimeline
             }
             if ($role === 'QB' && $play['carrier'] === 'QB') {
                 $path = [$point(0, $qbStart, 26.7), $point(2, $qbSet, 26.7), $point(5.3, $play['gain'], 26.7), $point(6, $play['gain'], 26.7)];
+                if (($play['scramble'] ?? false) && ! $qbDesigned) {
+                    // QB1: show a genuine dropback, identify the escape lane,
+                    // then turn upfield. Preserve the authoritative dead-ball X.
+                    $escapeSign = $visualVariant % 2 === 0 ? -1 : 1;
+                    $escapeZ = max(8, min(45, 26.7 + $escapeSign * (4.5 + $visualVariant % 3)));
+                    $finishZ = max(6, min(47, $escapeZ + $escapeSign * 2));
+                    $path = [
+                        $point(0, $qbStart, 26.7),
+                        $point(.6, $handoff, 26.7),
+                        $point(1.55, $qbSet, 26.7),
+                        $point(2.25, $qbSet + .9, 26.7 + $escapeSign * 1.8),
+                        $point(3.15, $qbSet + 3.4, $escapeZ),
+                        $point(4.15, $qbSet + ($play['gain'] - $qbSet) * .55, $finishZ),
+                        $point(5.3, $play['gain'], $finishZ),
+                        $point(6, $play['gain'], $finishZ),
+                    ];
+                    $runnerPath = $path;
+                } elseif ($play['outcome'] === 'sack' && ! $qbDesigned) {
+                    // The QB sets his feet, senses the edge rush, and tries
+                    // to escape before the defender arrives for the sack.
+                    $evadeSign = $visualVariant % 2 === 0 ? 1 : -1;
+                    $sackZ = 26.7 + $evadeSign * 2.2;
+                    $path = [
+                        $point(0, $qbStart, 26.7),
+                        $point(.6, $handoff, 26.7),
+                        $point(1.55, $qbSet, 26.7),
+                        $point(2.5, $qbSet - .35, 26.7 + $evadeSign * 1.1),
+                        $point(3.6, $qbSet - .6, $sackZ),
+                        $point(5.3, $play['gain'], $sackZ),
+                        $point(6, $play['gain'], $sackZ),
+                    ];
+                    $runnerPath = $path;
+                }
                 if ($qbDesigned) {
                     $startRun = $design === 'qb_draw' ? $qbSet : $qbStart;
                     $path = [$point(0, $qbStart, 26.7), $point(.35, $qbStart, 26.7), $point(1, $startRun, 26.7),
                         $point(2.4, $play['gain'] * .25, ($endZ + 26.7) / 2), $point(5.3, $play['gain'], $endZ), $point(6, $play['gain'], $endZ)];
                     $runnerPath = $path;
                 } else {
-                    $endZ = 26.7;
+                    $endZ = ($play['scramble'] ?? false) || $play['outcome'] === 'sack'
+                        ? $path[count($path) - 1][3] : 26.7;
                 }
             }
             if (in_array($role, ['C', 'LG', 'RG', 'LT', 'RT'], true)) {
@@ -470,6 +504,19 @@ class PlayTimeline
             }
             if ($role === $tackler && ! $special && ($pass || $play['outcome'] !== 'incomplete')) {
                 $path = [$point(0, $x, $z), $point(3.8, $pass ? $play['target'] : $end * .7, $endZ + ($play['outcome'] === 'interception' ? 0 : 1)), $point(5.3, $end, $endZ), $point(6, $end, $endZ)];
+            }
+            if ($role === 'DE1' && $play['outcome'] === 'sack' && ($play['pressure'] ?? false)) {
+                // Follow the actual QB sack position rather than a generic
+                // downfield tackle lane. The QB remains the ball holder.
+                $sackZ = $endZ;
+                $path = [
+                    $point(0, $x, $z),
+                    $point(1.3, .8, $z),
+                    $point(2.6, $qbSet + 1.6, 26.7 + ($sackZ - 26.7) * .3),
+                    $point(3.8, $qbSet + .4, $sackZ + ($sackZ < 26.7 ? -1.3 : 1.3)),
+                    $point(5.3, $end, $sackZ),
+                    $point(6, $end, $sackZ),
+                ];
             }
             if ($role === 'DE1' && ($play['pressure'] ?? false) && $play['outcome'] !== 'sack') {
                 $path = [$point(0, $x, $z), $point(1.7, $qbSet + 2, 25), $point(2.2, $qbSet + .7, 26.7), $point(5.3, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ), $point(6, $play['carrier'] === 'QB' ? $end : $qbSet + 1, $play['carrier'] === 'QB' ? 26.7 : $qbZ)];
@@ -682,6 +729,16 @@ class PlayTimeline
         }
         if ($qbDesigned && $runnerPath !== null) {
             $ball = array_merge([$point(0, -1, 26.7, 1)], array_map(fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]], array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= .35))));
+        }
+        if (! $qbDesigned && $play['carrier'] === 'QB' && $runnerPath !== null
+            && (($play['scramble'] ?? false) || $play['outcome'] === 'sack')) {
+            // Ball travels with the QB for the entire escape/sack, not on a
+            // detached straight segment. Recorded possession stays unchanged.
+            $ball = array_merge(
+                [$point(0, -1, 26.7, 1)],
+                array_map(fn ($frame) => [$frame[0], $frame[1], 1, $frame[3]],
+                    array_values(array_filter($runnerPath, fn ($frame) => $frame[0] >= .35)))
+            );
         }
         if ($design === 'toss' && $play['carrier'] === 'RB') {
             $ball = array_merge(array_values(array_filter($ball, fn ($frame) => $frame[0] < .6)), [$point(.6, $handoff, 26.7, 1.5), $point(.8, $handoff, 27, 2.5)], array_values(array_filter($ball, fn ($frame) => $frame[0] >= 1)));
