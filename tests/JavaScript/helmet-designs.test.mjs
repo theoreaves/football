@@ -38,6 +38,22 @@ test('ram horn roots sit behind their tips on both sides of the helmet',()=>{
   assert.ok(rootWidth>tipWidth,`side ${sideIndex}: horn root must be thicker than tip`);
  }
 });
+
+test('ram horn upper sweep leans forward while root remains behind tip',()=>{
+ const geometry=helmetDesignGeometry('ram_horns'),p=geometry.attributes.position;
+ const samples=97,perSide=samples*2;
+ for(const side of [0,1]){
+  const at=t=>{
+   const i=side*perSide+Math.round(t*96)*2;
+   return {x:(p.getX(i)+p.getX(i+1))/2,z:(p.getZ(i)+p.getZ(i+1))/2};
+  };
+  const root=at(0),upper=at(.55),tip=at(1);
+  assert.ok(tip.z>root.z+.1,'horn tip must remain ahead of the root');
+  assert.ok(upper.z>.04,'upper sweep must lean toward facemask');
+  assert.ok(Math.sign(root.x)===Math.sign(upper.x),'horn remains on same helmet side');
+ }
+});
+
 test('player and instanced sideline helmets share patterns instead of a center stripe',()=>{
  for(const design of ['cat_stripes','ram_horns']){
   const uniform={helmet_design:design,helmet_stripe_enabled:true,helmet_stripe:'#ffaa00'};

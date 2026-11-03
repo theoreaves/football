@@ -32,9 +32,17 @@ export function helmetDesignGeometry(design) {
             // reverse the arc's longitudinal sweep so the wide horn root is
             // behind the ear and its tapered tip curls toward the facemask.
             // The side transform below still mirrors the shape automatically.
-            ribbon(side,t=>{const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
-                return new THREE.Vector2(.06-.92*radius*Math.cos(angle),1.2+.75*radius*Math.sin(angle));},
-                t=>.145*(1-t)**.65+.003,96);
+            // Keep the thick root behind the ear and lean the upper arc
+            // forward toward the facemask (+Z), on both mirrored sides.
+            ribbon(side,t=>{
+                const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
+                const localX=-.92*radius*Math.cos(angle),localY=.75*radius*Math.sin(angle);
+                const tilt=.30;
+                return new THREE.Vector2(
+                    .06+localX*Math.cos(tilt)+localY*Math.sin(tilt),
+                    1.2-localX*Math.sin(tilt)+localY*Math.cos(tilt)
+                );
+            },t=>.145*(1-t)**.65+.003,96);
         }
     }
     // Use outward winding on both mirrored sides.
