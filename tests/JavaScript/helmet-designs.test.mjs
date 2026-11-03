@@ -20,6 +20,24 @@ test('cat stripes and horns conform to both helmet sides and have outward windin
   for(let i=0;i<g.index.count;i+=3){const a=new THREE.Vector3().fromBufferAttribute(p,g.index.getX(i)),b=new THREE.Vector3().fromBufferAttribute(p,g.index.getX(i+1)),c=new THREE.Vector3().fromBufferAttribute(p,g.index.getX(i+2)),mid=a.clone().add(b).add(c).divideScalar(3);mid.z+=.025;assert.ok(b.sub(a).cross(c.sub(a)).dot(mid)>-1e-8);}
  }
 });
+test('ram horn roots sit behind their tips on both sides of the helmet',()=>{
+ // +Z is the front of the helmet. Every ribbon uses two vertices per sample,
+ // with 97 samples per side. The thick root (t=0) must be behind the tip (t=1).
+ const geometry=helmetDesignGeometry('ram_horns'),positions=geometry.attributes.position;
+ const samples=97,verticesPerSide=samples*2;
+ assert.equal(positions.count,verticesPerSide*2);
+ for(const sideIndex of [0,1]){
+  const first=sideIndex*verticesPerSide,last=first+(samples-1)*2;
+  const rootZ=(positions.getZ(first)+positions.getZ(first+1))/2;
+  const tipZ=(positions.getZ(last)+positions.getZ(last+1))/2;
+  assert.ok(tipZ>rootZ+0.1,`side ${sideIndex}: horn tip must sweep forward, not backward`);
+  const rootWidth=new THREE.Vector3().fromBufferAttribute(positions,first)
+   .distanceTo(new THREE.Vector3().fromBufferAttribute(positions,first+1));
+  const tipWidth=new THREE.Vector3().fromBufferAttribute(positions,last)
+   .distanceTo(new THREE.Vector3().fromBufferAttribute(positions,last+1));
+  assert.ok(rootWidth>tipWidth,`side ${sideIndex}: horn root must be thicker than tip`);
+ }
+});
 test('player and instanced sideline helmets share patterns instead of a center stripe',()=>{
  for(const design of ['cat_stripes','ram_horns']){
   const uniform={helmet_design:design,helmet_stripe_enabled:true,helmet_stripe:'#ffaa00'};

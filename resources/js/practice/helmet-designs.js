@@ -28,8 +28,12 @@ export function helmetDesignGeometry(design) {
                     t=>(.075+(i%3)*.014)*(1-t)**.65,36);
             }
         }else{
+            // +Z is the facemask/front (helmet-shell.js). On either side,
+            // reverse the arc's longitudinal sweep so the wide horn root is
+            // behind the ear and its tapered tip curls toward the facemask.
+            // The side transform below still mirrors the shape automatically.
             ribbon(side,t=>{const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
-                return new THREE.Vector2(-.06+.92*radius*Math.cos(angle),1.2+.75*radius*Math.sin(angle));},
+                return new THREE.Vector2(.06-.92*radius*Math.cos(angle),1.2+.75*radius*Math.sin(angle));},
                 t=>.145*(1-t)**.65+.003,96);
         }
     }
