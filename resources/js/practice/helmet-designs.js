@@ -28,19 +28,21 @@ export function helmetDesignGeometry(design) {
                     t=>(.075+(i%3)*.014)*(1-t)**.65,36);
             }
         }else{
-            // +Z is the facemask/front (helmet-shell.js). Keep the thick
-            // root behind the ear, but push the upper shoulder much farther
-            // forward so the horn begins near the front/top of the helmet,
-            // closer to the Rams reference look.
+            // +Z is the facemask/front (helmet-shell.js). On either side,
+            // reverse the arc's longitudinal sweep so the wide horn root is
+            // behind the ear and its tapered tip curls toward the facemask.
+            // The side transform below still mirrors the shape automatically.
+            // Keep the thick root behind the ear and lean the upper arc
+            // forward toward the facemask (+Z), on both mirrored sides.
             ribbon(side,t=>{
-                const angle=-Math.PI/4+t*Math.PI*1.73,radius=1-.72*t;
-                const localX=-.94*radius*Math.cos(angle),localY=.76*radius*Math.sin(angle);
-                const tilt=-.72;
-                const shoulder=Math.max(0,1-Math.abs(t-.24)/.24);
-                const forwardBoost=.23*shoulder;
+                const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
+                const localX=-.92*radius*Math.cos(angle),localY=.75*radius*Math.sin(angle);
+                // Flip the previous tilt: the top of the horn should lean
+                // toward the facemask, not toward the rear shell.
+                const tilt=-.30;
                 return new THREE.Vector2(
-                    .12+localX*Math.cos(tilt)+localY*Math.sin(tilt)+forwardBoost,
-                    1.18-localX*Math.sin(tilt)+localY*Math.cos(tilt)
+                    .06+localX*Math.cos(tilt)+localY*Math.sin(tilt),
+                    1.2-localX*Math.sin(tilt)+localY*Math.cos(tilt)
                 );
             },t=>.145*(1-t)**.65+.003,96);
         }
