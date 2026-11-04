@@ -56,7 +56,7 @@ test('ram horn uses the revised tilt on both mirrored sides',()=>{
  }
 });
 
-test('ram horn upper sweep leans forward while root remains behind tip',()=>{
+test('ram horn upper shoulder sits noticeably forward near the facemask',()=>{
  const geometry=helmetDesignGeometry('ram_horns'),p=geometry.attributes.position;
  const samples=97,perSide=samples*2;
  for(const side of [0,1]){
@@ -64,10 +64,11 @@ test('ram horn upper sweep leans forward while root remains behind tip',()=>{
    const i=side*perSide+Math.round(t*96)*2;
    return {x:(p.getX(i)+p.getX(i+1))/2,z:(p.getZ(i)+p.getZ(i+1))/2};
   };
-  const root=at(0),upper=at(.55),tip=at(1);
+  const root=at(0),shoulder=at(.24),upper=at(.40),tip=at(1);
   assert.ok(tip.z>root.z+.1,'horn tip must remain ahead of the root');
-  assert.ok(upper.z>.04,'upper sweep must lean toward facemask');
-  assert.ok(Math.sign(root.x)===Math.sign(upper.x),'horn remains on same helmet side');
+  assert.ok(shoulder.z>.11,`side ${side}: shoulder should begin in the front half of the helmet`);
+  assert.ok(upper.z>.08,`side ${side}: upper sweep should still lean toward the facemask`);
+  assert.ok(Math.sign(root.x)===Math.sign(shoulder.x),'horn remains on same helmet side');
  }
 });
 
