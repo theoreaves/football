@@ -492,3 +492,34 @@ test('a delayed timeout stops at the two-minute warning without spending a team 
     expect($result['state']['clock'])->toBe(120)->and($result['state']['timeouts']['home'])->toBe(3)
         ->and($result['play']['outcome'])->toBe('two_minute_warning');
 });
+
+test('CPU victory sequences finish without switching to passes or surrendering possession', function () {
+    $coach = app(CpuCoach::class);
+    $engine = app(ExhibitionEngine::class);
+    foreach (['home', 'away'] as $side) {
+        $other = $side === 'home' ? 'away' : 'home';
+        foreach ([[150, true, 0, 1, false], [120, false, 0, 1, true], [82, false, 1, 1, true], [44, false, 2, 1, true], [6, false, 3, 1, true], [38, true, 0, 4, true]] as [$clock, $running, $timeouts, $down, $warning]) {
+            $state = clockState(['quarter' => 4, 'clock' => $clock, 'clock_running' => $running,
+                'possession' => $side, $side.'_score' => 21, $other.'_score' => 17, 'spot' => 50, 'down' => $down,
+                'timeouts' => [$side => 3, $other => $timeouts], 'warnings' => ['4' => $warning],
+                'controls' => ['home' => 'cpu', 'away' => 'cpu']]);
+            $events = [];
+            for ($i = 0; $i < 12 && $state['status'] === 'playing'; $i++) {
+                if ($timeout = $coach->timeoutTeam($state)) {
+                    $result = $engine->timeout($state, clockRosters(), $timeout);
+                } else {
+                    $offense = $coach->offense($state, clockRosters());
+                    expect($offense['call'])->toBe('kneel');
+                    $management = $coach->management($state);
+                    $result = $engine->resolve($state, clockRosters(), $offense['call'], 'run_stop', $offense['formation'], 'base_4_3', $management['tempo'], $management['clock_strategy']);
+                }
+                $state = $result['state'];
+                $events[] = $result['play'];
+                expect($state['possession'])->toBe($side);
+            }
+            expect($state['status'])->toBe('final')->and($state['clock'])->toBe(0)
+                ->and($state[$side.'_score'])->toBe(21)->and($state[$other.'_score'])->toBe(17);
+            expect(array_column($events, 'outcome'))->each->toBeIn(['kneel', 'timeout', 'two_minute_warning', 'clock_expired']);
+        }
+    }
+});

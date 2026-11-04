@@ -38,28 +38,34 @@ class CpuCoach
         if ($endHalf && $state['clock'] <= 15 && 117 - $state['spot'] <= $range && ($state['quarter'] === 2 || $margin <= 0)) {
             return ['call' => 'field_goal', 'formation' => 'singleback'];
         }
-        $timeouts = $state['timeouts'][$other] ?? 3;
-        if ($state['quarter'] >= 4 && $margin > 0 && $timeouts === 0 && $state['clock'] <= 38 * (4 - $state['down']) + 2 && $state['spot'] > 1) {
+        $protectLead = $state['quarter'] === 4 && $state['clock'] <= 180 && $margin > 0;
+        if ($margin > 0 && $this->canKneelOut($state)) {
             return ['call' => 'kneel', 'formation' => 'singleback'];
         }
         $mustGo = $late && $margin < 0 && ($margin < -3 || $state['spot'] < 60);
         $aggression = $this->preference($state, 'fourth_down') - 50;
-        $preferredGo = $aggression > 0 && $state['spot'] >= 40 && $state['distance'] <= 2 + $aggression / 20
+        $preferredGo = ! $protectLead && $aggression > 0 && $state['spot'] >= 40 && $state['distance'] <= 2 + $aggression / 20
             && $this->roll($state, 'fourth-down') < $aggression;
         if ($state['down'] === 4 && ! $mustGo && ! $preferredGo) {
             $distance = 117 - $state['spot'];
             $range = 40 + ($players['K']['ratings']['kicking'] - 50) * .3;
             if ($distance <= $range) {
-                return SpecialTeamsTricks::cpuFake($state, 'field_goal') ?? ['call' => 'field_goal', 'formation' => 'singleback'];
+                return ($protectLead ? null : SpecialTeamsTricks::cpuFake($state, 'field_goal')) ?? ['call' => 'field_goal', 'formation' => 'singleback'];
             }
-            if ($state['spot'] < 60 || $state['distance'] > 2 || ($aggression < 0 && $this->roll($state, 'fourth-down') < -$aggression)) {
-                return SpecialTeamsTricks::cpuFake($state, 'punt') ?? ['call' => match (true) {
+            if ($protectLead || $state['spot'] < 60 || $state['distance'] > 2 || ($aggression < 0 && $this->roll($state, 'fourth-down') < -$aggression)) {
+                return ($protectLead ? null : SpecialTeamsTricks::cpuFake($state, 'punt')) ?? ['call' => match (true) {
                     $state['spot'] >= 55 => 'punt_coffin',
                     $state['spot'] >= 38 => 'punt_hang',
                     $state['spot'] <= 22 => 'punt_distance',
                     default => 'punt',
                 }, 'formation' => 'punt'];
             }
+        }
+        if ($protectLead) {
+            // Stay inbounds and avoid incompletions, tosses and designed QB runs.
+            $calls = ['inside_run', 'inside_zone', 'power', 'lead'];
+            $call = $calls[$this->roll($state, 'protect-lead') % count($calls)];
+            return ['call' => $call, 'formation' => in_array($call, ['power', 'lead'], true) ? 'i_form' : 'singleback', 'motion' => 'none'];
         }
         $passSkill = ($players['QB']['ratings']['throwing'] + $players['WR1']['ratings']['catching']) / 2;
         $runSkill = ($players['RB']['ratings']['speed'] + $players['C']['ratings']['blocking']) / 2;
@@ -206,6 +212,53 @@ class CpuCoach
     public function coinChoice(array $state): string
     {
         return $this->roll($state, 'coin-choice') < 80 ? 'kick' : 'receive';
+    }
+
+    /** Can the offense finish without another first down, even if every timeout is used? */
+    private function canKneelOut(array $state): bool
+    {
+        // Playoff overtime continues at zero; a lead there is not a victory condition.
+        if ($state['quarter'] < 4 || ($state['quarter'] >= 5 && Overtime::playoff($state))
+            || ($state['untimed_down'] ?? false) || ($state['status'] ?? 'playing') !== 'playing') {
+            return false;
+        }
+        $other = $state['possession'] === 'home' ? 'away' : 'home';
+        $timeouts = max(0, min(3, (int) ($state['timeouts'][$other] ?? 3)));
+        $remaining = $state['clock'];
+        $down = $state['down'];
+        $spot = $state['spot'];
+        $running = ($state['clock_running'] ?? false) || ($state['clock_restart_on_ready'] ?? false);
+        $warning = ! ($state['warnings'][$state['quarter']] ?? false);
+        while ($remaining > 0) {
+            if ($running) {
+                if ($timeouts > 0) {
+                    $timeouts--;
+                } elseif ($warning && $remaining > 120 && $remaining - 38 <= 120) {
+                    $remaining = 120;
+                    $running = $warning = false;
+                    continue;
+                } elseif ($remaining <= 38) {
+                    // This includes fourth down: the engine expires the clock before snapping.
+                    return true;
+                } else {
+                    $remaining -= 38;
+                }
+            }
+            // A fourth-down knee hands over possession, even when its two seconds expire.
+            if ($down >= 4 || $spot <= 1) {
+                return false;
+            }
+            $before = $remaining;
+            $remaining -= 2; // The engine's fixed kneel duration.
+            $down++;
+            $spot--;
+            $running = true;
+            if ($warning && $before > 120 && $remaining <= 120) {
+                $running = $warning = false;
+            }
+        }
+
+        return true;
     }
 
     private function passingCall(array $state): string

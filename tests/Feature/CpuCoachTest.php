@@ -165,3 +165,58 @@ test('CPU hurry up favors passes and keeps the formation already on the field', 
     }
     expect($runs)->toBeLessThan(40);
 });
+
+test('CPU victory decisions account for running clocks downs timeouts warnings and safety risk', function () {
+    $coach = app(CpuCoach::class);
+    $base = array_replace(app(ExhibitionEngine::class)->initial(900, 42, false), [
+        'quarter' => 4, 'home_score' => 21, 'away_score' => 17, 'spot' => 50,
+        'timeouts' => ['home' => 3, 'away' => 0], 'warnings' => ['4' => true],
+    ]);
+    foreach ([
+        [1, false, 0, 120, true], [1, false, 0, 121, false],
+        [1, true, 0, 158, true], [1, true, 0, 159, false],
+        [2, false, 0, 80, true], [2, false, 0, 81, false],
+        [3, false, 0, 40, true], [3, false, 0, 41, false],
+        [4, true, 0, 38, true], [4, true, 0, 39, false], [4, false, 0, 1, false],
+        [1, false, 1, 82, true], [1, false, 1, 83, false],
+        [1, false, 2, 44, true], [1, false, 2, 45, false],
+        [1, false, 3, 6, true], [1, false, 3, 7, false],
+    ] as [$down, $running, $timeouts, $clock, $kneel]) {
+        $state = array_replace($base, ['down' => $down, 'clock_running' => $running, 'clock' => $clock, 'timeouts' => ['home' => 3, 'away' => $timeouts]]);
+        expect($coach->offense($state, cpuRosters())['call'] === 'kneel')->toBe($kneel);
+    }
+    $state = array_replace($base, ['clock' => 150, 'clock_running' => true, 'warnings' => ['4' => false]]);
+    expect($coach->offense($state, cpuRosters())['call'])->toBe('kneel');
+    $state['clock'] = 160;
+    expect($coach->offense($state, cpuRosters())['call'])->not->toBe('kneel');
+    foreach ([['spot' => 3, 'clock' => 100], ['spot' => 1, 'clock' => 1], ['untimed_down' => true, 'clock' => 1], ['quarter' => 3, 'clock' => 1], ['home_score' => 17, 'clock' => 1], ['home_score' => 10, 'clock' => 1], ['quarter' => 5, 'clock' => 1, 'rules' => ['overtime' => 'modern_playoff']]] as $changes) {
+        expect($coach->offense(array_replace($base, $changes), cpuRosters())['call'])->not->toBe('kneel');
+    }
+    expect($coach->offense(array_replace($base, ['clock' => 150, 'clock_restart_on_ready' => true]), cpuRosters())['call'])->toBe('kneel');
+});
+
+test('CPU protects late leads with inside runs regardless of coach pass bias or random seed', function () {
+    $coach = app(CpuCoach::class);
+    foreach (['home', 'away'] as $side) {
+        foreach (range(1, 100) as $seed) {
+            $state = array_replace(app(ExhibitionEngine::class)->initial(900, $seed, false), [
+                'quarter' => 4, 'clock' => 175, 'possession' => $side, $side.'_score' => 7,
+                'coaching' => [$side => ['pass' => 100, 'qb_run' => 100, 'tempo' => 100, 'fourth_down' => 100]],
+            ]);
+            foreach ([1, 2, 3] as $down) {
+                $state['down'] = $down;
+                $plan = $coach->offense($state, cpuRosters());
+                expect($plan['call'])->toBeIn(['inside_run', 'inside_zone', 'power', 'lead'])
+                    ->and($plan)->toBe($coach->offense($state, cpuRosters()))
+                    ->and($coach->management($state))->toBe(['tempo' => 'drain', 'clock_strategy' => 'normal']);
+                expect(\App\Services\Simulation\OffensiveOptions::FORMATIONS[$plan['formation']])->toContain($plan['call']);
+            }
+            $state['down'] = 4;
+            $state['spot'] = 65;
+            $state['distance'] = 1;
+            expect($coach->offense($state, cpuRosters())['call'])->toBeIn(['punt', 'punt_coffin']);
+            $state['spot'] = 90;
+            expect($coach->offense($state, cpuRosters())['call'])->toBe('field_goal');
+        }
+    }
+});
