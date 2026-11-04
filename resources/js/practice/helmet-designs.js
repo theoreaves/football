@@ -28,23 +28,26 @@ export function helmetDesignGeometry(design) {
                     t=>(.075+(i%3)*.014)*(1-t)**.65,36);
             }
         }else{
-            // +Z is the facemask/front (helmet-shell.js). On either side,
-            // reverse the arc's longitudinal sweep so the wide horn root is
-            // behind the ear and its tapered tip curls toward the facemask.
-            // The side transform below still mirrors the shape automatically.
-            // Keep the thick root behind the ear and lean the upper arc
-            // forward toward the facemask (+Z), on both mirrored sides.
+            // Rams horns are a shaped band, not a rotated circular spiral.
+            // +Z is front/facemask (helmet-shell.js): the broad root sits
+            // high at the front, arches over the crown toward the rear,
+            // and curls forward into a narrow tip above the ear.
+            // The existing side transform mirrors this path for both sides.
+            const arcs=[
+                new THREE.CubicBezierCurve(
+                    new THREE.Vector2(.96,.58),new THREE.Vector2(.72,.19),
+                    new THREE.Vector2(-.50,.20),new THREE.Vector2(-.85,.56)),
+                new THREE.CubicBezierCurve(
+                    new THREE.Vector2(-.85,.56),new THREE.Vector2(-1.20,.78),
+                    new THREE.Vector2(-1.13,1.52),new THREE.Vector2(-.62,1.65)),
+                new THREE.CubicBezierCurve(
+                    new THREE.Vector2(-.62,1.65),new THREE.Vector2(-.31,1.78),
+                    new THREE.Vector2(.32,1.80),new THREE.Vector2(.34,1.48)),
+            ];
             ribbon(side,t=>{
-                const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
-                const localX=-.92*radius*Math.cos(angle),localY=.75*radius*Math.sin(angle);
-                // Flip the previous tilt: the top of the horn should lean
-                // toward the facemask, not toward the rear shell.
-                const tilt=-.30;
-                return new THREE.Vector2(
-                    .06+localX*Math.cos(tilt)+localY*Math.sin(tilt),
-                    1.2-localX*Math.sin(tilt)+localY*Math.cos(tilt)
-                );
-            },t=>.145*(1-t)**.65+.003,96);
+                const segment=Math.min(2,Math.floor(t*3));
+                return arcs[segment].getPoint(t===1?1:t*3-segment);
+            },t=>.18*(1-t)**.72+.004,144);
         }
     }
     // Use outward winding on both mirrored sides.

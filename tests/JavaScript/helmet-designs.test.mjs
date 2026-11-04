@@ -20,55 +20,31 @@ test('cat stripes and horns conform to both helmet sides and have outward windin
   for(let i=0;i<g.index.count;i+=3){const a=new THREE.Vector3().fromBufferAttribute(p,g.index.getX(i)),b=new THREE.Vector3().fromBufferAttribute(p,g.index.getX(i+1)),c=new THREE.Vector3().fromBufferAttribute(p,g.index.getX(i+2)),mid=a.clone().add(b).add(c).divideScalar(3);mid.z+=.025;assert.ok(b.sub(a).cross(c.sub(a)).dot(mid)>-1e-8);}
  }
 });
-test('ram horn roots sit behind their tips on both sides of the helmet',()=>{
- // +Z is the front of the helmet. Every ribbon uses two vertices per sample,
- // with 97 samples per side. The thick root (t=0) must be behind the tip (t=1).
- const geometry=helmetDesignGeometry('ram_horns'),positions=geometry.attributes.position;
- const samples=97,verticesPerSide=samples*2;
- assert.equal(positions.count,verticesPerSide*2);
- for(const sideIndex of [0,1]){
-  const first=sideIndex*verticesPerSide,last=first+(samples-1)*2;
-  const rootZ=(positions.getZ(first)+positions.getZ(first+1))/2;
-  const tipZ=(positions.getZ(last)+positions.getZ(last+1))/2;
-  assert.ok(tipZ>rootZ+0.1,`side ${sideIndex}: horn tip must sweep forward, not backward`);
-  const rootWidth=new THREE.Vector3().fromBufferAttribute(positions,first)
-   .distanceTo(new THREE.Vector3().fromBufferAttribute(positions,first+1));
-  const tipWidth=new THREE.Vector3().fromBufferAttribute(positions,last)
-   .distanceTo(new THREE.Vector3().fromBufferAttribute(positions,last+1));
-  assert.ok(rootWidth>tipWidth,`side ${sideIndex}: horn root must be thicker than tip`);
- }
-});
-
-test('ram horn uses the revised tilt on both mirrored sides',()=>{
+test('Rams horn broad root starts over the front and curls toward the ear on both sides',()=>{
  const geometry=helmetDesignGeometry('ram_horns'),p=geometry.attributes.position;
- const n=97,sideSize=n*2,t=.55,index=Math.round(t*(n-1));
- const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
- const localX=-.92*radius*Math.cos(angle),localY=.75*radius*Math.sin(angle);
- const tilt=-.30;
- const qx=.06+localX*Math.cos(tilt)+localY*Math.sin(tilt);
- const qy=1.2-localX*Math.sin(tilt)+localY*Math.cos(tilt);
- for(let side=0;side<2;side++){
-  const start=side*sideSize+index*2;
-  const z=(p.getZ(start)+p.getZ(start+1))/2;
-  // Both sides mirror across X, but face the same +Z direction.
-  const expectedZ=.405*Math.sin(qy)*Math.sin(qx)-.025;
-  assert.ok(Math.abs(z-expectedZ)<.012,`side ${side} has unexpected horn sweep`);
- }
-});
-
-test('ram horn upper sweep leans forward while root remains behind tip',()=>{
- const geometry=helmetDesignGeometry('ram_horns'),p=geometry.attributes.position;
- const samples=97,perSide=samples*2;
- for(const side of [0,1]){
-  const at=t=>{
-   const i=side*perSide+Math.round(t*96)*2;
-   return {x:(p.getX(i)+p.getX(i+1))/2,z:(p.getZ(i)+p.getZ(i+1))/2};
+ const samples=145,sideSize=samples*2;
+ assert.equal(p.count,sideSize*2);
+ const sample=(side,index)=>{
+  const i=side*sideSize+index*2;
+  return {
+   x:(p.getX(i)+p.getX(i+1))/2,
+   y:(p.getY(i)+p.getY(i+1))/2,
+   z:(p.getZ(i)+p.getZ(i+1))/2,
+   width:new THREE.Vector3().fromBufferAttribute(p,i)
+    .distanceTo(new THREE.Vector3().fromBufferAttribute(p,i+1)),
   };
-  const root=at(0),upper=at(.55),tip=at(1);
-  assert.ok(tip.z>root.z+.1,'horn tip must remain ahead of the root');
-  assert.ok(upper.z>.04,'upper sweep must lean toward facemask');
-  assert.ok(Math.sign(root.x)===Math.sign(upper.x),'horn remains on same helmet side');
+ };
+ for(const side of [0,1]){
+  const root=sample(side,0),crown=sample(side,24),rear=sample(side,72),tip=sample(side,144);
+  assert.ok(root.z>.13,`side ${side}: thick root should start toward facemask`);
+  assert.ok(rear.z<-.14,`side ${side}: outer horn must sweep behind the ear`);
+  assert.ok(tip.z>rear.z+.20,`side ${side}: horn must curl forward from rear`);
+  assert.ok(crown.y>rear.y+.10,`side ${side}: broad band arches across crown`);
+  assert.ok(root.width>tip.width*4,`side ${side}: horn must taper sharply`);
  }
+ const left=sample(0,0),right=sample(1,0);
+ assert.ok(left.x<0&&right.x>0,'the same front-facing horn must appear on opposite sides');
+ assert.ok(Math.abs(left.z-right.z)<.001,'both horns must point toward the same front');
 });
 
 test('player and instanced sideline helmets share patterns instead of a center stripe',()=>{
