@@ -1,3 +1,4 @@
+import {applyKneelPose,kneelActive} from './kneel-pose.js';
 import {POSTGAME_END,exitPose,handshakePose,mascotFarewell,postgameStage} from './postgame.js';
 import {queuedPlayCall} from './queued-play-call.js';
 import {entranceComplete,hideOpeningUnits} from './opening-presentation.js';
@@ -764,7 +765,7 @@ export function mountPractice(root, onReady = () => {}) {
             // Other players don't immediately run to the next formation:
             // staggered walking and disengaging starts once the result is up.
             if (phase === 'result' && animation && !animation.no_snap && !earlyExit
-                && !['touchdown','interception','fumble'].includes(animation.outcome)) {
+                && !['touchdown','interception','fumble'].includes(animation.outcome) && animation.call !== 'kneel') {
                 const recovering = animation.contact_at != null
                     && ((player.team === (animation.contact_carrier_team || 'offense') && player.role === animation.carrier)
                     || (player.team === (animation.contact_tackler_team || 'defense') && player.role === animation.tackler_role));
@@ -1300,6 +1301,8 @@ export function mountPractice(root, onReady = () => {}) {
                 mesh.userData.arms?.forEach(arm => arm.rotation.x = -.5 * Math.sin(Math.PI * Math.min(1,elapsed/.48)));
             }
 
+            // Apply after stance resets so articulated knees remain bent.
+            applyKneelPose(mesh,animation,player,phase,elapsed,playDirection);
         });
         if (phase === 'play') applyPenaltyContact(penaltyContact, elapsed, frame.players, players);
         medicalCrew.visible = phase === 'medical' && Boolean(seriousInjury);
@@ -1450,6 +1453,14 @@ export function mountPractice(root, onReady = () => {}) {
                 const blend = Math.max(0, Math.min(1, (elapsed - pickupAt) / .22));
                 const eased = blend * blend * (3 - 2 * blend);
                 ball.position.lerp(tuckPosition, eased);
+            }
+        }
+        if (kneelActive(animation,phase) && elapsed >= .6) {
+            const index=frame.players.findIndex(player=>player.team==='offense' && player.role==='QB');
+            const quarterback=players[index];
+            if(quarterback){
+                quarterback.updateMatrixWorld(true);
+                ball.position.copy(quarterback.localToWorld(new THREE.Vector3(0,1.15,.34)));
             }
         }
         carrierArrow.visible = showCarrierArrow && Boolean(holder);

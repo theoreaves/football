@@ -887,6 +887,6 @@ class PlayTimeline
 
         $animation = PassingAnimationTiming::apply($animation, $rosters[$side]['players'][$receiverRole]['ratings'] ?? [], $play);
 
-        return RushingAnimationTiming::apply($animation, $rosters[$side]['players'][$play['carrier']]['ratings'] ?? [], $play);
+        return KneelAnimation::apply(RushingAnimationTiming::apply($animation, $rosters[$side]['players'][$play['carrier']]['ratings'] ?? [], $play), $play);
     }
 }

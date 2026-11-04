@@ -523,3 +523,31 @@ test('CPU victory sequences finish without switching to passes or surrendering p
         }
     }
 });
+
+test('kneel presentation receives the snap settles at the recorded yard and stops defensive pursuit', function () {
+    $engine = app(ExhibitionEngine::class);
+    foreach (['home', 'away'] as $side) {
+        $state = clockState(['quarter' => 4, 'clock' => 90, 'clock_running' => false, 'possession' => $side, 'spot' => 50, $side.'_score' => 21]);
+        $result = $engine->resolve($state, clockRosters(), 'kneel', 'run_stop', 'singleback', 'base_4_3', 'drain');
+        $play = $result['play'];
+        $snapshot = $play;
+        $animation = app(\App\Services\Simulation\PlayTimeline::class)->build($play, clockRosters());
+        expect($play)->toBe($snapshot)->and($result['state']['clock'])->toBe(88)
+            ->and($play['gain'])->toBe(-1)->and($animation['passing'])->toBeFalse()
+            ->and($animation['contact_at'])->toBeNull()->and($animation['kneel_at'])->toBe(1.1);
+        $direction = $side === 'home' ? 1 : -1;
+        $qb = collect($animation['players'])->first(fn ($player) => $player['team'] === 'offense' && $player['role'] === 'QB');
+        $last = $qb['path'][array_key_last($qb['path'])];
+        expect($last[1])->toBe($animation['line'] - $direction)
+            ->and($animation['ballHolders'][array_key_last($animation['ballHolders'])])->toBe([.35, 'offense', 'QB']);
+        foreach ($animation['players'] as $player) {
+            if ($player['team'] !== 'defense') {
+                continue;
+            }
+            $start = $player['path'][0];
+            $end = $player['path'][array_key_last($player['path'])];
+            expect(abs($end[1] - $start[1]))->toBeLessThan(.21)->and($end[3])->toBe($start[3]);
+        }
+        expect($animation['ball'][array_key_last($animation['ball'])][2])->toBe(.60);
+    }
+});
