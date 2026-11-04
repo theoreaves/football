@@ -39,6 +39,23 @@ test('ram horn roots sit behind their tips on both sides of the helmet',()=>{
  }
 });
 
+test('ram horn uses the revised tilt on both mirrored sides',()=>{
+ const geometry=helmetDesignGeometry('ram_horns'),p=geometry.attributes.position;
+ const n=97,sideSize=n*2,t=.55,index=Math.round(t*(n-1));
+ const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
+ const localX=-.92*radius*Math.cos(angle),localY=.75*radius*Math.sin(angle);
+ const tilt=-.30;
+ const qx=.06+localX*Math.cos(tilt)+localY*Math.sin(tilt);
+ const qy=1.2-localX*Math.sin(tilt)+localY*Math.cos(tilt);
+ for(let side=0;side<2;side++){
+  const start=side*sideSize+index*2;
+  const z=(p.getZ(start)+p.getZ(start+1))/2;
+  // Both sides mirror across X, but face the same +Z direction.
+  const expectedZ=.405*Math.sin(qy)*Math.sin(qx)-.025;
+  assert.ok(Math.abs(z-expectedZ)<.012,`side ${side} has unexpected horn sweep`);
+ }
+});
+
 test('ram horn upper sweep leans forward while root remains behind tip',()=>{
  const geometry=helmetDesignGeometry('ram_horns'),p=geometry.attributes.position;
  const samples=97,perSide=samples*2;

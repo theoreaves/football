@@ -37,7 +37,9 @@ export function helmetDesignGeometry(design) {
             ribbon(side,t=>{
                 const angle=-Math.PI/4+t*Math.PI*1.75,radius=1-.72*t;
                 const localX=-.92*radius*Math.cos(angle),localY=.75*radius*Math.sin(angle);
-                const tilt=.30;
+                // Flip the previous tilt: the top of the horn should lean
+                // toward the facemask, not toward the rear shell.
+                const tilt=-.30;
                 return new THREE.Vector2(
                     .06+localX*Math.cos(tilt)+localY*Math.sin(tilt),
                     1.2-localX*Math.sin(tilt)+localY*Math.cos(tilt)
