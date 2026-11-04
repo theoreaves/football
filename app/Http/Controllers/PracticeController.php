@@ -34,6 +34,15 @@ class PracticeController extends Controller
         return $disk->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 
+    public function stadiumArt(Team $team, string $file)
+    {
+        abort_unless(preg_match('/^[a-f0-9-]{36}\.(png|jpg|jpeg|webp)$/', $file), 404);
+        $path = "teams/{$team->id}/stadium/{$file}";
+        $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
+        abort_unless($disk->exists($path), 404);
+        return $disk->response($path, null, ['Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
     public function championshipArt(Team $team, string $side)
     {
         abort_unless(in_array($side, ['left', 'right'], true), 404);
@@ -134,7 +143,10 @@ class PracticeController extends Controller
             'name' => $team->name,
             'primary_color' => $team->team_color1 ?: $uniform['shirt'],
             'secondary_color' => $team->team_color2 ?: $uniform['shirt'],
-            'stadium' => $team->team_settings['stadium'] ?? [],
+            'stadium' => array_replace($team->team_settings['stadium'] ?? [], ['presentation_version' => 2], collect(['field_wall', 'home_tunnel', 'away_tunnel'])->mapWithKeys(function ($part) use ($team) {
+                $path = $team->team_settings['stadium'][$part.'_art'] ?? null;
+                return [$part.'_art' => $path ? route('teams.stadium-art', ['team' => $team, 'file' => basename($path)]) : null];
+            })->all()),
             'stadium_style' => $team->stadium_style ?: 'classic_oval',
             'stadium_seat_color' => $team->stadium_seat_color ?: ($team->team_color1 ?: '#315b85'),
             'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',

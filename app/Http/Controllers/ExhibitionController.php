@@ -82,6 +82,17 @@ class ExhibitionController extends Controller
                 }
             }
         }
+        // STAD1 snapshots retain their original concrete and field-wall colors.
+        foreach (['home', 'away'] as $side) {
+            if (!isset($appearance[$side]['stadium']['presentation_version'])) {
+                foreach (['field_wall_art', 'home_tunnel_art', 'away_tunnel_art', 'home_tunnel_color', 'away_tunnel_color'] as $key) {
+                    unset($appearance[$side]['stadium'][$key]);
+                }
+                $appearance[$side]['stadium']['exterior_color'] = $appearance[$side]['stadium_wall_color'] ?? '#657587';
+                $appearance[$side]['stadium']['wordmark_background'] = $appearance[$side]['primary_color'] ?? $appearance[$side]['stadium_seat_color'] ?? '#315b85';
+                $appearance[$side]['stadium']['field_wall_color'] = $appearance[$side]['stadium_wall_color'] ?? '#657587';
+            }
+        }
         $exhibition->state = app(GameClock::class)->normalize($exhibition->state);
         $history = $exhibition->history;
         $last = $history ? $history[array_key_last($history)] : null;

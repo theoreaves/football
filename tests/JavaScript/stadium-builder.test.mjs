@@ -111,3 +111,38 @@ test('only the home tunnel carries a fitted team logo while visitor tunnel uses 
     const emblem=group.getObjectByName('tunnel-home-logo');emblem.onBeforeRender();assert.equal(emblem.rotation.x,-Math.PI/2);assert.ok(emblem.position.y>group.getObjectByName('tunnel-home-roof').position.y+.3);
     assert.ok(emblem.geometry.parameters.width/emblem.geometry.parameters.height-2<1e-8);
 });
+
+
+test('STAD2 separates exterior field and tunnel colors for all ten stadiums',()=>{
+    for(const stadium_style of Object.keys(STADIUMS)) {
+        const home={stadium_style,primary_color:'#123456',stadium_wall_color:'#abcdef',stadium:{exterior_color:'#998877',field_wall_color:'#112233',home_tunnel_color:'#223344',away_tunnel_color:'#334455'}};
+        for(const group of [buildStadium(home,mockDocument(),{}, {fullness:0}).group,buildStadiumPreview(home,mockDocument())]) {
+            assert.equal((group.getObjectByName('stadium-exterior-shell') || group.getObjectByName('dome-wall')).material.color.getHexString(),'998877');
+            assert.equal(group.getObjectByName('field-retaining-wall').material.color.getHexString(),'112233');
+            assert.equal(group.getObjectByName('terrace').material.color.getHexString(),'abcdef');
+            assert.equal(group.getObjectByName('tunnel-home-roof').material.color.getHexString(),'223344');
+            assert.equal(group.getObjectByName('tunnel-away-roof').material.color.getHexString(),'334455');
+        }
+    }
+    const defaults=buildStadium({primary_color:'#123456'},mockDocument(),{}, {fullness:0}).group;
+    assert.equal(defaults.getObjectByName('stadium-exterior-shell').material.color.getHexString(),'a8a29e');
+    assert.equal(defaults.getObjectByName('field-retaining-wall').material.color.getHexString(),'123456');
+});
+
+test('STAD2 custom art replaces wordmarks and tunnel logos without altering entrances or geometry',()=>{
+    const home={team_logo:'team.png',stadium:{field_wall_art:'wall.png',home_tunnel_art:'home.png',away_tunnel_art:'visitor.png'}};
+    const loaded=[],textureFor=url=>{loaded.push(url);const texture=new THREE.Texture();texture.image={width:800,height:200};return texture;};
+    const group=buildStadium(home,mockDocument(),{}, {fullness:0},textureFor).group;
+    assert.deepEqual(loaded,['wall.png','home.png','visitor.png']);
+    for(const side of ['home','away']) {
+        const logo=group.getObjectByName(`tunnel-${side}-logo`);logo.onBeforeRender();
+        assert.equal(logo.geometry.parameters.width,6);assert.equal(logo.geometry.parameters.height,1.5);
+        assert.equal(logo.rotation.x,-Math.PI/2);
+    }
+    const baseline=buildStadium({},mockDocument(),{}, {fullness:0}).group;
+    assert.deepEqual([...group.getObjectByName('field-retaining-wall').geometry.index.array],[...baseline.getObjectByName('field-retaining-wall').geometry.index.array]);
+    for(const side of ['home','away'])assert.deepEqual(group.getObjectByName(`tunnel-${side}-roof`).position.toArray(),baseline.getObjectByName(`tunnel-${side}-roof`).position.toArray());
+    assert.equal(baseline.getObjectByName('field-wall-wordmark').material.map.isCanvasTexture,true);
+    const fields=stadiumCopyFields(home);
+    assert.ok(!Object.keys(fields).some(key=>key.includes('_art')));
+});

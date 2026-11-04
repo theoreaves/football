@@ -21,6 +21,24 @@
     <label>{{ $label }}<input data-tier-wall-color type="color" name="team_settings[stadium][tier_wall_colors][{{ $key }}]" value="{{ old('team_settings.stadium.tier_wall_colors.'.$key, $team->team_settings['stadium']['tier_wall_colors'][$key] ?? $team->stadium_wall_color ?? '#657587') }}" class="block w-full h-10 border rounded disabled:opacity-50"></label>
     @endforeach
 </div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    @foreach(['exterior_color' => ['Exterior walls', '#a8a29e'], 'field_wall_color' => ['Field-facing walls', $team->team_color1 ?: '#315b85'], 'home_tunnel_color' => ['Home tunnel', $team->team_color1 ?: '#315b85'], 'away_tunnel_color' => ['Visitor tunnel', $team->stadium_wall_color ?: '#657587']] as $key => [$label, $default])
+    <label>{{ $label }}<input type="color" name="team_settings[stadium][{{ $key }}]" value="{{ old('team_settings.stadium.'.$key, $team->team_settings['stadium'][$key] ?? $default) }}" class="block w-full h-10 border rounded"></label>
+    @endforeach
+</div>
+<p class="text-sm">Exterior walls default to stone gray. Field walls and the home tunnel default to the primary team color. Visitor tunnels default to the structure color.</p>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    @foreach(['field_wall' => 'Field wall graphic', 'home_tunnel' => 'Home tunnel graphic', 'away_tunnel' => 'Visitor tunnel graphic'] as $part => $label)
+    <div data-stadium-art>
+        <label>{{ $label }}<input type="file" name="stadium_art_uploads[{{ $part }}]" accept="image/png,image/jpeg,image/webp" class="block w-full text-sm"></label>
+        @if($team->exists && !empty($team->team_settings['stadium'][$part.'_art']))
+        <img src="{{ route('teams.stadium-art', ['team' => $team, 'file' => basename($team->team_settings['stadium'][$part.'_art'])]) }}" alt="{{ $label }}" class="w-full h-20 object-contain border">
+        <label><input type="checkbox" name="stadium_art_clear[{{ $part }}]" value="1"> Remove graphic</label>
+        @endif
+    </div>
+    @endforeach
+</div>
+<p class="text-sm">PNG, JPEG or WebP up to 5 MB and 4096 pixels per side. Wall graphics use a wide banner panel on each sideline; tunnel graphics fit the roof. Without custom artwork, walls show the team wordmark and the home tunnel shows the team logo. Uploading a new graphic replaces the current one.</p>
 <input type="hidden" name="team_settings[stadium][tunnels]" value="0">
 <label class="block"><input data-stadium-tunnels type="checkbox" name="team_settings[stadium][tunnels]" value="1" @checked(old('team_settings.stadium.tunnels', $team->team_settings['stadium']['tunnels'] ?? true))> Show home and visitor tunnels</label>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -30,7 +48,7 @@
     </select></label>
     @endforeach
 </div>
-<p class="text-sm">Tunnels use team colors. Lighting fixtures are decorative; player entrances will follow in a later update.</p>
+<p class="text-sm">Lighting fixtures are decorative. Tunnel colors and graphics do not change player entrances.</p>
 <div class="flex flex-wrap gap-3 items-end">
     <label class="flex-1">Copy stadium from another team<select data-stadium-copy-team class="block w-full border rounded p-2"><option value="">Choose a team in this save</option>@foreach($stadiumCopies ?? [] as $source)<option value="{{ $source['id'] }}">{{ $source['label'] }}</option>@endforeach</select></label>
     <button type="button" data-stadium-copy class="border rounded px-4 py-2">Load design</button>

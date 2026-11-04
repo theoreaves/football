@@ -46,3 +46,51 @@ test('stadium copy catalog contains only other teams from the active save and om
         return true;
     });
 });
+
+test('STAD2 persists independent colors and immutable artwork through replacement and removal', function () {
+    \Illuminate\Support\Facades\Storage::fake('team_art');
+    $disk = \Illuminate\Support\Facades\Storage::disk('team_art');
+    $team = Team::create(['city' => 'Test', 'name' => 'Home', 'team_color1' => '#123456']);
+    $colors = ['exterior_color' => '#a8a29e', 'field_wall_color' => '#112233', 'home_tunnel_color' => '#223344', 'away_tunnel_color' => '#334455'];
+    // A real tiny PNG avoids requiring GD to generate upload fixtures.
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6hNwAAAAASUVORK5CYII=');
+    $uploads = [];
+    foreach (['field_wall', 'home_tunnel', 'away_tunnel'] as $part) {
+        $uploads[$part] = \Illuminate\Http\UploadedFile::fake()->createWithContent($part.'.png', $png);
+    }
+    $this->put(route('teams.editor.update', $team), ['city' => 'Test', 'name' => 'Home', 'team_settings' => ['stadium' => $colors], 'stadium_art_uploads' => $uploads])->assertSessionHasNoErrors();
+    $team->refresh();
+    expect($team->team_settings['stadium'])->toMatchArray($colors);
+    $snapshot = app(PracticeController::class)->appearance($team, 'home');
+    expect($snapshot['stadium']['presentation_version'])->toBe(2);
+    foreach (['field_wall', 'home_tunnel', 'away_tunnel'] as $part) {
+        $oldPath = $team->team_settings['stadium'][$part.'_art'];
+        expect($disk->exists($oldPath))->toBeTrue();
+        $oldUrl = $snapshot['stadium'][$part.'_art'];
+        $this->get($oldUrl)->assertOk();
+        $this->put(route('teams.editor.update', $team), ['city' => 'Test', 'name' => 'Home', 'stadium_art_uploads' => [$part => \Illuminate\Http\UploadedFile::fake()->createWithContent('new.png', $png)]])->assertSessionHasNoErrors();
+        $team->refresh();
+        expect($team->team_settings['stadium'][$part.'_art'])->not->toBe($oldPath);
+        $this->get($oldUrl)->assertOk();
+        $this->put(route('teams.editor.update', $team), ['city' => 'Test', 'name' => 'Home', 'stadium_art_clear' => [$part => 1]])->assertSessionHasNoErrors();
+        $team->refresh();
+        expect($team->team_settings['stadium'])->not->toHaveKey($part.'_art');
+        expect(app(PracticeController::class)->appearance($team, 'home')['stadium'][$part.'_art'])->toBeNull();
+        $this->get($oldUrl)->assertOk();
+    }
+    $this->get(route('teams.editor.edit', $team))->assertOk()->assertSee('Exterior walls')->assertSee('Visitor tunnel graphic');
+    $other = World::create(['name' => 'Other']);
+    openFootballSave($other);
+    $this->get($snapshot['stadium']['field_wall_art'])->assertNotFound();
+});
+
+test('STAD2 rejects invalid colors uploads and arbitrary artwork paths before changing the team', function () {
+    $team = Team::create(['city' => 'Test', 'name' => 'Home']);
+    foreach (['exterior_color', 'field_wall_color', 'home_tunnel_color', 'away_tunnel_color'] as $color) {
+        $this->put(route('teams.editor.update', $team), ['city' => 'Test', 'name' => 'Changed', 'team_settings' => ['stadium' => [$color => 'red']]])->assertSessionHasErrors('team_settings.stadium.'.$color);
+    }
+    $this->put(route('teams.editor.update', $team), ['city' => 'Test', 'name' => 'Changed', 'stadium_art_uploads' => ['field_wall' => \Illuminate\Http\UploadedFile::fake()->create('bad.txt', 1)]])->assertSessionHasErrors('stadium_art_uploads.field_wall');
+    $this->put(route('teams.editor.update', $team), ['city' => 'Test', 'name' => 'Changed', 'team_settings' => ['stadium' => ['field_wall_art' => '../other.png']]])->assertSessionHasErrors('team_settings.stadium');
+    expect($team->fresh()->name)->toBe('Home');
+    $this->get(route('teams.stadium-art', [$team, 'invalid.png']))->assertNotFound();
+});

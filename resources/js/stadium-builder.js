@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {fitLogo} from './practice/logo-fit.js';
 import {buildStadium} from './practice/stadium.js';
 
-export function stadiumCopyFields(source) {
+export function stadiumCopyFields(source,primaryColor='#315b85') {
     const data=source?.stadium || {},fields={};
     for(const key of ['stadium_style','stadium_seat_color','stadium_wall_color','stadium_roof_color'])fields[key]=source?.[key] || (key==='stadium_style'?'classic_oval':key==='stadium_seat_color'?'#315b85':key==='stadium_wall_color'?'#657587':'#cbd5e1');
     for(const key of ['tiers','rows','row_height','scoreboards','scoreboard_size','lighting'])fields[`team_settings[stadium][${key}]`]=data[key] ?? '';
@@ -12,13 +12,14 @@ export function stadiumCopyFields(source) {
     for(const key of ['lower','middle','upper'])fields[`team_settings[stadium][tier_colors][${key}]`]=data.tier_colors?.[key] || fields.stadium_seat_color;
     fields['team_settings[stadium][wall_one_color]']=!(data.wall_one_color===false || data.wall_one_color===0 || data.wall_one_color==='0');
     for(const key of ['lower','middle','upper'])fields[`team_settings[stadium][tier_wall_colors][${key}]`]=data.tier_wall_colors?.[key] || fields.stadium_wall_color;
+    for(const key of ['exterior_color','field_wall_color','home_tunnel_color','away_tunnel_color'])fields[`team_settings[stadium][${key}]`]=data[key] || (key==='exterior_color'?'#a8a29e':key==='away_tunnel_color'?fields.stadium_wall_color:primaryColor);
     return fields;
 }
 
 export function stadiumFromForm(form) {
     const data=new FormData(form),appearance={stadium:{tier_colors:{},tier_wall_colors:{}}};
     for(const key of ['stadium_style','stadium_seat_color','stadium_wall_color','stadium_roof_color','endzone_background','endzone_text','endzone_text_color'])appearance[key]=data.get(key);
-    for(const key of ['name','tiers','rows','row_height','scoreboards','scoreboard_size','lighting'])appearance.stadium[key]=data.get(`team_settings[stadium][${key}]`);
+    for(const key of ['name','tiers','rows','row_height','scoreboards','scoreboard_size','lighting','exterior_color','field_wall_color','home_tunnel_color','away_tunnel_color'])appearance.stadium[key]=data.get(`team_settings[stadium][${key}]`);
     appearance.primary_color=data.get('team_color1');
     appearance.stadium.tunnels=data.getAll('team_settings[stadium][tunnels]').at(-1)==='1';
     appearance.stadium.one_color=data.getAll('team_settings[stadium][one_color]').at(-1)==='1';
@@ -39,7 +40,7 @@ export function mountStadiumBuilder(form) {
         const source=choices.find(team=>String(team.id)===form.querySelector('[data-stadium-copy-team]').value);
         const status=form.querySelector('[data-stadium-copy-status]');
         if(!source){status.textContent='Choose a team first.';return;}
-        for(const [name,value] of Object.entries(stadiumCopyFields(source))) {
+        for(const [name,value] of Object.entries(stadiumCopyFields(source,form.elements.namedItem('team_color1')?.value || '#315b85'))) {
             if(name==='team_settings[stadium][tunnels]')form.querySelector('[data-stadium-tunnels]').checked=value;
             else if(name==='team_settings[stadium][one_color]')single.checked=value;
             else if(name==='team_settings[stadium][wall_one_color]')singleWalls.checked=value;

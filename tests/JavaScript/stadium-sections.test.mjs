@@ -23,7 +23,7 @@ test('oval seating has tight even spacing with clear aisles and five crowd batch
             // First row axes; subsequent rows add identical radial offsets.
             const radius = Math.hypot(x,z);
             assert.ok(Number.isFinite(radius));
-            const row=Math.round((matrix.elements[13]-.3-1-(deck-1)*(8*1.05+2))/1.05);
+            const row=Math.round((matrix.elements[13]-.3-2.6-(deck-1)*(8*1.05+2))/1.05);
             const offset=(deck-1)*(8*1.8*.8+4)+row*1.8*.8+.72;
             const a=(Math.atan2(z/(48+offset),x/(80+offset))+Math.PI*2)%(Math.PI*2);
             assert.equal(stadiumAisle(a,80+offset,48+offset),false);

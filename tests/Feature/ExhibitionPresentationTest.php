@@ -183,3 +183,29 @@ test('special play options render and CPU onside previews preserve the saved gam
     expect($play['design'])->toBe('fake_field_goal_pass');
     expect(collect($play['animation']['players'])->first(fn ($p) => $p['side'] === 'home' && $p['role'] === 'QB')['id'])->toBe($rosters['home']['players']['P']['id']);
 });
+
+test('STAD2 game appearance remains frozen and STAD1 snapshots keep their original wall colors', function () {
+    $teams = Team::all();
+    $teams[0]->update(['team_color1' => '#123456', 'stadium_wall_color' => '#654321', 'team_settings' => ['stadium' => ['exterior_color' => '#a8a29e', 'field_wall_color' => '#112233']]]);
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 180])->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    app(CurrentWorld::class)->id = $game->world_id;
+    $state = $game->state;
+    $teams[0]->update(['team_settings' => ['stadium' => ['exterior_color' => '#ffffff', 'field_wall_color' => '#eeeeee']]]);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('appearance', function ($appearance) {
+        expect($appearance['home']['stadium']['exterior_color'])->toBe('#a8a29e')
+            ->and($appearance['home']['stadium']['field_wall_color'])->toBe('#112233');
+        return true;
+    });
+    expect($game->fresh()->state)->toBe($state);
+    unset($state['team_appearance']['home']['stadium']['presentation_version'], $state['team_appearance']['home']['stadium']['exterior_color'], $state['team_appearance']['home']['stadium']['field_wall_color']);
+    app(CurrentWorld::class)->id = $game->world_id;
+    $game->update(['state' => $state]);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('appearance', function ($appearance) {
+        expect($appearance['home']['stadium']['exterior_color'])->toBe('#654321')
+            ->and($appearance['home']['stadium']['field_wall_color'])->toBe('#654321')
+            ->and($appearance['home']['stadium']['wordmark_background'])->toBe('#123456');
+        return true;
+    });
+    expect($game->fresh()->state)->toBe($state);
+});

@@ -33,7 +33,7 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request);
 
-        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear'], $data['field_25_logo_upload'], $data['field_25_logo_clear']);
+        unset($data['stadium_art_uploads'], $data['stadium_art_clear'], $data['uniform_logo_uploads'], $data['uniform_logo_clear'], $data['field_25_logo_upload'], $data['field_25_logo_clear']);
         $team = Team::create($data);
 
         $this->handleUploads($request, $team);
@@ -57,7 +57,7 @@ class TeamEditor extends Controller
     {
         $data = $this->validated($request, $team);
 
-        unset($data['uniform_logo_uploads'], $data['uniform_logo_clear'], $data['field_25_logo_upload'], $data['field_25_logo_clear']);
+        unset($data['stadium_art_uploads'], $data['stadium_art_clear'], $data['uniform_logo_uploads'], $data['uniform_logo_clear'], $data['field_25_logo_upload'], $data['field_25_logo_clear']);
         if (isset($data['team_settings'])) {
             $data['team_settings'] = array_replace_recursive($team->team_settings ?? [], $data['team_settings']);
         }
@@ -80,7 +80,7 @@ class TeamEditor extends Controller
                 'stadium_seat_color' => $team->stadium_seat_color ?: ($team->team_color1 ?: '#315b85'),
                 'stadium_wall_color' => $team->stadium_wall_color ?: '#657587',
                 'stadium_roof_color' => $team->stadium_roof_color ?: '#cbd5e1',
-                'stadium' => $team->team_settings['stadium'] ?? [],
+                'stadium' => \Illuminate\Support\Arr::except($team->team_settings['stadium'] ?? [], ['field_wall_art', 'home_tunnel_art', 'away_tunnel_art']),
             ])->values();
     }
 
@@ -118,7 +118,7 @@ class TeamEditor extends Controller
             'team_settings.championship_endzone.text' => ['nullable', 'string', 'max:40'],
             'team_settings.championship_endzone.background' => $hex,
             'team_settings.championship_endzone.text_color' => $hex,
-            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors,tunnels,scoreboards,scoreboard_size,lighting'],
+            'team_settings.stadium' => ['sometimes', 'array:name,tiers,rows,row_height,one_color,tier_colors,wall_one_color,tier_wall_colors,tunnels,scoreboards,scoreboard_size,lighting,exterior_color,field_wall_color,home_tunnel_color,away_tunnel_color'],
             'team_settings.stadium.tunnels' => ['sometimes', 'boolean'],
             'team_settings.stadium.scoreboards' => ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right'])],
             'team_settings.stadium.scoreboard_size' => ['sometimes', \Illuminate\Validation\Rule::in(['small', 'medium', 'large'])],
@@ -214,6 +214,15 @@ class TeamEditor extends Controller
         $settings['uniform_logo_clear'] = ['sometimes', 'array:home,away'];
         $settings['uniform_logo_clear.home'] = ['sometimes', 'array:chest,sleeve'];
         $settings['uniform_logo_clear.away'] = ['sometimes', 'array:chest,sleeve'];
+        foreach (['exterior_color', 'field_wall_color', 'home_tunnel_color', 'away_tunnel_color'] as $color) {
+            $settings['team_settings.stadium.'.$color] = $hex;
+        }
+        $settings['stadium_art_uploads'] = ['sometimes', 'array:field_wall,home_tunnel,away_tunnel'];
+        $settings['stadium_art_clear'] = ['sometimes', 'array:field_wall,home_tunnel,away_tunnel'];
+        foreach (['field_wall', 'home_tunnel', 'away_tunnel'] as $part) {
+            $settings['stadium_art_uploads.'.$part] = ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120', 'dimensions:max_width=4096,max_height=4096'];
+            $settings['stadium_art_clear.'.$part] = ['sometimes', 'boolean'];
+        }
         $settings['team_settings.field_art'] = ['sometimes', 'array:yard25_position'];
         $settings['team_settings.field_art.yard25_position'] = ['sometimes', \Illuminate\Validation\Rule::in(['both', 'left', 'right', 'none'])];
         $settings['field_25_logo_upload'] = ['nullable', 'image', 'max:5120'];
@@ -274,6 +283,19 @@ class TeamEditor extends Controller
     private function handleUploads(Request $request, Team $team): void
     {
         $profile = $team->team_settings ?? [];
+        foreach (['field_wall', 'home_tunnel', 'away_tunnel'] as $part) {
+            if ($request->boolean('stadium_art_clear.'.$part)) {
+                unset($profile['stadium'][$part.'_art']);
+            }
+            if ($request->hasFile('stadium_art_uploads.'.$part)) {
+                $file = $request->file('stadium_art_uploads.'.$part);
+                // Never remove old versions: saved games retain their exact artwork URL.
+                $profile['stadium'][$part.'_art'] = $file->storeAs(
+                    "teams/{$team->id}/stadium", (string) \Illuminate\Support\Str::uuid().'.'.$file->extension(), 'team_art'
+                );
+            }
+        }
+
         foreach (array_keys(config('team-audio')) as $event) {
             if ($request->boolean("audio_clear.{$event}")) {
                 unset($profile['audio'][$event]);

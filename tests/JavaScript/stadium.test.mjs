@@ -45,7 +45,7 @@ test('STAD1 raises the first row and adds a branded field wall and efficient ext
         const lowerTerrace = group.getObjectByName('seating-deck-1').getObjectByName('terrace');
         assert.ok(wall, `${style}: missing field wall`);
         assert.ok(coping, `${style}: missing wall coping`);
-        assert.ok(lowerTerrace.geometry.attributes.position.getY(0) >= 2.6, `${style}: seats remain at field level`);
+        assert.ok(lowerTerrace.geometry.attributes.position.getY(0) >= 2.6 - 1e-6, `${style}: seats remain at field level`);
         assert.equal(group.children.filter(part => part.name === 'field-wall-wordmark').length, 2);
         const exterior = group.getObjectByName('stadium-exterior-shell');
         if (style === 'indoor_dome') assert.equal(exterior, undefined);

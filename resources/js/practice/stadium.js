@@ -104,6 +104,8 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     group.userData.style = home.stadium_style in STADIUMS ? home.stadium_style : 'classic_oval';
     const paint = color => new THREE.MeshStandardMaterial({ color, roughness: .85, side: THREE.DoubleSide });
     const walls = paint(home.stadium_wall_color || '#657587');
+    const exterior = paint(profile.exterior_color || '#a8a29e');
+    const fieldWalls = paint(profile.field_wall_color || home.primary_color || home.stadium_seat_color || '#315b85');
     const seats = paint(stadiumTierColor(home,0));
     const roofPaint = paint(home.stadium_roof_color || '#cbd5e1');
     const allowed = angle => {
@@ -131,16 +133,16 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         const delta = Math.atan2(Math.sin(angle - tunnel), Math.cos(angle - tunnel));
         return Math.abs(delta) < .095;
     });
-    add(facade(79.55, 47.55, -.2, wallTop, frontWallAllowed), walls, 'field-retaining-wall');
+    add(facade(79.55, 47.55, -.2, wallTop, frontWallAllowed), fieldWalls, 'field-retaining-wall');
     // The wall's upper coping makes the transition to raised terraces readable.
-    add(band(79.55, 47.55, .45, wallTop, 0, frontWallAllowed), walls, 'field-wall-coping');
+    add(band(79.55, 47.55, .45, wallTop, 0, frontWallAllowed), fieldWalls, 'field-wall-coping');
 
     // Reuse the existing team identity. Static canvas branding adds only two
     // draw calls; no individual ad meshes or animated assets.
     const brandCanvas = document.createElement('canvas');
     brandCanvas.width = 1024; brandCanvas.height = 128;
     const brandContext = brandCanvas.getContext('2d');
-    brandContext.fillStyle = home.primary_color || home.stadium_seat_color || '#315b85';
+    brandContext.fillStyle = profile.wordmark_background || profile.field_wall_color || home.primary_color || home.stadium_seat_color || '#315b85';
     brandContext.fillRect(0, 0, 1024, 128);
     brandContext.fillStyle = '#ffffff';
     brandContext.font = 'bold 78px sans-serif';
@@ -149,7 +151,9 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     brandContext.fillText(String(home.name || 'HOME').toUpperCase(), 512, 64, 940);
     const brandTexture = new THREE.CanvasTexture(brandCanvas);
     brandTexture.colorSpace = THREE.SRGBColorSpace;
-    const brandMaterial = new THREE.MeshBasicMaterial({map:brandTexture,side:THREE.DoubleSide});
+    const customWallTexture = profile.field_wall_art && textureFor(profile.field_wall_art);
+    if(customWallTexture){customWallTexture.colorSpace=THREE.SRGBColorSpace;brandTexture.dispose();}
+    const brandMaterial = new THREE.MeshBasicMaterial({map:customWallTexture || brandTexture,side:THREE.DoubleSide,transparent:true});
     for (const sign of [-1, 1]) {
         if (!frontWallAllowed(sign * Math.PI / 2)) continue;
         const panel = add(new THREE.PlaneGeometry(17, 1.55), brandMaterial, 'field-wall-wordmark');
@@ -202,14 +206,14 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     // of hundreds of individual walls. Preserve open corner/end designs.
     if (design.roof !== 'dome') {
         add(facade(80 + offset, 48 + offset, -.2, height - 2, allowed),
-            walls, 'stadium-exterior-shell');
+            exterior, 'stadium-exterior-shell');
     }
     const fans = buildStadiumCrowd(fanSeats,crowd,home,away);
     group.add(fans);
     // Lower terrace closes the open end beneath the horseshoe's upper decks.
     if (design.gap === 'end') add(band(80, 48, 8, firstRowHeight, 3, angle => Math.cos(angle) >= .83), seats, 'end-terrace');
     if (design.tower) {
-        box([75, 14, 8], [0, height - 8, 48 + offset], walls, 'suite-tower');
+        box([75, 14, 8], [0, height - 8, 48 + offset], exterior, 'suite-tower');
         box([70, 8, .2], [0, height - 7, 44 + offset], paint('#243a50'), 'suite-windows');
     }
     if (design.roof === 'canopy' || design.roof === 'twin') {
@@ -224,7 +228,7 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         roof.name = 'dome-roof'; roof.scale.set(82 + offset, 29, 50 + offset); roof.position.y = height;
         // Transparent from outside for high camera views; still reads as an enclosed roof inside.
         roof.material.transparent = true; roof.material.opacity = .3; roof.material.depthWrite = false; group.add(roof);
-        add(band(80 + offset, 48 + offset, 0, 0, height, () => true), walls, 'dome-wall');
+        add(band(80 + offset, 48 + offset, 0, 0, height, () => true), exterior, 'dome-wall');
     }
     // The open end faces the field; entrance paths use this same layout.
     if(enabled(profile.tunnels))for(const [side,team] of [['home',home],['away',away]]){
@@ -232,15 +236,18 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         // Championship end zones match the existing proven regular-game tunnel layout:
         // home at x=5 (left), away at x=115 (right).
         const brandedTeam = team;
-        const color=(championship || side==='home')?paint(brandedTeam.primary_color || '#315b85'):walls;
+        const tunnelColor=profile[`${side}_tunnel_color`];
+        const color=tunnelColor?paint(tunnelColor):(championship || side==='home')?paint(brandedTeam.primary_color || '#315b85'):walls;
         box([8,.4,10],[x,.2,z],walls,`tunnel-${side}-floor`);
         for(const edge of [-1,1])box([8,5,.6],[x,2.5,z+edge*5],color,`tunnel-${side}-wall`);
         box([8,.6,10.6],[x,5,z],color,`tunnel-${side}-roof`);
         // Interior divider can appear as a black stripe across the championship end zone.
         // Keep ordinary stadium geometry untouched.
         if (!championship) box([.2,4.4,9.4],[x-direction*4,2.4,z],paint('#101820'),`tunnel-${side}-interior`);
-        if((championship || side === 'home') && brandedTeam.team_logo){
-            const texture=textureFor(brandedTeam.team_logo);
+        const artwork=profile[`${side}_tunnel_art`] || ((championship || side==='home')?brandedTeam.team_logo:null);
+        if(artwork){
+            const texture=textureFor(artwork);
+            if(texture)texture.colorSpace=THREE.SRGBColorSpace;
             if(texture){
                 const emblem=add(new THREE.PlaneGeometry(6,8),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}),`tunnel-${side}-logo`);
                 emblem.position.set(x,5.315,z);emblem.rotation.x=-Math.PI/2;

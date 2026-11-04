@@ -81,6 +81,15 @@ export function mountTeamSettings(form) {
         }else if(!fieldClear?.checked){
             result.field_25_logo=fieldInput?.closest('div')?.querySelector('img')?.src || null;
         }
+        result.stadiumArt={};
+        for(const part of ['field_wall','home_tunnel','away_tunnel']) {
+            const input=form.elements.namedItem(`stadium_art_uploads[${part}]`);
+            const clear=form.elements.namedItem(`stadium_art_clear[${part}]`);
+            let url=null;
+            if(input?.files?.[0]){url=URL.createObjectURL(input.files[0]);urls.add(url);}
+            else if(!clear?.checked)url=input?.closest('[data-stadium-art]')?.querySelector('img')?.src || null;
+            result.stadiumArt[`${part}_art`]=url;
+        }
         result.field_25_position=new FormData(form).get('team_settings[field_art][yard25_position]') || 'both';
         return result;
     };
@@ -91,7 +100,7 @@ export function mountTeamSettings(form) {
         resources.forEach(resource=>resource.dispose());resources.clear();textures.clear();urls.forEach(url=>URL.revokeObjectURL(url));urls.clear();
         const textureFor=(url,onLoad)=>{if(!url)return null;let texture=textures.get(url);if(!texture){texture=new THREE.TextureLoader().load(url,onLoad);texture.colorSpace=THREE.SRGBColorSpace;textures.set(url,texture);resources.add(texture);}return texture;};
         const images=art();
-        if(kind==='stadium'){const appearance=stadiumFromForm(form);Object.assign(appearance,images);view.model=buildStadiumPreview(appearance,document,textureFor);}
+        if(kind==='stadium'){const appearance=stadiumFromForm(form);Object.assign(appearance,images);Object.assign(appearance.stadium,images.stadiumArt);view.model=buildStadiumPreview(appearance,document,textureFor);}
         else if(kind==='cheerleaders'){const data=new FormData(form),profile={};for(const key of ['primary','secondary','accent'])profile[key]=data.get(`team_settings[cheerleaders][${key}]`);view.model=buildCheerleader(profile,images.team_logo,textureFor);}
         else if(kind==='mascot'){const data=new FormData(form),profile={};for(const key of ['name','character','fur','shirt'])profile[key]=data.get(`team_settings[mascot][${key}]`);view.model=buildMascot(profile,images.team_logo,textureFor);}
         else if(role){const data=new FormData(form),profile={};for(const key of ['name','skin','hair','hair_color','build','shirt','pants','hat_color'])profile[key]=data.get(`team_settings[staff][${role}][${key}]`);profile.hat=data.getAll(`team_settings[staff][${role}][hat]`).at(-1)==='1';view.model=buildCoach(profile,role,images.team_logo,textureFor);}
