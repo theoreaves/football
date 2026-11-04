@@ -37,6 +37,40 @@ test('all ten stadium designs have three seating decks two scoreboards and valid
     }
 });
 
+test('STAD1 raises the first row and adds a branded field wall and efficient exterior shell', () => {
+    for (const style of Object.keys(STADIUMS)) {
+        const {group} = buildStadium({stadium_style: style, name: 'RAMS', primary_color: '#003594'}, mockDocument(), {}, {fullness:0});
+        const wall = group.getObjectByName('field-retaining-wall');
+        const coping = group.getObjectByName('field-wall-coping');
+        const lowerTerrace = group.getObjectByName('seating-deck-1').getObjectByName('terrace');
+        assert.ok(wall, `${style}: missing field wall`);
+        assert.ok(coping, `${style}: missing wall coping`);
+        assert.ok(lowerTerrace.geometry.attributes.position.getY(0) >= 2.6, `${style}: seats remain at field level`);
+        assert.equal(group.children.filter(part => part.name === 'field-wall-wordmark').length, 2);
+        const exterior = group.getObjectByName('stadium-exterior-shell');
+        if (style === 'indoor_dome') assert.equal(exterior, undefined);
+        else assert.ok(exterior, `${style}: missing exterior wall`);
+        assert.ok(wall.geometry.index.count > 0);
+        if (['horseshoe','open_corners'].includes(style)) {
+            assert.ok(wall.geometry.index.count < 160 * 6, `${style}: gap should remain open`);
+            assert.ok(exterior.geometry.index.count < 160 * 6, `${style}: outer shell should retain opening`);
+        }
+        group.traverse(object => {
+            if (object.geometry) assert.ok([...object.geometry.attributes.position.array].every(Number.isFinite));
+        });
+    }
+});
+
+test('STAD1 retains explicit tunnel openings and leaves no holes when tunnels are disabled', () => {
+    const standard = buildStadium({name:'RAMS'},mockDocument(),{}, {fullness:0}).group;
+    const noTunnels = buildStadium({name:'RAMS',stadium:{tunnels:false}},mockDocument(),{}, {fullness:0}).group;
+    const open = standard.getObjectByName('field-retaining-wall');
+    const closed = noTunnels.getObjectByName('field-retaining-wall');
+    assert.ok(open.geometry.index.count < closed.geometry.index.count);
+    assert.equal(closed.geometry.index.count,160*6);
+    assert.equal(noTunnels.getObjectByName('tunnel-home-roof'),undefined);
+});
+
 test('generic face has two eyes a nose and mouth and shares player skin material', () => {
     const skin = new THREE.MeshStandardMaterial({ color: '#593b2c' });
     const face = buildPlayerFace({}, skin);

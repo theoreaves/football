@@ -31,6 +31,25 @@ function band(rx, rz, width, y, rise, allowed) {
     geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
 
+/** Lightweight vertical wall. Reuses the seating arc's gap mask. */
+function facade(rx, rz, bottom, top, allowed) {
+    const positions = [], indices = [], segments = 160;
+    for (let i = 0; i <= segments; i++) {
+        const angle = i / segments * Math.PI * 2;
+        const x = rx * Math.cos(angle), z = rz * Math.sin(angle);
+        positions.push(x, bottom, z, x, top, z);
+        if (i < segments && allowed((i + .5) / segments * Math.PI * 2)) {
+            const a = i * 2;
+            indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+        }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
 export function stadiumDesign(home = {}) {
     const preset=STADIUMS[home.stadium_style] || STADIUMS.classic_oval,profile=home.stadium || {};
     const number=(value,min,max,fallback,integer=false)=>{
@@ -102,9 +121,45 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
     const ground = add(new THREE.PlaneGeometry(360, 280), paint('#18392a'), 'stadium-ground');
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -.26;
+    // First seating row is 2.6 game units (~7.8 feet) above the field.
+    // The playing field, existing tunnels and sideline actors stay at y=0.
+    const firstRowHeight = 2.6, wallTop = 2.42;
+    const tunnelAngles = enabled(profile.tunnels)
+        ? Object.values(TUNNEL_LAYOUT).map(({x,z}) => Math.atan2(z / 48, x / 80))
+        : [];
+    const frontWallAllowed = angle => allowed(angle) && !tunnelAngles.some(tunnel => {
+        const delta = Math.atan2(Math.sin(angle - tunnel), Math.cos(angle - tunnel));
+        return Math.abs(delta) < .095;
+    });
+    add(facade(79.55, 47.55, -.2, wallTop, frontWallAllowed), walls, 'field-retaining-wall');
+    // The wall's upper coping makes the transition to raised terraces readable.
+    add(band(79.55, 47.55, .45, wallTop, 0, frontWallAllowed), walls, 'field-wall-coping');
+
+    // Reuse the existing team identity. Static canvas branding adds only two
+    // draw calls; no individual ad meshes or animated assets.
+    const brandCanvas = document.createElement('canvas');
+    brandCanvas.width = 1024; brandCanvas.height = 128;
+    const brandContext = brandCanvas.getContext('2d');
+    brandContext.fillStyle = home.primary_color || home.stadium_seat_color || '#315b85';
+    brandContext.fillRect(0, 0, 1024, 128);
+    brandContext.fillStyle = '#ffffff';
+    brandContext.font = 'bold 78px sans-serif';
+    brandContext.textAlign = 'center';
+    brandContext.textBaseline = 'middle';
+    brandContext.fillText(String(home.name || 'HOME').toUpperCase(), 512, 64, 940);
+    const brandTexture = new THREE.CanvasTexture(brandCanvas);
+    brandTexture.colorSpace = THREE.SRGBColorSpace;
+    const brandMaterial = new THREE.MeshBasicMaterial({map:brandTexture,side:THREE.DoubleSide});
+    for (const sign of [-1, 1]) {
+        if (!frontWallAllowed(sign * Math.PI / 2)) continue;
+        const panel = add(new THREE.PlaneGeometry(17, 1.55), brandMaterial, 'field-wall-wordmark');
+        panel.position.set(0, 1.3, sign * 47.49);
+        panel.rotation.y = sign > 0 ? Math.PI : 0;
+    }
+
     const fanSeats = [];
     const rowDepth = design.width * .8, aislePaint = paint('#9ca3a6');
-    let offset = 0, height = 1;
+    let offset = 0, height = firstRowHeight;
     for (let deck = 0; deck < design.decks; deck++) {
         const deckWalls=stadiumTierWallColor(home,deck)===(home.stadium_wall_color || '#657587')?walls:paint(stadiumTierWallColor(home,deck));
         const deckGroup = new THREE.Group(); deckGroup.name = `seating-deck-${deck + 1}`; group.add(deckGroup);
@@ -143,10 +198,16 @@ export function buildStadium(home, document, away = {}, crowd = {}, textureFor=(
         add(band(80 + offset, 48 + offset, 4, height, 0, allowed), deckWalls, 'concourse');
         offset += 4; height += 2;
     }
+    // Close the exposed backs of grandstands with one indexed mesh instead
+    // of hundreds of individual walls. Preserve open corner/end designs.
+    if (design.roof !== 'dome') {
+        add(facade(80 + offset, 48 + offset, -.2, height - 2, allowed),
+            walls, 'stadium-exterior-shell');
+    }
     const fans = buildStadiumCrowd(fanSeats,crowd,home,away);
     group.add(fans);
     // Lower terrace closes the open end beneath the horseshoe's upper decks.
-    if (design.gap === 'end') add(band(80, 48, 8, 1, 3, angle => Math.cos(angle) >= .83), seats, 'end-terrace');
+    if (design.gap === 'end') add(band(80, 48, 8, firstRowHeight, 3, angle => Math.cos(angle) >= .83), seats, 'end-terrace');
     if (design.tower) {
         box([75, 14, 8], [0, height - 8, 48 + offset], walls, 'suite-tower');
         box([70, 8, .2], [0, height - 7, 44 + offset], paint('#243a50'), 'suite-windows');
