@@ -16,3 +16,18 @@ test('all normal field and substitution models stay hidden during the tunnel seq
     hideOpeningUnits(field,incoming,outgoing);
     assert.ok([...field,...incoming,...outgoing].every(model=>model.visible===false));
 });
+
+test('entrance skip is actionable immediately and skips lineups only when requested',async()=>{
+    const {finishOpeningEntrance}=await import('../../resources/js/practice/opening-presentation.js');
+    for(const skipIntro of [false,true]){
+        const entrance={active:true,seconds:0},buttons=[{disabled:false},{disabled:false}],panel={hidden:false,querySelectorAll:()=>buttons};
+        let release,stops=0;const destinations=[];
+        const args={entrance,panel,stopMusic:()=>{stops++;return new Promise(resolve=>{release=resolve;});},isConnected:()=>true,continueIntro:skip=>destinations.push(skip)};
+        const finishing=finishOpeningEntrance(args,skipIntro);
+        assert.ok(buttons.every(button=>button.disabled));assert.equal(entrance.finishing,true);
+        await finishOpeningEntrance(args,!skipIntro);assert.equal(stops,1);
+        release();await finishing;
+        assert.equal(panel.hidden,true);assert.equal(entrance.active,false);
+        assert.deepEqual(destinations,[skipIntro]);
+    }
+});

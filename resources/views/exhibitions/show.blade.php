@@ -15,10 +15,11 @@
     </form>
     @endif
     @if(!$replayOnly && !request()->boolean('summary'))
-    <div data-entrance-panel hidden class="absolute z-50 bottom-20 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 text-white border border-blue-400 p-4 text-center" role="status">
+    <div data-entrance-panel hidden class="game-entrance-panel rounded-xl bg-gray-900 text-white border border-blue-400 p-4 text-center" role="status">
         <p class="font-bold">Here come the teams!</p>
         <p class="text-sm mb-3">Players, coaches and the home cheer squad take the field.</p>
         <button type="button" class="rounded bg-blue-700 px-4 py-2">Skip entrance → Lineups</button>
+        <button type="button" data-skip-intro class="rounded border border-blue-400 px-4 py-2 ml-2">Skip intro → Coin toss</button>
     </div>
     <dialog data-pregame-dialog class="game-dialog" style="width:min(94vw,1050px);max-width:1050px;max-height:90vh;overflow:auto;background:#101827;color:#f9fafb;border:1px solid #36537b;border-radius:16px;padding:24px;">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">

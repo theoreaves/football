@@ -385,3 +385,10 @@ button:active, input[type="submit"]:active, input[type="button"]:active, .button
         overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     }
 }
+
+/* Entrance controls stay above game HUD panels throughout the tunnel intro. */
+.game-stage > .game-entrance-panel {
+    position: fixed; z-index: 70; left: 50%; transform: translateX(-50%);
+    bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px));
+    width: max-content; max-width: calc(100vw - 24px); pointer-events: auto;
+}

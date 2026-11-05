@@ -1,7 +1,7 @@
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
 import {POSTGAME_END,exitPose,handshakePose,mascotFarewell,postgameStage} from './postgame.js';
 import {queuedPlayCall} from './queued-play-call.js';
-import {entranceComplete,hideOpeningUnits} from './opening-presentation.js';
+import {entranceComplete,hideOpeningUnits,finishOpeningEntrance} from './opening-presentation.js';
 import {isSpecialTeamCall,kickFormation} from './special-teams-options.js';
 import {manualGameScreens,screenTimerExpired} from './screen-timers.js';
 import {buildResultReferee} from './result-referee.js';
@@ -1692,18 +1692,24 @@ export function mountPractice(root, onReady = () => {}) {
         entrancePanel.append(skipAway);
     }
     const entranceCamera={position:camera.position.clone(),target:controls.target.clone()};
-    const finishEntrance=async()=>{
-        if(!entrance.active || entrance.finishing)return;
-        entrance.finishing=true;entrancePanel.querySelector('button').disabled=true;
-        await entranceSound.finish();
-        if(!root.isConnected)return;
-        entrance.active=false;entrancePanel.hidden=true;
-        camera.position.copy(entranceCamera.position);controls.target.copy(entranceCamera.target);
-        if(callForm)callForm.inert=false;
-        anthemIntro=mountPregameAnthem(root,pregameDialog,audio,showPregame);
-        pregameDialog.showModal();
-    };
-    entrancePanel?.querySelector('button')?.addEventListener('click',finishEntrance);
+    const finishEntrance=(skipIntro=false)=>finishOpeningEntrance({
+        entrance,panel:entrancePanel,stopMusic:()=>entranceSound.finish(),isConnected:()=>root.isConnected,
+        continueIntro:skip=>{
+            camera.position.copy(entranceCamera.position);controls.target.copy(entranceCamera.target);
+            if(callForm)callForm.inert=false;
+            if(skip){
+                showPregame=openingPregame=false;
+                try{sessionStorage.setItem(pregameKey,'yes');}catch{/* Storage optional. */}
+                anthemIntro=mountPregameAnthem(root,pregameDialog,audio,false);
+                coinDialog?.showModal();
+            }else{
+                anthemIntro=mountPregameAnthem(root,pregameDialog,audio,showPregame);
+                pregameDialog.showModal();
+            }
+        }
+    },skipIntro);
+    entrancePanel?.querySelector('button')?.addEventListener('click',()=>finishEntrance());
+    entrancePanel?.querySelector('[data-skip-intro]')?.addEventListener('click',()=>finishEntrance(true));
     if(entrance.active){
         entrancePanel.hidden=false;if(callForm)callForm.inert=true;
         hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);
