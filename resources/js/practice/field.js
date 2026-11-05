@@ -1,3 +1,4 @@
+import {hasOpenGameDialog} from './game-settings.js';
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
 import {POSTGAME_END,exitPose,handshakePose,mascotFarewell,postgameStage} from './postgame.js';
 import {queuedPlayCall} from './queued-play-call.js';
@@ -2064,7 +2065,7 @@ export function mountPractice(root, onReady = () => {}) {
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
         }
         tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
-        if(cpuTimeoutForm && !cpuTimeoutSent && ((phase==='huddle' && huddleProgress===1) || (root.dataset.playNumber==='0' && !running)) && !document.hidden && !quarterDialog?.open && !driveDialog?.open && !injuryDialog?.open && !penaltyDialog?.open && !logDialog?.open){
+        if(cpuTimeoutForm && !cpuTimeoutSent && ((phase==='huddle' && huddleProgress===1) || (root.dataset.playNumber==='0' && !running)) && !document.hidden && !entrance.active && !hasOpenGameDialog(root)){
             cpuTimeoutSent=true;cpuTimeoutForm.requestSubmit();
         }
         tickPlayWizard?.({delta,...exchangeCallAvailability({phase,exchange,elapsed:exchangeElapsed,entrance:entrance.active,calling:playCallVisible(callForm),huddleReady:huddleProgress===1,initial:root.dataset.playNumber==='0',running})});
@@ -2104,7 +2105,7 @@ export function mountPractice(root, onReady = () => {}) {
         onReady(); onReady = () => {};
         if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
-            submitting: snapButton.disabled || Boolean(cpuTimeoutForm), dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || driveDialog?.open || pregameDialog?.open || root.querySelector('[data-play-wizard]')?.open || coinDialog?.open || otDialog?.open || quarterDialog?.open || penaltyDialog?.open || injuryDialog?.open || personnelDialog?.open || logDialog?.open || highlightsDialog?.open || boxDialog?.open), final: afterState?.status === 'final' })) {
+            submitting: snapButton.disabled || Boolean(cpuTimeoutForm), dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root)), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
         frameId = requestAnimationFrame(animate);

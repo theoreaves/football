@@ -1,3 +1,4 @@
+import {mountGameSettings} from './practice/game-settings.js';
 import {mountTeamPlayEditors} from './team-play-editor.js';
 import { mountButtonFeedback } from './button-feedback.js';
 import { mountSimProgress } from './sim-progress.js';
@@ -48,6 +49,7 @@ function initializePractice() {
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
     const root = document.querySelector('[data-practice]');
+    mountGameSettings(root);
     if (root) import('./practice/field.js').then(module => module.mountPractice(root)).catch((error) => {
         console.error('[WebSports] Field initialization failed:', error);
         root.querySelector('[data-status]').textContent = 'Unable to load the practice field. Reload to try again.';

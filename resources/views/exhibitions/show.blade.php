@@ -433,21 +433,6 @@
             </section>
         </div>
     </dialog>
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const dialog = document.querySelector('[data-game-settings]');
-        const openSettings = (simulation = false) => {
-            if (!dialog) return;
-            if (!dialog.open) dialog.showModal();
-            if (simulation) dialog.querySelector('#game-settings-simulation')?.scrollIntoView({block:'nearest'});
-        };
-        document.querySelector('[data-open-game-settings]')?.addEventListener('click', () => openSettings());
-        document.querySelector('[data-open-quick-sim]')?.addEventListener('click', () => openSettings(true));
-        dialog?.querySelector('[data-finish-sim-form] button[name="scope"][value="game"]')?.addEventListener('click', event => {
-            if (!window.confirm('Simulate the rest of this game?')) event.preventDefault();
-        });
-    });
-    </script>
     <dialog data-highlights-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Highlight reel</h2>
         <p class="text-gray-300 mb-4">Gains over 20 yards, scoring plays, turnovers, and your saved plays.</p>
         <ol class="space-y-4">@forelse($highlights as $highlight)<li @if(!$replayOnly && $highlight['number'] === ($last['number'] ?? null)) data-hidden-result @if($watching) hidden @endif @endif>#{{ $highlight['number'] }} · {{ implode(' · ', \App\Support\PlayHighlights::reasons($highlight)) }}{{ ($highlight['saved_highlight'] ?? false) ? ' · Saved by you' : '' }}<p>{{ $highlight['summary'] }}</p><a class="text-blue-300 underline" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $highlight['number'], 'watch' => 1]) }}">Watch highlight</a></li>@empty<li>No highlights yet. You can save any play beside the Replay button.</li>@endforelse</ol>
