@@ -551,3 +551,30 @@ test('kneel presentation receives the snap settles at the recorded yard and stop
         expect($animation['ball'][array_key_last($animation['ball'])][2])->toBe(.60);
     }
 });
+
+test('TACK1 generated run pass and sack contact paths remain speed bounded in both field directions', function () {
+    $rosters = clockRosters();
+    foreach (['home', 'away'] as $side) {
+        foreach (['inside_run', 'short_pass', 'deep_pass', 'sack'] as $call) {
+            foreach ($call === 'sack' ? [-4] : [0, 8, 30, 65] as $gain) {
+                $play = ['before' => clockState(['possession' => $side, 'spot' => 20]), 'call' => $call === 'sack' ? 'short_pass' : $call,
+                    'outcome' => $call === 'sack' ? 'sack' : 'tackle', 'pressure' => $call === 'sack', 'carrier' => $call === 'sack' ? 'QB' : ($call === 'inside_run' ? 'RB' : 'WR1'),
+                    'gain' => $gain, 'target' => max(0, $gain - 5), 'summary' => 'Recorded tackle',
+                    'offense_formation' => 'singleback', 'defense_formation' => 'base_4_3'];
+                $saved = $play;
+                $animation = app(\App\Services\Simulation\PlayTimeline::class)->build($play, $rosters);
+                expect($play)->toBe($saved)->and($animation['gain'])->toBe($gain)->and($animation['pursuit_version'])->toBe('tack1');
+                foreach ($animation['players'] as $player) {
+                    if ($player['team'] !== 'defense') {
+                        continue;
+                    }
+                    for ($i = 1; $i < count($player['path']); $i++) {
+                        $a = $player['path'][$i - 1];
+                        $b = $player['path'][$i];
+                        expect(hypot($b[1] - $a[1], $b[3] - $a[3]))->toBeLessThanOrEqual(7.55 * ($b[0] - $a[0]) + 1e-6);
+                    }
+                }
+            }
+        }
+    }
+});

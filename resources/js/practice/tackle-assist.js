@@ -18,9 +18,12 @@ export function tackleAssistPose(frame, animation, elapsed, player) {
     // Some tackles stay solo; on others, one or two helpers arrive in sequence.
     const variant = Math.abs(Number(animation.animation_variant) || 0);
     const count = variant % 4 === 0 ? 0 : variant % 3 === 0 ? 2 : 1;
+    const planned=animation.tackle_assists;
+    const assigned=planned?.find(assist=>assist.role===player.role);
+    if(planned && !assigned)return null;
     const rank = defenders.findIndex(x => x.p.role === player.role);
-    if (rank < 0 || rank >= count) return null;
-    const delay = .10 + rank * .20 + (variant % 3) * .025;
+    if (rank < 0 || (!planned && rank >= count)) return null;
+    const delay = assigned ? assigned.at-animation.contact_at : .10 + rank * .20 + (variant % 3) * .025;
     const t = elapsed - animation.contact_at - delay;
     if (t <= 0) return null;
     const blend = ease(t / .22) * (1 - ease((t - .50) / .20));

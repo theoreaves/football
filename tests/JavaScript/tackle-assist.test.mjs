@@ -24,3 +24,11 @@ test('solo variants and disabled contact produce no assistants',()=>{
     assert.equal(tackleAssistPose(frame,{...animation,animation_variant:4},5.6,help1),null);
     assert.equal(tackleAssistPose(frame,{...animation,tackle_style:null},5.6,help1),null);
 });
+
+test('new pursuit plans keep assigned helpers stable and reject unassigned nearby defenders',()=>{
+    const plan={...animation,tackle_assists:[{role:'S1',at:5.65}]};
+    assert.equal(tackleAssistPose(frame,plan,5.8,help1),null);
+    assert.equal(tackleAssistPose(frame,plan,5.6,help2),null);
+    assert.ok(tackleAssistPose(frame,plan,5.85,help2)?.blend>0);
+    assert.equal(tackleAssistPose(frame,{...animation,tackle_assists:[]},5.85,help2),null);
+});

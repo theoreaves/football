@@ -693,7 +693,7 @@ export function mountPractice(root, onReady = () => {}) {
                     || (player.team === (animation.contact_tackler_team || 'defense') && player.role === animation.tackler_role))) {
                 const carrier = frame.players.find(p => p.team === (animation.contact_carrier_team || 'offense') && p.role === animation.carrier);
                 const tackler = frame.players.find(p => p.team === (animation.contact_tackler_team || 'defense') && p.role === animation.tackler_role);
-                if (carrier && tackler) {
+                if (carrier && tackler && Math.hypot(carrier.x-tackler.x,carrier.z-tackler.z)<=2) {
                     const defender = player.team === (animation.contact_tackler_team || 'defense');
                     const style = animation.tackle_style;
                     const duration = style === 'wrap' ? .65 : style === 'lunge' ? .38 : .55;
