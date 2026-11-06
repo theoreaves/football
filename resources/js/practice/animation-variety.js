@@ -9,12 +9,13 @@ export function applyAnimationVariety(mesh,animation,player,phase,elapsed,postEl
     const profile=animation?.variety;
     if(profile?.version!==1 || !['play','settling','result'].includes(phase)
         || player.team!=='offense' || player.role!==(animation.receiver_role || animation.carrier))return;
+    const carrying=profile.family==='run' || profile.family==='scramble';
     const handling=profile.handling,finish=profile.finish;
     if(!Number.isInteger(handling) || handling<0 || handling>4 || !Number.isInteger(finish) || finish<0 || finish>3)return;
     const catchAt=animation.catch_at ?? 3.8;
     const contact=animation.contact_at;
     const fall=contact!=null?ease((elapsed-contact)/.55):0;
-    const reach=profile.family!=='run' && phase==='play'
+    const reach=!carrying && phase==='play'
         ? ease((elapsed-catchAt+.32)/.2)*(1-ease((elapsed-catchAt-.25)/.25)):0;
     if(reach>0){
         const armX=[-1.08,-1.25,-1.46,-1.58,-1.32][handling];
@@ -25,9 +26,9 @@ export function applyAnimationVariety(mesh,animation,player,phase,elapsed,postEl
         });
         mesh.userData.elbows?.forEach(elbow=>{elbow.rotation.x+=([-.55,-.42,-.25,-.65,-.80][handling]-elbow.rotation.x)*reach;});
     }
-    const held=profile.family!=='incomplete' && elapsed>(profile.family==='run'?1:catchAt)+.3 && fall<.1;
+    const held=profile.family!=='incomplete' && elapsed>(profile.family==='scramble'?2.25:profile.family==='run'?1:catchAt)+.3 && fall<.1;
     if(held){
-        const side=mesh.userData.carryingArm ?? (profile.family==='run'?0:1);
+        const side=mesh.userData.carryingArm ?? (carrying?0:1);
         const arm=mesh.userData.arms?.[side],elbow=mesh.userData.elbows?.[side];
         if(arm)arm.rotation.x=-.67+[-.12,-.05,0,.08,.15][handling];
         if(elbow)elbow.rotation.x=-1.3+[-.10,-.04,.02,.09,.16][handling];

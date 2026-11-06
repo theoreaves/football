@@ -16,7 +16,8 @@ class AnimationVariety
         $run = in_array($call, ['inside_run', 'outside_run', 'draw', 'two_point_run'], true);
         $pass = in_array($call, ['short_pass', 'medium_pass', 'deep_pass', 'slant', 'two_point_pass'], true)
             && ($play['carrier'] ?? '') !== 'QB';
-        $family = $outcome === 'tackle' ? ($run ? 'run' : ($pass ? 'catch' : null))
+        $scramble = ($play['scramble'] ?? false) && ($play['carrier'] ?? '') === 'QB';
+        $family = $outcome === 'tackle' ? ($scramble ? 'scramble' : ($run ? 'run' : ($pass ? 'catch' : null)))
             : ($pass && $outcome === 'incomplete' ? 'incomplete' : null);
         if ($family === null) {
             return null;
@@ -44,9 +45,12 @@ class AnimationVariety
             return $animation;
         }
         $animation['variety'] = $profile;
-        $role = $profile['family'] === 'run' ? $animation['carrier'] : $animation['receiver_role'];
+        $role = in_array($profile['family'], ['run', 'scramble'], true) ? $animation['carrier'] : $animation['receiver_role'];
         $offset = static function (float $time) use ($profile): float {
-            if ($profile['family'] === 'run') {
+            if ($profile['family'] === 'scramble') {
+                // Keep the snap and pocket set, then vary the escape/cuts.
+                $u = ($time - 1.55) / 3.75;
+            } elseif ($profile['family'] === 'run') {
                 $u = ($time - 1) / 4.3;
             } elseif ($time <= 3.8) {
                 $u = ($time - .6) / 3.2;
@@ -69,13 +73,15 @@ class AnimationVariety
         };
         foreach ($animation['players'] as &$player) {
             if ($player['team'] === 'offense' && $player['role'] === $role) {
-                $player['path'] = self::bend($player['path'], $offset, $profile['family'] === 'run');
+                $player['path'] = self::bend($player['path'], $offset, in_array($profile['family'], ['run', 'scramble'], true));
             }
         }
         unset($player);
         if ($profile['family'] !== 'incomplete') {
             // Preserve the snap/flight, then keep the ball on the carrier's lane.
-            $ballOffset = fn ($t) => $t < ($profile['family'] === 'run' ? 1 : 3.8) ? 0 : $offset($t);
+            $ballOffset = fn ($t) => $t < (match ($profile['family']) {
+                'run' => 1, 'scramble' => 1.55, default => 3.8
+            }) ? 0 : $offset($t);
             $animation['ball'] = self::bend($animation['ball'], $ballOffset);
         }
         if ($animation['tackle_style'] !== null) {

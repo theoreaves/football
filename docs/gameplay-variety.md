@@ -1,17 +1,19 @@
 # Gameplay Variety V1
 
-The first pass covers inbounds run tackles, completed-pass tackles and ordinary
-incompletions. Each family has 100 compatible combinations: five movement patterns,
+The first pass covers inbounds run tackles, QB scramble tackles, completed-pass
+tackles and ordinary incompletions. Each family has 100 compatible combinations:
+five movement patterns,
 five handling/reception poses and four finishing poses. This is a combinatorial
 animation system, not 100 separately authored full animations per play.
 
 Movement uses small lane/route adjustments, preserving the snap, handoff, catch
-and recorded finish positions. Run and yards-after-catch ball paths follow the
-carrier. Existing passing/rushing timing and TACK1 pursuit constraints run after
-variation geometry. Catch/miss, ball-protection, contact and recovery poses use
+and recorded finish positions. Run, scramble and yards-after-catch ball paths
+follow the carrier. Scrambles preserve the snap and pocket set before varying the escape
+and upfield cuts, using carry poses rather than pass-catching poses. Existing
+passing/rushing timing and TACK1 pursuit constraints run after variation geometry. Catch/miss, ball-protection, contact and recovery poses use
 existing joints. No extra meshes, textures, random physics or assets are loaded.
 
-Each game's state stores three small `animation_variety_counts` counters. A
+Each game's state stores four small `animation_variety_counts` counters. A
 seeded permutation visits every ID from 0 to 99 once per family before cycling.
 Different families advance independently. This limits repetition during an actual
 game rather than relying on random selections that can repeatedly pick one look.
