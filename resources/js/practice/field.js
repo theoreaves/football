@@ -1,3 +1,4 @@
+import {applyAnimationVariety,tackleFallAngle} from './animation-variety.js';
 import {hasOpenGameDialog} from './game-settings.js';
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
 import {POSTGAME_END,exitPose,handshakePose,mascotFarewell,postgameStage} from './postgame.js';
@@ -718,7 +719,7 @@ export function mountPractice(root, onReady = () => {}) {
                     // Both players share a facing/lean axis instead of independent
                     // local rotations that send them in opposite directions.
                     mesh.rotation.y = Math.atan2(dirX, dirZ);
-                    const lean = style === 'wrap' ? Math.PI * .35 : style === 'lunge' ? Math.PI * .53 : Math.PI * .46;
+                    const lean = tackleFallAngle(style);
                     mesh.rotation.z = fall * lean;
                     mesh.position.y = fall * (defender ? .08 : .12);
                 }
@@ -751,8 +752,7 @@ export function mountPractice(root, onReady = () => {}) {
                     const started = Math.max(0, postElapsed - (carrier ? .25 : .48));
                     const recovery = Math.max(0, Math.min(1, started / (carrier ? 1.65 : 1.40)));
                     const smooth = recovery * recovery * (3 - 2 * recovery);
-                    const fallAngle = animation.tackle_style === 'wrap' ? Math.PI * .35
-                        : animation.tackle_style === 'lunge' ? Math.PI * .53 : Math.PI * .46;
+                    const fallAngle = tackleFallAngle(animation.tackle_style);
                     mesh.rotation.z = fallAngle * (1 - smooth);
                     mesh.position.y = (carrier ? .12 : .08) * (1 - smooth);
                     mesh.userData.legs?.forEach((leg, side) => {
@@ -1304,6 +1304,7 @@ export function mountPractice(root, onReady = () => {}) {
 
             // Apply after stance resets so articulated knees remain bent.
             applyKneelPose(mesh,animation,player,phase,elapsed,playDirection);
+            applyAnimationVariety(mesh,animation,player,phase,elapsed,postElapsed);
         });
         if (phase === 'play') applyPenaltyContact(penaltyContact, elapsed, frame.players, players);
         medicalCrew.visible = phase === 'medical' && Boolean(seriousInjury);

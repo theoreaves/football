@@ -415,6 +415,12 @@ class ExhibitionEngine
         $play += ['number' => $state['version'], 'before' => $before, 'after' => $state, 'duration' => 6];
         $play['summary'] = ucfirst($play['summary']);
         $animationPlay = array_merge($play, ['outcome' => $play['live_outcome'] ?? $play['outcome']]);
+        $variety = AnimationVariety::choose($animationPlay);
+        if ($variety !== null) {
+            $play['animation_variety'] = $animationPlay['animation_variety'] = $variety;
+            $state['animation_variety_counts'][$variety['family']] = (int) ($before['animation_variety_counts'][$variety['family']] ?? 0) + 1;
+        }
+
         $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)
             ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
 
