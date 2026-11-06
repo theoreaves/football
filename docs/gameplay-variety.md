@@ -1,42 +1,67 @@
 # Gameplay Variety V1
 
-The first pass covers inbounds run tackles, QB scramble tackles, completed-pass
-tackles and ordinary incompletions. Each family has 100 compatible combinations:
-five movement patterns,
-five handling/reception poses and four finishing poses. This is a combinatorial
-animation system, not 100 separately authored full animations per play.
+Status: working, not fully visually tested. Continued gameplay observation is
+required before visual acceptance.
 
-Movement uses small lane/route adjustments, preserving the snap, handoff, catch
-and recorded finish positions. Run, scramble and yards-after-catch ball paths
-follow the carrier. Scrambles preserve the snap and pocket set before varying the escape
-and upfield cuts, using carry poses rather than pass-catching poses. Existing
-passing/rushing timing and TACK1 pursuit constraints run after variation geometry. Catch/miss, ball-protection, contact and recovery poses use
-existing joints. No extra meshes, textures, random physics or assets are loaded.
+Each supported family has 100 compatible combinations, selected without repeats
+until all 100 have been used. These are combinations of animated components,
+not 100 separately authored complete clips per outcome.
 
-Each game's state stores four small `animation_variety_counts` counters. A
-seeded permutation visits every ID from 0 to 99 once per family before cycling.
-Different families advance independently. This limits repetition during an actual
-game rather than relying on random selections that can repeatedly pick one look.
+## Supported families
+
+| Family | Components |
+| --- | --- |
+| Inbounds run tackles, QB scramble tackles, completed-pass tackles, ordinary incompletions | Five lane/route patterns, five handling/reception poses, four finishes |
+| Sacks, touchdowns, safeties, interceptions, fumble recoveries, defensive returns, sideline finishes | Five articulated movement rhythms, five free-arm poses, four contact/recovery finishes |
+| Punt returns, return touchdowns, touchbacks, fair catches and blocks | Five body rhythms, five arm poses, four follow-through/contact/recovery finishes |
+| Kickoff returns, return touchdowns and touchbacks | Same component counts, with independent sequences for each recorded outcome |
+| Field goals and extra points: good, missed or blocked | Five body rhythms, five arm poses, four post-contact kick follow-throughs |
+| Onside kicks: recovered or failed | Kick follow-through and recovery/carry poses; independent sequences for each result |
+
+The original run/pass families use small lateral path adjustments, preserving
+snap, handoff, catch and recorded finish positions. Ball paths follow the carrier.
+Scrambles preserve the pocket set before varying escape cuts. Existing timing and
+TACK1 pursuit constraints run after variation geometry.
+
+The expansion families use joint poses only (`pose_only` metadata). Their paths,
+ball trajectories, possession events, contact styles/times and durations remain
+unchanged. Turnover poses begin after recorded defensive possession, so INT2
+coverage reactions and fumble recovery timing remain intact. Kicking variation
+begins after foot-to-ball contact. Returners use the receiving team's actual holder
+role; a touchback has no returner variation. Free-arm motion preserves existing
+ball-carry joints. Finishing poses fade during post-play recovery. No additional
+meshes, textures, physics or assets are loaded.
+
+## Persistence and compatibility
+
+Each game's state stores a small `animation_variety_counts` counter per family.
+A seeded permutation visits IDs 0–99 once before cycling. Every special-teams
+outcome has a separate family, so good kicks, blocks, touchbacks and returns do
+not consume each other's sequence.
 
 Each eligible saved play stores `animation_variety`; its animation stores
-`variety` (version, family, ID, movement, handling and finish). Rebuilding that play
-uses the saved selection even if the current game's counters have advanced.
-Existing saved animation paths are not regenerated. Older states without counters
-start at their seed-derived first selection. Legacy replays without variety
-metadata retain their existing joint poses.
+`variety` (version, family, ID, movement, handling and finish). Rebuilding a saved
+play uses its saved selection even after the counters advance. Existing saved
+animation paths are not regenerated. Older states without counters start at their
+seed-derived first selection. Legacy replays without metadata keep their poses.
 
-The counters and selections are presentation metadata only. No simulation RNG is
-consumed. Tests compare identical seeded plays with different visual counters and
-require matching outcomes, gains, targets, clocks, scores, statistics and personnel.
+These are presentation choices and consume no simulation RNG. Tests compare
+seeded plays with different counters and require identical football state,
+statistics, clocks and personnel. Expansion tests additionally require identical
+animation geometry and events, and 100 distinct rendered joint sequences per
+supported family/scenario.
 
-## Scope and review
+Kneels, spikes, throwaways, fake kicks and no-snap clock events retain their
+existing dedicated presentation.
 
-This pass deliberately excludes kneels, spikes, sacks, scoring plays, turnovers,
-fakes, special teams and out-of-bounds finishes. Their dedicated behavior remains
-intact. These families can be expanded after visual review of this first pass.
+## Visual review
 
-Watch newly generated plays after deployment. Check route/carry variation, catch
-and miss poses, contact finishes and recovery. Replaying the same play should
-repeat its chosen look. A combination may look more subtle on a very short gain
-than on an open-field run; context and physical constraints take priority over
-making every selection dramatic.
+Watch newly generated plays after deployment, including sacks, scoring runs and
+catches, interceptions/returns, fumble recoveries, sideline exits, kicks and
+returns. Check ball attachment, reaction timing, kick contact, falls and recovery.
+Replaying a play should repeat its chosen look. Subtle differences and physical
+constraints take priority over making every combination dramatic.
+
+Next development priority: CPU coaching controls before Franchise. GM controls
+for roster-management behavior belong to Franchise, separately from on-field
+coaching decisions; neither feature is implemented by this animation change.

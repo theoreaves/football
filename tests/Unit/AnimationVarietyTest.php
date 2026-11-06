@@ -72,10 +72,55 @@ test('all five movement variations change real geometry while preserving handoff
     }
 });
 
-test('variety does not borrow poses for kneels scores turnovers special teams and no-snap plays', function () {
-    foreach ([['call' => 'kneel'], ['call' => 'punt'], ['outcome' => 'touchdown'], ['outcome' => 'interception'], ['outcome' => 'fumble'], ['no_snap' => true], ['out_of_bounds' => true], ['throwaway' => true]] as $override) {
+test('variety leaves kneels spikes fakes throwaways and no-snap plays untouched', function () {
+    foreach ([['call' => 'kneel'], ['call' => 'spike'], ['fake_kick' => true], ['no_snap' => true], ['throwaway' => true]] as $override) {
         $play = array_replace(varietyPlay('run'), $override);
         expect(AnimationVariety::choose($play))->toBeNull()
             ->and(AnimationVariety::apply(varietyAnimation('run'), $play))->toBe(varietyAnimation('run'));
+    }
+});
+
+function expandedVarietyPlays(): array
+{
+    $plays = [];
+    foreach (['sack', 'touchdown', 'safety', 'interception', 'fumble'] as $outcome) {
+        $plays[$outcome] = array_replace(varietyPlay('run'), ['outcome' => $outcome]);
+    }
+    $plays['sideline'] = varietyPlay('run') + ['out_of_bounds' => true];
+    $plays['defensive_return'] = varietyPlay('run') + ['defensive_return' => true];
+    foreach (['punt' => ['return', 'return_touchdown', 'touchback', 'fair_catch', 'blocked'],
+        'kickoff' => ['return', 'return_touchdown', 'touchback'],
+        'field_goal' => ['good', 'missed', 'blocked'], 'extra_point' => ['good', 'missed', 'blocked'],
+        'onside' => ['recovered', 'failed']] as $call => $outcomes) {
+        foreach ($outcomes as $suffix) {
+            $outcome = $call.'_'.$suffix;
+            $plays['special_'.$outcome] = array_replace(varietyPlay('run'), ['call' => $call === 'onside' ? 'onside_kick' : $call, 'outcome' => $outcome]);
+        }
+    }
+
+    return $plays;
+}
+
+test('expanded outcomes cycle 100 saved combinations without touching any paths or events', function () {
+    $source = varietyAnimation('run') + ['ballHolders' => [[0, 'offense', 'C'], [1, 'offense', 'RB']], 'contact_at' => 5.3,
+        'events' => [[0, 'Snap'], [5.3, 'Result']], 'duration' => 6];
+    foreach (expandedVarietyPlays() as $family => $play) {
+        $ids = [];
+        foreach (range(0, 99) as $count) {
+            $play['before']['animation_variety_counts'] = [$family => $count];
+            $profile = AnimationVariety::choose($play);
+            expect($profile['family'])->toBe($family)->and($profile['pose_only'])->toBeTrue();
+            $ids[] = $profile['id'];
+            $animation = AnimationVariety::apply($source, $play);
+            unset($animation['variety']);
+            expect($animation)->toBe($source);
+        }
+        expect(count(array_unique($ids)))->toBe(100);
+        $play['animation_variety'] = $profile;
+        $play['before']['animation_variety_counts'][$family] = 500;
+        expect(AnimationVariety::choose($play))->toBe($profile);
+        unset($play['animation_variety']);
+        $play['before']['animation_variety_counts'][$family] = 100;
+        expect(AnimationVariety::choose($play)['id'])->toBe($ids[0]);
     }
 });

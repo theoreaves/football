@@ -24,6 +24,9 @@ test('different visual counters do not change simulated results clocks statistic
             $before = array_replace($engine->initial(900, $seed, false), ['rules' => ['penalties' => false, 'injuries' => false]]);
             $changed = $before + ['animation_variety_counts' => ['run' => 57, 'catch' => 57, 'incomplete' => 57]];
             $a = $engine->resolve($before, varietyRosters(), $call, 'man_to_man');
+            if (isset($a['play']['animation_variety'])) {
+                $changed['animation_variety_counts'][$a['play']['animation_variety']['family']] = 57;
+            }
             $b = $engine->resolve($changed, varietyRosters(), $call, 'man_to_man');
             $stateA = $a['state'];
             $stateB = $b['state'];
@@ -93,4 +96,55 @@ test('scramble variants preserve the pocket set possession finish and football s
         }
     }
     expect($found)->toBe(4);
+});
+
+test('expanded generated plays retain identical geometry possession statistics and saved replay choices', function () {
+    $engine = app(ExhibitionEngine::class);
+    $rosters = varietyRosters();
+    $seen = [];
+    foreach (['inside_run', 'deep_pass', 'punt', 'kickoff', 'field_goal', 'extra_point', 'onside_kick'] as $call) {
+        for ($seed = 1; $seed <= 120; $seed++) {
+            $special = in_array($call, ['punt', 'kickoff', 'field_goal', 'extra_point', 'onside_kick']);
+            $before = array_replace($engine->initial(900, $seed, false), [
+                'possession' => $seed % 2 ? 'home' : 'away', 'quarter' => 4, 'clock' => 90,
+                'phase' => in_array($call, ['kickoff', 'onside_kick']) ? 'kickoff' : ($call === 'extra_point' ? 'extra_point' : 'scrimmage'),
+                'spot' => $special ? ($call === 'punt' ? ($seed % 3 === 0 ? 65 : 40) : ($call === 'field_goal' ? 65 : 35)) : ($seed % 3 === 0 ? 97 : 40),
+                'rules' => ['penalties' => false, 'injuries' => false],
+            ]);
+            $defense = match ($call) {
+                'punt' => $seed % 2 ? 'punt_return' : 'punt_block', 'kickoff' => 'kickoff_return_aggressive',
+                'field_goal', 'extra_point' => 'field_goal_block', 'onside_kick' => 'onside_return', default => 'blitz'
+            };
+            $a = $engine->resolve($before, $rosters, $call, $defense, 'shotgun', 'base_4_3', 'normal', 'sideline');
+            $profile = $a['play']['animation_variety'] ?? null;
+            if (! ($profile['pose_only'] ?? false) || isset($seen[$profile['family']])) {
+                continue;
+            }
+            $family = $profile['family'];
+            $seen[$family] = true;
+            $changed = $before + ['animation_variety_counts' => [$family => 47]];
+            $b = $engine->resolve($changed, $rosters, $call, $defense, 'shotgun', 'base_4_3', 'normal', 'sideline');
+            $stateA = $a['state'];
+            $stateB = $b['state'];
+            unset($stateA['animation_variety_counts'], $stateB['animation_variety_counts']);
+            expect($stateA)->toBe($stateB)
+                ->and($b['state']['animation_variety_counts'][$family])->toBe(48)
+                ->and($b['play']['animation_variety']['id'])->not->toBe($profile['id']);
+            $animationA = $a['play']['animation'];
+            $animationB = $b['play']['animation'];
+            expect($animationA['variety'])->toBe($profile);
+            unset($animationA['variety'], $animationB['variety']);
+            expect($animationA)->toBe($animationB);
+            $saved = $a['play'];
+            $saved['before']['animation_variety_counts'][$family] = 999;
+            $timeline = $special ? \App\Services\Simulation\SpecialTeamsTimeline::class : \App\Services\Simulation\PlayTimeline::class;
+            expect(app($timeline)->build($saved, $rosters)['variety'])->toBe($profile);
+        }
+    }
+    expect($seen)->toHaveKeys(['touchdown', 'sideline', 'sack', 'interception', 'fumble',
+        'special_punt_return', 'special_punt_touchback', 'special_punt_blocked',
+        'special_kickoff_return', 'special_kickoff_touchback',
+        'special_field_goal_good', 'special_field_goal_missed', 'special_field_goal_blocked',
+        'special_extra_point_good', 'special_extra_point_missed',
+        'special_onside_recovered', 'special_onside_failed']);
 });

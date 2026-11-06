@@ -7,8 +7,8 @@ class AnimationVariety
 {
     public static function choose(array $play): ?array
     {
-        if (($play['no_snap'] ?? false) || ($play['defensive_return'] ?? false) || ($play['throwaway'] ?? false)
-            || ($play['fake_kick'] ?? false) || ($play['out_of_bounds'] ?? false)) {
+        if (($play['no_snap'] ?? false) || ($play['throwaway'] ?? false) || ($play['fake_kick'] ?? false)
+            || in_array($play['call'] ?? '', ['kneel', 'spike', 'clock_event'], true)) {
             return null;
         }
         $call = $play['call'] ?? '';
@@ -19,6 +19,15 @@ class AnimationVariety
         $scramble = ($play['scramble'] ?? false) && ($play['carrier'] ?? '') === 'QB';
         $family = $outcome === 'tackle' ? ($scramble ? 'scramble' : ($run ? 'run' : ($pass ? 'catch' : null)))
             : ($pass && $outcome === 'incomplete' ? 'incomplete' : null);
+        // Sensitive outcomes vary articulated poses, leaving all authored paths and events intact.
+        $expanded = match (true) {
+            in_array($call, ['punt', 'kickoff', 'field_goal', 'extra_point', 'onside_kick'], true) => 'special_'.$outcome,
+            in_array($outcome, ['sack', 'touchdown', 'safety', 'interception', 'fumble'], true) => $outcome,
+            ($play['defensive_return'] ?? false) => 'defensive_return',
+            ($play['out_of_bounds'] ?? false) && $outcome === 'tackle' => 'sideline',
+            default => null,
+        };
+        $family = $expanded ?? $family;
         if ($family === null) {
             return null;
         }
@@ -34,8 +43,13 @@ class AnimationVariety
             $id = ($offset + ($count % 100) * 37) % 100;
         }
 
-        return ['version' => 1, 'family' => $family, 'id' => $id,
+        $profile = ['version' => 1, 'family' => $family, 'id' => $id,
             'movement' => $id % 5, 'handling' => intdiv($id, 5) % 5, 'finish' => intdiv($id, 25)];
+        if ($expanded !== null) {
+            $profile['pose_only'] = true;
+        }
+
+        return $profile;
     }
 
     public static function apply(array $animation, array $play): array
@@ -45,6 +59,9 @@ class AnimationVariety
             return $animation;
         }
         $animation['variety'] = $profile;
+        if ($profile['pose_only'] ?? false) {
+            return $animation;
+        }
         $role = in_array($profile['family'], ['run', 'scramble'], true) ? $animation['carrier'] : $animation['receiver_role'];
         $offset = static function (float $time) use ($profile): float {
             if ($profile['family'] === 'scramble') {
