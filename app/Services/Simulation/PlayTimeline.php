@@ -886,6 +886,7 @@ class PlayTimeline
             'out_of_bounds' => (bool) ($play['out_of_bounds'] ?? false), 'forced_out' => (bool) ($play['forced_out'] ?? false)];
 
         $animation = PassingAnimationTiming::apply($animation, $rosters[$side]['players'][$receiverRole]['ratings'] ?? [], $play);
+        $animation = InterceptionReactions::apply($animation, $rosters);
 
         return TacklingAnimation::apply(KneelAnimation::apply(RushingAnimationTiming::apply($animation, $rosters[$side]['players'][$play['carrier']]['ratings'] ?? [], $play), $play), $rosters);
     }

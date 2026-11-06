@@ -578,3 +578,47 @@ test('TACK1 generated run pass and sack contact paths remain speed bounded in bo
         }
     }
 });
+
+test('INT2 generated interceptions react after release and synchronize the original catch in both directions', function () {
+    $sample = static function (array $path, float $time): array {
+        for ($i = 1; $i < count($path); $i++) {
+            if ($time <= $path[$i][0]) {
+                $a = $path[$i - 1];
+                $b = $path[$i];
+                $f = max(0, min(1, ($time - $a[0]) / max(.000001, $b[0] - $a[0])));
+                return [$time, $a[1] + ($b[1] - $a[1]) * $f, $a[2] + ($b[2] - $a[2]) * $f, $a[3] + ($b[3] - $a[3]) * $f];
+            }
+        }
+        return $path[array_key_last($path)];
+    };
+    foreach (['home', 'away'] as $side) {
+        foreach (['short_pass', 'medium_pass', 'deep_pass'] as $call) {
+            foreach ([2, 15, 40] as $target) {
+                foreach ([false, true] as $return) {
+                    $play = ['before' => clockState(['possession' => $side, 'spot' => 35]), 'call' => $call,
+                        'outcome' => 'interception', 'carrier' => 'WR1', 'target' => $target, 'gain' => $target,
+                        'defensive_return' => $return, 'summary' => 'Recorded interception',
+                        'offense_formation' => 'singleback', 'defense_formation' => 'nickel'];
+                    $saved = $play;
+                    $animation = app(\App\Services\Simulation\PlayTimeline::class)->build($play, clockRosters());
+                    expect($play)->toBe($saved)->and($animation['interception_react_at'])->toBeGreaterThan($animation['throw_at'])
+                        ->and($animation['catch_at'])->toBeGreaterThan($animation['interception_react_at']);
+                    $cb = collect($animation['players'])->first(fn ($p) => $p['team'] === 'defense' && $p['role'] === 'CB1');
+                    $caught = $sample($cb['path'], $animation['catch_at']);
+                    $ball = $sample($animation['ball'], $animation['catch_at']);
+                    expect(hypot($ball[1] - $caught[1], $ball[3] - $caught[3]))->toBeLessThan(1e-7);
+                    foreach ($cb['path'] as $i => $point) {
+                        if ($i === 0 || $point[0] > $animation['catch_at'] + 1e-8) {
+                            continue;
+                        }
+                        $previous = $cb['path'][$i - 1];
+                        expect(hypot($point[1] - $previous[1], $point[3] - $previous[3]))
+                            ->toBeLessThanOrEqual(9.1 * ($point[0] - $previous[0]) + 1e-6);
+                    }
+                    $holder = collect($animation['ballHolders'])->first(fn ($h) => $h[1] === 'defense');
+                    expect($holder[0])->toBe($animation['catch_at'])->and($holder[2])->toBe('CB1');
+                }
+            }
+        }
+    }
+});
