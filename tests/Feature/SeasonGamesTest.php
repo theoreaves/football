@@ -715,3 +715,19 @@ test('leader rebuild retries reuse completed cache checkpoints without publishin
     expect(Exhibition::whereNotNull('box_score_cache')->count())->toBe(2);
     expect($leaders->publishedThroughWeek($this->season))->toBe(1);
 });
+
+test('season games snapshot both coaching presets at kickoff and retain them after team edits', function () {
+    $home = $this->fixture->homeTeam;
+    $away = $this->fixture->awayTeam;
+    $ground = config('team-settings.coaching_presets.ground_game.values');
+    $pressure = config('team-settings.coaching_presets.pressure_defense.values');
+    $home->update(['team_settings' => ['coaching' => $ground]]);
+    $away->update(['team_settings' => ['coaching' => $pressure]]);
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect()->assertSessionHasNoErrors();
+    $game = $this->fixture->fresh()->exhibition;
+    expect($game->state['coaching'])->toBe(['home' => $ground, 'away' => $pressure]);
+    $home->update(['team_settings' => ['coaching' => config('team-settings.coaching_presets.aerial_attack.values')]]);
+    $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect()->assertSessionHasNoErrors();
+    expect($this->fixture->fresh()->exhibition_id)->toBe($game->id)
+        ->and($game->fresh()->state['coaching'])->toBe(['home' => $ground, 'away' => $pressure]);
+});

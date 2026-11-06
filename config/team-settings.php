@@ -13,6 +13,43 @@ return [
         'blitz' => ['Blitz frequency', 'Rare', 'Frequent'],
         'man' => ['Coverage preference', 'Zone', 'Man'],
     ],
+    'coaching_help' => [
+        'pass' => 'Shifts ordinary play calling toward runs or passes. Down, distance and the game situation still take priority.',
+        'rb_workload' => 'Shares snaps among available backs. The midpoint targets 65/30/5 across the top three backs; specialists and manual choices take priority.',
+        'qb_run' => 'Changes designed QB keeper frequency. The quarterback’s mobility still matters; this does not force scrambles on pass plays.',
+        'depth' => 'Favors shorter or deeper passing concepts when the coach chooses a pass.',
+        'tempo' => 'Favors clock control or hurry-up during ordinary situations. End-of-half and late-game needs take priority.',
+        'fourth_down' => 'Changes willingness to go for short fourth downs. Field position, kicking range and late-game needs still matter.',
+        'run_stop' => 'Weights defensive calls toward run defense or pass defense.',
+        'blitz' => 'Changes how often the defense chooses a blitz call.',
+        'man' => 'Weights coverage calls toward zone or man coverage.',
+    ],
+    'coaching_presets' => [
+        'balanced' => [
+            'label' => 'Balanced', 'description' => 'Neutral tendencies across offense, defense and backfield workload.',
+            'values' => ['pass' => 50, 'rb_workload' => 50, 'qb_run' => 50, 'depth' => 50, 'tempo' => 50, 'fourth_down' => 50, 'run_stop' => 50, 'blitz' => 50, 'man' => 50],
+        ],
+        'ground_game' => [
+            'label' => 'Ground game', 'description' => 'More rushing, a featured back and shorter passing, with balanced defense.',
+            'values' => ['pass' => 25, 'rb_workload' => 70, 'qb_run' => 55, 'depth' => 35, 'tempo' => 40, 'fourth_down' => 40, 'run_stop' => 50, 'blitz' => 50, 'man' => 50],
+        ],
+        'aerial_attack' => [
+            'label' => 'Aerial attack', 'description' => 'More passing and deeper concepts at a quicker pace, with balanced defense.',
+            'values' => ['pass' => 80, 'rb_workload' => 35, 'qb_run' => 35, 'depth' => 75, 'tempo' => 65, 'fourth_down' => 60, 'run_stop' => 50, 'blitz' => 50, 'man' => 50],
+        ],
+        'ball_control' => [
+            'label' => 'Ball control', 'description' => 'More rushing, shorter passes, slower tempo and conservative fourth downs.',
+            'values' => ['pass' => 35, 'rb_workload' => 65, 'qb_run' => 45, 'depth' => 25, 'tempo' => 15, 'fourth_down' => 20, 'run_stop' => 55, 'blitz' => 30, 'man' => 40],
+        ],
+        'aggressive' => [
+            'label' => 'Aggressive', 'description' => 'Quicker tempo, deeper passes, more QB keepers, fourth-down attempts and defensive pressure.',
+            'values' => ['pass' => 65, 'rb_workload' => 45, 'qb_run' => 70, 'depth' => 70, 'tempo' => 80, 'fourth_down' => 85, 'run_stop' => 45, 'blitz' => 75, 'man' => 65],
+        ],
+        'pressure_defense' => [
+            'label' => 'Pressure defense', 'description' => 'More blitzing and man coverage, with neutral offensive tendencies.',
+            'values' => ['pass' => 50, 'rb_workload' => 50, 'qb_run' => 50, 'depth' => 50, 'tempo' => 50, 'fourth_down' => 50, 'run_stop' => 60, 'blitz' => 85, 'man' => 75],
+        ],
+    ],
     // Stable character keys are stored in each team's mascot profile.
     'mascot_characters' => [
         'bear' => 'Bear',

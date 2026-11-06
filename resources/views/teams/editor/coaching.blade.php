@@ -1,12 +1,29 @@
-<section role="tabpanel" id="panel-coaching" aria-labelledby="tab-coaching" data-team-panel="coaching" hidden class="space-y-6">
+<section role="tabpanel" id="panel-coaching" aria-labelledby="tab-coaching" data-team-panel="coaching" hidden class="space-y-6" data-coaching-editor data-coaching-presets="{{ json_encode(config('team-settings.coaching_presets')) }}" data-coaching-saved="{{ json_encode(collect(config('team-settings.coaching'))->mapWithKeys(fn ($labels, $key) => [$key => max(0, min(100, (int) ($team->team_settings['coaching'][$key] ?? 50)))])->all()) }}">
     <h2 class="text-xl font-semibold">Coaching</h2>
     <p>These tendencies influence CPU and Ask Coach decisions. Down, distance, personnel, score and time still matter. Settings apply to newly started games.</p>
+    <div data-coaching-tools hidden class="border rounded p-4 space-y-3">
+        <label class="block font-semibold" for="coaching-preset">Coaching preset</label>
+        <div class="flex flex-wrap items-center gap-3">
+            <select id="coaching-preset" data-coaching-preset aria-describedby="coaching-preset-description" class="border rounded p-2">
+                <option value="">Custom</option>
+                @foreach(config('team-settings.coaching_presets') as $key => $preset)
+                    <option value="{{ $key }}">{{ $preset['label'] }}</option>
+                @endforeach
+            </select>
+            <button type="button" data-coaching-apply class="border rounded px-4 py-2">Apply preset</button>
+            <button type="button" data-coaching-restore class="border rounded px-4 py-2">Restore saved tendencies</button>
+        </div>
+        <p id="coaching-preset-description" data-coaching-description class="text-sm text-gray-600"></p>
+        <p data-coaching-status role="status" aria-live="polite" class="text-sm"></p>
+        <p class="text-sm text-gray-600">Applying a preset replaces all nine tendencies. Adjust any slider afterward to customize it. Choose Balanced to reset all tendencies to 50, then save the team.</p>
+    </div>
     <div class="grid md:grid-cols-2 gap-6">
         @foreach(config('team-settings.coaching') as $key => [$label, $low, $high])
             @php($value = old('team_settings.coaching.'.$key, $team->team_settings['coaching'][$key] ?? 50))
             <label class="block">{{ $label }} <output data-range-value>{{ $value }}</output>
-                <input type="range" name="team_settings[coaching][{{ $key }}]" min="0" max="100" value="{{ $value }}" class="block w-full mt-2">
+                <input aria-label="{{ $label }}" id="coaching-{{ $key }}" data-coaching-key="{{ $key }}" aria-describedby="coaching-help-{{ $key }}" type="range" name="team_settings[coaching][{{ $key }}]" min="0" max="100" value="{{ $value }}" class="block w-full mt-2">
                 <span class="flex justify-between text-sm text-gray-600"><span>{{ $low }}</span><span>{{ $high }}</span></span>
+                <span id="coaching-help-{{ $key }}" class="block mt-2 text-sm text-gray-600">{{ config('team-settings.coaching_help.'.$key) }}</span>
             </label>
         @endforeach
     </div>

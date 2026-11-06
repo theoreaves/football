@@ -62,6 +62,6 @@ returns. Check ball attachment, reaction timing, kick contact, falls and recover
 Replaying a play should repeat its chosen look. Subtle differences and physical
 constraints take priority over making every combination dramatic.
 
-Next development priority: CPU coaching controls before Franchise. GM controls
-for roster-management behavior belong to Franchise, separately from on-field
-coaching decisions; neither feature is implemented by this animation change.
+CPU coaching controls and presets are documented in `cpu-coaching.md`. GM
+controls for roster-management behavior belong to future Franchise development,
+separately from on-field coaching decisions.

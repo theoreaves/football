@@ -1,3 +1,4 @@
+import {mountCoachingEditor} from './coaching-editor.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {buildFootballPlayer} from './practice/player-model.js';
@@ -47,6 +48,7 @@ export function mountTeamSettings(form) {
     let initial='team';try{const saved=sessionStorage.getItem('football-team-tab');if(tabs.some(tab=>tab.dataset.teamTab===saved))initial=saved;}catch{}
     const error=JSON.parse(form.dataset.errorFields || '[]')[0];
     if(error)initial=error.startsWith('audio_')?'audio':error.includes('staff')||error.includes('coaching')?'coaching':error.includes('cheerleaders')?'cheerleaders':error.includes('mascot')?'mascot':error.includes('helmets')||error.includes('uniform')||error.includes('helmet_logo')||error.includes('white_at_home')?'uniforms':error.includes('stadium')||error.includes('endzone')||error.includes('midfield')?'stadium':'team';
+    mountCoachingEditor(form.querySelector('[data-coaching-editor]'));
     mountStadiumBuilder(form);
     choose(initial);form.addEventListener('invalid',event=>{const panel=event.target.closest('[data-team-panel]');if(panel)choose(panel.dataset.teamPanel);},true);
     form.querySelectorAll('input[type=range]').forEach(input=>input.addEventListener('input',()=>input.parentElement.querySelector('output').value=input.value));

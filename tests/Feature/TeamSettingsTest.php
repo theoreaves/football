@@ -215,3 +215,33 @@ test('RB workload slider validates and new games capture its team preference', f
     $payload['team_settings']['coaching']['rb_workload'] = 101;
     $this->put(route('teams.editor.update', $home), $payload)->assertSessionHasErrors('team_settings.coaching.rb_workload');
 });
+
+test('complete coaching presets render save and snapshot without rewriting existing games or staff', function () {
+    [$home, $away] = Team::all()->all();
+    $keys = array_keys(config('team-settings.coaching'));
+    $page = $this->get(route('teams.editor.edit', $home))->assertOk()->assertSee('Restore saved tendencies');
+    foreach ($keys as $key) {
+        $page->assertSee('data-coaching-key="'.$key.'"', false)->assertSee(config('team-settings.coaching_help.'.$key));
+    }
+    $previous = null;
+    foreach (config('team-settings.coaching_presets') as $preset) {
+        expect(array_keys($preset['values']))->toBe($keys);
+        foreach ($preset['values'] as $value) {
+            expect($value)->toBeInt()->toBeBetween(0, 100);
+        }
+        $page->assertSee($preset['label']);
+        $this->put(route('teams.editor.update', $home), ['city' => $home->city, 'name' => $home->name,
+            'team_settings' => ['coaching' => $preset['values'], 'staff' => ['head' => ['name' => 'Coach Theo']]]])->assertRedirect()->assertSessionHasNoErrors();
+        app(CurrentWorld::class)->id = (int) $home->world_id;
+        expect($home->fresh()->team_settings['coaching'])->toBe($preset['values'])
+            ->and($home->fresh()->team_settings['staff']['head']['name'])->toBe('Coach Theo');
+        if ($previous) {
+            expect($previous[0]->fresh()->state['coaching']['home'])->toBe($previous[1]);
+        }
+        $this->post(route('exhibitions.store'), ['home' => $home->id, 'away' => $away->id, 'quarter_length' => 180])->assertRedirect()->assertSessionHasNoErrors();
+        app(CurrentWorld::class)->id = (int) $home->world_id;
+        $game = Exhibition::latest('id')->firstOrFail();
+        expect($game->state['coaching']['home'])->toBe($preset['values']);
+        $previous = [$game, $preset['values']];
+    }
+});
