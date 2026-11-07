@@ -2,6 +2,7 @@
 <main class="season-page">
     <header class="season-header"><div><p class="season-eyebrow">Season setup</p><h1>Build your season</h1><p>Choose a structure, assign teams, then preview the schedule.</p></div><a href="{{ route('seasons.index') }}">Back to seasons</a></header>
     @if($errors->any())<div role="alert" class="season-notice text-red-300">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
+    @if($leagues->count() > 1)<div class="season-notice">Set up league: @foreach($leagues as $league)<a class="underline mr-4" href="{{ route('seasons.create', ['league' => $league->id, 'year' => $importYear]) }}">{{ $league->name }}</a>@endforeach</div>@endif
     @if($teams->count() < 4 || $leagues->isEmpty())<p class="season-notice">You need a league and at least four teams in this world. <a class="underline" href="{{ route('teams.editor.index') }}">Manage teams</a>.</p>@else
     @php
         $defaultCount = collect($sizes)->filter(fn($size) => $size <= $teams->count())->last();
@@ -11,19 +12,21 @@
         if (!in_array($layout, ['flat', 'conferences', 'divisions'])) $layout = 'divisions';
         $definitions = \App\Services\Seasons\SeasonOptions::groups($count, $layout);
         if ($nflSetup && $count === 32 && $layout === 'divisions') $definitions = $nflSetup['groups'];
+        if ($importedSetup && $count === $importedSetup['count'] && $layout === 'divisions') $definitions = $importedSetup['groups'];
         $groupList = [];
         foreach ($definitions as $key => $definition) $groupList = array_merge($groupList, array_fill(0, $definition['size'], $key));
         $allDefinitions = [];
         foreach ($sizes as $size) foreach (['flat', 'conferences', 'divisions'] as $style) $allDefinitions[$size][$style] = \App\Services\Seasons\SeasonOptions::groups($size, $style);
         if ($nflSetup) $allDefinitions[32]['divisions'] = $nflSetup['groups'];
+        if ($importedSetup) $allDefinitions[$importedSetup['count']]['divisions'] = $importedSetup['groups'];
         $selected = old('teams', $teams->take($count)->pluck('id')->all());
     @endphp
     <form data-season-setup data-definitions="{{ json_encode($allDefinitions) }}" method="POST" action="{{ route('seasons.preview') }}" class="space-y-6">@csrf
         <section class="season-panel season-fields">
             <label>Season name<input name="name" required maxlength="100" value="{{ old('name', $nflSetup ? 'NFL 2026' : 'My Season') }}"></label>
-            <label>League<select name="league_id">@foreach($leagues as $league)<option value="{{ $league->id }}" @selected(old('league_id') == $league->id)>{{ $league->name }}</option>@endforeach</select></label>
+            <label>League<select name="league_id">@foreach($leagues as $league)<option value="{{ $league->id }}" @selected(old('league_id', $selectedLeague) == $league->id)>{{ $league->name }}</option>@endforeach</select></label>
             <label>Championship stadium<select name="championship_venue_team_id"><option value="">Select later in Season Settings</option>@foreach($venues as $venue)<option value="{{ $venue->id }}" @selected(old('championship_venue_team_id') == $venue->id)>{{ $venue->team_settings['stadium']['name'] ?? ($venue->city.' '.$venue->name.' stadium') }} · {{ $venue->city }} {{ $venue->name }}</option>@endforeach</select></label>
-            <label>Year<input name="year" type="number" required min="1900" max="2200" value="{{ old('year', $leagues->first()->seasons()->max('year') ?? 2026) }}"></label>
+            <label>Year<input name="year" type="number" required min="1900" max="2200" value="{{ old('year', $importYear ?? $leagues->firstWhere('id', $selectedLeague)?->seasons()->max('year') ?? 2026) }}"></label>
             <label>Team count<select name="team_count">@foreach($sizes as $size)<option value="{{ $size }}" @selected($count === $size) @disabled($teams->count() < $size)>{{ $size }} teams</option>@endforeach</select></label>
             <label>League layout<select name="layout"><option value="flat" @selected($layout === 'flat')>One league · no divisions</option><option value="conferences" @selected($layout === 'conferences')>Two conferences · no divisions</option><option value="divisions" @selected($layout === 'divisions')>Two conferences · division preset</option></select></label>
             <label>Games per team<select name="games">@foreach(\App\Services\Seasons\SeasonOptions::lengths($count) as $games)<option value="{{ $games }}" @selected(old('games', $count === 4 ? 3 : 17) == $games)>{{ $games }}</option>@endforeach</select></label>
@@ -42,7 +45,7 @@
         </div></section>
         <section class="season-panel"><h2>Teams and coaching control</h2><p data-team-count>Select exactly {{ $count }} teams. Unchecked Human means CPU. You can change control later.</p><div class="season-table-scroll"><table class="season-table"><thead><tr><th>Include</th><th>Team</th><th>Conference / Division</th><th>Human</th></tr></thead><tbody>
         @foreach($teams as $team)
-            <tr data-season-team="{{ $team->id }}" data-default-group="{{ $nflSetup['assignments'][$team->id] ?? '' }}"><td><input aria-label="Include {{ $team->name }}" type="checkbox" name="teams[]" value="{{ $team->id }}" @checked(in_array($team->id, $selected))></td><td>{{ $team->city }} {{ $team->name }}</td><td><select aria-label="Group for {{ $team->name }}" name="groups[{{ $team->id }}]">@foreach($definitions as $key => $definition)<option value="{{ $key }}" @selected(old('groups.'.$team->id, ($count === 32 && $layout === 'divisions' ? ($nflSetup['assignments'][$team->id] ?? null) : null) ?? $groupList[$loop->parent->index] ?? array_key_first($definitions)) === $key)>{{ $definition['conference'] }} · {{ $definition['division'] }}</option>@endforeach</select></td><td><input aria-label="Human controls {{ $team->name }}" type="checkbox" name="human[]" value="{{ $team->id }}" @checked(in_array($team->id, old('human', [])))></td></tr>
+            <tr data-season-team="{{ $team->id }}" data-default-group="{{ $importedSetup['assignments'][$team->id] ?? $nflSetup['assignments'][$team->id] ?? '' }}"><td><input aria-label="Include {{ $team->name }}" type="checkbox" name="teams[]" value="{{ $team->id }}" @checked(in_array($team->id, $selected))></td><td>{{ $team->city }} {{ $team->name }}</td><td><select aria-label="Group for {{ $team->name }}" name="groups[{{ $team->id }}]">@foreach($definitions as $key => $definition)<option value="{{ $key }}" @selected(old('groups.'.$team->id, ($importedSetup && $count === $importedSetup['count'] && $layout === 'divisions' ? ($importedSetup['assignments'][$team->id] ?? null) : null) ?? ($count === 32 && $layout === 'divisions' ? ($nflSetup['assignments'][$team->id] ?? null) : null) ?? $groupList[$loop->parent->index] ?? array_key_first($definitions)) === $key)>{{ $definition['conference'] }} · {{ $definition['division'] }}</option>@endforeach</select></td><td><input aria-label="Human controls {{ $team->name }}" type="checkbox" name="human[]" value="{{ $team->id }}" @checked(in_array($team->id, old('human', [])))></td></tr>
         @endforeach
         </tbody></table></div></section>
         <button class="landing-button">Preview schedule</button>

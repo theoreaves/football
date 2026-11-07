@@ -22,8 +22,9 @@
             </div>
         </div>
 
-            <form method="GET" class="mb-4 flex gap-2 items-center">
-                <input type="hidden" name="year" value="{{ $year }}">
+            <div class="flex flex-wrap gap-4 mb-4"><a class="text-blue-600 underline" href="{{ route('packages.roster', ['team' => $team->id, 'year' => $year]) }}">Download {{ $year }} roster CSV</a><a class="text-blue-600 underline" href="{{ route('packages.index') }}">Upload roster CSV</a><a class="text-blue-600 underline" href="{{ route('packages.share.form', ['team' => $team->id, 'kind' => 'roster']) }}">Share roster</a></div>
+            <form method="GET" class="mb-4 flex flex-wrap gap-2 items-center">
+                <label>Roster year<input class="block border rounded p-2 w-28" type="number" name="year" value="{{ $year }}" min="1900" max="2200"></label>
 
                 <input
                     name="q"

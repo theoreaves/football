@@ -1,6 +1,7 @@
 <x-layouts.app>
 <div class="max-w-4xl mx-auto p-8 text-white space-y-8">
     <div><x-brand-logo sport="general" class="w-48 mb-5" /><p class="text-sm text-blue-400 uppercase tracking-widest">Your football universe</p><h1 class="text-3xl font-semibold mt-2">Worlds</h1><p class="text-gray-400 mt-3">Keep each league, its teams, and its games in a separate world. Open your worlds from any browser.</p></div>
+    <a class="inline-block text-blue-300 underline" href="{{ route('packages.index') }}">Import &amp; community library</a>
     @if(session('status'))<p class="text-blue-200">{{ session('status') }}</p>@endif
     <div class="grid gap-4 sm:grid-cols-2">
     @forelse ($worlds as $world)
@@ -8,6 +9,7 @@
             <h2 class="text-xl font-semibold">{{ $world->name }}</h2>
             <p class="text-gray-400 text-sm">World #{{ $world->id }} {{ app(\App\Support\CurrentWorld::class)->id == $world->id ? ' · Currently open' : '' }}</p>
             <button class="rounded bg-blue-700 px-4 py-2">Open world</button>
+            <div class="flex gap-4"><a class="text-blue-300 underline" href="{{ route('packages.world', $world) }}">Download world</a><a class="text-blue-300 underline" href="{{ route('packages.share.form', ['world' => $world->id]) }}">Share world</a></div>
         </form>
     @empty
         <p class="text-gray-400">No worlds yet. Create your first football world.</p>

@@ -7,7 +7,7 @@
         @endif
 
         <div class="flex items-center justify-between mb-6">
-            <h1 class="text-2xl font-semibold">Teams</h1>
+            <div><h1 class="text-2xl font-semibold">Teams</h1><a class="text-blue-600 underline" href="{{ route('packages.index') }}">Import, copy &amp; community library</a></div>
             <a href="{{ route('teams.editor.create') }}" class="px-4 py-2 rounded bg-blue-600 text-white">
                 Add Team
             </a>
@@ -43,7 +43,7 @@
                             {{ optional($team->updated_at)->format('m/d/Y H:i') }}
                         </td>
                         <td class="p-3 text-right">
-                            <a class="text-blue-600 underline" href="{{ route('teams.editor.edit', $team) }}">Edit team</a> <a class="text-blue-600 underline ml-3" href="{{ route('teams.editor.teams.players.index', $team) }}">Roster</a>
+                            <a class="text-blue-600 underline" href="{{ route('teams.editor.edit', $team) }}">Edit team</a> <a class="text-blue-600 underline ml-3" href="{{ route('teams.editor.teams.players.index', $team) }}">Roster</a><div class="flex flex-wrap justify-end gap-3 mt-2"><a class="text-blue-600 underline" href="{{ route('packages.team', $team) }}">Download ZIP</a><a class="text-blue-600 underline" href="{{ route('packages.roster', $team) }}">Download roster CSV</a><a class="text-blue-600 underline" href="{{ route('packages.share.form', ['team' => $team->id]) }}">Share</a></div>
                         </td>
                     </tr>
                 @endforeach

@@ -27,6 +27,23 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
 });
 
 Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
+    Route::prefix('packages')->name('packages.')->controller(\App\Http\Controllers\PackageController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/guide', 'guide')->name('guide');
+        Route::get('/starter', 'starter')->name('starter');
+        Route::get('/share', 'shareForm')->name('share.form');
+        Route::post('/share', 'share')->middleware('throttle:10,1')->name('share');
+        Route::post('/preview', 'preview')->middleware('throttle:10,1')->name('preview');
+        Route::post('/import', 'import')->middleware('throttle:10,1')->name('import');
+        Route::get('/teams/{team}/roster', 'roster')->whereNumber('team')->name('roster');
+        Route::get('/teams/{team}/download', 'downloadTeam')->whereNumber('team')->name('team');
+        Route::post('/teams/{team}/copy', 'copy')->whereNumber('team')->name('copy');
+        Route::get('/worlds/{world}/download', 'downloadWorld')->whereNumber('world')->name('world');
+        Route::get('/library/{package}/download', 'libraryDownload')->name('library.download');
+        Route::post('/library/{package}/copy', 'libraryCopy')->name('library.copy');
+        Route::delete('/library/{package}', 'unshare')->name('unshare');
+    });
+
     Route::get('/worlds', [\App\Http\Controllers\WorldController::class, 'index'])->name('worlds.index');
     Route::post('/worlds', [\App\Http\Controllers\WorldController::class, 'store'])->middleware('throttle:5,1')->name('worlds.store');
     Route::post('/worlds/{world}/select', [\App\Http\Controllers\WorldController::class, 'select'])->whereNumber('world')->name('worlds.select');

@@ -19,11 +19,14 @@ class SeasonController extends Controller
         return view('seasons.index', ['seasons' => Season::whereNotNull('settings')->with('league')->orderByDesc('year')->get()]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        $teams = Team::orderBy('conference')->orderBy('division')->orderBy('city')->get();
+        $request->validate(['league' => ['nullable', 'integer'], 'year' => ['nullable', 'integer', 'between:1900,2200']]);
+        $leagueId = $request->filled('league') ? League::findOrFail($request->integer('league'))->id : League::orderBy('id')->value('id');
+        $teams = Team::where(fn ($query) => $query->whereNull('league_id')->orWhere('league_id', $leagueId))->orderBy('conference')->orderBy('division')->orderBy('city')->get();
 
         return view('seasons.create', ['teams' => $teams, 'nflSetup' => app(\App\Services\Simulation\NflPresentationDefaults::class)->setup($teams),
+            'importedSetup' => app(\App\Services\Seasons\ImportedAlignment::class)->setup($teams), 'selectedLeague' => $leagueId, 'importYear' => $request->integer('year') ?: null,
             'venues' => Team::orderBy('city')->orderBy('name')->get(), 'leagues' => League::all(), 'sizes' => SeasonOptions::SIZES, 'playoffs' => SeasonOptions::PLAYOFFS]);
     }
 
@@ -44,7 +47,7 @@ class SeasonController extends Controller
             'division_names' => ['sometimes', 'array'], 'division_names.*' => ['string', 'max:40'],
         ]);
         League::findOrFail($data['league_id']);
-        if (!empty($data['championship_venue_team_id'])) {
+        if (! empty($data['championship_venue_team_id'])) {
             Team::findOrFail($data['championship_venue_team_id']);
         }
         $fail = fn ($field, $message) => throw ValidationException::withMessages([$field => $message]);
@@ -80,11 +83,10 @@ class SeasonController extends Controller
                 ->get(['player_id', 'position']);
             $used = [];
             foreach ($requiredRoles as $role => $positions) {
-                $available = $roster->first(fn ($row) =>
-                    !in_array((int) $row->player_id, $used, true)
+                $available = $roster->first(fn ($row) => ! in_array((int) $row->player_id, $used, true)
                     && in_array(strtoupper((string) $row->position), $positions, true)
                 );
-                if (!$available) {
+                if (! $available) {
                     $fail('year', "{$team->city} {$team->name} needs a {$role} in roster year {$data['year']}. Assign a playable roster to this year before creating a season.");
                 }
                 $used[] = (int) $available->player_id;
@@ -142,7 +144,7 @@ class SeasonController extends Controller
                 throw ValidationException::withMessages(['year' => 'This season was already created.']);
             }
             $season->fill(['name' => $data['name'], 'phase' => 'regular_season', 'current_week' => 1,
-                'settings' => ['quarter_length' => (int) ($data['quarter_length'] ?? 900), 'games' => (int) $data['games'], 'bye' => (bool) $data['bye'], 'layout' => $data['layout'], 'playoffs' => $data['playoffs'], 'championship_venue_team_id' => !empty($data['championship_venue_team_id']) ? (int) $data['championship_venue_team_id'] : null, 'members' => $members]])->save();
+                'settings' => ['quarter_length' => (int) ($data['quarter_length'] ?? 900), 'games' => (int) $data['games'], 'bye' => (bool) $data['bye'], 'layout' => $data['layout'], 'playoffs' => $data['playoffs'], 'championship_venue_team_id' => ! empty($data['championship_venue_team_id']) ? (int) $data['championship_venue_team_id'] : null, 'members' => $members]])->save();
             foreach ($generator->generate($members, (int) $data['games'], (bool) $data['bye']) as $fixture) {
                 $season->fixtures()->create($fixture);
             }
@@ -255,13 +257,14 @@ class SeasonController extends Controller
             $bracket = $locked->settings['playoff_bracket'] ?? [];
             foreach ($bracket['rounds'] ?? [] as $round) {
                 foreach ($round['championship'] ?? [] as $match) {
-                    abort_if(!empty($match['exhibition_id']), 409, 'Championship has started; the stadium cannot change.');
+                    abort_if(! empty($match['exhibition_id']), 409, 'Championship has started; the stadium cannot change.');
                 }
             }
             $settings = $locked->settings;
             $settings['championship_venue_team_id'] = (int) $data['championship_venue_team_id'];
             $locked->update(['settings' => $settings]);
         });
+
         return redirect()->route('seasons.show', ['season' => $season, 'tab' => 'settings'])->with('status', 'Championship venue saved.');
     }
 
