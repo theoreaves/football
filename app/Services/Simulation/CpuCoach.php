@@ -35,14 +35,16 @@ class CpuCoach
         $late = $state['quarter'] >= 4 && $state['clock'] <= ($state['quarter'] >= 5 ? Overtime::periodLength($state) : $state['quarter_length']) / 3;
         $endHalf = app(GameClock::class)->lateHalf($state);
         $range = 40 + ($players['K']['ratings']['kicking'] - 50) * .3;
-        if ($endHalf && $state['clock'] <= 15 && 117 - $state['spot'] <= $range && ($state['quarter'] === 2 || $margin <= 0)) {
+        // A late field goal must still help: do not surrender the final touchdown attempt.
+        $needsTouchdown = $state['quarter'] === 4 && $state['clock'] <= 30 && $margin < -3;
+        if ($endHalf && ! $needsTouchdown && $state['clock'] <= 15 && 117 - $state['spot'] <= $range && ($state['quarter'] === 2 || $margin <= 0)) {
             return ['call' => 'field_goal', 'formation' => 'singleback'];
         }
         $protectLead = $state['quarter'] === 4 && $state['clock'] <= 180 && $margin > 0;
         if ($margin > 0 && $this->canKneelOut($state)) {
             return ['call' => 'kneel', 'formation' => 'singleback'];
         }
-        $mustGo = $late && $margin < 0 && ($margin < -3 || $state['spot'] < 60);
+        $mustGo = $needsTouchdown || ($late && $margin < 0 && ($margin < -3 || $state['spot'] < 60));
         $aggression = $this->preference($state, 'fourth_down') - 50;
         $preferredGo = ! $protectLead && $aggression > 0 && $state['spot'] >= 40 && $state['distance'] <= 2 + $aggression / 20
             && $this->roll($state, 'fourth-down') < $aggression;
@@ -65,6 +67,7 @@ class CpuCoach
             // Stay inbounds and avoid incompletions, tosses and designed QB runs.
             $calls = ['inside_run', 'inside_zone', 'power', 'lead'];
             $call = $calls[$this->roll($state, 'protect-lead') % count($calls)];
+
             return ['call' => $call, 'formation' => in_array($call, ['power', 'lead'], true) ? 'i_form' : 'singleback', 'motion' => 'none'];
         }
         $passSkill = ($players['QB']['ratings']['throwing'] + $players['WR1']['ratings']['catching']) / 2;
@@ -134,11 +137,12 @@ class CpuCoach
             'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'fake_punt_run', 'fake_punt_pass' => 'punt_return', 'field_goal', 'fake_field_goal_run', 'fake_field_goal_pass', 'extra_point' => 'field_goal_block', 'kickoff', 'kickoff_deep', 'kickoff_high', 'kickoff_short', 'kickoff_left', 'kickoff_right' => 'kickoff_return', 'onside_kick' => 'onside_return', default => null,
         };
         if ($special) {
-            if ($special === 'punt_return' && !str_starts_with($call, 'fake_')) {
-                $special = ['punt_return_left','punt_return_middle','punt_return_right','punt_safe','punt_block'][$this->roll($state, 'punt-return-style') % 5];
+            if ($special === 'punt_return' && ! str_starts_with($call, 'fake_')) {
+                $special = ['punt_return_left', 'punt_return_middle', 'punt_return_right', 'punt_safe', 'punt_block'][$this->roll($state, 'punt-return-style') % 5];
             } elseif ($special === 'kickoff_return') {
-                $special = ['kickoff_return_left','kickoff_return_middle','kickoff_return_right','kickoff_return_safe','kickoff_return_aggressive'][$this->roll($state, 'kick-return-style') % 5];
+                $special = ['kickoff_return_left', 'kickoff_return_middle', 'kickoff_return_right', 'kickoff_return_safe', 'kickoff_return_aggressive'][$this->roll($state, 'kick-return-style') % 5];
             }
+
             return ['call' => $special, 'formation' => 'base_4_3'];
         }
         $roll = $this->roll($state, 'defense');
@@ -147,13 +151,20 @@ class CpuCoach
                 : ($roll < 50 ? 'man_to_man' : ($roll < 75 ? 'zone' : ($roll < 90 ? 'blitz' : 'run_stop'))));
 
         $other = $state['possession'] === 'home' ? 'away' : 'home';
+        // Protect against an explosive play without reading the selected offensive call.
+        $protectDeep = $state['quarter'] === 4 && $state['clock'] <= 120
+            && $state[$other.'_score'] > $state[$state['possession'].'_score']
+            && $state['distance'] > 2 && $state['spot'] < 80;
         $biases = ['run_stop' => $this->preference($state, 'run_stop', $other), 'blitz' => $this->preference($state, 'blitz', $other), 'man' => $this->preference($state, 'man', $other)];
-        if ($biases !== ['run_stop' => 50, 'blitz' => 50, 'man' => 50]) {
+        if ($protectDeep || $biases !== ['run_stop' => 50, 'blitz' => 50, 'man' => 50]) {
             $weights = ($state['phase'] === 'extra_point' || $state['distance'] <= 2)
                 ? ['run_stop' => 70, 'man_to_man' => 30, 'zone' => 0, 'blitz' => 0]
                 : ($state['distance'] >= 10 && $state['down'] >= 2
                     ? ['zone' => 70, 'blitz' => 15, 'man_to_man' => 15, 'run_stop' => 0]
                     : ['man_to_man' => 50, 'zone' => 25, 'blitz' => 15, 'run_stop' => 10]);
+            if ($protectDeep) {
+                $weights = ['zone' => 85, 'man_to_man' => 10, 'blitz' => 3, 'run_stop' => 2];
+            }
             $weights['run_stop'] = max(2, $weights['run_stop']) * $this->factor($biases['run_stop']);
             $weights['blitz'] = max(2, $weights['blitz']) * $this->factor($biases['blitz']);
             $weights['man_to_man'] *= $this->factor($biases['man']);
@@ -177,7 +188,8 @@ class CpuCoach
         $other = $side === 'home' ? 'away' : 'home';
         $margin = $state[$side.'_score'] - $state[$other.'_score'];
         $late = app(GameClock::class)->lateHalf($state);
-        $hurry = ($late && $state['quarter'] === 2) || ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin <= 0);
+        $multiScoreChase = $state['quarter'] === 4 && $margin < -8 && $state['clock'] <= 360;
+        $hurry = $multiScoreChase || ($late && $state['quarter'] === 2) || ($state['quarter'] >= 4 && $state['clock'] <= 180 && $margin <= 0);
         $tempo = $hurry ? 'hurry' : ($state['quarter'] >= 4 && $margin > 0 ? 'drain' : 'normal');
 
         if (! $late && ! $hurry && ! ($state['quarter'] >= 4 && $margin > 0)) {
@@ -187,7 +199,7 @@ class CpuCoach
             }
         }
 
-        return ['tempo' => $tempo, 'clock_strategy' => $late && ($state['quarter'] === 2 || $margin <= 0) ? 'sideline' : 'normal'];
+        return ['tempo' => $tempo, 'clock_strategy' => ($multiScoreChase || ($late && ($state['quarter'] === 2 || $margin <= 0))) ? 'sideline' : 'normal'];
     }
 
     public function timeoutTeam(array $state): ?string
@@ -236,6 +248,7 @@ class CpuCoach
                 } elseif ($warning && $remaining > 120 && $remaining - 38 <= 120) {
                     $remaining = 120;
                     $running = $warning = false;
+
                     continue;
                 } elseif ($remaining <= 38) {
                     // This includes fourth down: the engine expires the clock before snapping.
@@ -267,7 +280,7 @@ class CpuCoach
         // Ten yards to go is also a normal first down. Allow short throws
         // there instead of automatically calling only medium/deep routes.
         // Conversion downs still favor routes that can reach the marker.
-        if ($state['spot'] >= 85 || $state['distance'] < 10) {
+        if ($state['spot'] >= 85 || ($state['distance'] < 10 && ! ($state['down'] >= 3 && $state['distance'] >= 5))) {
             return $roll < 70 ? 'short_pass' : 'slant';
         }
         if ($state['distance'] >= 20 && $state['spot'] < 80) {
