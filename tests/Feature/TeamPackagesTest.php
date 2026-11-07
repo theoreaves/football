@@ -306,3 +306,18 @@ test('world download builds a complete multi-team archive and cleans its staging
     expect(count($package['teams']))->toBe(32);
     expect(is_dir($path.'.files'))->toBeFalse();
 });
+
+test('missing league and team artwork does not block world download or alter its source', function () {
+    $league = League::create(['name' => 'NFL', 'logo_path' => 'teams/1/nfl-logo.png']);
+    $this->team->update(['team_logo' => 'teams/missing-logo.png']);
+    $response = $this->get(route('packages.world', $this->world->id))->assertDownload('source-world.zip');
+    $path = $response->baseResponse->getFile()->getPathname();
+    $package = app(WorldPackages::class)->read($path);
+    expect($package['manifest']['leagues'][0]['logo'])->toBeNull();
+    expect($package['teams'][0]['data']['team_logo'])->toBeNull();
+    expect(count($package['teams'][0]['roster']))->toBe(1);
+    expect($package['manifest']['warnings'])->toHaveCount(2);
+    expect($package['files']['EXPORT_WARNINGS.txt'])->toContain('teams/1/nfl-logo.png');
+    expect($league->fresh()->logo_path)->toBe('teams/1/nfl-logo.png');
+    expect($this->team->fresh()->team_logo)->toBe('teams/missing-logo.png');
+});

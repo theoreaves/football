@@ -62,6 +62,7 @@ class WorldPackages
             $staging = $path.'.files';
             File::ensureDirectoryExists($staging);
             try {
+                $warnings = [];
                 $teams = $source instanceof Team ? collect([$source]) : Team::orderBy('id')->get();
                 $manifest = ['format' => 'websports-football', 'version' => 1, 'kind' => $source instanceof Team ? 'team' : 'world',
                     'name' => $source instanceof Team ? trim($source->city.' '.$source->name) : $source->name,
@@ -70,7 +71,7 @@ class WorldPackages
                     foreach (League::all() as $league) {
                         $logo = null;
                         if ($league->logo_path) {
-                            $logo = $this->addAsset($staging, $league->logo_path, 'assets/league-'.$league->id);
+                            $logo = $this->addAsset($staging, $league->logo_path, 'assets/league-'.$league->id, $warnings);
                         }
                         $manifest['leagues'][] = ['key' => 'league-'.$league->id, 'name' => $league->name, 'logo' => $logo];
                     }
@@ -91,7 +92,7 @@ class WorldPackages
                     foreach ($this->assetSlots() as $slot) {
                         $asset = data_get($data, $slot);
                         if ($asset) {
-                            data_set($data, $slot, $this->addAsset($staging, $asset, $directory.'/assets/'.Str::slug($slot)));
+                            data_set($data, $slot, $this->addAsset($staging, $asset, $directory.'/assets/'.Str::slug($slot), $warnings));
                         }
                     }
                     $alignment = $seasons->first(fn ($season) => isset($season->settings['members'][$team->id]));
@@ -112,6 +113,10 @@ class WorldPackages
                     }
                     $manifest['teams'][] = ['directory' => $directory, 'rosters' => $rosterFiles,
                         'league' => $source instanceof World ? ($team->league_id ? 'league-'.$team->league_id : ($alignment ? 'league-'.$alignment->league_id : ($manifest['leagues'][0]['key'] ?? null))) : null];
+                }
+                $manifest['warnings'] = array_values(array_unique($warnings));
+                if ($manifest['warnings']) {
+                    $this->writeEntry($staging, 'EXPORT_WARNINGS.txt', "Optional graphics or sounds were missing and were omitted from this export.\nThe source world was not changed. All roster data is included.\n\n".implode("\n", $manifest['warnings'])."\n");
                 }
                 $this->writeEntry($staging, 'package.json', $this->json($manifest));
                 $this->writeEntry($staging, 'README.txt', "WebSports Football package v1\nEdit team.json and roster.csv inside each team folder. Keep asset references relative to the ZIP root.\nNo game results, injuries or season progress are included. Choose destination year and schedule during import.\nSpecialist assignments use roster row numbers starting at 1.\n");
@@ -142,10 +147,15 @@ class WorldPackages
         }
     }
 
-    private function addAsset(string $staging, string $source, string $destination): string
+    private function addAsset(string $staging, string $source, string $destination, array &$warnings): ?string
     {
-        if (! $this->safePath($source) || ! Storage::disk('team_art')->exists($source)) {
-            $this->rosters->fail('A referenced graphic or sound is missing: '.$source.'. Repair it in the team editor before exporting.');
+        if (! $this->safePath($source)) {
+            $this->rosters->fail('Invalid graphic or sound path: '.$source);
+        }
+        if (! Storage::disk('team_art')->exists($source)) {
+            $warnings[] = 'Missing asset omitted: '.$source;
+
+            return null;
         }
         $bytes = Storage::disk('team_art')->get($source);
         $destination .= '.'.strtolower(pathinfo($source, PATHINFO_EXTENSION));

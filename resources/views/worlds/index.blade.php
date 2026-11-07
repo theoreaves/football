@@ -3,6 +3,7 @@
     <div><x-brand-logo sport="general" class="w-48 mb-5" /><p class="text-sm text-blue-400 uppercase tracking-widest">Your football universe</p><h1 class="text-3xl font-semibold mt-2">Worlds</h1><p class="text-gray-400 mt-3">Keep each league, its teams, and its games in a separate world. Open your worlds from any browser.</p></div>
     <a class="inline-block text-blue-300 underline" href="{{ route('packages.index') }}">Import &amp; community library</a>
     @if(session('status'))<p class="text-blue-200">{{ session('status') }}</p>@endif
+    @foreach ($errors->all() as $error)<p class="text-red-400">{{ $error }}</p>@endforeach
     <div class="grid gap-4 sm:grid-cols-2">
     @forelse ($worlds as $world)
         <form method="POST" action="{{ route('worlds.select', $world->id) }}" class="rounded-xl border border-gray-700 bg-gray-800 p-5 space-y-3">@csrf
@@ -19,7 +20,6 @@
     <summary class="creation-toggle">Create new world</summary>
     <section class="creation-body">
     <h2 class="text-xl mb-4">Set up your world</h2>
-    @foreach ($errors->all() as $error)<p class="text-red-400">{{ $error }}</p>@endforeach
     <form method="POST" action="{{ route('worlds.store') }}" class="space-y-4">@csrf
         <label class="block">World name<input class="block w-full mt-1 rounded border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:ring-2 focus:ring-blue-400" name="name" value="{{ old('name') }}" required maxlength="255" placeholder="My football world"></label>
         <label class="block">League name<input class="block w-full mt-1 rounded border border-gray-600 bg-gray-800 px-3 py-2 text-white" name="league_name" value="{{ old('league_name', 'Football League') }}" required maxlength="255"></label>
