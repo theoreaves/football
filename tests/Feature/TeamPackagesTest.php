@@ -276,3 +276,33 @@ test('team library sharing publishes a frozen ZIP and the owner can unshare it',
     $this->delete(route('packages.unshare', $listing))->assertRedirect();
     Storage::disk('local')->assertMissing($listing->path);
 });
+
+test('team ZIP preview accepts storage paths reached through a deployment symlink', function () {
+    $service = app(WorldPackages::class);
+    $path = $service->export($this->team);
+    $link = dirname($path).'-linked';
+    symlink(dirname($path), $link);
+    try {
+        $package = $service->read($link.'/'.basename($path));
+        expect($package['manifest']['kind'])->toBe('team');
+        expect($package['teams'][0]['data']['name'])->toBe('Warriors');
+    } finally {
+        unlink($link);
+    }
+});
+
+test('world download builds a complete multi-team archive and cleans its staging files', function () {
+    $service = app(WorldPackages::class);
+    $rosters = app(TeamPackages::class);
+    Storage::disk('team_art')->put('teams/shared.svg', file_get_contents(resource_path('team-logos/pro/arf.svg')));
+    $rows = $rosters->readRoster($rosters->starterRoster());
+    for ($i = 0; $i < 31; $i++) {
+        $team = Team::create(['city' => 'City '.$i, 'name' => 'Team '.$i, 'team_logo' => 'teams/shared.svg']);
+        $rosters->importRoster($team, $rows, 1988, false);
+    }
+    $response = $this->get(route('packages.world', $this->world->id))->assertDownload('source-world.zip');
+    $path = $response->baseResponse->getFile()->getPathname();
+    $package = $service->read($path);
+    expect(count($package['teams']))->toBe(32);
+    expect(is_dir($path.'.files'))->toBeFalse();
+});

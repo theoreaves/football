@@ -10,6 +10,7 @@ use App\Models\World;
 use App\Support\CurrentWorld;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -58,7 +59,8 @@ class WorldPackages
     {
         return $this->withinWorld($source instanceof World ? $source->id : $source->world_id, function () use ($source, $year) {
             $path = $this->newPath();
-            $zip = new PharData($path, 0, null, Phar::ZIP);
+            $staging = $path.'.files';
+            File::ensureDirectoryExists($staging);
             try {
                 $teams = $source instanceof Team ? collect([$source]) : Team::orderBy('id')->get();
                 $manifest = ['format' => 'websports-football', 'version' => 1, 'kind' => $source instanceof Team ? 'team' : 'world',
@@ -68,11 +70,12 @@ class WorldPackages
                     foreach (League::all() as $league) {
                         $logo = null;
                         if ($league->logo_path) {
-                            $logo = $this->addAsset($zip, $league->logo_path, 'assets/league-'.$league->id);
+                            $logo = $this->addAsset($staging, $league->logo_path, 'assets/league-'.$league->id);
                         }
                         $manifest['leagues'][] = ['key' => 'league-'.$league->id, 'name' => $league->name, 'logo' => $logo];
                     }
                 }
+                $seasons = Season::whereNotNull('settings')->orderByDesc('year')->get();
                 foreach ($teams as $i => $team) {
                     $directory = 'teams/team-'.($i + 1);
                     $data = Arr::except($team->attributesToArray(), ['id', 'world_id', 'league_id', 'created_at', 'updated_at']);
@@ -88,42 +91,58 @@ class WorldPackages
                     foreach ($this->assetSlots() as $slot) {
                         $asset = data_get($data, $slot);
                         if ($asset) {
-                            data_set($data, $slot, $this->addAsset($zip, $asset, $directory.'/assets/'.Str::slug($slot)));
+                            data_set($data, $slot, $this->addAsset($staging, $asset, $directory.'/assets/'.Str::slug($slot)));
                         }
                     }
-                    $alignment = Season::whereNotNull('settings')->orderByDesc('year')->get()->first(fn ($season) => isset($season->settings['members'][$team->id]));
+                    $alignment = $seasons->first(fn ($season) => isset($season->settings['members'][$team->id]));
                     if ($alignment) {
                         $member = $alignment->settings['members'][$team->id];
                         $data['conference'] = $member['conference_name'] ?? $data['conference'];
                         $data['division'] = $member['division'] ?? $data['division'];
                     }
-                    $zip->addFromString($directory.'/team.json', $this->json($data));
-                    $zip->addFromString($directory.'/roster.csv', $this->rosters->roster($team, $rosterYear));
+                    $this->writeEntry($staging, $directory.'/team.json', $this->json($data));
+                    $this->writeEntry($staging, $directory.'/roster.csv', $this->rosters->roster($team, $rosterYear));
                     $rosterFiles = [];
                     if ($source instanceof World) {
                         foreach ($team->players()->distinct()->pluck('team_players.team_year')->sort()->values() as $savedYear) {
                             $file = $directory.'/rosters/'.$savedYear.'.csv';
-                            $zip->addFromString($file, $this->rosters->roster($team, (string) $savedYear));
+                            $this->writeEntry($staging, $file, $this->rosters->roster($team, (string) $savedYear));
                             $rosterFiles[] = ['year' => (int) $savedYear, 'file' => $file];
                         }
                     }
                     $manifest['teams'][] = ['directory' => $directory, 'rosters' => $rosterFiles,
                         'league' => $source instanceof World ? ($team->league_id ? 'league-'.$team->league_id : ($alignment ? 'league-'.$alignment->league_id : ($manifest['leagues'][0]['key'] ?? null))) : null];
                 }
-                $zip->addFromString('package.json', $this->json($manifest));
-                $zip->addFromString('README.txt', "WebSports Football package v1\nEdit team.json and roster.csv inside each team folder. Keep asset references relative to the ZIP root.\nNo game results, injuries or season progress are included. Choose destination year and schedule during import.\nSpecialist assignments use roster row numbers starting at 1.\n");
+                $this->writeEntry($staging, 'package.json', $this->json($manifest));
+                $this->writeEntry($staging, 'README.txt', "WebSports Football package v1\nEdit team.json and roster.csv inside each team folder. Keep asset references relative to the ZIP root.\nNo game results, injuries or season progress are included. Choose destination year and schedule during import.\nSpecialist assignments use roster row numbers starting at 1.\n");
+                $zip = new PharData($path, 0, null, Phar::ZIP);
+                $zip->buildFromDirectory($staging);
+                unset($zip);
             } catch (\Throwable $error) {
                 unset($zip);
                 @unlink($path);
                 throw $error;
+            } finally {
+                File::deleteDirectory($staging);
             }
-            unset($zip);
 
             return $path;
         });
     }
 
-    private function addAsset(PharData $zip, string $source, string $destination): string
+    private function writeEntry(string $staging, string $name, string $contents): void
+    {
+        if (! $this->safePath($name)) {
+            $this->rosters->fail('Invalid package entry path: '.$name);
+        }
+        $target = $staging.'/'.$name;
+        File::ensureDirectoryExists(dirname($target));
+        if (file_put_contents($target, $contents) === false) {
+            throw new \RuntimeException('Unable to prepare package files.');
+        }
+    }
+
+    private function addAsset(string $staging, string $source, string $destination): string
     {
         if (! $this->safePath($source) || ! Storage::disk('team_art')->exists($source)) {
             $this->rosters->fail('A referenced graphic or sound is missing: '.$source.'. Repair it in the team editor before exporting.');
@@ -131,7 +150,7 @@ class WorldPackages
         $bytes = Storage::disk('team_art')->get($source);
         $destination .= '.'.strtolower(pathinfo($source, PATHINFO_EXTENSION));
         $this->checkAsset($destination, $bytes);
-        $zip->addFromString($destination, $bytes);
+        $this->writeEntry($staging, $destination, $bytes);
 
         return $destination;
     }
@@ -145,6 +164,10 @@ class WorldPackages
 
     public function read(string $path): array
     {
+        $path = realpath($path);
+        if ($path === false) {
+            $this->rosters->fail('The uploaded ZIP could not be found. Upload it again.');
+        }
         try {
             $zip = new PharData($path);
             $files = [];
