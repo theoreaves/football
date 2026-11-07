@@ -64,3 +64,24 @@ deployed Coaching tab to review preset application, customization and restoratio
 
 Future Franchise GM controls should configure roster-building behavior separately
 from these on-field coaching preferences. GM behavior is not implemented here.
+
+
+## Situational coaching upgrade
+
+- In the last 30 seconds of regulation, an offense trailing by more than three
+  keeps trying for a touchdown instead of choosing a field goal. Tying/winning
+  kicks and end-of-first-half field goals remain available.
+- An offense down more than eight points starts its hurry-up and sideline
+  strategy with six minutes left in the fourth quarter. Ordinary one-score
+  situations retain the existing tempo rules.
+- A defense leading in the final two minutes favors zone coverage outside its
+  own red zone on more than two yards to go. Team defensive sliders still
+  influence that mix; short-yardage and special-teams calls remain situational.
+  The coach does not inspect the selected offensive scrimmage play.
+- Third/fourth down with five to nine yards to go can use medium/deep concepts
+  instead of always choosing the short-pass family. Red-zone space still limits
+  route depth.
+
+These decisions apply to CPU control, Quick Sim and Ask Coach through the shared
+coach. Existing saved play results remain intact; future CPU decisions in games
+already underway use the upgraded logic. No migration or new settings are needed.

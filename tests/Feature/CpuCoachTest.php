@@ -220,3 +220,80 @@ test('CPU protects late leads with inside runs regardless of coach pass bias or 
         }
     }
 });
+
+test('CPU saves the final touchdown attempt but takes a tying or winning field goal', function () {
+    $coach = app(CpuCoach::class);
+    foreach (['home', 'away'] as $side) {
+        foreach ([1, 4] as $down) {
+            foreach ([-14, -7, -4, -3, -2, 0] as $margin) {
+                $state = array_replace(app(ExhibitionEngine::class)->initial(900, 42, false), [
+                    'possession' => $side, 'quarter' => 4, 'clock' => 10, 'down' => $down,
+                    'spot' => 90, $side.'_score' => 20 + $margin,
+                    ($side === 'home' ? 'away' : 'home').'_score' => 20,
+                ]);
+                $plan = $coach->offense($state, cpuRosters());
+                if ($margin < -3) {
+                    expect($plan['call'])->not->toBe('field_goal');
+                    expect(\App\Services\Simulation\OffensiveOptions::FORMATIONS[$plan['formation']])->toContain($plan['call']);
+                } else {
+                    expect($plan['call'])->toBe('field_goal');
+                }
+                // Before halftime even a trailing team can bank three points.
+                $state['quarter'] = 2;
+                expect($coach->offense($state, cpuRosters())['call'])->toBe('field_goal');
+            }
+        }
+    }
+});
+
+test('CPU starts a multi score chase earlier without rushing ordinary one score games', function () {
+    $coach = app(CpuCoach::class);
+    foreach (['home', 'away'] as $side) {
+        foreach ([[360, -9, 'hurry'], [360, -8, 'normal'], [361, -14, 'normal'], [360, 0, 'normal']] as [$clock, $margin, $tempo]) {
+            $state = array_replace(app(ExhibitionEngine::class)->initial(900, 42, false), [
+                'possession' => $side, 'quarter' => 4, 'clock' => $clock,
+                $side.'_score' => 20 + $margin, ($side === 'home' ? 'away' : 'home').'_score' => 20,
+            ]);
+            expect($coach->management($state)['tempo'])->toBe($tempo);
+            if ($tempo === 'hurry') {
+                expect($coach->management($state)['clock_strategy'])->toBe('sideline');
+            }
+        }
+    }
+});
+
+test('CPU protecting a late lead favors coverage without knowing the offensive play', function () {
+    $coach = app(CpuCoach::class);
+    foreach (['home', 'away'] as $side) {
+        $zones = $ordinaryZones = 0;
+        foreach (range(1, 600) as $seed) {
+            $state = array_replace(app(ExhibitionEngine::class)->initial(900, $seed, false), [
+                'quarter' => 4, 'clock' => 90, 'possession' => $side, 'spot' => 40, 'distance' => 10,
+                ($side === 'home' ? 'away' : 'home').'_score' => 7,
+            ]);
+            $plan = $coach->defense($state, 'inside_run');
+            expect($plan)->toBe($coach->defense($state, 'deep_pass'));
+            $zones += (int) ($plan['call'] === 'zone');
+            $state['clock'] = 400;
+            $ordinaryZones += (int) ($coach->defense($state, 'deep_pass')['call'] === 'zone');
+            $state['clock'] = 90;
+            $state['distance'] = 1;
+            expect($coach->defense($state, 'inside_run')['call'])->toBeIn(['run_stop', 'man_to_man']);
+        }
+        expect($zones)->toBeGreaterThan(450)->and($zones)->toBeGreaterThan($ordinaryZones);
+    }
+});
+
+test('CPU conversion passing includes routes beyond the marker on third and medium', function () {
+    $coach = app(CpuCoach::class);
+    $longer = 0;
+    foreach (range(1, 600) as $seed) {
+        $state = array_replace(app(ExhibitionEngine::class)->initial(900, $seed, false), [
+            'down' => 3, 'distance' => 7, 'spot' => 40,
+        ]);
+        $plan = $coach->offense($state, cpuRosters());
+        $longer += (int) in_array(\App\Services\Simulation\OffensiveOptions::canonical($plan['call']), ['medium_pass', 'deep_pass'], true);
+        expect($plan)->toBe($coach->offense($state, cpuRosters()));
+    }
+    expect($longer)->toBeGreaterThan(100);
+});
