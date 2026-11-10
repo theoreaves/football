@@ -48,6 +48,12 @@ function initializePractice() {
     mountTeamPlayEditors();
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
+    const arcade = document.querySelector('[data-arcade]');
+    if (arcade) import('./arcade/index.js').then(module => module.mountArcade(arcade)).catch(error => {
+        console.error('[WebSports Arcade] Initialization failed:', error);
+        const status = arcade.querySelector('[data-arcade-status]');
+        if (status) status.textContent = 'Unable to load the drill. Reload to try again.';
+    });
     const root = document.querySelector('[data-practice]');
     mountGameSettings(root);
     if (root) import('./practice/field.js').then(module => module.mountPractice(root)).catch((error) => {

@@ -49,6 +49,8 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
     Route::post('/worlds/{world}/select', [\App\Http\Controllers\WorldController::class, 'select'])->whereNumber('world')->name('worlds.select');
     Route::post('/worlds/close', [\App\Http\Controllers\WorldController::class, 'close'])->name('worlds.close');
     Route::get('/practice', \App\Http\Controllers\PracticeController::class)->name('practice');
+    Route::get('/arcade/drill', \App\Http\Controllers\ArcadeController::class)
+        ->middleware(\App\Http\Middleware\RequireWorld::class)->name('arcade.drill');
 
     Route::middleware([\App\Http\Middleware\RequireWorld::class, \App\Http\Middleware\BlockQueuedSeasonGame::class])->group(function () {
 
