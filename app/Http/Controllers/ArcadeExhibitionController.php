@@ -26,6 +26,9 @@ class ArcadeExhibitionController extends Controller
             $lastRecording = collect($exhibition->history)->reverse()->first(fn (array $play) => ($play['source'] ?? null) === 'arcade' && is_array($play['arcade_recording'] ?? null))['arcade_recording'] ?? null;
         }
         $status = $sessions->status($exhibition);
+        if ($selectedPlay === null) {
+            $status['flow'] = app(\App\Services\Arcade\FlowNotices::class)->consume($request, $exhibition, $status['flow']);
+        }
         $pending = $selectedPlay === null ? ArcadePlaySession::where('active_slot', $exhibition->id)->where('user_id', $request->user()->id)->where('expires_at', '>', now())->first() : null;
 
         return view('arcade.exhibition', ['exhibition' => $exhibition, 'state' => $selectedPlay !== null ? ($play['after'] ?? $play['before']) : $status['state'], 'available' => $selectedPlay === null && $status['available'],

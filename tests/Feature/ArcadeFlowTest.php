@@ -256,3 +256,47 @@ test('successful opening coin choice durably marks intro seen without an extra f
     expect($after['version'])->toBe($before['version'])->and($after['seed'])->toBe($before['seed'])->and($after['clock'])->toBe($before['clock'])->and($game->fresh()->history)->toBe([]);
     $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('flow.intro_seen', true);
 });
+
+test('fast navigation retains intermediate quarter transitions once without resimulating', function () {
+    $game = flowTestGame(['possession' => 'away', 'quarter' => 3, 'clock' => 1, 'clock_running' => true]);
+    enableFlow($game, 'fast');
+    $response = $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'fast']))->assertOk();
+    expect($response->json('state.quarter'))->toBe(4);
+    $saved = $game->fresh();
+    $history = $saved->history;
+    $state = $saved->state;
+    $page = $this->get($response->json('navigation_url'))->assertOk();
+    $flow = $page->viewData('flow') ?? $page->viewData('arcadeFlow');
+    expect(collect($flow['notices'])->contains(fn ($notice) => $notice['message'] === 'Quarter 3 → 4.'))->toBeTrue();
+    $again = $this->get($response->json('navigation_url'))->assertOk();
+    $flow = $again->viewData('flow') ?? $again->viewData('arcadeFlow');
+    expect(collect($flow['notices'])->contains(fn ($notice) => $notice['message'] === 'Quarter 3 → 4.'))->toBeFalse()->and($game->fresh()->history)->toBe($history)->and($game->fresh()->state)->toBe($state);
+});
+
+test('fast transition handoff never leaks into another exhibition', function () {
+    $game = flowTestGame(['possession' => 'away', 'quarter' => 3, 'clock' => 1, 'clock_running' => true]);
+    enableFlow($game, 'fast');
+    $response = $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'fast']))->assertOk();
+    $other = flowTestGame();
+    enableFlow($other);
+    $this->get(route('exhibitions.arcade.show', $other))->assertOk()->assertViewHas('flow', fn ($flow) => ! collect($flow['notices'])->contains(fn ($notice) => $notice['message'] === 'Quarter 3 → 4.'));
+    $this->get($response->json('navigation_url'))->assertOk()->assertSee('Quarter 3');
+});
+
+test('notice handoff retains exact stoppage and scoring summaries but ignores obsolete retries', function () {
+    $game = flowTestGame();
+    enableFlow($game);
+    $request = \Illuminate\Http\Request::create('/', 'POST', ['action' => 'fast']);
+    $request->setLaravelSession(app('session')->driver());
+    $before = $game->state;
+    $scored = array_replace($before, ['home_score' => 6]);
+    $plays = [['before' => $before, 'after' => $before, 'no_snap' => true, 'summary' => 'CPU timeout canonical summary'], ['before' => $before, 'after' => $scored, 'summary' => 'Recorded touchdown canonical summary']];
+    $service = app(\App\Services\Arcade\FlowNotices::class);
+    $result = ['state' => $before, 'receipt' => ['version' => $before['version']], 'plays' => $plays];
+    $service->remember($request, $game, $result);
+    $flow = $service->consume($request, $game, ['notices' => []]);
+    expect(array_column($flow['notices'], 'message'))->toBe(['CPU timeout canonical summary', 'Recorded touchdown canonical summary']);
+    $result['receipt']['version'] = -1;
+    $service->remember($request, $game, $result);
+    expect($service->consume($request, $game, ['notices' => []])['notices'])->toBe([]);
+});

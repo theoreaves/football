@@ -206,6 +206,9 @@ class ExhibitionController extends Controller
             // Hash the persisted state, not show()'s in-memory presentation normalization.
             $stored = Exhibition::findOrFail($exhibition->id);
             $arcadeFlow = app(\App\Services\Arcade\ExhibitionFlow::class)->status($stored)['flow'];
+            if (! $replayOnly) {
+                $arcadeFlow = app(\App\Services\Arcade\FlowNotices::class)->consume(request(), $stored, $arcadeFlow);
+            }
             $arcadeFlowUrl = route('exhibitions.arcade.flow', $exhibition);
             $arcadeReturnUrl = route('exhibitions.arcade.show', $exhibition);
         }

@@ -20,6 +20,7 @@ class ArcadeFlowController extends Controller
     public function store(ArcadeFlowRequest $request, Exhibition $exhibition, ExhibitionFlow $flow)
     {
         $result = $flow->execute($exhibition, $request);
+        app(\App\Services\Arcade\FlowNotices::class)->remember($request, $exhibition, $result);
 
         return $request->expectsJson() ? response()->json($result) : redirect($result['navigate_url']);
     }
