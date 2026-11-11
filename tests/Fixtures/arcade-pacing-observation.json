@@ -1,0 +1,2713 @@
+{
+  "description": "Phase 4B exploratory scripted pacing observation, not a golden baseline, acceptance threshold, human play sample, or HTTP/session validation.",
+  "command": "ARCADE_PACING_REPORT=1 php artisan test",
+  "seeds": [
+    42,
+    137,
+    2026
+  ],
+  "quarter_seconds": [
+    120,
+    180,
+    300,
+    600,
+    900
+  ],
+  "test_only_quarter_seconds": [
+    120
+  ],
+  "speed_scale": 0.925,
+  "profiles": {
+    "seeded_coach": "Equal 70-rated rosters; alternate inside_run/slant; punt/field goal on fourth; no penalties, injuries, timeouts, overtime.",
+    "scripted_physics": "Actual fixed-tick physics recordings at actual LOS; two defenders; same intended 50/50 run/pass mix. Run straight with small initial lateral input and a tick38 juke. Pass at tick55 to alternating receiver plus four yards x, no z lead.",
+    "scripted_early_lead": "Same physics run profile. Pass at tick30 to receiver with largest projected distance from defenders, 0.7s velocity lead in x and z."
+  },
+  "limitations": [
+    "Not actual human inputs or an assessment of full eleven-on-eleven football balance.",
+    "Physics outputs go directly to shared accounting/finalization in this accounting benchmark; HTTP persistence, contract validation and concurrency are separate tests.",
+    "Coach resolves only special teams in physics games, never a replacement for an interactive outcome.",
+    "Presentation omitted from finalization; full-game metrics do not retain replay history.",
+    "Counts are offensive run/pass snaps and offensive possessions, including a partial final possession; drive length is offensive snaps per possession.",
+    "Coach intended passes can end as tackle outcomes; rush/pass counts are play-call mix, not box-score classifications.",
+    "No acceptance threshold was fabricated: observed pace/possession disparity remains unresolved."
+  ],
+  "normal_120_conclusion": "Matched outcome and duration isolation proves identical shared clock/accounting. Scripted physics profile does not establish comparable offensive pace: interceptions, touchdowns, incompletions and shorter live duration yield less average runoff and much shorter drives.",
+  "rows": [
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 10,
+        "away": 3
+      },
+      "drives": {
+        "home": 2,
+        "away": 1
+      },
+      "runs": 7,
+      "passes": 6,
+      "runoff": 306,
+      "live_seconds": 83,
+      "outcomes": {
+        "tackle": 13
+      },
+      "snaps_per_drive": 4.333,
+      "mean_runoff": 23.538,
+      "mean_live_seconds": 6.385,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 19,
+        "away": 18
+      },
+      "drives": {
+        "home": 15,
+        "away": 15
+      },
+      "runs": 19,
+      "passes": 18,
+      "runoff": 204,
+      "live_seconds": 184,
+      "outcomes": {
+        "tackle": 9,
+        "interception": 13,
+        "touchdown": 15
+      },
+      "snaps_per_drive": 1.233,
+      "mean_runoff": 5.514,
+      "mean_live_seconds": 4.973,
+      "recording_hash": "01dbf6a7d564de9b558b675294a2065a11df1dcf437660bd0aa8a687a63ef236"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 7,
+        "away": 8
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 8,
+      "passes": 7,
+      "runoff": 204,
+      "live_seconds": 105,
+      "outcomes": {
+        "tackle": 13,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 3.75,
+      "mean_runoff": 13.6,
+      "mean_live_seconds": 7,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 13,
+        "away": 16
+      },
+      "drives": {
+        "home": 10,
+        "away": 10
+      },
+      "runs": 15,
+      "passes": 14,
+      "runoff": 238,
+      "live_seconds": 120,
+      "outcomes": {
+        "touchdown": 10,
+        "incomplete": 1,
+        "tackle": 9,
+        "interception": 9
+      },
+      "snaps_per_drive": 1.45,
+      "mean_runoff": 8.207,
+      "mean_live_seconds": 4.138,
+      "recording_hash": "4c03b9039d15f0e413b660444d07043dc729733680ad23baff1473e4a1805c80"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 5,
+        "away": 9
+      },
+      "drives": {
+        "home": 1,
+        "away": 2
+      },
+      "runs": 7,
+      "passes": 7,
+      "runoff": 238,
+      "live_seconds": 94,
+      "outcomes": {
+        "tackle": 12,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 4.667,
+      "mean_runoff": 17,
+      "mean_live_seconds": 6.714,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 22,
+        "away": 23
+      },
+      "drives": {
+        "home": 19,
+        "away": 19
+      },
+      "runs": 23,
+      "passes": 22,
+      "runoff": 136,
+      "live_seconds": 239,
+      "outcomes": {
+        "touchdown": 25,
+        "interception": 11,
+        "incomplete": 3,
+        "tackle": 6
+      },
+      "snaps_per_drive": 1.184,
+      "mean_runoff": 3.022,
+      "mean_live_seconds": 5.311,
+      "recording_hash": "592d810f5ee1b89774145725e0851836fa4b83846c8bd82fc85a53b971ba42c2"
+    },
+    {
+      "length": 120,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 22,
+        "away": 27
+      },
+      "drives": {
+        "home": 3,
+        "away": 3
+      },
+      "runs": 25,
+      "passes": 24,
+      "runoff": 120,
+      "live_seconds": 349,
+      "outcomes": {
+        "tackle": 44,
+        "touchdown": 4,
+        "incomplete": 1
+      },
+      "snaps_per_drive": 8.167,
+      "mean_runoff": 2.449,
+      "mean_live_seconds": 7.122,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 55,
+        "away": 53
+      },
+      "drives": {
+        "home": 24,
+        "away": 25
+      },
+      "runs": 54,
+      "passes": 54,
+      "runoff": 159,
+      "live_seconds": 246,
+      "outcomes": {
+        "tackle": 53,
+        "interception": 32,
+        "touchdown": 17,
+        "incomplete": 6
+      },
+      "snaps_per_drive": 2.204,
+      "mean_runoff": 1.472,
+      "mean_live_seconds": 2.278,
+      "recording_hash": "c7f6215f91dc64484ba11dfd4e1575fdc7401c72c90c27bf0c02139a66d282f0"
+    },
+    {
+      "length": 120,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 21,
+        "away": 27
+      },
+      "drives": {
+        "home": 3,
+        "away": 3
+      },
+      "runs": 24,
+      "passes": 24,
+      "runoff": 102,
+      "live_seconds": 347,
+      "outcomes": {
+        "tackle": 41,
+        "incomplete": 4,
+        "touchdown": 2,
+        "fumble": 1
+      },
+      "snaps_per_drive": 8,
+      "mean_runoff": 2.125,
+      "mean_live_seconds": 7.229,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 33,
+        "away": 38
+      },
+      "drives": {
+        "home": 24,
+        "away": 25
+      },
+      "runs": 36,
+      "passes": 35,
+      "runoff": 60,
+      "live_seconds": 312,
+      "outcomes": {
+        "touchdown": 29,
+        "incomplete": 2,
+        "tackle": 20,
+        "interception": 20
+      },
+      "snaps_per_drive": 1.449,
+      "mean_runoff": 0.845,
+      "mean_live_seconds": 4.394,
+      "recording_hash": "ac26ee7194a9fb4a94d18e873aa0384bc61278c644b5106a8b21ff18df0517d5"
+    },
+    {
+      "length": 120,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 36,
+        "away": 12
+      },
+      "drives": {
+        "home": 4,
+        "away": 3
+      },
+      "runs": 24,
+      "passes": 24,
+      "runoff": 108,
+      "live_seconds": 349,
+      "outcomes": {
+        "tackle": 43,
+        "touchdown": 2,
+        "incomplete": 2,
+        "sack": 1
+      },
+      "snaps_per_drive": 6.857,
+      "mean_runoff": 2.25,
+      "mean_live_seconds": 7.271,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 30,
+        "away": 33
+      },
+      "drives": {
+        "home": 27,
+        "away": 27
+      },
+      "runs": 32,
+      "passes": 31,
+      "runoff": 18,
+      "live_seconds": 362,
+      "outcomes": {
+        "touchdown": 36,
+        "interception": 18,
+        "incomplete": 2,
+        "tackle": 7
+      },
+      "snaps_per_drive": 1.167,
+      "mean_runoff": 0.286,
+      "mean_live_seconds": 5.746,
+      "recording_hash": "c7b5dd59097c0cf55cfa1f1d8fec2319210e2b4b0ff146cacc7b498b9691ec87"
+    },
+    {
+      "length": 120,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 7,
+        "away": 8
+      },
+      "drives": {
+        "home": 1,
+        "away": 2
+      },
+      "runs": 8,
+      "passes": 7,
+      "runoff": 266,
+      "live_seconds": 94,
+      "outcomes": {
+        "tackle": 14,
+        "incomplete": 1
+      },
+      "snaps_per_drive": 5,
+      "mean_runoff": 17.733,
+      "mean_live_seconds": 6.267,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 16,
+        "away": 15
+      },
+      "drives": {
+        "home": 12,
+        "away": 12
+      },
+      "runs": 16,
+      "passes": 15,
+      "runoff": 228,
+      "live_seconds": 166,
+      "outcomes": {
+        "tackle": 7,
+        "interception": 9,
+        "touchdown": 15
+      },
+      "snaps_per_drive": 1.292,
+      "mean_runoff": 7.355,
+      "mean_live_seconds": 5.355,
+      "recording_hash": "00e5ad9da85ef2fbc6709ef6c081245acab33206cf3e9417b4590a9d40b6fa23"
+    },
+    {
+      "length": 120,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 7,
+        "away": 8
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 8,
+      "passes": 7,
+      "runoff": 228,
+      "live_seconds": 105,
+      "outcomes": {
+        "tackle": 13,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 3.75,
+      "mean_runoff": 15.2,
+      "mean_live_seconds": 7,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 13,
+        "away": 16
+      },
+      "drives": {
+        "home": 10,
+        "away": 9
+      },
+      "runs": 15,
+      "passes": 14,
+      "runoff": 266,
+      "live_seconds": 119,
+      "outcomes": {
+        "touchdown": 10,
+        "incomplete": 2,
+        "tackle": 9,
+        "interception": 8
+      },
+      "snaps_per_drive": 1.526,
+      "mean_runoff": 9.172,
+      "mean_live_seconds": 4.103,
+      "recording_hash": "bdca2047d797dad0bf11a4b5d0d1d70b7b1e7b4fc37e133501316ed44c3e0fdc"
+    },
+    {
+      "length": 120,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 5,
+        "away": 9
+      },
+      "drives": {
+        "home": 1,
+        "away": 2
+      },
+      "runs": 7,
+      "passes": 7,
+      "runoff": 266,
+      "live_seconds": 94,
+      "outcomes": {
+        "tackle": 12,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 4.667,
+      "mean_runoff": 19,
+      "mean_live_seconds": 6.714,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 120,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 22,
+        "away": 23
+      },
+      "drives": {
+        "home": 19,
+        "away": 19
+      },
+      "runs": 23,
+      "passes": 22,
+      "runoff": 152,
+      "live_seconds": 239,
+      "outcomes": {
+        "touchdown": 25,
+        "interception": 11,
+        "incomplete": 3,
+        "tackle": 6
+      },
+      "snaps_per_drive": 1.184,
+      "mean_runoff": 3.378,
+      "mean_live_seconds": 5.311,
+      "recording_hash": "a9581f6bb1b2f868169bebc23326bbc8727400c411bca65794a55b98b15dccda"
+    },
+    {
+      "length": 180,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 8,
+        "away": 14
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 11,
+      "passes": 11,
+      "runoff": 408,
+      "live_seconds": 145,
+      "outcomes": {
+        "tackle": 20,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 5.5,
+      "mean_runoff": 18.545,
+      "mean_live_seconds": 6.591,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 25,
+        "away": 24
+      },
+      "drives": {
+        "home": 19,
+        "away": 18
+      },
+      "runs": 25,
+      "passes": 24,
+      "runoff": 374,
+      "live_seconds": 222,
+      "outcomes": {
+        "tackle": 13,
+        "interception": 18,
+        "touchdown": 18
+      },
+      "snaps_per_drive": 1.324,
+      "mean_runoff": 7.633,
+      "mean_live_seconds": 4.531,
+      "recording_hash": "a4668bf775ac909929ab5a2729e70325240c0f3922bd9ddba6443bc26a484274"
+    },
+    {
+      "length": 180,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 12,
+        "away": 13
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 13,
+      "passes": 12,
+      "runoff": 442,
+      "live_seconds": 181,
+      "outcomes": {
+        "tackle": 22,
+        "incomplete": 1,
+        "sack": 1,
+        "touchdown": 1
+      },
+      "snaps_per_drive": 6.25,
+      "mean_runoff": 17.68,
+      "mean_live_seconds": 7.24,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 25,
+        "away": 26
+      },
+      "drives": {
+        "home": 20,
+        "away": 19
+      },
+      "runs": 26,
+      "passes": 25,
+      "runoff": 374,
+      "live_seconds": 243,
+      "outcomes": {
+        "touchdown": 21,
+        "incomplete": 1,
+        "tackle": 13,
+        "interception": 16
+      },
+      "snaps_per_drive": 1.308,
+      "mean_runoff": 7.333,
+      "mean_live_seconds": 4.765,
+      "recording_hash": "e1e8e2c950bfc605d32e4027bc59624bae9658787549046f33ea211b79777ba6"
+    },
+    {
+      "length": 180,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 13,
+        "away": 10
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 12,
+      "passes": 11,
+      "runoff": 442,
+      "live_seconds": 154,
+      "outcomes": {
+        "tackle": 19,
+        "incomplete": 3,
+        "sack": 1
+      },
+      "snaps_per_drive": 5.75,
+      "mean_runoff": 19.217,
+      "mean_live_seconds": 6.696,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 33,
+        "away": 34
+      },
+      "drives": {
+        "home": 29,
+        "away": 29
+      },
+      "runs": 34,
+      "passes": 33,
+      "runoff": 136,
+      "live_seconds": 425,
+      "outcomes": {
+        "touchdown": 43,
+        "interception": 15,
+        "incomplete": 3,
+        "tackle": 6
+      },
+      "snaps_per_drive": 1.155,
+      "mean_runoff": 2.03,
+      "mean_live_seconds": 6.343,
+      "recording_hash": "4a24fe6ec14a19a0aa27a9f8061bce04600c2f72234865fc43cab25d609fcc90"
+    },
+    {
+      "length": 180,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 31,
+        "away": 42
+      },
+      "drives": {
+        "home": 5,
+        "away": 6
+      },
+      "runs": 37,
+      "passes": 36,
+      "runoff": 156,
+      "live_seconds": 499,
+      "outcomes": {
+        "tackle": 59,
+        "touchdown": 3,
+        "incomplete": 6,
+        "sack": 3,
+        "fumble": 2
+      },
+      "snaps_per_drive": 6.636,
+      "mean_runoff": 2.137,
+      "mean_live_seconds": 6.836,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 81,
+        "away": 75
+      },
+      "drives": {
+        "home": 37,
+        "away": 37
+      },
+      "runs": 78,
+      "passes": 78,
+      "runoff": 216,
+      "live_seconds": 375,
+      "outcomes": {
+        "tackle": 74,
+        "interception": 45,
+        "touchdown": 28,
+        "incomplete": 9
+      },
+      "snaps_per_drive": 2.108,
+      "mean_runoff": 1.385,
+      "mean_live_seconds": 2.404,
+      "recording_hash": "301557fa1e6d07b5858b9ef1482f90aa6bf6d749391ad9e2dd929b7d85beb081"
+    },
+    {
+      "length": 180,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 31,
+        "away": 43
+      },
+      "drives": {
+        "home": 5,
+        "away": 6
+      },
+      "runs": 37,
+      "passes": 37,
+      "runoff": 162,
+      "live_seconds": 529,
+      "outcomes": {
+        "tackle": 60,
+        "incomplete": 9,
+        "touchdown": 3,
+        "fumble": 1,
+        "interception": 1
+      },
+      "snaps_per_drive": 6.727,
+      "mean_runoff": 2.189,
+      "mean_live_seconds": 7.149,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 52,
+        "away": 54
+      },
+      "drives": {
+        "home": 37,
+        "away": 37
+      },
+      "runs": 53,
+      "passes": 53,
+      "runoff": 81,
+      "live_seconds": 463,
+      "outcomes": {
+        "touchdown": 43,
+        "incomplete": 3,
+        "tackle": 29,
+        "interception": 31
+      },
+      "snaps_per_drive": 1.432,
+      "mean_runoff": 0.764,
+      "mean_live_seconds": 4.368,
+      "recording_hash": "dfa55368d06b7dac38e6828bf656fef59e6cdc6e2f4bc39bcda72801d6649ccf"
+    },
+    {
+      "length": 180,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 36,
+        "away": 32
+      },
+      "drives": {
+        "home": 5,
+        "away": 6
+      },
+      "runs": 34,
+      "passes": 34,
+      "runoff": 147,
+      "live_seconds": 480,
+      "outcomes": {
+        "tackle": 56,
+        "touchdown": 2,
+        "incomplete": 7,
+        "sack": 2,
+        "fumble": 1
+      },
+      "snaps_per_drive": 6.182,
+      "mean_runoff": 2.162,
+      "mean_live_seconds": 7.059,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 49,
+        "away": 46
+      },
+      "drives": {
+        "home": 40,
+        "away": 39
+      },
+      "runs": 48,
+      "passes": 47,
+      "runoff": 33,
+      "live_seconds": 529,
+      "outcomes": {
+        "touchdown": 51,
+        "interception": 27,
+        "incomplete": 5,
+        "tackle": 12
+      },
+      "snaps_per_drive": 1.203,
+      "mean_runoff": 0.347,
+      "mean_live_seconds": 5.568,
+      "recording_hash": "32fa4a99903ed37029fb162a91a37cd92bfe0a1a1252461fe2004b5072a735d7"
+    },
+    {
+      "length": 180,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 10,
+        "away": 13
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 12,
+      "passes": 11,
+      "runoff": 532,
+      "live_seconds": 159,
+      "outcomes": {
+        "tackle": 20,
+        "touchdown": 2,
+        "incomplete": 1
+      },
+      "snaps_per_drive": 5.75,
+      "mean_runoff": 23.13,
+      "mean_live_seconds": 6.913,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 23,
+        "away": 24
+      },
+      "drives": {
+        "home": 17,
+        "away": 18
+      },
+      "runs": 24,
+      "passes": 23,
+      "runoff": 342,
+      "live_seconds": 207,
+      "outcomes": {
+        "tackle": 13,
+        "interception": 18,
+        "touchdown": 16
+      },
+      "snaps_per_drive": 1.343,
+      "mean_runoff": 7.277,
+      "mean_live_seconds": 4.404,
+      "recording_hash": "3ccdba22b0cbff42f10218451c1312b6fb87180c18a81fb955d58d472e699c0b"
+    },
+    {
+      "length": 180,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 12,
+        "away": 10
+      },
+      "drives": {
+        "home": 2,
+        "away": 1
+      },
+      "runs": 11,
+      "passes": 11,
+      "runoff": 456,
+      "live_seconds": 156,
+      "outcomes": {
+        "tackle": 20,
+        "incomplete": 1,
+        "touchdown": 1
+      },
+      "snaps_per_drive": 7.333,
+      "mean_runoff": 20.727,
+      "mean_live_seconds": 7.091,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 23,
+        "away": 26
+      },
+      "drives": {
+        "home": 18,
+        "away": 17
+      },
+      "runs": 25,
+      "passes": 24,
+      "runoff": 380,
+      "live_seconds": 207,
+      "outcomes": {
+        "touchdown": 18,
+        "incomplete": 2,
+        "tackle": 14,
+        "interception": 15
+      },
+      "snaps_per_drive": 1.4,
+      "mean_runoff": 7.755,
+      "mean_live_seconds": 4.224,
+      "recording_hash": "e4a9a5991983547d5625ad0e1b240ac33b3f6f9b13caf6e17fc6205f2822320d"
+    },
+    {
+      "length": 180,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 10,
+        "away": 11
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 11,
+      "passes": 10,
+      "runoff": 418,
+      "live_seconds": 142,
+      "outcomes": {
+        "tackle": 17,
+        "touchdown": 1,
+        "incomplete": 2,
+        "sack": 1
+      },
+      "snaps_per_drive": 5.25,
+      "mean_runoff": 19.905,
+      "mean_live_seconds": 6.762,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 180,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 33,
+        "away": 34
+      },
+      "drives": {
+        "home": 29,
+        "away": 29
+      },
+      "runs": 34,
+      "passes": 33,
+      "runoff": 152,
+      "live_seconds": 425,
+      "outcomes": {
+        "touchdown": 43,
+        "interception": 15,
+        "incomplete": 3,
+        "tackle": 6
+      },
+      "snaps_per_drive": 1.155,
+      "mean_runoff": 2.269,
+      "mean_live_seconds": 6.343,
+      "recording_hash": "a5c113afc873d36f0059837ae98a8dc62313787281db5354e1355eb85976ecb5"
+    },
+    {
+      "length": 300,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 17,
+        "away": 17
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 17,
+      "passes": 17,
+      "runoff": 850,
+      "live_seconds": 241,
+      "outcomes": {
+        "tackle": 32,
+        "touchdown": 2
+      },
+      "snaps_per_drive": 8.5,
+      "mean_runoff": 25,
+      "mean_live_seconds": 7.088,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 39,
+        "away": 38
+      },
+      "drives": {
+        "home": 25,
+        "away": 25
+      },
+      "runs": 39,
+      "passes": 38,
+      "runoff": 748,
+      "live_seconds": 299,
+      "outcomes": {
+        "tackle": 25,
+        "interception": 26,
+        "touchdown": 24,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 1.54,
+      "mean_runoff": 9.714,
+      "mean_live_seconds": 3.883,
+      "recording_hash": "b5f0b1b57b9bfa799d1419b10d1f3a7788e7152efebafe71beb214d64cad9234"
+    },
+    {
+      "length": 300,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 14,
+        "away": 20
+      },
+      "drives": {
+        "home": 3,
+        "away": 3
+      },
+      "runs": 17,
+      "passes": 17,
+      "runoff": 714,
+      "live_seconds": 260,
+      "outcomes": {
+        "tackle": 30,
+        "incomplete": 3,
+        "touchdown": 1
+      },
+      "snaps_per_drive": 5.667,
+      "mean_runoff": 21,
+      "mean_live_seconds": 7.647,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 41,
+        "away": 41
+      },
+      "drives": {
+        "home": 28,
+        "away": 27
+      },
+      "runs": 41,
+      "passes": 41,
+      "runoff": 680,
+      "live_seconds": 342,
+      "outcomes": {
+        "touchdown": 28,
+        "incomplete": 3,
+        "tackle": 24,
+        "interception": 27
+      },
+      "snaps_per_drive": 1.491,
+      "mean_runoff": 8.293,
+      "mean_live_seconds": 4.171,
+      "recording_hash": "e39cfd31327347af0ec6c1d652e1a2e0f49d9fa25c9243ab49479e283e0a24c1"
+    },
+    {
+      "length": 300,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 25,
+        "away": 9
+      },
+      "drives": {
+        "home": 3,
+        "away": 3
+      },
+      "runs": 17,
+      "passes": 17,
+      "runoff": 714,
+      "live_seconds": 250,
+      "outcomes": {
+        "tackle": 29,
+        "touchdown": 1,
+        "incomplete": 3,
+        "sack": 1
+      },
+      "snaps_per_drive": 5.667,
+      "mean_runoff": 21,
+      "mean_live_seconds": 7.353,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 52,
+        "away": 57
+      },
+      "drives": {
+        "home": 46,
+        "away": 45
+      },
+      "runs": 55,
+      "passes": 54,
+      "runoff": 374,
+      "live_seconds": 606,
+      "outcomes": {
+        "touchdown": 61,
+        "interception": 30,
+        "incomplete": 5,
+        "tackle": 13
+      },
+      "snaps_per_drive": 1.198,
+      "mean_runoff": 3.431,
+      "mean_live_seconds": 5.56,
+      "recording_hash": "0e3112216049143e5b783fe64908822b83396d4ce8fd0816a354298c685b01d1"
+    },
+    {
+      "length": 300,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 62,
+        "away": 55
+      },
+      "drives": {
+        "home": 8,
+        "away": 8
+      },
+      "runs": 59,
+      "passes": 58,
+      "runoff": 267,
+      "live_seconds": 830,
+      "outcomes": {
+        "tackle": 96,
+        "touchdown": 5,
+        "sack": 4,
+        "fumble": 2,
+        "incomplete": 10
+      },
+      "snaps_per_drive": 7.313,
+      "mean_runoff": 2.282,
+      "mean_live_seconds": 7.094,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 109,
+        "away": 103
+      },
+      "drives": {
+        "home": 60,
+        "away": 60
+      },
+      "runs": 106,
+      "passes": 106,
+      "runoff": 246,
+      "live_seconds": 703,
+      "outcomes": {
+        "tackle": 83,
+        "interception": 62,
+        "touchdown": 58,
+        "incomplete": 9
+      },
+      "snaps_per_drive": 1.767,
+      "mean_runoff": 1.16,
+      "mean_live_seconds": 3.316,
+      "recording_hash": "1da547b0d4a9ae6b0683e7b2a8933e358f206a96b45930e53963a513452f2cf1"
+    },
+    {
+      "length": 300,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 50,
+        "away": 69
+      },
+      "drives": {
+        "home": 8,
+        "away": 9
+      },
+      "runs": 60,
+      "passes": 59,
+      "runoff": 258,
+      "live_seconds": 840,
+      "outcomes": {
+        "tackle": 98,
+        "incomplete": 11,
+        "touchdown": 5,
+        "fumble": 1,
+        "interception": 2,
+        "sack": 2
+      },
+      "snaps_per_drive": 7,
+      "mean_runoff": 2.168,
+      "mean_live_seconds": 7.059,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 111,
+        "away": 118
+      },
+      "drives": {
+        "home": 63,
+        "away": 63
+      },
+      "runs": 115,
+      "passes": 114,
+      "runoff": 282,
+      "live_seconds": 709,
+      "outcomes": {
+        "touchdown": 61,
+        "incomplete": 9,
+        "tackle": 95,
+        "interception": 64
+      },
+      "snaps_per_drive": 1.817,
+      "mean_runoff": 1.231,
+      "mean_live_seconds": 3.096,
+      "recording_hash": "61993fed0207583471421ed60e658ae263f2c0f7af46637dca2d3ae95f350fab"
+    },
+    {
+      "length": 300,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 61,
+        "away": 53
+      },
+      "drives": {
+        "home": 9,
+        "away": 9
+      },
+      "runs": 57,
+      "passes": 57,
+      "runoff": 249,
+      "live_seconds": 794,
+      "outcomes": {
+        "tackle": 94,
+        "touchdown": 4,
+        "incomplete": 11,
+        "sack": 4,
+        "fumble": 1
+      },
+      "snaps_per_drive": 6.333,
+      "mean_runoff": 2.184,
+      "mean_live_seconds": 6.965,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 73,
+        "away": 76
+      },
+      "drives": {
+        "home": 61,
+        "away": 61
+      },
+      "runs": 75,
+      "passes": 74,
+      "runoff": 60,
+      "live_seconds": 859,
+      "outcomes": {
+        "touchdown": 83,
+        "interception": 39,
+        "incomplete": 7,
+        "tackle": 20
+      },
+      "snaps_per_drive": 1.221,
+      "mean_runoff": 0.403,
+      "mean_live_seconds": 5.765,
+      "recording_hash": "7472f51ac381d28e3d83f140503bd6f6e1cebcf9181c63c9a960958dd2da2277"
+    },
+    {
+      "length": 300,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 15,
+        "away": 15
+      },
+      "drives": {
+        "home": 2,
+        "away": 2
+      },
+      "runs": 15,
+      "passes": 15,
+      "runoff": 836,
+      "live_seconds": 204,
+      "outcomes": {
+        "tackle": 27,
+        "touchdown": 2,
+        "sack": 1
+      },
+      "snaps_per_drive": 7.5,
+      "mean_runoff": 27.867,
+      "mean_live_seconds": 6.8,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 36,
+        "away": 35
+      },
+      "drives": {
+        "home": 24,
+        "away": 24
+      },
+      "runs": 36,
+      "passes": 35,
+      "runoff": 684,
+      "live_seconds": 288,
+      "outcomes": {
+        "tackle": 23,
+        "interception": 22,
+        "touchdown": 24,
+        "incomplete": 2
+      },
+      "snaps_per_drive": 1.479,
+      "mean_runoff": 9.634,
+      "mean_live_seconds": 4.056,
+      "recording_hash": "6566a3dc4b58daf655e8a08db3afd4008565ad180fe21beb710e7229ccddff28"
+    },
+    {
+      "length": 300,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 22,
+        "away": 12
+      },
+      "drives": {
+        "home": 4,
+        "away": 3
+      },
+      "runs": 17,
+      "passes": 17,
+      "runoff": 722,
+      "live_seconds": 245,
+      "outcomes": {
+        "tackle": 27,
+        "touchdown": 1,
+        "incomplete": 5,
+        "sack": 1
+      },
+      "snaps_per_drive": 4.857,
+      "mean_runoff": 21.235,
+      "mean_live_seconds": 7.206,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 39,
+        "away": 36
+      },
+      "drives": {
+        "home": 26,
+        "away": 26
+      },
+      "runs": 38,
+      "passes": 37,
+      "runoff": 684,
+      "live_seconds": 324,
+      "outcomes": {
+        "touchdown": 29,
+        "incomplete": 3,
+        "tackle": 22,
+        "interception": 21
+      },
+      "snaps_per_drive": 1.442,
+      "mean_runoff": 9.12,
+      "mean_live_seconds": 4.32,
+      "recording_hash": "5b7969e447ea56bbcebf4ec226dc9ad64b7430237c5ae770875737dc61ae214b"
+    },
+    {
+      "length": 300,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 23,
+        "away": 8
+      },
+      "drives": {
+        "home": 3,
+        "away": 3
+      },
+      "runs": 16,
+      "passes": 15,
+      "runoff": 684,
+      "live_seconds": 224,
+      "outcomes": {
+        "tackle": 26,
+        "touchdown": 1,
+        "incomplete": 3,
+        "sack": 1
+      },
+      "snaps_per_drive": 5.167,
+      "mean_runoff": 22.065,
+      "mean_live_seconds": 7.226,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 300,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 50,
+        "away": 49
+      },
+      "drives": {
+        "home": 39,
+        "away": 38
+      },
+      "runs": 50,
+      "passes": 49,
+      "runoff": 456,
+      "live_seconds": 506,
+      "outcomes": {
+        "touchdown": 49,
+        "interception": 27,
+        "incomplete": 6,
+        "tackle": 17
+      },
+      "snaps_per_drive": 1.286,
+      "mean_runoff": 4.606,
+      "mean_live_seconds": 5.111,
+      "recording_hash": "caccdc0e9883411d2d186d3e2bb5a34b739bed55e5a98d06f5284046ab70c19b"
+    },
+    {
+      "length": 600,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 29,
+        "away": 41
+      },
+      "drives": {
+        "home": 5,
+        "away": 5
+      },
+      "runs": 35,
+      "passes": 35,
+      "runoff": 1734,
+      "live_seconds": 486,
+      "outcomes": {
+        "tackle": 56,
+        "touchdown": 4,
+        "incomplete": 7,
+        "sack": 2,
+        "fumble": 1
+      },
+      "snaps_per_drive": 7,
+      "mean_runoff": 24.771,
+      "mean_live_seconds": 6.943,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 74,
+        "away": 71
+      },
+      "drives": {
+        "home": 47,
+        "away": 48
+      },
+      "runs": 73,
+      "passes": 72,
+      "runoff": 1496,
+      "live_seconds": 544,
+      "outcomes": {
+        "tackle": 49,
+        "interception": 44,
+        "touchdown": 49,
+        "incomplete": 3
+      },
+      "snaps_per_drive": 1.526,
+      "mean_runoff": 10.317,
+      "mean_live_seconds": 3.752,
+      "recording_hash": "5033858297a2f8dda1c2756a81ce9b3664838d6c199707bc670a489d2c11f5c2"
+    },
+    {
+      "length": 600,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 35,
+        "away": 34
+      },
+      "drives": {
+        "home": 5,
+        "away": 5
+      },
+      "runs": 35,
+      "passes": 34,
+      "runoff": 1700,
+      "live_seconds": 493,
+      "outcomes": {
+        "tackle": 57,
+        "incomplete": 5,
+        "touchdown": 4,
+        "sack": 1,
+        "fumble": 1,
+        "interception": 1
+      },
+      "snaps_per_drive": 6.9,
+      "mean_runoff": 24.638,
+      "mean_live_seconds": 7.145,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 75,
+        "away": 78
+      },
+      "drives": {
+        "home": 51,
+        "away": 51
+      },
+      "runs": 77,
+      "passes": 76,
+      "runoff": 1530,
+      "live_seconds": 604,
+      "outcomes": {
+        "touchdown": 55,
+        "incomplete": 4,
+        "tackle": 49,
+        "interception": 45
+      },
+      "snaps_per_drive": 1.5,
+      "mean_runoff": 10,
+      "mean_live_seconds": 3.948,
+      "recording_hash": "919b6ff7338192984a6b1ed850a2167e36170783f5331bfa48936a83ad94172c"
+    },
+    {
+      "length": 600,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 33,
+        "away": 31
+      },
+      "drives": {
+        "home": 6,
+        "away": 6
+      },
+      "runs": 32,
+      "passes": 32,
+      "runoff": 1530,
+      "live_seconds": 456,
+      "outcomes": {
+        "tackle": 56,
+        "touchdown": 2,
+        "incomplete": 3,
+        "sack": 1,
+        "fumble": 2
+      },
+      "snaps_per_drive": 5.333,
+      "mean_runoff": 23.906,
+      "mean_live_seconds": 7.125,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 98,
+        "away": 95
+      },
+      "drives": {
+        "home": 78,
+        "away": 77
+      },
+      "runs": 97,
+      "passes": 96,
+      "runoff": 918,
+      "live_seconds": 1099,
+      "outcomes": {
+        "touchdown": 105,
+        "interception": 48,
+        "incomplete": 10,
+        "tackle": 30
+      },
+      "snaps_per_drive": 1.245,
+      "mean_runoff": 4.756,
+      "mean_live_seconds": 5.694,
+      "recording_hash": "c7d91889793c5c85b095824781857514c5087133d52e761e294d3ac342a8af65"
+    },
+    {
+      "length": 600,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 117,
+        "away": 120
+      },
+      "drives": {
+        "home": 16,
+        "away": 16
+      },
+      "runs": 119,
+      "passes": 118,
+      "runoff": 546,
+      "live_seconds": 1663,
+      "outcomes": {
+        "tackle": 193,
+        "touchdown": 11,
+        "sack": 6,
+        "fumble": 5,
+        "incomplete": 20,
+        "interception": 2
+      },
+      "snaps_per_drive": 7.406,
+      "mean_runoff": 2.304,
+      "mean_live_seconds": 7.017,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 260,
+        "away": 256
+      },
+      "drives": {
+        "home": 119,
+        "away": 119
+      },
+      "runs": 258,
+      "passes": 258,
+      "runoff": 753,
+      "live_seconds": 1215,
+      "outcomes": {
+        "tackle": 252,
+        "interception": 141,
+        "touchdown": 96,
+        "incomplete": 27
+      },
+      "snaps_per_drive": 2.168,
+      "mean_runoff": 1.459,
+      "mean_live_seconds": 2.355,
+      "recording_hash": "f6e505fa200cc8cac29f46d8523e1399f67d3992ba55884a61274876031cf93b"
+    },
+    {
+      "length": 600,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 112,
+        "away": 122
+      },
+      "drives": {
+        "home": 17,
+        "away": 16
+      },
+      "runs": 117,
+      "passes": 117,
+      "runoff": 513,
+      "live_seconds": 1655,
+      "outcomes": {
+        "tackle": 188,
+        "incomplete": 30,
+        "touchdown": 10,
+        "fumble": 2,
+        "interception": 2,
+        "sack": 2
+      },
+      "snaps_per_drive": 7.091,
+      "mean_runoff": 2.192,
+      "mean_live_seconds": 7.073,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 174,
+        "away": 174
+      },
+      "drives": {
+        "home": 121,
+        "away": 120
+      },
+      "runs": 174,
+      "passes": 174,
+      "runoff": 276,
+      "live_seconds": 1552,
+      "outcomes": {
+        "touchdown": 136,
+        "incomplete": 18,
+        "tackle": 93,
+        "interception": 101
+      },
+      "snaps_per_drive": 1.444,
+      "mean_runoff": 0.793,
+      "mean_live_seconds": 4.46,
+      "recording_hash": "f910502e8613a12c4f6eaf1f31cb4f649389d0b6bfc6111db9e8328a187baba5"
+    },
+    {
+      "length": 600,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 109,
+        "away": 119
+      },
+      "drives": {
+        "home": 17,
+        "away": 17
+      },
+      "runs": 114,
+      "passes": 114,
+      "runoff": 519,
+      "live_seconds": 1635,
+      "outcomes": {
+        "tackle": 187,
+        "touchdown": 11,
+        "incomplete": 20,
+        "sack": 7,
+        "fumble": 3
+      },
+      "snaps_per_drive": 6.706,
+      "mean_runoff": 2.276,
+      "mean_live_seconds": 7.171,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 144,
+        "away": 153
+      },
+      "drives": {
+        "home": 121,
+        "away": 122
+      },
+      "runs": 149,
+      "passes": 148,
+      "runoff": 111,
+      "live_seconds": 1753,
+      "outcomes": {
+        "touchdown": 166,
+        "interception": 76,
+        "incomplete": 15,
+        "tackle": 40
+      },
+      "snaps_per_drive": 1.222,
+      "mean_runoff": 0.374,
+      "mean_live_seconds": 5.902,
+      "recording_hash": "826cef6a825f566a198ff280f2eaf8128f91a31043df47c47423ad52f22bb3eb"
+    },
+    {
+      "length": 600,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 25,
+        "away": 36
+      },
+      "drives": {
+        "home": 6,
+        "away": 6
+      },
+      "runs": 31,
+      "passes": 30,
+      "runoff": 1558,
+      "live_seconds": 428,
+      "outcomes": {
+        "tackle": 50,
+        "touchdown": 2,
+        "incomplete": 7,
+        "sack": 2
+      },
+      "snaps_per_drive": 5.083,
+      "mean_runoff": 25.541,
+      "mean_live_seconds": 7.016,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 67,
+        "away": 62
+      },
+      "drives": {
+        "home": 38,
+        "away": 38
+      },
+      "runs": 65,
+      "passes": 64,
+      "runoff": 1710,
+      "live_seconds": 426,
+      "outcomes": {
+        "tackle": 51,
+        "interception": 42,
+        "touchdown": 32,
+        "incomplete": 4
+      },
+      "snaps_per_drive": 1.697,
+      "mean_runoff": 13.256,
+      "mean_live_seconds": 3.302,
+      "recording_hash": "4091261ac529a3415f3d4547c35b38a0136ca7d8096302ac621c6623fdac6779"
+    },
+    {
+      "length": 600,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 34,
+        "away": 30
+      },
+      "drives": {
+        "home": 4,
+        "away": 4
+      },
+      "runs": 32,
+      "passes": 32,
+      "runoff": 1748,
+      "live_seconds": 445,
+      "outcomes": {
+        "tackle": 53,
+        "incomplete": 5,
+        "touchdown": 3,
+        "sack": 2,
+        "fumble": 1
+      },
+      "snaps_per_drive": 8,
+      "mean_runoff": 27.313,
+      "mean_live_seconds": 6.953,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 67,
+        "away": 68
+      },
+      "drives": {
+        "home": 42,
+        "away": 43
+      },
+      "runs": 68,
+      "passes": 67,
+      "runoff": 1596,
+      "live_seconds": 490,
+      "outcomes": {
+        "touchdown": 44,
+        "incomplete": 5,
+        "tackle": 47,
+        "interception": 39
+      },
+      "snaps_per_drive": 1.588,
+      "mean_runoff": 11.822,
+      "mean_live_seconds": 3.63,
+      "recording_hash": "4a3667d14097dfd42dd204adf600074244206643412b2e5aeaa6533066c8cc84"
+    },
+    {
+      "length": 600,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 34,
+        "away": 27
+      },
+      "drives": {
+        "home": 6,
+        "away": 6
+      },
+      "runs": 31,
+      "passes": 30,
+      "runoff": 1596,
+      "live_seconds": 428,
+      "outcomes": {
+        "tackle": 52,
+        "touchdown": 1,
+        "incomplete": 6,
+        "sack": 1,
+        "fumble": 1
+      },
+      "snaps_per_drive": 5.083,
+      "mean_runoff": 26.164,
+      "mean_live_seconds": 7.016,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 600,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 93,
+        "away": 102
+      },
+      "drives": {
+        "home": 82,
+        "away": 83
+      },
+      "runs": 98,
+      "passes": 97,
+      "runoff": 722,
+      "live_seconds": 1170,
+      "outcomes": {
+        "touchdown": 113,
+        "interception": 51,
+        "incomplete": 9,
+        "tackle": 22
+      },
+      "snaps_per_drive": 1.182,
+      "mean_runoff": 3.703,
+      "mean_live_seconds": 6,
+      "recording_hash": "a853589990c6182c37eb735684ab7bf313eec21ac26e810a21fc3559324794f5"
+    },
+    {
+      "length": 900,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 52,
+        "away": 49
+      },
+      "drives": {
+        "home": 7,
+        "away": 6
+      },
+      "runs": 51,
+      "passes": 50,
+      "runoff": 2618,
+      "live_seconds": 713,
+      "outcomes": {
+        "tackle": 86,
+        "touchdown": 6,
+        "incomplete": 8,
+        "interception": 1
+      },
+      "snaps_per_drive": 7.769,
+      "mean_runoff": 25.921,
+      "mean_live_seconds": 7.059,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 106,
+        "away": 101
+      },
+      "drives": {
+        "home": 61,
+        "away": 60
+      },
+      "runs": 104,
+      "passes": 103,
+      "runoff": 2584,
+      "live_seconds": 672,
+      "outcomes": {
+        "tackle": 81,
+        "interception": 68,
+        "touchdown": 52,
+        "incomplete": 6
+      },
+      "snaps_per_drive": 1.711,
+      "mean_runoff": 12.483,
+      "mean_live_seconds": 3.246,
+      "recording_hash": "7a8ad0632816e4d6b1899778b8004866172e94db924445aa44db53b6857e4d2d"
+    },
+    {
+      "length": 900,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 53,
+        "away": 49
+      },
+      "drives": {
+        "home": 6,
+        "away": 6
+      },
+      "runs": 51,
+      "passes": 51,
+      "runoff": 2652,
+      "live_seconds": 708,
+      "outcomes": {
+        "tackle": 86,
+        "incomplete": 7,
+        "touchdown": 5,
+        "interception": 2,
+        "sack": 2
+      },
+      "snaps_per_drive": 8.5,
+      "mean_runoff": 26,
+      "mean_live_seconds": 6.941,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 109,
+        "away": 110
+      },
+      "drives": {
+        "home": 66,
+        "away": 67
+      },
+      "runs": 110,
+      "passes": 109,
+      "runoff": 2482,
+      "live_seconds": 789,
+      "outcomes": {
+        "touchdown": 69,
+        "incomplete": 9,
+        "tackle": 78,
+        "interception": 63
+      },
+      "snaps_per_drive": 1.647,
+      "mean_runoff": 11.333,
+      "mean_live_seconds": 3.603,
+      "recording_hash": "5c4d684b8dd24cd230a5898ea6138f09e34d42c3e3dbaafb0e9de0eb668af43c"
+    },
+    {
+      "length": 900,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 57,
+        "away": 40
+      },
+      "drives": {
+        "home": 7,
+        "away": 6
+      },
+      "runs": 49,
+      "passes": 48,
+      "runoff": 2550,
+      "live_seconds": 700,
+      "outcomes": {
+        "tackle": 84,
+        "touchdown": 3,
+        "incomplete": 5,
+        "sack": 3,
+        "fumble": 2
+      },
+      "snaps_per_drive": 7.462,
+      "mean_runoff": 26.289,
+      "mean_live_seconds": 7.216,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 139,
+        "away": 138
+      },
+      "drives": {
+        "home": 106,
+        "away": 107
+      },
+      "runs": 139,
+      "passes": 138,
+      "runoff": 1700,
+      "live_seconds": 1399,
+      "outcomes": {
+        "touchdown": 125,
+        "interception": 85,
+        "incomplete": 13,
+        "tackle": 54
+      },
+      "snaps_per_drive": 1.3,
+      "mean_runoff": 6.137,
+      "mean_live_seconds": 5.051,
+      "recording_hash": "fe510b6ca31f96d6da829f24177f3719cf6a744985ea0836281c4b7016d1309c"
+    },
+    {
+      "length": 900,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 168,
+        "away": 185
+      },
+      "drives": {
+        "home": 26,
+        "away": 25
+      },
+      "runs": 177,
+      "passes": 176,
+      "runoff": 768,
+      "live_seconds": 2477,
+      "outcomes": {
+        "tackle": 274,
+        "touchdown": 18,
+        "sack": 8,
+        "fumble": 5,
+        "incomplete": 45,
+        "interception": 3
+      },
+      "snaps_per_drive": 6.922,
+      "mean_runoff": 2.176,
+      "mean_live_seconds": 7.017,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "hurry",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 345,
+        "away": 329
+      },
+      "drives": {
+        "home": 185,
+        "away": 185
+      },
+      "runs": 337,
+      "passes": 337,
+      "runoff": 792,
+      "live_seconds": 2119,
+      "outcomes": {
+        "tackle": 267,
+        "interception": 194,
+        "touchdown": 173,
+        "incomplete": 40
+      },
+      "snaps_per_drive": 1.822,
+      "mean_runoff": 1.175,
+      "mean_live_seconds": 3.144,
+      "recording_hash": "05aeb752d129d3c9eae3142594bc9e43707eee0231c4560a2b532448558c2325"
+    },
+    {
+      "length": 900,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 152,
+        "away": 193
+      },
+      "drives": {
+        "home": 25,
+        "away": 26
+      },
+      "runs": 173,
+      "passes": 172,
+      "runoff": 765,
+      "live_seconds": 2414,
+      "outcomes": {
+        "tackle": 280,
+        "incomplete": 35,
+        "touchdown": 16,
+        "fumble": 5,
+        "interception": 2,
+        "sack": 7
+      },
+      "snaps_per_drive": 6.765,
+      "mean_runoff": 2.217,
+      "mean_live_seconds": 6.997,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "hurry",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 291,
+        "away": 294
+      },
+      "drives": {
+        "home": 180,
+        "away": 178
+      },
+      "runs": 293,
+      "passes": 292,
+      "runoff": 597,
+      "live_seconds": 2178,
+      "outcomes": {
+        "touchdown": 186,
+        "incomplete": 30,
+        "tackle": 201,
+        "interception": 168
+      },
+      "snaps_per_drive": 1.634,
+      "mean_runoff": 1.021,
+      "mean_live_seconds": 3.723,
+      "recording_hash": "4df8983edbba758fb53d284de220db852070ec60710fec7334cd1e11933ea72d"
+    },
+    {
+      "length": 900,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 168,
+        "away": 176
+      },
+      "drives": {
+        "home": 28,
+        "away": 29
+      },
+      "runs": 172,
+      "passes": 172,
+      "runoff": 744,
+      "live_seconds": 2448,
+      "outcomes": {
+        "tackle": 274,
+        "touchdown": 16,
+        "incomplete": 38,
+        "sack": 6,
+        "fumble": 7,
+        "interception": 3
+      },
+      "snaps_per_drive": 6.035,
+      "mean_runoff": 2.163,
+      "mean_live_seconds": 7.116,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "hurry",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 272,
+        "away": 274
+      },
+      "drives": {
+        "home": 196,
+        "away": 196
+      },
+      "runs": 273,
+      "passes": 273,
+      "runoff": 375,
+      "live_seconds": 2453,
+      "outcomes": {
+        "touchdown": 224,
+        "interception": 166,
+        "incomplete": 28,
+        "tackle": 128
+      },
+      "snaps_per_drive": 1.393,
+      "mean_runoff": 0.687,
+      "mean_live_seconds": 4.493,
+      "recording_hash": "e58408b6ede2107e7cb4084f6c614c8143965a0eab4b3624723dd0fc9d0e4079"
+    },
+    {
+      "length": 900,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 50,
+        "away": 46
+      },
+      "drives": {
+        "home": 9,
+        "away": 8
+      },
+      "runs": 48,
+      "passes": 48,
+      "runoff": 2584,
+      "live_seconds": 669,
+      "outcomes": {
+        "tackle": 76,
+        "touchdown": 5,
+        "incomplete": 10,
+        "sack": 3,
+        "fumble": 2
+      },
+      "snaps_per_drive": 5.647,
+      "mean_runoff": 26.917,
+      "mean_live_seconds": 6.969,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "drain",
+      "seed": 42,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 102,
+        "away": 91
+      },
+      "drives": {
+        "home": 58,
+        "away": 58
+      },
+      "runs": 97,
+      "passes": 96,
+      "runoff": 2622,
+      "live_seconds": 653,
+      "outcomes": {
+        "tackle": 73,
+        "interception": 63,
+        "touchdown": 52,
+        "incomplete": 5
+      },
+      "snaps_per_drive": 1.664,
+      "mean_runoff": 13.585,
+      "mean_live_seconds": 3.383,
+      "recording_hash": "90cee32528187c6440455c482eb52e08e12ee235cf11bc2d1d2425089cb20b5e"
+    },
+    {
+      "length": 900,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 55,
+        "away": 42
+      },
+      "drives": {
+        "home": 8,
+        "away": 8
+      },
+      "runs": 49,
+      "passes": 48,
+      "runoff": 2660,
+      "live_seconds": 664,
+      "outcomes": {
+        "tackle": 79,
+        "incomplete": 9,
+        "touchdown": 6,
+        "fumble": 2,
+        "interception": 1
+      },
+      "snaps_per_drive": 6.063,
+      "mean_runoff": 27.423,
+      "mean_live_seconds": 6.845,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "drain",
+      "seed": 137,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 102,
+        "away": 97
+      },
+      "drives": {
+        "home": 60,
+        "away": 61
+      },
+      "runs": 100,
+      "passes": 99,
+      "runoff": 2508,
+      "live_seconds": 701,
+      "outcomes": {
+        "touchdown": 61,
+        "incomplete": 8,
+        "tackle": 72,
+        "interception": 58
+      },
+      "snaps_per_drive": 1.645,
+      "mean_runoff": 12.603,
+      "mean_live_seconds": 3.523,
+      "recording_hash": "2c9ba7af87f0f5519e8cf3c19ba512abc296b0c8d50a5ce90c0cfe9a29fe6fbd"
+    },
+    {
+      "length": 900,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "seeded_coach",
+      "snaps": {
+        "home": 49,
+        "away": 38
+      },
+      "drives": {
+        "home": 6,
+        "away": 7
+      },
+      "runs": 44,
+      "passes": 43,
+      "runoff": 2546,
+      "live_seconds": 618,
+      "outcomes": {
+        "tackle": 77,
+        "touchdown": 4,
+        "incomplete": 3,
+        "sack": 3
+      },
+      "snaps_per_drive": 6.692,
+      "mean_runoff": 29.264,
+      "mean_live_seconds": 7.103,
+      "recording_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "length": 900,
+      "tempo": "drain",
+      "seed": 2026,
+      "mode": "scripted_physics",
+      "snaps": {
+        "home": 136,
+        "away": 138
+      },
+      "drives": {
+        "home": 112,
+        "away": 111
+      },
+      "runs": 137,
+      "passes": 137,
+      "runoff": 1368,
+      "live_seconds": 1599,
+      "outcomes": {
+        "touchdown": 151,
+        "interception": 71,
+        "incomplete": 12,
+        "tackle": 40
+      },
+      "snaps_per_drive": 1.229,
+      "mean_runoff": 4.993,
+      "mean_live_seconds": 5.836,
+      "recording_hash": "0ae8ffa35353c29a79e11f12a3bdbcb3214cdfe5d2b8d164ac404f1f9e327a94"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 42,
+      "mode": "scripted_early_lead",
+      "snaps": {
+        "home": 16,
+        "away": 13
+      },
+      "drives": {
+        "home": 5,
+        "away": 5
+      },
+      "runs": 15,
+      "passes": 14,
+      "runoff": 306,
+      "live_seconds": 81,
+      "outcomes": {
+        "tackle": 11,
+        "incomplete": 14,
+        "touchdown": 4
+      },
+      "snaps_per_drive": 2.9,
+      "mean_runoff": 10.552,
+      "mean_live_seconds": 2.793,
+      "recording_hash": "855c94d969c63201d8d841f463da46e260f46cf3b5f457d9ee3c4d8b4b9ac615"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 137,
+      "mode": "scripted_early_lead",
+      "snaps": {
+        "home": 17,
+        "away": 14
+      },
+      "drives": {
+        "home": 5,
+        "away": 5
+      },
+      "runs": 16,
+      "passes": 15,
+      "runoff": 272,
+      "live_seconds": 79,
+      "outcomes": {
+        "touchdown": 4,
+        "incomplete": 15,
+        "tackle": 12
+      },
+      "snaps_per_drive": 3.1,
+      "mean_runoff": 8.774,
+      "mean_live_seconds": 2.548,
+      "recording_hash": "c7e861e734695bfd87c9c6fbdb2357c07d24dd0661aab9e62b5300d549981d7e"
+    },
+    {
+      "length": 120,
+      "tempo": "normal",
+      "seed": 2026,
+      "mode": "scripted_early_lead",
+      "snaps": {
+        "home": 22,
+        "away": 24
+      },
+      "drives": {
+        "home": 10,
+        "away": 10
+      },
+      "runs": 23,
+      "passes": 23,
+      "runoff": 136,
+      "live_seconds": 233,
+      "outcomes": {
+        "touchdown": 17,
+        "incomplete": 23,
+        "tackle": 6
+      },
+      "snaps_per_drive": 2.3,
+      "mean_runoff": 2.957,
+      "mean_live_seconds": 5.065,
+      "recording_hash": "4177941ecd496cf93b6ce7a42643b45423aadac5c63f9d9f246532485d91e2fa"
+    }
+  ],
+  "duration_only_clock_budget_estimate": {
+    "scope": "Analytical clock-budget estimate only, not human play or a replayed full simulation. Snaps-weighted 120-second normal-tempo observed live durations are substituted while holding runoff fixed. No changes to physics.",
+    "coach_mean_live_seconds": 6.714285714285714,
+    "coach_observed_mean_runoff_seconds": 17.80952380952381,
+    "comparison": [
+      {
+        "profile": "scripted_physics",
+        "case": "all_running_clock_34_seconds",
+        "arcade_mean_live_seconds": 4.891891891891892,
+        "coach_budget_seconds": 40.714285714285715,
+        "substituted_budget_seconds": 38.891891891891895,
+        "budget_reduction_percent": 4.476055002370787,
+        "same_time_snap_capacity_increase_percent": 4.685793705946595
+      },
+      {
+        "profile": "scripted_physics",
+        "case": "coach_observed_runoff_mix_held_fixed",
+        "arcade_mean_live_seconds": 4.891891891891892,
+        "coach_budget_seconds": 24.523809523809526,
+        "substituted_budget_seconds": 22.7014157014157,
+        "budget_reduction_percent": 7.431120440829185,
+        "same_time_snap_capacity_increase_percent": 8.027665967458475
+      },
+      {
+        "profile": "scripted_early_lead",
+        "case": "all_running_clock_34_seconds",
+        "arcade_mean_live_seconds": 3.707547169811321,
+        "coach_budget_seconds": 40.714285714285715,
+        "substituted_budget_seconds": 37.70754716981132,
+        "budget_reduction_percent": 7.3849718636213195,
+        "same_time_snap_capacity_increase_percent": 7.973837520997895
+      },
+      {
+        "profile": "scripted_early_lead",
+        "case": "coach_observed_runoff_mix_held_fixed",
+        "arcade_mean_live_seconds": 3.707547169811321,
+        "coach_budget_seconds": 24.523809523809526,
+        "substituted_budget_seconds": 21.51707097933513,
+        "budget_reduction_percent": 12.26048726873054,
+        "same_time_snap_capacity_increase_percent": 13.97373530701298
+      }
+    ],
+    "limitations": [
+      "The 34-second case assumes every compared snap follows a running clock, so ignores start/stop events and boundaries.",
+      "The second case holds Coach observed average runoff fixed to isolate duration from the differing outcome mixes. It is an average-budget substitution, not a matched chronological outcome simulation.",
+      "Does not predict possessions, drive length, exact game snap count, touchdowns, or clock boundary effects. Special teams and first-snap/period effects are not modeled."
+    ]
+  },
+  "provenance": {
+    "captured_at_utc": "2026-11-11T01:46:17.598463+00:00",
+    "base_commit": "4584059be96b93a36345a08d7a5f66499f243d89",
+    "working_tree": "Isolated feature/arcade-gameplay checkout with uncommitted Phase 4B changes; source hashes below identify benchmark inputs.",
+    "report_source": "Final frozen-source full PHP suite report, /tmp/arcade-phase4b-php.log; all 93 benchmark JSON rows verified unique. Overall suite result is recorded separately on issue #4.",
+    "source_sha256": {
+      "resources/js/arcade/simulation.js": "22ab2804e961a1d5ac5e54d154445231e6f4ad268340881cd7151498bd0467f3",
+      "resources/js/arcade/passing.js": "352bc1ce9481316440eb7c6656899182b42ce27fdec51e1ec654db3b16d8affd",
+      "resources/js/arcade/recording.js": "90e9603ba180c7463eb3bbc1d7f8f99f43da1dadaf8d34c6fae27d6734f1c1b4",
+      "resources/js/arcade/tuning.js": "62928dad325de133719795bc949e030d0ec487f7fc7f8861c793c7fc01b503c9",
+      "tests/Fixtures/arcade-pacing-physics.mjs": "aaf8694f35e517c0362ab1aa7dcc3770fe4e9ea0d59a222bbc1e8d402e16a8d9",
+      "tests/Feature/ArcadePacingRegressionTest.php": "c4b4785ca0252e2eb6e26c58819c1adacc376b178744e5c7a32817dd85f280da",
+      "app/Services/Simulation/ExhibitionEngine.php": "28960a9bb9782d1b9532a77164d9874fe686ef0cfc4e0333345ea4e360a71dab",
+      "app/Services/Simulation/PreSnapPolicy.php": "35ab785f53256a76ab82ab486bcc9688ac52082fb21c5f481ab98c87f10c7911",
+      "app/Services/Simulation/ScrimmageAccounting.php": "ea966bdca8cc9ac0e084ccb878c8e55a62ce06cafa097c899c66f5716019a726",
+      "app/Services/Simulation/PlayFinalizer.php": "d903c7717d538f388e58e83ca8bf3b224e5a4567bea49e1ad7d20c02f8ca4aeb",
+      "app/Services/Simulation/GameClock.php": "d45f2289ecbf88b556c5fd8f914d3d89b4d3b0c07846b0e3dad982dcff9a1609"
+    },
+    "report_rows_sha256": "d8be880f3f8e662446cf09429c5cfa6d5a29658cf89bb27bdc167f6b350114a1",
+    "refresh_summary": {
+      "rows": 93,
+      "recording_hashes_changed": 48,
+      "metric_rows_changed": 0,
+      "note": "Final terminal/contact metadata refresh changes recording hashes for every physics profile game. All offensive snap, possession, outcome, duration, runoff and drive metrics remain identical. Duration-only analysis remains numerically unchanged."
+    }
+  }
+}

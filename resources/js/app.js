@@ -48,6 +48,11 @@ function initializePractice() {
     mountTeamPlayEditors();
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
+    const exhibition = document.querySelector('[data-arcade-exhibition]');
+    if (exhibition) import('./arcade/exhibition.js').then(module => module.mountExhibition(exhibition)).catch(error => {
+        console.error('[WebSports Arcade] Exhibition initialization failed:', error);
+        exhibition.querySelector('[data-exhibition-status]').textContent = 'Unable to initialize Arcade. Reload saved state to recover any reserved play.';
+    });
     const arcade = document.querySelector('[data-arcade]');
     if (arcade) import('./arcade/index.js').then(module => module.mountArcade(arcade)).catch(error => {
         console.error('[WebSports Arcade] Initialization failed:', error);

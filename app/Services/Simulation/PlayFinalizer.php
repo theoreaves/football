@@ -11,7 +11,10 @@ namespace App\Services\Simulation;
  */
 class PlayFinalizer
 {
-    public function finish(array $state, array $before, array $play, array $rosters, int $seconds): array
+    /**
+     * @param  array|null  $recordedAnimation  Validated world-space recording with actual participant IDs; never mirrored or regenerated.
+     */
+    public function finish(array $state, array $before, array $play, array $rosters, int $seconds, ?array $recordedAnimation = null): array
     {
         $state = app(GameClock::class)->normalize($state);
         $snapBefore = app(GameClock::class)->normalize($before);
@@ -26,7 +29,7 @@ class PlayFinalizer
             if (app(CpuCoach::class)->controls($state)[$beneficiary] === 'human') {
                 foreach (['accept' => true, 'decline' => false] as $decision => $choice) {
                     $option = app(PenaltyRules::class)->enforce($snapBefore, $state, $play, $penalty, $choice);
-                    $decisionOptions[$decision] = $this->finish($option['state'], $before, $option['play'], $rosters, $seconds);
+                    $decisionOptions[$decision] = $this->finish($option['state'], $before, $option['play'], $rosters, $seconds, $recordedAnimation);
                 }
             }
             $state = $result['state'];
@@ -38,18 +41,24 @@ class PlayFinalizer
         $state['version']++;
         $play += ['number' => $state['version'], 'before' => $before, 'after' => $state, 'duration' => 6];
         $play['summary'] = ucfirst($play['summary']);
-        $animationPlay = array_merge($play, ['outcome' => $play['live_outcome'] ?? $play['outcome']]);
-        $variety = AnimationVariety::choose($animationPlay);
-        if ($variety !== null) {
-            $play['animation_variety'] = $animationPlay['animation_variety'] = $variety;
-            $state['animation_variety_counts'][$variety['family']] = (int) ($before['animation_variety_counts'][$variety['family']] ?? 0) + 1;
+        if ($recordedAnimation !== null) {
+            // Interactive recordings already use world coordinates and actual participants.
+            $play['animation'] = $recordedAnimation;
+            $play['animation']['no_huddle'] = (bool) ($snapBefore['_hold_personnel'] ?? false);
+        } else {
+            $animationPlay = array_merge($play, ['outcome' => $play['live_outcome'] ?? $play['outcome']]);
+            $variety = AnimationVariety::choose($animationPlay);
+            if ($variety !== null) {
+                $play['animation_variety'] = $animationPlay['animation_variety'] = $variety;
+                $state['animation_variety_counts'][$variety['family']] = (int) ($before['animation_variety_counts'][$variety['family']] ?? 0) + 1;
+            }
+
+            $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)
+                ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
+
+            $play['animation']['no_huddle'] = (bool) ($snapBefore['_hold_personnel'] ?? false);
+            $play['animation'] = FieldOrientation::animation($play['animation'], $before);
         }
-
-        $play['animation'] = ($play['no_snap'] ?? false) ? app(StoppageTimeline::class)->build($play, $rosters) : (in_array($play['call'], ['punt', 'field_goal', 'kickoff', 'extra_point', 'onside_kick'], true)
-            ? app(SpecialTeamsTimeline::class)->build($animationPlay, $rosters) : app(PlayTimeline::class)->build($animationPlay, $rosters));
-
-        $play['animation']['no_huddle'] = (bool) ($snapBefore['_hold_personnel'] ?? false);
-        $play['animation'] = FieldOrientation::animation($play['animation'], $before);
 
         // Keep choices in the saved before-state for replays, never in the next-play state.
         unset($state['_snap_lineup']);

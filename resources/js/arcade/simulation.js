@@ -13,19 +13,20 @@ export function createActor(player, x, z, facing) {
         jukeRemaining: 0, jukeCooldown: 0, jukeDirection: 0, contactLatched: false };
 }
 
-export function createDrill({ runner, defenders, defenderCount = 1, direction = 1, seed = 1, speedScale = DEFAULT_SPEED_SCALE }) {
+export function createDrill({ runner, defenders, defenderCount = 1, direction = 1, seed = 1, speedScale = DEFAULT_SPEED_SCALE, exhibition = null }) {
     if (!runner || !Array.isArray(defenders) || ![1, 2].includes(defenderCount) || defenders.length < defenderCount) {
         throw new Error('A roster runner and one or two roster defenders are required.');
     }
     if (![1, -1].includes(direction)) throw new Error('Direction must be 1 or -1.');
-    const startX = direction === 1 ? 80 : 40;
+    const startX = exhibition?.startX ?? (direction === 1 ? 80 : 40);
     return { mode: 'running', tuningVersion: GAMEPLAY_TUNING_VERSION, speedScale: normalizeSpeedScale(speedScale),
-        status: 'ready', tick: 0, elapsed: 0, direction, startX, goalX: direction === 1 ? 110 : 10,
-        rearX: startX - direction * DRILL_RETREAT_YARDS,
+        status: 'ready', tick: 0, elapsed: 0, direction, startX, goalX: exhibition?.goalX ?? (direction === 1 ? 110 : 10),
+        rearX: exhibition?.rearX ?? (startX - direction * DRILL_RETREAT_YARDS),
+        ...(exhibition ? {exhibition: true, firstDownX: exhibition.firstDownX} : {}), events: [],
         seed: finite(seed, 1) >>> 0, randomState: finite(seed, 1) >>> 0, result: null, brokenTackles: 0,
         runner: createActor(runner, startX, FIELD_WIDTH / 2, direction === 1 ? 0 : Math.PI),
         defenders: defenders.slice(0, defenderCount).map((player, index) => createActor(player,
-            startX + direction * (10 + index * 8), FIELD_WIDTH / 2 + (index ? 6 : 0), direction === 1 ? Math.PI : 0)) };
+            (exhibition ? clamp(startX + direction * (10 + index * 8), 10, 110) : startX + direction * (10 + index * 8)), FIELD_WIDTH / 2 + (index ? 6 : 0), direction === 1 ? Math.PI : 0)) };
 }
 
 export function startDrill(state) {
@@ -78,6 +79,7 @@ function finish(state, reason, fraction, previous) {
     });
     state.elapsed = (state.tick - 1 + fraction) * STEP_SECONDS;
     state.status = 'finished';
+    if (state.exhibition && ['tackle', 'out_of_bounds'].includes(reason) && (state.runner.x - state.rearX) * state.direction <= 0) reason = 'safety';
     state.result = { reason, yards: (state.runner.x - state.startX) * state.direction, time: state.elapsed };
 }
 
@@ -125,7 +127,7 @@ export function stepDrill(state, input = {}) {
         if (end !== start) events.push({ time: clamp((boundary - start) / (end - start), 0, 1), reason });
     };
     if ((runner.x - state.goalX) * state.direction >= 0) crossing(previous[0].x, runner.x, state.goalX, 'touchdown');
-    if ((runner.x - state.rearX) * state.direction <= 0) crossing(previous[0].x, runner.x, state.rearX, 'out_of_bounds');
+    if (!state.exhibition && (runner.x - state.rearX) * state.direction <= 0) crossing(previous[0].x, runner.x, state.rearX, state.exhibition ? 'safety' : 'out_of_bounds');
     if (runner.z <= 0) crossing(previous[0].z, runner.z, 0, 'out_of_bounds');
     if (runner.z >= FIELD_WIDTH) crossing(previous[0].z, runner.z, FIELD_WIDTH, 'out_of_bounds');
     if (runner.x <= 0) crossing(previous[0].x, runner.x, 0, 'out_of_bounds');
@@ -152,6 +154,7 @@ export function stepDrill(state, input = {}) {
         const escapeChance = clamp(0.16 + (rating(runner, 'strength') - rating(defender, 'tackling')) * 0.006
             + (1 - squareContact) * 0.42, 0.02, 0.85);
         if (nextRandom(state) >= escapeChance) {
+            state.events.push({tick: state.tick, time: (state.tick - 1 + event.time) * STEP_SECONDS, type: 'tackle', actorKey: 'runner', targetKey: `defender:${event.index}`});
             finish(state, 'tackle', event.time, previous);
             return state;
         }
@@ -161,6 +164,7 @@ export function stepDrill(state, input = {}) {
         runner.vx *= 0.85;
         runner.vz *= 0.85;
         state.brokenTackles++;
+        state.events.push({tick: state.tick, time: (state.tick - 1 + event.time) * STEP_SECONDS, type: 'broken_tackle', actorKey: 'runner', targetKey: `defender:${event.index}`});
     }
     if (state.elapsed >= DRILL_SECONDS) finish(state, 'timeout', 1, previous);
     return state;

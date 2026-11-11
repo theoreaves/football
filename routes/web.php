@@ -82,6 +82,13 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/teams/{team}/stadium-art/{file}', [\App\Http\Controllers\PracticeController::class, 'stadiumArt'])->name('teams.stadium-art');
         Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');
 
+        Route::prefix('exhibitions/{exhibition}/arcade')->name('exhibitions.arcade.')->controller(\App\Http\Controllers\ArcadeExhibitionController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/sessions', 'start')->name('start');
+            Route::post('/sessions/{session}/submit', 'submit')->name('submit');
+            Route::post('/sessions/{session}/cancel', 'cancel')->name('cancel');
+        });
+
         Route::get('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'index'])->name('exhibitions.index');
         Route::post('/exhibitions', [\App\Http\Controllers\ExhibitionController::class, 'store'])->name('exhibitions.store');
         Route::get('/exhibitions/{exhibition}', [\App\Http\Controllers\ExhibitionController::class, 'show'])->name('exhibitions.show');

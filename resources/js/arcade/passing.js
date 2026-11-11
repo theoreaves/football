@@ -23,7 +23,7 @@ function makeActor(player, key, x, z, direction) {
 }
 
 export function createPassingDrill({ quarterback, receivers, defenders, defenderCount = 1,
-    routeSet = 'slants', direction = 1, seed = 1, speedScale = DEFAULT_SPEED_SCALE }) {
+    routeSet = 'slants', direction = 1, seed = 1, speedScale = DEFAULT_SPEED_SCALE, exhibition = null }) {
     if (!quarterback || !Array.isArray(receivers) || !receivers.length || receivers.length > 3
         || receivers.some(player => !player) || !Array.isArray(defenders)
         || ![1, 2].includes(defenderCount) || defenders.slice(0, defenderCount).some(player => !player)
@@ -32,13 +32,14 @@ export function createPassingDrill({ quarterback, receivers, defenders, defender
     }
     if (![1, -1].includes(direction)) throw new Error('Direction must be 1 or -1.');
     if (!['slants', 'comeback'].includes(routeSet)) throw new Error('Unknown passing route set.');
-    const startX = direction === 1 ? 80 : 40;
-    const qb = makeActor(quarterback, 'qb', startX - direction * 3, center, direction);
+    const startX = exhibition?.startX ?? (direction === 1 ? 80 : 40);
+    const fieldX = x => exhibition ? clamp(x, 10, 110) : x;
+    const qb = makeActor(quarterback, 'qb', exhibition ? clamp(startX - direction * 3, 0, 120) : startX - direction * 3, center, direction);
     const targets = receivers.map((player, index) => {
         const offset = receivers.length === 1 ? -8 : (index - (receivers.length - 1) / 2) * 16 / (receivers.length - 1);
         const z = center + offset, side = offset >= 0 ? 1 : -1;
-        const receiver = makeActor(player, `receiver:${index}`, startX + direction, z, direction);
-        const point = (yards, lane) => ({ x: startX + direction * yards, z: clamp(lane, 2, FIELD_WIDTH - 2) });
+        const receiver = makeActor(player, `receiver:${index}`, fieldX(startX + direction), z, direction);
+        const point = (yards, lane) => ({ x: exhibition ? clamp(startX + direction * yards, 1, 119) : startX + direction * yards, z: clamp(lane, 2, FIELD_WIDTH - 2) });
         receiver.route = { name: routeSet === 'slants' ? 'Slant' : 'Comeback', index: 1,
             points: [position(receiver), ...(routeSet === 'slants'
                 ? [point(7, z - side * 4), point(18, z - side * 7), point(28, z - side * 7)]
@@ -47,13 +48,14 @@ export function createPassingDrill({ quarterback, receivers, defenders, defender
     });
     return { mode: 'passing', tuningVersion: GAMEPLAY_TUNING_VERSION, speedScale: normalizeSpeedScale(speedScale),
         status: 'ready', tick: 0, elapsed: 0, direction, routeSet, startX,
-        goalX: direction === 1 ? 110 : 10, rearX: startX - direction * DRILL_RETREAT_YARDS,
+        goalX: exhibition?.goalX ?? (direction === 1 ? 110 : 10), rearX: exhibition?.rearX ?? (startX - direction * DRILL_RETREAT_YARDS),
+        ...(exhibition ? {exhibition: true, firstDownX: exhibition.firstDownX} : {}),
         seed: finite(seed, 1) >>> 0, randomState: finite(seed, 1) >>> 0,
         result: null, passOutcome: null, brokenTackles: 0, events: [], controlledKey: 'qb',
         quarterback: qb, runner: qb, receivers: targets,
         defenders: defenders.slice(0, defenderCount).map((player, index) => {
             const mark = targets[index % targets.length];
-            return { ...makeActor(player, `defender:${index}`, startX + direction * (5 + index),
+            return { ...makeActor(player, `defender:${index}`, fieldX(startX + direction * (5 + index)),
                 mark.z + (index && targets.length === 1 ? 5 : 0), -direction),
             markKey: mark.key, coverageTarget: position(mark), assignment: 'coverage' };
         }),
@@ -224,6 +226,7 @@ function finish(state, reason, fraction, previous) {
     } else syncHeldBall(state);
     state.ball.phase = 'dead';
     state.ball.y = Math.max(0, state.ball.y);
+    if (state.exhibition && ['tackle', 'sack', 'out_of_bounds'].includes(reason) && (state.runner.x - state.rearX) * state.direction <= 0) reason = 'safety';
     state.result = { reason, yards: ['incomplete', 'interception'].includes(reason) ? 0 : (state.runner.x - state.startX) * state.direction,
         time: state.elapsed, passOutcome: state.passOutcome };
     record(state, 'finished', { reason, actorKey: state.controlledKey }, fraction);
@@ -259,6 +262,7 @@ function resolveFlight(state, previous) {
             finish(state, 'incomplete', event.time, previous); return null;
         }
         const player = event.player;
+        const contact = passPosition(flight, flight.elapsed + event.time * STEP_SECONDS);
         flight.attemptedKeys.push(player.key);
         const pressure = event.receiver ? state.defenders.reduce((worst, defender) => {
             const distance = Math.hypot(lerp(previous[player.key].x, player.x, event.time) - lerp(previous[defender.key].x, defender.x, event.time),
@@ -269,26 +273,29 @@ function resolveFlight(state, previous) {
             ? clamp(0.4 + rating(player, 'catching') * 0.005 + rating(player, 'awareness') * 0.0008 - pressure * 0.25, 0.1, 0.98)
             : clamp(0.1 + rating(player, 'catching') * 0.003 + rating(player, 'coverage') * 0.0035 + rating(player, 'awareness') * 0.0015, 0.05, 0.95);
         const success = nextRandom(state) < chance;
-        record(state, 'catch_attempt', { actorKey: player.key, success, chance }, event.time);
+        record(state, 'catch_attempt', { actorKey: player.key, success, chance, contact }, event.time);
         if (!success && !event.receiver) continue;
         if (!success) {
             state.passOutcome = 'incomplete';
-            record(state, 'incomplete', { cause: 'drop', actorKey: player.key }, event.time);
+            record(state, 'incomplete', { cause: 'drop', actorKey: player.key, contact }, event.time);
             finish(state, 'incomplete', event.time, previous); return null;
         }
         ball.holderKey = player.key; ball.phase = 'held';
         flight.elapsed += event.time * STEP_SECONDS;
         if (!event.receiver) {
             state.passOutcome = 'interception';
-            record(state, 'interception', { actorKey: player.key }, event.time);
+            record(state, 'interception', { actorKey: player.key, contact }, event.time);
             finish(state, 'interception', event.time, previous); return null;
         }
         state.passOutcome = 'complete';
         state.controlledKey = player.key; state.runner = player;
         state.quarterback.vx = 0; state.quarterback.vz = 0;
-        record(state, 'catch', { actorKey: player.key }, event.time);
+        record(state, 'catch', { actorKey: player.key, contact }, event.time);
         record(state, 'control_changed', { actorKey: 'qb', targetKey: player.key }, event.time);
         syncHeldBall(state);
+        if (state.exhibition && (contact.x - state.goalX) * state.direction >= 0) {
+            finish(state, 'touchdown', event.time, previous); return null;
+        }
         return event.time;
     }
     flight.elapsed += STEP_SECONDS; Object.assign(ball, end);
@@ -303,7 +310,9 @@ function resolveRun(state, previous, after = 0) {
         events.push({ time: Math.max(after, time), reason });
     };
     if ((runner.x - state.goalX) * state.direction >= 0) crossing('x', state.goalX, 'touchdown');
-    if ((runner.x - state.rearX) * state.direction <= 0) crossing('x', state.rearX, 'out_of_bounds');
+    if (!state.exhibition && (runner.x - state.rearX) * state.direction <= 0) crossing('x', state.rearX, state.exhibition ? 'safety' : 'out_of_bounds');
+    if (state.exhibition && runner.x <= 0) crossing('x', 0, 'out_of_bounds');
+    if (state.exhibition && runner.x >= 120) crossing('x', 120, 'out_of_bounds');
     if (runner.z <= 0) crossing('z', 0, 'out_of_bounds');
     if (runner.z >= FIELD_WIDTH) crossing('z', FIELD_WIDTH, 'out_of_bounds');
     for (const defender of state.defenders) {
@@ -324,6 +333,7 @@ function resolveRun(state, previous, after = 0) {
         const square = distance && speed ? Math.abs((nx * runner.vx + nz * runner.vz) / (distance * speed)) : 1;
         const chance = clamp(0.16 + (rating(runner, 'strength') - rating(defender, 'tackling')) * 0.006 + (1 - square) * 0.42, 0.02, 0.85);
         if (nextRandom(state) >= chance) {
+            record(state, 'tackle', {actorKey: runner.key, targetKey: defender.key}, event.time);
             finish(state, state.controlledKey === 'qb' && (runner.x - state.startX) * state.direction <= 0 ? 'sack' : 'tackle', event.time, previous); return;
         }
         defender.contactLatched = true; defender.vx *= 0.35; defender.vz *= 0.35;
@@ -342,7 +352,7 @@ export function stepPassingDrill(state, input = {}) {
     if (state.ball.phase === 'flight') {
         // Releasing the ball does not end QB control, but off-ball retreat must stay in view.
         const qb = state.quarterback;
-        const x = clamp(qb.x, Math.min(state.rearX, state.goalX), Math.max(state.rearX, state.goalX));
+        const x = clamp(qb.x, state.exhibition ? 0 : Math.min(state.rearX, state.goalX), state.exhibition ? 120 : Math.max(state.rearX, state.goalX));
         const z = clamp(qb.z, 0, FIELD_WIDTH);
         if (x !== qb.x) { qb.x = x; qb.vx = 0; }
         if (z !== qb.z) { qb.z = z; qb.vz = 0; }

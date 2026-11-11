@@ -94,6 +94,12 @@ export function createDrillRecording(initialState, { appearance = initialState.a
             for (const field of ['target', 'actualTarget']) {
                 if (event[field]) data[field] = [quantize(event[field].x), quantize(event[field].z)];
             }
+            if (event.contact) {
+                data.contact = [quantize(event.contact.x), quantize(event.contact.y), quantize(event.contact.z)];
+                if (state.exhibition && [event.contact.x, event.contact.y, event.contact.z].every(Number.isFinite)) {
+                    data.contactExact = [event.contact.x, event.contact.y, event.contact.z];
+                }
+            }
             eventAdded = addEvent({ tick: event.tick ?? state.tick }, event.type, event.actorKey, event.targetKey,
                 data, event.time ?? state.elapsed) || eventAdded;
         }
@@ -104,14 +110,14 @@ export function createDrillRecording(initialState, { appearance = initialState.a
             juking[index] = isJuking;
             gait[index] += Math.max(0, state.elapsed - lastTime) * Math.hypot(finite(actor.vx), finite(actor.vz)) / 7;
         });
-        if (state.mode !== 'passing' && state.brokenTackles > brokenTackles) {
+        if (state.mode !== 'passing' && !state.events && state.brokenTackles > brokenTackles) {
             eventAdded = addEvent(state, 'broken_tackle', controlledKey, null,
                 { count: state.brokenTackles - brokenTackles }) || eventAdded;
         }
         brokenTackles = finite(state.brokenTackles);
         if (state.result) {
             recording.result = clone(state.result);
-            eventAdded = addEvent(state, 'finished', controlledKey, null, { reason: state.result.reason }, state.elapsed, true) || eventAdded;
+            eventAdded = addEvent(state, 'finished', controlledKey, null, { reason: state.result.reason, ...(state.exhibition && [state.runner.x, state.runner.z].every(Number.isFinite) ? {position: [state.runner.x, state.runner.z]} : {}) }, state.elapsed, true) || eventAdded;
             closed = true;
         }
         const sample = lastTick < 0 || state.tick % 2 === 0 || eventAdded || closed;

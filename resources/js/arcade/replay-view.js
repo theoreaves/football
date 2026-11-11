@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildFootballPlayer, animateFootballPlayer } from '../practice/player-model.js';
 import { buildFieldSurface } from '../practice/field-scene.js';
-import { arcadeCameraFrame, disposeArcadeScene } from './view.js';
+import { arcadeCameraFrame, exhibitionCameraX, disposeArcadeScene } from './view.js';
 
 const CAMERAS = ['original', 'broadcast', 'follow', 'field', 'free'];
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -100,7 +100,7 @@ export function createReplayView(host, recording, {
             const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
             const aspect = width / height;
             if (cameraMode === 'original') {
-                const frame = arcadeCameraFrame(width, height, direction);
+                const frame = arcadeCameraFrame(width, height, direction, [10,110].includes(recording.field?.rearX) ? exhibitionCameraX(focus().x, direction) : null);
                 Object.assign(original, { left: frame.left, right: frame.right, top: frame.top, bottom: frame.bottom });
                 original.position.set(...frame.position); original.lookAt(...frame.target);
             } else {

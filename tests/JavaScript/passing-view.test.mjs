@@ -232,3 +232,13 @@ test('disposal releases each shared resource and WebGL lifecycle exactly once', 
     assert.equal(renderer.scene.children.length, 0);
     assert.equal(view.metrics().actors, 0); assert.equal(view.metrics().routes, 0); assert.equal(view.metrics().disposed, true);
 });
+
+test('live exhibition pan translates the camera without resizing the drawing buffer',()=>{
+    const exhibition={startX:35,goalX:110,rearX:10,firstDownX:45};
+    const {view,renderer,host}=fixture({exhibition});
+    let sizes=0;const original=renderer.setSize.bind(renderer);renderer.setSize=(...args)=>{sizes++;original(...args);};
+    const state=createPassingDrill({...payload,exhibition});
+    for(let tick=0;tick<30;tick++){state.runner.x=35+tick*.1;state.tick=tick;state.elapsed=tick/60;view.render(state);}
+    assert.equal(sizes,0);close(renderer.camera.position.x,state.runner.x+10);
+    host.clientWidth=900;view.resize();assert.equal(sizes,1);view.dispose();
+});

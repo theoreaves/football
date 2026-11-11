@@ -5,16 +5,18 @@ import { getPassTrajectory } from './passing.js';
 
 const ROUTE_COLORS = [0x6ee7ff, 0xb6fa7b, 0xe7adff];
 
-export function arcadeCameraFrame(width, height, direction = 1) {
+export function arcadeCameraFrame(width, height, direction = 1, centerX = null) {
     const aspect = Math.max(1, width) / Math.max(1, height);
     const viewHeight = Math.max(38, 48 / aspect);
     return { left: -viewHeight * aspect / 2, right: viewHeight * aspect / 2,
         top: viewHeight / 2, bottom: -viewHeight / 2,
-        target: [direction < 0 ? 24 : 96, 0, 26.665],
-        position: [direction < 0 ? 24 : 96, 65, 116.665] };
+        target: [centerX ?? (direction < 0 ? 24 : 96), 0, 26.665],
+        position: [centerX ?? (direction < 0 ? 24 : 96), 65, 116.665] };
 }
 
 // Convert CSS pointer coordinates, not device pixels, through the current camera.
+export function exhibitionCameraX(x, direction) { return Math.max(24, Math.min(96, x + direction * 10)); }
+
 export function arcadeGroundPoint(camera, rect, clientX, clientY) {
     if (!rect || !(rect.width > 0 && rect.height > 0) ||
         ![clientX, clientY, rect.left, rect.top].every(Number.isFinite)) return null;
@@ -127,7 +129,7 @@ export function disposeArcadeScene(scene, extraTextures = []) {
 }
 
 // The renderer factory permits lifecycle tests without replacing shared player art.
-export function createArcadeView(host, { appearance = {}, mode = 'running', runner, quarterback, receivers = [], defenders = [] },
+export function createArcadeView(host, { appearance = {}, mode = 'running', runner, quarterback, receivers = [], defenders = [], exhibition = null },
     { rendererFactory = options => new THREE.WebGLRenderer(options) } = {}) {
     const document = host.ownerDocument;
     const renderer = rendererFactory({ antialias: true, alpha: false });
@@ -142,6 +144,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-24, 24, 19, -19, .1, 300);
     let disposed = false, direction = 1, lastState = null, lastTick = -1, lastElapsed = 0, aim = null;
+    let cameraX = exhibition ? exhibitionCameraX(exhibition.startX, 1) : null;
     let lastBallPhase = null, throwStartedAt = null, labelUnits = 1;
     const textures = new Map(), loader = new THREE.TextureLoader();
     const textureFor = (url, onLoad) => {
@@ -188,6 +191,8 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
             60, .65 + row * .65, z + Math.sign(z - 26) * (2 + row * 1.8));
     }
     const startLine = box(.18, .035, 53.33, 0x4bd4f0, 80, .085, 26.665);
+    const firstDownLine = box(.18, .035, 53.33, 0xffda6a, 90, .1, 26.665);
+    firstDownLine.visible = false;
     const goalLine = box(.24, .04, 53.33, 0xffda6a, 110, .09, 26.665);
     for (const x of [0, 120]) {
         box(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
@@ -283,7 +288,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         if (disposed) return;
         const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
         renderer.setSize(width, height, false);
-        const frame = arcadeCameraFrame(width, height, direction);
+        const frame = arcadeCameraFrame(width, height, direction, cameraX);
         Object.assign(camera, { left: frame.left, right: frame.right, top: frame.top, bottom: frame.bottom });
         camera.position.set(...frame.position); camera.lookAt(...frame.target); camera.updateProjectionMatrix(); camera.updateMatrixWorld();
         labelUnits = (frame.top - frame.bottom) / height;
@@ -295,7 +300,20 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         if (disposed) return;
         if (Object.hasOwn(options, 'aim')) aim = options.aim;
         const nextDirection = state.direction ?? state.config?.direction ?? 1;
-        if (direction !== nextDirection) { direction = nextDirection; resize(); }
+        if (direction !== nextDirection) {
+            direction = nextDirection;
+            const x = cameraX ?? (direction < 0 ? 24 : 96);
+            camera.position.x = x; camera.lookAt(x, 0, 26.665); camera.updateMatrixWorld();
+        }
+        if (exhibition) {
+            const nextX = exhibitionCameraX(state.runner.x, direction);
+            if (cameraX !== nextX) {
+                cameraX = nextX;
+                camera.position.x = cameraX; camera.lookAt(cameraX, 0, 26.665); camera.updateMatrixWorld();
+            }
+        }
+        firstDownLine.visible = Number.isFinite(state.firstDownX);
+        if (firstDownLine.visible) firstDownLine.position.x = state.firstDownX;
         startLine.position.x = state.startX ?? (direction < 0 ? 40 : 80);
         goalLine.position.x = state.goalX ?? (direction < 0 ? 10 : 110);
         const delta = lastState && state.tick >= lastTick ? Math.min(.1, Math.max(0, state.elapsed - lastElapsed)) : 0;

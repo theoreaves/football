@@ -65,41 +65,14 @@ class ExhibitionEngine
             $state['spot'] = 85 + ($state['try_adjustment'] ?? 0);
         }
         $clock = app(GameClock::class);
-        $state = $clock->normalize($state);
-        $original = $state;
         // Developer-only one-shot snaps bypass pre-snap runoff.
         $debugSnap = app()->environment('local') && config('app.debug')
             && in_array($devForceResult, ['touchdown', 'turnover', 'flag', 'big_play', 'defensive_offside', 'illegal_formation'], true);
-        $runoff = $debugSnap ? 0 : $clock->runoff($state, $tempo);
-        if ($clock->warningDue($state, $runoff)) {
-            $state['clock'] = 120;
-
-            return $this->finish($state, $original, $this->stoppage('Official timeout', 'two_minute_warning') + ['two_minute_warning' => true, 'runoff_seconds' => $original['clock'] - 120], $rosters, 0);
+        $prepared = app(PreSnapPolicy::class)->prepare($state, $rosters, $tempo, $clockStrategy, $debugSnap);
+        if ($prepared['result'] !== null) {
+            return $prepared['result'];
         }
-        if ($runoff >= $state['clock'] && $runoff > 0 && ! $state['untimed_down']) {
-            $state['clock'] = 0;
-
-            return $this->finish($state, $original, $this->stoppage('Clock expires before the snap', 'clock_expired') + ['runoff_seconds' => $original['clock']], $rosters, 0);
-        }
-        $state['clock'] -= $runoff;
-        // The ready-for-play restart has now been applied. Do not carry it
-        // through a different type of stoppage on the next play.
-        unset($state['clock_restart_on_ready']);
-        $state['_clock_context'] = ['before' => $original, 'runoff' => $runoff, 'tempo' => $tempo, 'strategy' => $clockStrategy];
-        $prePenalty = $debugSnap ? null : app(PenaltyRules::class)->preSnap($state);
-        if ($prePenalty) {
-            $result = app(PenaltyRules::class)->enforce($state, $state, $this->stoppage('No snap', 'penalty'), $prePenalty);
-
-            $finished = $this->finish($result['state'], $state, $result['play'], $rosters, 0);
-            if (app(CpuCoach::class)->controls($state)[$result['play']['penalty']['beneficiary']] === 'human') {
-                $declined = app(PenaltyRules::class)->enforce($state, $state, $this->stoppage('No snap', 'penalty'), $prePenalty, false);
-                $finished['play']['penalty_options'] = ['accept' => $finished, 'decline' => $this->finish($declined['state'], $state, $declined['play'], $rosters, 0)];
-                $finished['state']['penalty_pending'] = true;
-                $finished['play']['after'] = $finished['state'];
-            }
-
-            return $finished;
-        }
+        $state = $prepared['state'];
         if (in_array($call, ['spike', 'kneel'], true)) {
             return $this->clockPlay($state, $rosters, $call, $defense, $offenseFormation, $defenseFormation);
         }
@@ -297,10 +270,6 @@ class ExhibitionEngine
             $outcome = 'fumble';
             $flip = true;
         }
-        $state['stats'][$side]['plays']++;
-        if (! in_array($outcome, ['punt', 'field_goal_good', 'field_goal_missed', 'interception'], true)) {
-            $state['stats'][$side]['yards'] += $gain;
-        }
         $deadSpot = $before['spot'] + $gain;
         $name = fn ($player, string $role) => $role.' '.$player['name'].(isset($player['number']) ? ' (#'.$player['number'].')' : '');
         $qb = $name($off['QB'], $fake ? (str_starts_with($design, 'fake_punt') ? 'P' : 'Holder') : 'QB');
@@ -321,43 +290,10 @@ class ExhibitionEngine
             'sack' => "{$qb} is sacked by {$tackler} for {$yardage}",
             default => ($targetRole !== null && $carrier !== 'QB' ? $completed : $run).$tackle,
         };
-        if ($flip) {
-            $state['stats'][$side]['turnovers']++;
-            if ($deadSpot <= 0) {
-                $state[$other.'_score'] += 6;
-                $summary .= ' · defensive touchdown';
-                $this->possession($state, $other, 85);
-                $state['phase'] = 'extra_point';
-            } else {
-                $this->possession($state, $other, $deadSpot >= 100 ? 20 : 100 - $deadSpot);
-            }
-        } elseif ($outcome !== 'incomplete' && $deadSpot >= 100) {
-            $outcome = 'touchdown';
-            $summary .= ' · TOUCHDOWN';
-            $state[$side.'_score'] += 6;
-            $this->possession($state, $side, 85);
-            $state['phase'] = 'extra_point';
-        } elseif ($outcome !== 'incomplete' && $deadSpot <= 0) {
-            $outcome = 'safety';
-            $summary .= ' · SAFETY';
-            $state[$other.'_score'] += 2;
-            $this->possession($state, $side, 20);
-            $state['phase'] = 'kickoff';
-        } else {
-            $state['spot'] = $deadSpot;
-            if ($gain >= $before['distance']) {
-                $state['down'] = 1;
-                $state['distance'] = min(10, 100 - $deadSpot);
-                $summary .= ' · first down';
-            } else {
-                $state['down']++;
-                $state['distance'] -= $gain;
-                if ($state['down'] > 4) {
-                    $summary .= ' · turnover on downs';
-                    $this->possession($state, $other, 100 - $deadSpot);
-                }
-            }
-        }
+        $accounted = app(ScrimmageAccounting::class)->apply($state, $before, $outcome, $gain, $flip, $summary);
+        $state = $accounted['state'];
+        $outcome = $accounted['outcome'];
+        $summary = $accounted['summary'];
         if ($outOfBounds && $outcome !== 'touchdown') {
             $summary .= $forcedOut ? ' · forced out of bounds' : ' · steps out of bounds';
         }

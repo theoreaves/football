@@ -115,15 +115,19 @@ class ExhibitionBoxScore
                 }
             }
             if ($scramble || $pass || in_array($call, ['inside_run', 'outside_run'], true)) {
-                $tackler = $carrier === 'WR1' ? 'CB1' : 'LB2';
-                if (in_array($outcome, ['tackle', 'sack', 'fumble', 'safety'], true) && ! ($play['out_of_bounds'] ?? false) && $call !== 'spike') {
+                $arcade = ($play['source'] ?? null) === 'arcade';
+                $tackler = $arcade ? ($play['arcade_participants']['tackler']['role'] ?? null) : ($carrier === 'WR1' ? 'CB1' : 'LB2');
+                if (in_array($outcome, ['tackle', 'sack', 'fumble', 'safety'], true) && ! ($play['out_of_bounds'] ?? false) && $call !== 'spike' && (! $arcade || $tackler !== null)) {
                     $players[$other][$tackler]['tackles']++;
                 }
-                if ($carrier === 'QB' && $call !== 'spike' && ! $scramble && ! ($play['qb_designed_run'] ?? false)) {
+                if ($carrier === 'QB' && $call !== 'spike' && ! $scramble && ! ($play['qb_designed_run'] ?? false) && (! $arcade || $tackler !== null)) {
                     $players[$other][$tackler]['defensive_sacks']++;
                 }
                 if ($outcome === 'interception') {
-                    $players[$other]['CB1']['defensive_interceptions']++;
+                    $interceptor = $arcade ? ($play['arcade_participants']['interceptor']['role'] ?? null) : 'CB1';
+                    if ($interceptor !== null) {
+                        $players[$other][$interceptor]['defensive_interceptions']++;
+                    }
                 }
                 if ($outcome === 'fumble') {
                     $players[$other][$tackler]['fumble_recoveries']++;
