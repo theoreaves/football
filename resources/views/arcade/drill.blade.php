@@ -45,7 +45,10 @@
                 <button data-arcade-start class="arcade-primary" type="button">Start {{ $passing ? 'play' : 'run' }}</button>
                 <button data-arcade-pause type="button" disabled>Pause</button>
                 <button data-arcade-retry type="button">Retry</button>
-                <button data-arcade-recording type="button" disabled title="Download positions, ball movement and events. Replay viewer is a later milestone.">Replay data</button>
+                <button data-arcade-replay type="button" disabled>Replay</button>
+                <button data-arcade-recording type="button" disabled title="Download this attempt for local replay playback.">Replay data</button>
+                <button data-arcade-import type="button">Open replay file</button>
+                <input data-arcade-import-file type="file" accept=".json,application/json" aria-label="Open local Arcade recording" hidden>
                 <label class="arcade-scenario">Challenge<select data-arcade-defenders aria-label="Number of defenders"><option value="1">1 defender</option><option value="2" @disabled(count($defenders) < 2)>2 defenders</option></select></label>
             </div>
         </div>
@@ -58,6 +61,7 @@
                 @if(!in_array((float) $speedScale, [0.9, 0.925, 0.95, 1.0], true))<option value="{{ $speedScale }}" selected>{{ round($speedScale * 100, 1) }}% · Configured</option>@endif
                 @foreach(['0.9' => '90% · Relaxed', '0.925' => '92.5% · Recommended', '0.95' => '95% · Quick', '1' => '100% · Phase 1 pace'] as $value => $label)<option value="{{ $value }}" @selected((float) $speedScale === (float) $value)>{{ $label }}</option>@endforeach
             </select></label>
+            <label>Automatic replays<select data-arcade-highlights aria-label="Automatic replays"><option value="off" selected>Off</option><option value="major">Touchdowns and interceptions</option><option value="all">All highlights</option></select></label>
             <span>Retry repeats the same setup. No saved game changes.</span>
         </div>
         <div class="arcade-footer">
@@ -65,7 +69,7 @@
             <p>No saved stats. No injuries. Just play.</p>
         </div>
         <p data-arcade-status class="text-sm text-slate-300" role="status" aria-live="polite">Loading your drill…</p>
-        <details class="arcade-diagnostics"><summary>Diagnostics</summary><p data-arcade-diagnostics>Measuring local rendering…</p><p>Replay data contains this attempt only. A replay viewer is planned separately.</p></details>
+        <details class="arcade-diagnostics"><summary>Diagnostics</summary><p data-arcade-diagnostics>Measuring local rendering…</p><p>Replays use recorded motion only. Automatic replays are off by default and can always be skipped. All highlights includes gains of 25+ yards and goal-line or broken-tackle stops. Replay files stay on this device.</p></details>
     @endif
 </div>
 </x-layouts.app>

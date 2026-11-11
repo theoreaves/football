@@ -28,7 +28,7 @@ export function createArcadeInput(root, host, callbacks) {
     const clear = () => { keys.clear(); juke = 0; pass = null; cancelAim(); };
     const options = {signal: abort.signal};
     document.addEventListener('keydown', event => {
-        if (event.metaKey || event.ctrlKey || event.altKey || !root.contains(document.activeElement) || editableTarget(event.target) || !ACTIONS.has(event.code)) return;
+        if (callbacks.enabled?.() === false || event.metaKey || event.ctrlKey || event.altKey || !root.contains(document.activeElement) || editableTarget(event.target) || !ACTIONS.has(event.code)) return;
         if ((event.code === 'Space' || event.code === 'Enter') && event.target.closest?.('button, a')) return;
         event.preventDefault();
         if (MOVEMENT.has(event.code)) keys.add(event.code);
@@ -41,6 +41,7 @@ export function createArcadeInput(root, host, callbacks) {
     }, options);
     document.addEventListener('keyup', event => keys.delete(event.code), options);
     host.addEventListener('pointerdown', event => {
+        if (callbacks.enabled?.() === false) return;
         host.focus({preventScroll: true});
         if (event.button !== 0 || event.isPrimary === false || drag || !callbacks.canPass?.()) return;
         event.preventDefault();

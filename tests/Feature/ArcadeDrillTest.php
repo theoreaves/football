@@ -313,3 +313,18 @@ test('arcade speed scale is configurable bounded and safe for invalid environmen
     'boolean fallback' => ['true', 0.925],
     'non-finite fallback' => ['1e999', 0.925],
 ]);
+
+test('both arcade modes expose local replay controls with automatic highlights off by default', function (string $mode) {
+    [$home, $away] = arcadeTeams();
+    arcadePlayer($home, 'RB', 'RB1');
+    arcadePlayer($home, 'QB', 'QB1');
+    arcadePlayer($home, 'WR', 'WR1');
+    arcadePlayer($away, 'DB', 'DB1');
+    $this->get(route('arcade.drill', ['mode' => $mode]))->assertOk()
+        ->assertSee('data-arcade-replay', false)
+        ->assertSee('Open replay file')
+        ->assertSee('data-arcade-import-file', false)
+        ->assertSee('<option value="off" selected>Off</option>', false)
+        ->assertSee('Replay files stay on this device.')
+        ->assertDontSee('A replay viewer is planned separately.');
+})->with(['running', 'passing']);

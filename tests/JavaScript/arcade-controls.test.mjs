@@ -47,14 +47,18 @@ test('input releases held controls on blur, pause, focus loss and disposal; juke
     host.focus = () => { document.activeElement = field; };
     globalThis.document = document; globalThis.window = window;
     const calls = {start: 0, pause: 0, retry: 0};
-    const input = createArcadeInput(root, host, Object.fromEntries(Object.keys(calls).map(key => [key, () => calls[key]++])));
+    let enabled = true;
+    const input = createArcadeInput(root, host, {...Object.fromEntries(Object.keys(calls).map(key => [key, () => calls[key]++])), enabled: () => enabled});
     const key = (code, repeat = false, target = field) => {
         const event = new Event('keydown', {cancelable: true});
         Object.defineProperties(event, {code: {value: code}, repeat: {value: repeat}, target: {value: target}});
         document.dispatchEvent(event);
     };
     try {
-        key('KeyD'); key('KeyQ');
+        enabled = false; key('KeyD'); key('KeyQ'); key('KeyR'); key('Space');
+        assert.deepEqual(input.sample(), {x: 0, z: 0, juke: 0});
+        assert.equal(calls.start, 0); assert.equal(calls.retry, 0);
+        enabled = true; key('KeyD'); key('KeyQ');
         assert.deepEqual(input.sample(), {x: 1, z: 0, juke: -1});
         key('KeyQ', true);
         assert.deepEqual(input.sample(), {x: 1, z: 0, juke: 0});
