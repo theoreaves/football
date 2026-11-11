@@ -147,7 +147,7 @@ class ExhibitionFlow
                         if ($cpuTimeout !== null && $cpuTimeout !== $meta->human_side) {
                             $args = ['action' => 'cpu_timeout'];
                         } else {
-                            $plan = $coach->offense($game->state, $game->rosters);
+                            $plan = $coach->offense($game->state, app(\App\Services\Simulation\GamePersonnel::class)->active($game->rosters, $game->state));
                             $defense = $coach->defense($game->state, $plan['call']);
                             $args = ['action' => 'play', 'defense' => $defense['call'], 'defense_formation' => $defense['formation'], 'expect' => $game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')];
                         }

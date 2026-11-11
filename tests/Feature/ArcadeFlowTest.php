@@ -300,3 +300,22 @@ test('notice handoff retains exact stoppage and scoring summaries but ignores ob
     $service->remember($request, $game, $result);
     expect($service->consume($request, $game, ['notices' => []])['notices'])->toBe([]);
 });
+
+test('CPU advance preplans with canonical active ratings when kicker fatigue changes the call', function () {
+    $game = flowTestGame(['possession' => 'away', 'quarter' => 1, 'down' => 4, 'spot' => 72, 'distance' => 10]);
+    $rosters = $game->rosters;
+    foreach (['home', 'away'] as $side) {
+        $rosters[$side]['pool'] = array_values($rosters[$side]['players']);
+    }
+    $state = $game->state;
+    $state['fatigue']['away'][$rosters['away']['players']['K']['id']] = 100;
+    $game->update(['state' => $state, 'rosters' => $rosters]);
+    $coach = app(\App\Services\Simulation\CpuCoach::class);
+    $active = app(\App\Services\Simulation\GamePersonnel::class)->active($rosters, $state);
+    $canonical = $coach->offense($state, $active);
+    expect($coach->offense($state, $rosters)['call'])->toBe('field_goal')->and($active['away']['players']['K']['ratings']['kicking'])->toBe(53)->and($canonical['call'])->toBe('punt_coffin');
+    enableFlow($game, 'watch');
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'advance']))->assertOk();
+    $play = $game->fresh()->history[0];
+    expect($play['call'])->toBe('punt')->and($play['punt_strategy'])->toBe('coffin')->and($play['defense'])->toBeIn(ExhibitionEngine::defensesForCall($canonical['call']));
+});
