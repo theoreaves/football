@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDrill, startDrill, pauseDrill, stepDrill, sweptContactTime, STEP_SECONDS, JUKE_COOLDOWN, FIELD_WIDTH, DRILL_RETREAT_YARDS } from '../../resources/js/arcade/simulation.js';
+import { DEFAULT_SPEED_SCALE, GAMEPLAY_TUNING_VERSION } from '../../resources/js/arcade/tuning.js';
 
 const player = (ratings = {}, id = 'runner') => ({ id, name: id, role: 'RB', ratings: { speed: 70, acceleration: 70, strength: 60, tackling: 60, awareness: 70, ...ratings } });
 function drill(options = {}) {
@@ -188,17 +189,20 @@ test('drill rejects missing roster defenders and unsupported counts/directions',
 });
 
 
-test('representative roster rewards a simple cut and juke against one or two defenders', () => {
+test('original and slower tuning reward a clean cut and juke against one or two defenders', () => {
     const runner = player({ speed: 78, acceleration: 80, strength: 65 });
     const defender = player({ speed: 70, acceleration: 70, awareness: 65, tackling: 72 });
+    for (const speedScale of [1, DEFAULT_SPEED_SCALE]) {
     for (const defenderCount of [1, 2]) {
         for (const seed of [1, 832, 998]) {
-            const options = { runner, defenders: [defender, { ...defender, id: 'S1' }], defenderCount, seed };
+            const options = { runner, defenders: [defender, { ...defender, id: 'S1' }], defenderCount, seed, speedScale };
             const straight = advance(drill(options), 600);
             assert.equal(straight.result.reason, 'tackle');
             // Hold forward, cut left with a juke as the defender approaches,
             // then straighten after clearing the lane. Several nearby timings work.
-            for (const cutTick of [24, 27, 30]) {
+            // Slower approach speed moves the clean avoidance window slightly later.
+            // Keep the old timings intact at scale1 and require three clean options at .925.
+            for (const cutTick of speedScale === 1 ? [24, 27, 30] : [27, 28, 30]) {
                 const evasive = drill(options);
                 for (let tick = 0; tick < 600 && !evasive.result; tick++) {
                     stepDrill(evasive, { x: 1, z: tick >= cutTick && tick < 100 ? -1 : 0,
@@ -210,6 +214,22 @@ test('representative roster rewards a simple cut and juke against one or two def
             }
         }
     }
+    }
+});
+
+test('speed tuning is versioned, proportional for both teams, and keeps acceleration responsive', () => {
+    const full = drill({ speedScale: 1 }), tuned = drill();
+    assert.equal(tuned.speedScale, 0.925); assert.equal(tuned.tuningVersion, GAMEPLAY_TUNING_VERSION);
+    full.defenders[0].x = 105; tuned.defenders[0].x = 105;
+    stepDrill(full, { x: 1 }); stepDrill(tuned, { x: 1 });
+    near(full.runner.vx, tuned.runner.vx); near(full.defenders[0].vx, tuned.defenders[0].vx);
+    advance(full, 50); advance(tuned, 50);
+    near(tuned.runner.vx / full.runner.vx, DEFAULT_SPEED_SCALE);
+    near(Math.hypot(tuned.defenders[0].vx, tuned.defenders[0].vz)
+        / Math.hypot(full.defenders[0].vx, full.defenders[0].vz), DEFAULT_SPEED_SCALE);
+    assert.equal(drill({ speedScale: Infinity }).speedScale, DEFAULT_SPEED_SCALE);
+    assert.equal(drill({ speedScale: -10 }).speedScale, 0.75);
+    assert.equal(drill({ speedScale: 10 }).speedScale, 1.1);
 });
 
 

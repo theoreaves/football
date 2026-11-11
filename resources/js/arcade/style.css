@@ -36,3 +36,16 @@
 .arcade-notice { border: 1px solid #3c5364; border-radius: 12px; padding: 28px; background: #152332; color: #d6e5ef; }
 @media(max-width: 640px) { .arcade-shell { padding: 14px; } .arcade-top { align-items: start; flex-direction: column; gap: 10px; } .arcade-scoreboard { padding: 12px; gap: 10px; } .arcade-runner strong { font-size: 13px; } .arcade-runner small { max-width: 140px; } .arcade-metrics { gap: 12px; } .arcade-metric strong { font-size: 15px; } .arcade-toolbar { padding: 12px; } .arcade-scenario { margin-left: 0; } .arcade-setup select { max-width: 100%; } }
 @media(prefers-reduced-motion: reduce) { .arcade-stage { scroll-behavior: auto; } }
+.arcade-modes { display: flex; gap: 8px; margin-bottom: 22px; }
+.arcade-modes a { color: #b5c5d2; border: 1px solid #34485b; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+.arcade-modes a[aria-current="page"] { color: #dfffcb; border-color: #8dd775; background: #203b30; }
+.arcade-phase { display: block; font-size: 10px; letter-spacing: .08em; color: #9cfa83; margin-top: 5px; }
+.arcade-field { touch-action: none; }
+.arcade-drill-options { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 14px 2px 0; }
+.arcade-drill-options label { color: #9dafc2; font-size: 11px; }
+.arcade-drill-options select { display: block; margin-top: 4px; background: #152332; color: #e5eef6; border: 1px solid #34485b; border-radius: 8px; padding: 7px 26px 7px 10px; font-size: 12px; }
+.arcade-drill-options select:disabled { opacity: .5; }
+.arcade-drill-options > span { font-size: 11px; color: #8fa5b7; padding-bottom: 7px; }
+.arcade-diagnostics { margin-top: 14px; font-size: 11px; color: #8fa5b7; }
+.arcade-diagnostics summary { cursor: pointer; }
+.arcade-diagnostics p { margin-top: 5px; }

@@ -1,32 +1,30 @@
 // Isolated local drill state. Nothing in this module writes a roster or official game.
+import { GAMEPLAY_TUNING_VERSION, DEFAULT_SPEED_SCALE, clamp, finite, rating,
+    normalizeSpeedScale, actorSpeed as speed, actorAcceleration as acceleration } from './tuning.js';
 export const STEP_SECONDS = 1 / 60;
 export const FIELD_WIDTH = 53.33;
 export const DRILL_SECONDS = 20;
 export const DRILL_RETREAT_YARDS = 6;
 export const CONTACT_RADIUS = 0.9;
 export const JUKE_COOLDOWN = 1.15;
-const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
-const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const rating = (player, name) => clamp(finite(player.ratings?.[name], 60), 0, 100);
-const speed = player => 5.5 + rating(player, 'speed') * 0.045;
-const acceleration = player => 14 + rating(player, 'acceleration') * 0.16;
 
-function actor(player, x, z, facing) {
+export function createActor(player, x, z, facing) {
     return { ...structuredClone(player), ratings: { ...player.ratings }, x, z, vx: 0, vz: 0, facing,
         jukeRemaining: 0, jukeCooldown: 0, jukeDirection: 0, contactLatched: false };
 }
 
-export function createDrill({ runner, defenders, defenderCount = 1, direction = 1, seed = 1 }) {
+export function createDrill({ runner, defenders, defenderCount = 1, direction = 1, seed = 1, speedScale = DEFAULT_SPEED_SCALE }) {
     if (!runner || !Array.isArray(defenders) || ![1, 2].includes(defenderCount) || defenders.length < defenderCount) {
         throw new Error('A roster runner and one or two roster defenders are required.');
     }
     if (![1, -1].includes(direction)) throw new Error('Direction must be 1 or -1.');
     const startX = direction === 1 ? 80 : 40;
-    return { status: 'ready', tick: 0, elapsed: 0, direction, startX, goalX: direction === 1 ? 110 : 10,
+    return { mode: 'running', tuningVersion: GAMEPLAY_TUNING_VERSION, speedScale: normalizeSpeedScale(speedScale),
+        status: 'ready', tick: 0, elapsed: 0, direction, startX, goalX: direction === 1 ? 110 : 10,
         rearX: startX - direction * DRILL_RETREAT_YARDS,
         seed: finite(seed, 1) >>> 0, randomState: finite(seed, 1) >>> 0, result: null, brokenTackles: 0,
-        runner: actor(runner, startX, FIELD_WIDTH / 2, direction === 1 ? 0 : Math.PI),
-        defenders: defenders.slice(0, defenderCount).map((player, index) => actor(player,
+        runner: createActor(runner, startX, FIELD_WIDTH / 2, direction === 1 ? 0 : Math.PI),
+        defenders: defenders.slice(0, defenderCount).map((player, index) => createActor(player,
             startX + direction * (10 + index * 8), FIELD_WIDTH / 2 + (index ? 6 : 0), direction === 1 ? Math.PI : 0)) };
 }
 
@@ -40,12 +38,12 @@ export function pauseDrill(state) {
     return state;
 }
 
-function random(state) {
+export function nextRandom(state) {
     state.randomState = (Math.imul(state.randomState, 1664525) + 1013904223) >>> 0;
     return state.randomState / 4294967296;
 }
 
-function move(player, targetX, targetZ, rate) {
+export function moveActor(player, targetX, targetZ, rate) {
     const dx = targetX - player.vx, dz = targetZ - player.vz;
     const length = Math.hypot(dx, dz);
     const blend = length ? Math.min(1, rate * STEP_SECONDS / length) : 0;
@@ -99,7 +97,7 @@ export function stepDrill(state, input = {}) {
     x /= magnitude;
     z /= magnitude;
     const bursting = runner.jukeRemaining > 0;
-    move(runner, x * speed(runner), bursting ? runner.jukeDirection * speed(runner) * 1.25 : z * speed(runner),
+    moveActor(runner, x * speed(runner, state.speedScale), bursting ? runner.jukeDirection * speed(runner, state.speedScale) * 1.25 : z * speed(runner, state.speedScale),
         acceleration(runner) * (bursting ? 2 : 1));
 
     state.defenders.forEach((defender, index) => {
@@ -109,8 +107,10 @@ export function stepDrill(state, input = {}) {
         const dz = previous[0].z + runner.vz * lead - defender.z;
         const desired = Math.atan2(dz, dx);
         const difference = Math.atan2(Math.sin(desired - defender.facing), Math.cos(desired - defender.facing));
-        const facing = defender.facing + clamp(difference, -(2.3 + awareness * 2) * STEP_SECONDS, (2.3 + awareness * 2) * STEP_SECONDS);
-        move(defender, Math.cos(facing) * speed(defender), Math.sin(facing) * speed(defender), acceleration(defender));
+        // Preserve pursuit turn radius when reducing both teams' running speed.
+        const turn = (2.3 + awareness * 2) * STEP_SECONDS * state.speedScale;
+        const facing = defender.facing + clamp(difference, -turn, turn);
+        moveActor(defender, Math.cos(facing) * speed(defender, state.speedScale), Math.sin(facing) * speed(defender, state.speedScale), acceleration(defender));
         // Heading is the bounded pursuit direction, independent of acceleration lag.
         defender.facing = facing;
         if (Math.hypot(previous[0].x - previous[index + 1].x, previous[0].z - previous[index + 1].z) > CONTACT_RADIUS + 0.4) {
@@ -151,7 +151,7 @@ export function stepDrill(state, input = {}) {
         // Glancing contact and strength help; a juke only changes geometry, never grants immunity.
         const escapeChance = clamp(0.16 + (rating(runner, 'strength') - rating(defender, 'tackling')) * 0.006
             + (1 - squareContact) * 0.42, 0.02, 0.85);
-        if (random(state) >= escapeChance) {
+        if (nextRandom(state) >= escapeChance) {
             finish(state, 'tackle', event.time, previous);
             return state;
         }

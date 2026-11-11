@@ -17,6 +17,24 @@ class DrillRoster
     }
 
     /** @return array<int, array<string, mixed>> */
+    public function quarterbacks(?Team $team): array
+    {
+        return $this->candidates($team, ['QB']);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function receivers(?Team $team): array
+    {
+        return array_slice($this->candidates($team, ['WR', 'TE']), 0, 2);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function coverageDefenders(?Team $team): array
+    {
+        return array_slice($this->candidates($team, ['DB', 'CB', 'S', 'FS', 'SS', 'LB', 'ILB', 'OLB', 'MLB']), 0, 2);
+    }
+
+    /** @return array<int, array<string, mixed>> */
     public function defenders(?Team $team): array
     {
         return array_slice($this->candidates($team, ['LB', 'ILB', 'OLB', 'MLB', 'DB', 'CB', 'S', 'FS', 'SS']), 0, 2);

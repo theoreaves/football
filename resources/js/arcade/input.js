@@ -13,13 +13,22 @@ export function editableTarget(target) {
 }
 
 export function createArcadeInput(root, host, callbacks) {
-    const keys = new Set();
-    const abort = new AbortController();
-    let juke = 0;
-    const clear = () => { keys.clear(); juke = 0; };
+    const keys = new Set(), abort = new AbortController();
+    let juke = 0, pass = null, drag = null, aim = null, gesture = 'No pass gesture yet';
+    const updateAim = point => {
+        aim = point && Number.isFinite(point.x) && Number.isFinite(point.z) ? {...point} : null;
+        callbacks.onAim?.(aim);
+    };
+    const cancelAim = () => {
+        const pointer = drag?.id;
+        drag = null;
+        if (pointer !== undefined && host.hasPointerCapture?.(pointer)) host.releasePointerCapture(pointer);
+        updateAim(null);
+    };
+    const clear = () => { keys.clear(); juke = 0; pass = null; cancelAim(); };
     const options = {signal: abort.signal};
     document.addEventListener('keydown', event => {
-        if (!root.contains(document.activeElement) || editableTarget(event.target) || !ACTIONS.has(event.code)) return;
+        if (event.metaKey || event.ctrlKey || event.altKey || !root.contains(document.activeElement) || editableTarget(event.target) || !ACTIONS.has(event.code)) return;
         if ((event.code === 'Space' || event.code === 'Enter') && event.target.closest?.('button, a')) return;
         event.preventDefault();
         if (MOVEMENT.has(event.code)) keys.add(event.code);
@@ -31,11 +40,34 @@ export function createArcadeInput(root, host, callbacks) {
         if (event.code === 'KeyR') { clear(); callbacks.retry(); }
     }, options);
     document.addEventListener('keyup', event => keys.delete(event.code), options);
-    host.addEventListener('pointerdown', () => host.focus({preventScroll: true}), options);
+    host.addEventListener('pointerdown', event => {
+        host.focus({preventScroll: true});
+        if (event.button !== 0 || event.isPrimary === false || drag || !callbacks.canPass?.()) return;
+        event.preventDefault();
+        gesture = 'Aiming';
+        drag = {id: event.pointerId, x: event.clientX, y: event.clientY};
+        host.setPointerCapture?.(event.pointerId);
+        updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
+    }, options);
+    host.addEventListener('pointermove', event => {
+        if (!drag || event.pointerId !== drag.id) return;
+        if (!callbacks.canPass?.()) { cancelAim(); return; }
+        updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
+    }, options);
+    host.addEventListener('pointerup', event => {
+        if (!drag || event.pointerId !== drag.id) return;
+        updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
+        if (aim && callbacks.canPass?.() && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) >= 6) {
+            pass = {...aim}; gesture = `Released at ${aim.x.toFixed(1)}, ${aim.z.toFixed(1)}`;
+        } else gesture = 'Click or cancelled aim';
+        cancelAim();
+    }, options);
+    for (const type of ['pointercancel', 'lostpointercapture']) host.addEventListener(type, event => {
+        if (drag?.id === event.pointerId) cancelAim();
+    }, options);
     root.addEventListener('focusout', event => {
         if (!root.contains(event.relatedTarget) || editableTarget(event.relatedTarget)) {
-            clear();
-            callbacks.pause();
+            clear(); callbacks.pause();
         }
     }, options);
     window.addEventListener('blur', () => { clear(); callbacks.pause(); }, options);
@@ -43,8 +75,14 @@ export function createArcadeInput(root, host, callbacks) {
         if (document.hidden) { clear(); callbacks.pause(); }
     }, options);
     return {
-        sample() { const value = {...movementForKeys(keys), juke}; juke = 0; return value; },
+        sample() {
+            const value = {...movementForKeys(keys), juke};
+            if (pass) value.pass = {...pass};
+            juke = 0; pass = null;
+            return value;
+        },
         clear,
+        aimStatus: () => gesture,
         dispose() { clear(); abort.abort(); },
     };
 }
