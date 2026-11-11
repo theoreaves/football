@@ -98,7 +98,7 @@ test('reject malformed, incompatible, unordered, excessive and unsafe imports wi
         data => data.actors[1].key = data.actors[0].key, data => data.frames[1][3].pop(),
         data => data.frames[2][1] = 20000001, data => data.frames = Array(731).fill(data.frames[0]),
         data => data.events = Array(129).fill(data.events[0]), data => data.events[0][3] = 9,
-        data => data.events[0][5] = [], data => data.result = 'tackle', data => data.appearance = null,
+        data => data.events[0][5] = [1], data => data.result = 'tackle', data => data.appearance = null,
         data => data.actors[0].name = 'x'.repeat(4097), data => data.frames[0][3][0][0] = NaN, data => delete data.frames[0][3][0][0]];
     for (const mutation of mutations) { const data = fixture(); mutation(data); assert.throws(() => createReplayTimeline(data), /Invalid replay/); }
     assert.throws(() => createReplayTimeline('{'), /JSON/);
@@ -178,4 +178,41 @@ test('reject renderer-unsafe actor and team metadata while accepting nullable id
     data.appearance.away = {};
     const timeline = createReplayTimeline(JSON.stringify(data));
     assert.equal(timeline.recording.actors[0].number, '00'); assert.equal(timeline.recording.actors[1].weight_pounds, null);
+});
+
+// json_decode($json, true) followed by json_encode turns empty object maps
+// into empty arrays. This is the persisted Eloquent history representation.
+const phpAssociativeRoundTrip = value => JSON.parse(JSON.stringify(value, (_key, entry) =>
+    entry && !Array.isArray(entry) && typeof entry === 'object' && Object.keys(entry).length === 0 ? [] : entry));
+
+test('PHP-persisted empty event maps decode to detached immutable objects for run and pass replay', () => {
+    for (const mode of ['running', 'passing']) {
+        const original = fixture(mode);
+        original.events.push([60, 1000000, 'control_changed', 0, 1, {}]);
+        const persisted = phpAssociativeRoundTrip(original), before = structuredClone(persisted);
+        assert.deepEqual(persisted.events[0][5], []);
+        assert.deepEqual(persisted.events.at(-1)[5], []);
+        for (const input of [persisted, JSON.stringify(persisted)]) {
+            const timeline = createReplayTimeline(input);
+            assert.deepEqual(timeline.recording.events[0][5], {});
+            assert.deepEqual(timeline.recording.events.at(-1)[5], {});
+            assert.deepEqual(timeline.sample(0).events[0].data, {});
+            assert.deepEqual(timeline.sample(1).events.at(-1).data, {});
+            assert.deepEqual(timeline.sample(.5).events.at(-1).data, {target: [2500, 2400]});
+            assert.throws(() => { timeline.recording.events[0][5].changed = true; }, TypeError);
+            assert.deepEqual(timeline.sample(.75), createReplayTimeline(original).sample(.75));
+        }
+        assert.deepEqual(persisted, before);
+    }
+});
+
+test('empty-map compatibility does not admit non-map event payloads or unsafe nested JSON', () => {
+    for (const payload of [[0], [{}], [[]], null, false, '', 1]) {
+        const data = fixture(); data.events[0][5] = payload;
+        assert.throws(() => createReplayTimeline(data), /invalid event/);
+    }
+    const unsafe = fixture(); unsafe.events[0][5] = JSON.parse('{"nested":{"__proto__":{}}}');
+    assert.throws(() => createReplayTimeline(unsafe), /unsafe object key/);
+    const malformed = fixture(); malformed.events[0][5] = {nested: Array(1)};
+    assert.throws(() => createReplayTimeline(malformed), /dense array/);
 });

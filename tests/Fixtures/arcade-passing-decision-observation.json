@@ -1,0 +1,1095 @@
+{
+  "description": "3000 independent passing snaps; visible-state policy vs retained stress profiles. All at home25/equivalent reverse LOS; two defenders, speed .925; no human balance claim. Slants match current exhibition routes; comeback is drill-only sensitivity, not an official exhibition choice. Seeds identify independent physics snaps, not an official multi-play session.",
+  "seeds": "42 + i * 7919, i=0..49",
+  "policy": "Route-aware nominal flight-time projection, current defenders extrapolated at most .35sec, reads every .2sec starting .8sec, separation threshold2.5yd, descending-lane clearance2yd, read deadline2.4sec then scramble. No hidden RNG or future-state queries.",
+  "sourceHashes": {
+    "tests/Fixtures/arcade-decision-policy.mjs": "29fcee571557cf3e6d85539dd0de7b11b55b9bdb414f35be8eafb79d977ac900",
+    "tests/Fixtures/arcade-pacing-physics.mjs": "72531a90abf585ad5cfc5cac2536403d021e109ce4bf8d5f11b4c6f268c4a49f",
+    "tests/Fixtures/arcade-passing-decision-report.mjs": "ed193755b27796916b000e3e5d8d192dae5759e6a2fec59ec958f1817f4077c4",
+    "resources/js/arcade/passing.js": "352bc1ce9481316440eb7c6656899182b42ce27fdec51e1ec654db3b16d8affd",
+    "resources/js/arcade/simulation.js": "22ab2804e961a1d5ac5e54d154445231e6f4ad268340881cd7151498bd0467f3",
+    "resources/js/arcade/tuning.js": "62928dad325de133719795bc949e030d0ec487f7fc7f8861c793c7fc01b503c9"
+  },
+  "groups": [
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 70,
+      "defense": 70,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "interception": 33,
+        "complete": 14,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 17,
+      "successfulCatches": 14,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 70,
+      "defense": 70,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "interception": 33,
+        "complete": 14,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 17,
+      "successfulCatches": 14,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "interception": 43,
+        "complete": 6,
+        "incomplete": 1
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 6,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "interception": 43,
+        "complete": 6,
+        "incomplete": 1
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 6,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "interception": 43,
+        "complete": 4,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 4,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "interception": 43,
+        "complete": 4,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 4,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 70,
+      "defense": 70,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 70,
+      "defense": 70,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "stress",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.917
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 4,
+        "incomplete": 46
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 4,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 4,
+        "incomplete": 46
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 4,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 70,
+      "defense": 70,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "incomplete": 50
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 70,
+      "defense": 70,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "incomplete": 50
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "incomplete": 50
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "incomplete": 50
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "incomplete": 50
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "incomplete": 50
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 4,
+        "incomplete": 46
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 4,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 4,
+        "incomplete": 46
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 7,
+      "successfulCatches": 4,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 70,
+      "defense": 70,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 70,
+      "defense": 70,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "lead",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "fixed_throw": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.5
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 70,
+      "defense": 70,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 1.4
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 70,
+      "defense": 70,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 1.4
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "touchdown": 33,
+        "tackle": 17
+      },
+      "decisions": {
+        "scramble": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 2.417
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "touchdown": 33,
+        "tackle": 17
+      },
+      "decisions": {
+        "scramble": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 2.417
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 95,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "tackle": 25,
+        "touchdown": 25
+      },
+      "decisions": {
+        "scramble": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 2.417
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "slants",
+      "offense": 40,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "tackle": 25,
+        "touchdown": 25
+      },
+      "decisions": {
+        "scramble": 50
+      },
+      "catchAttempts": 0,
+      "successfulCatches": 0,
+      "meanDecisionSeconds": 2.417
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 70,
+      "defense": 70,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 70,
+      "defense": 70,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 40,
+        "incomplete": 10
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 40,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 40,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 95,
+      "defense": 40,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 47,
+        "incomplete": 3
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 47,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 95,
+      "direction": 1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.8
+    },
+    {
+      "profile": "decisions",
+      "routeSet": "comeback",
+      "offense": 40,
+      "defense": 95,
+      "direction": -1,
+      "n": 50,
+      "outcomes": {
+        "complete": 32,
+        "incomplete": 18
+      },
+      "decisions": {
+        "pass": 50
+      },
+      "catchAttempts": 50,
+      "successfulCatches": 32,
+      "meanDecisionSeconds": 0.8
+    }
+  ]
+}

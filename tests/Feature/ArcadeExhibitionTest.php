@@ -315,3 +315,41 @@ test('official arcade pacing remains approved when local drill speed configurati
     expect($recording['speedScale'])->toBe(.925);
     $this->postJson($session['submit_url'], ['envelope' => $session['envelope'], 'recording' => $recording])->assertOk();
 });
+
+test('live session randomness advances between snaps but cancellation expiry and retries cannot reroll it', function () {
+    $game = persistentArcadeGame();
+    $one = reserveArcade($game)->assertOk()->json('session');
+    $seed = $one['setup']['seed'];
+    expect(reserveArcade($game)->assertOk()->json('session.setup.seed'))->toBe($seed);
+    $this->postJson($one['cancel_url'])->assertOk();
+    $two = reserveArcade($game)->assertOk()->json('session');
+    expect($two['setup']['seed'])->toBe($seed)
+        ->and($two['envelope']['session_id'])->not->toBe($one['envelope']['session_id']);
+    $this->travel(181)->seconds();
+    $three = reserveArcade($game)->assertOk()->json('session');
+    expect($three['setup']['seed'])->toBe($seed);
+    $recording = liveArcadeRecording($three);
+    $body = ['envelope' => $three['envelope'], 'recording' => $recording];
+    $receipt = $this->postJson($three['submit_url'], $body)->assertOk()->json('receipt');
+    $this->postJson($three['submit_url'], $body)->assertOk()->assertJsonPath('receipt', $receipt);
+    $next = reserveArcade($game->fresh())->assertOk()->json('session');
+    expect($next['setup']['seed'])->not->toBe($seed)
+        ->and($next['setup']['seed'])->toBe(\App\Services\Arcade\LivePlaySeed::forState($game->fresh()->state));
+});
+
+test('reservations created with the previous seed scheme keep their saved seed and accept exact recordings', function () {
+    $game = persistentArcadeGame();
+    $session = reserveArcade($game)->assertOk()->json('session');
+    $stored = ArcadePlaySession::findOrFail($session['envelope']['session_id']);
+    $setup = $stored->setup;
+    $setup['seed'] = $game->state['seed'];
+    $stored->update(['setup' => $setup]);
+    $existing = reserveArcade($game)->assertOk()->json('session');
+    expect($existing['setup']['seed'])->toBe($game->state['seed']);
+    $recording = liveArcadeRecording($existing);
+    $body = ['envelope' => $existing['envelope'], 'recording' => $recording];
+    $receipt = $this->postJson($existing['submit_url'], $body)->assertOk()->json('receipt');
+    $this->postJson($existing['submit_url'], $body)->assertOk()->assertJsonPath('receipt', $receipt);
+    expect($game->fresh()->history)->toHaveCount(1)
+        ->and($game->fresh()->history[0]['arcade_recording']['seed'])->toBe($game->state['seed']);
+});

@@ -50,7 +50,7 @@ function copyJson(input) {
     return copy(input, 0);
 }
 
-// PHP serializes an empty associative appearance map as []; keep those exports valid.
+// PHP serializes empty associative maps as []; keep persisted exports valid.
 const emptyMap = value => object(value) || (Array.isArray(value) && value.length === 0);
 const scalar = value => value === null || ['string', 'number', 'boolean'].includes(typeof value);
 function validateAppearance(value, label) {
@@ -132,7 +132,9 @@ function validate(input) {
     data.events.forEach(event => {
         if (!Array.isArray(event) || event.length !== 6 || !integer(event[0], 0, 1200)
             || !integer(event[1], 0, 20000000) || typeof event[2] !== 'string' || !event[2].length || event[2].length > 64
-            || !actorIndex(event[3]) || !actorIndex(event[4]) || !object(event[5])) fail('invalid event.');
+            || !actorIndex(event[3]) || !actorIndex(event[4]) || !emptyMap(event[5])) fail('invalid event.');
+        // Normalize only the detached top-level event map, not legitimate nested lists.
+        if (Array.isArray(event[5])) event[5] = {};
     });
     return freeze(data);
 }

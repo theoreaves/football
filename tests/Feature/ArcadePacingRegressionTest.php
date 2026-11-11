@@ -81,7 +81,8 @@ test('Arcade pacing reaches warning and halftime as no snap boundaries', functio
  * Accounting/clock benchmark, not an HTTP session or anti-cheat test. JS generates
  * real fixed-tick recordings at each actual LOS. Presentation is omitted to keep
  * full games cheap. Coach is used only for special teams, never after live output.
- * Both sides use the same 50/50 run/pass script, punt/FG on fourth down, no timeouts,
+ * Stress/lead use alternating runs/passes. Decisions uses down/distance and a seeded
+ * mixed call choice with visible-state receiver reads. All punt/FG on fourth down, no timeouts,
  * penalties, injuries or overtime. This does NOT assert human gameplay balance.
  */
 function arcadePacingGame(int $length, int $seed, string $tempo, bool $arcade, string $profile = 'stress'): array
@@ -89,7 +90,7 @@ function arcadePacingGame(int $length, int $seed, string $tempo, bool $arcade, s
     $engine = app(ExhibitionEngine::class);
     $state = arcadePacingState($length, $seed);
     $rosters = arcadePacingRosters();
-    $counts = ['snaps' => ['home' => 0, 'away' => 0], 'drives' => ['home' => 0, 'away' => 0], 'runs' => 0, 'passes' => 0, 'runoff' => 0, 'live_seconds' => 0, 'outcomes' => []];
+    $counts = ['snaps' => ['home' => 0, 'away' => 0], 'drives' => ['home' => 0, 'away' => 0], 'runs' => 0, 'passes' => 0, 'runoff' => 0, 'live_seconds' => 0, 'outcomes' => [], 'passing_outcomes' => [], 'route_sets' => [], 'actual_pass_attempts' => $arcade ? 0 : null, 'scrambles' => $arcade ? 0 : null];
     $drive = null;
     $hash = hash_init('sha256');
     if ($arcade) {
@@ -103,6 +104,12 @@ function arcadePacingGame(int $length, int $seed, string $tempo, bool $arcade, s
             $before = $state;
             $side = $state['possession'];
             $pass = ($counts['snaps']['home'] + $counts['snaps']['away']) % 2 === 1;
+            if ($profile === 'decisions') {
+                // Separate deterministic call-choice hash, never consume Coach or physics RNG.
+                $choice = hexdec(substr(hash('sha256', $seed.':'.$index.':call'), 0, 6)) % 100;
+                $passChance = $state['distance'] <= 3 ? 25 : ($state['down'] >= 3 ? 80 : 55);
+                $pass = $choice < $passChance;
+            }
             $call = $state['down'] === 4 ? ($state['spot'] > 65 ? 'field_goal' : 'punt') : ($pass ? 'slant' : 'inside_run');
             if ($state['phase'] !== 'scrimmage') {
                 $call = ExhibitionEngine::callsForState($state)[0];
@@ -115,7 +122,7 @@ function arcadePacingGame(int $length, int $seed, string $tempo, bool $arcade, s
                 if ($result === null) {
                     $snap = $prepared['state'];
                     $direction = \App\Services\Simulation\FieldOrientation::direction($snap);
-                    fwrite($pipes[0], json_encode(['direction' => $direction, 'startX' => \App\Services\Simulation\FieldOrientation::line($snap), 'seed' => $seed + $index, 'distance' => $snap['distance'], 'players' => $active[$side]['players'], 'defense' => $active[$side === 'home' ? 'away' : 'home']['players'], 'pass' => $pass, 'profile' => $profile], JSON_THROW_ON_ERROR)."\n");
+                    fwrite($pipes[0], json_encode(['direction' => $direction, 'startX' => \App\Services\Simulation\FieldOrientation::line($snap), 'seed' => $profile === 'decisions' ? \App\Services\Arcade\LivePlaySeed::forState($snap) : $seed + $index, 'distance' => $snap['distance'], 'players' => $active[$side]['players'], 'defense' => $active[$side === 'home' ? 'away' : 'home']['players'], 'pass' => $pass, 'profile' => $profile, 'routeSet' => 'slants'], JSON_THROW_ON_ERROR)."\n");
                     $response = fgets($pipes[1]);
                     if ($response === false) {
                         throw new RuntimeException('Physics fixture failed: '.stream_get_contents($pipes[2]));
@@ -123,6 +130,13 @@ function arcadePacingGame(int $length, int $seed, string $tempo, bool $arcade, s
                     $physics = json_decode($response, true, flags: JSON_THROW_ON_ERROR);
                     hash_update($hash, $physics['recordingHash']);
                     $reason = $physics['result']['reason'];
+                    if ($pass) {
+                        $counts['actual_pass_attempts'] += $physics['attemptedPass'] ? 1 : 0;
+                        $counts['scrambles'] += ! $physics['attemptedPass'] && ! in_array($reason, ['sack', 'safety', 'timeout'], true) ? 1 : 0;
+                        $passingOutcome = $physics['passOutcome'] ?? $reason;
+                        $counts['passing_outcomes'][$passingOutcome] = ($counts['passing_outcomes'][$passingOutcome] ?? 0) + 1;
+                        $counts['route_sets'][$physics['routeSet']] = ($counts['route_sets'][$physics['routeSet']] ?? 0) + 1;
+                    }
                     $outcome = match ($reason) {
                         'incomplete' => 'incomplete', 'interception' => 'interception', 'sack' => 'sack', default => $physics['passOutcome'] === 'complete' ? 'complete' : 'tackle'
                     };
@@ -130,7 +144,16 @@ function arcadePacingGame(int $length, int $seed, string $tempo, bool $arcade, s
                     $gain = max(-$snap['spot'], min(100 - $snap['spot'], $gain));
                     $accounted = app(\App\Services\Simulation\ScrimmageAccounting::class)->apply($snap, $snap, $outcome, $gain, $outcome === 'interception', 'Scripted physics');
                     $play = ['call' => $call, 'defense' => 'man_to_man', 'offense_formation' => 'shotgun', 'defense_formation' => 'base_4_3', 'outcome' => $accounted['outcome'], 'gain' => $gain, 'target' => 0, 'carrier' => $pass ? 'WR1' : 'RB', 'summary' => $accounted['summary'], 'out_of_bounds' => $reason === 'out_of_bounds'];
-                    $result = app(\App\Services\Simulation\PlayFinalizer::class)->finish($accounted['state'], $snap, $play, $active, (int) ceil($physics['ticks'] / 60), ['players' => [], 'events' => []]);
+                    $participants = [];
+                    if ($profile === 'decisions') {
+                        // Preserve real on-field fatigue/participation without constructing fake motion.
+                        foreach ([$side => $pass ? ['QB', 'WR1', 'WR2'] : ['RB'], $side === 'home' ? 'away' : 'home' => $pass ? ['CB1', 'CB2'] : ['LB1', 'CB1']] as $actorSide => $roles) {
+                            foreach ($roles as $role) {
+                                $participants[] = ['id' => $active[$actorSide]['players'][$role]['id'], 'side' => $actorSide, 'role' => $role];
+                            }
+                        }
+                    }
+                    $result = app(\App\Services\Simulation\PlayFinalizer::class)->finish($accounted['state'], $snap, $play, $active, (int) ceil($physics['ticks'] / 60), ['players' => $participants, 'events' => []]);
                 }
             } else {
                 $result = $engine->resolve($state, $rosters, $call, ExhibitionEngine::defensesForCall($call)[0], 'shotgun', 'base_4_3', $tempo);
@@ -227,5 +250,32 @@ test('Arcade pacing opt in early lead input sensitivity report', function () {
         $metrics = arcadePacingGame(120, $seed, 'normal', true, 'lead');
         fwrite(STDOUT, json_encode(['length' => 120, 'tempo' => 'normal', 'seed' => $seed, 'mode' => 'scripted_early_lead'] + $metrics)."\n");
         expect(arcadePacingGame(120, $seed, 'normal', true, 'lead'))->toBe($metrics);
+    }
+});
+
+/** This comparison is a plausible bounded bot, not calibrated human behavior. */
+test('Arcade pacing visible decision profile is reproducible with mixed calls and current exhibition routes', function () {
+    $first = arcadePacingGame(120, 42, 'normal', true, 'decisions');
+    expect(arcadePacingGame(120, 42, 'normal', true, 'decisions'))->toBe($first)
+        ->and($first['runs'])->toBeGreaterThan(0)->and($first['passes'])->toBeGreaterThan(0)
+        ->and($first['route_sets']['slants'] ?? 0)->toBeGreaterThan(0)
+        ->and($first['route_sets']['comeback'] ?? 0)->toBe(0)
+        ->and(array_sum($first['passing_outcomes']))->toBe($first['passes']);
+});
+
+test('Arcade pacing opt in visible decision preset and tempo report', function () {
+    if (! getenv('ARCADE_PACING_REPORT')) {
+        $this->markTestSkipped('Set ARCADE_PACING_REPORT=1 for the visible decision comparison.');
+    }
+    foreach ([120, 180, 300, 600, 900] as $length) {
+        foreach (['normal', 'hurry', 'drain'] as $tempo) {
+            foreach ([42, 137, 2026] as $seed) {
+                foreach ([false, true] as $arcade) {
+                    $metrics = arcadePacingGame($length, $seed, $tempo, $arcade, 'decisions');
+                    fwrite(STDOUT, json_encode(['length' => $length, 'tempo' => $tempo, 'seed' => $seed, 'mode' => $arcade ? 'scripted_visible_decisions' : 'seeded_coach_decisions'] + $metrics)."\n");
+                    expect(array_sum($metrics['snaps']))->toBeGreaterThan(0);
+                }
+            }
+        }
     }
 });

@@ -221,7 +221,7 @@ class ExhibitionSessions
         };
         // Official recording contract v1 pins approved pacing independently of configurable local drills.
         $setup = ['kind' => $kind, 'mode' => $kind === 'run' ? 'running' : 'passing', 'direction' => $direction,
-            'seed' => $state['seed'], 'speedScale' => .925, 'defenderCount' => 2, 'routeSet' => 'slants',
+            'seed' => LivePlaySeed::forState($state), 'speedScale' => .925, 'defenderCount' => 2, 'routeSet' => 'slants',
             'appearance' => $game->state['team_appearance'] ?? [],
             'exhibition' => ['startX' => $line, 'goalX' => FieldPosition::physical(100, $state), 'rearX' => FieldPosition::physical(0, $state), 'firstDownX' => FieldPosition::physical(min(100, $state['spot'] + $state['distance']), $state)]];
         if ($kind === 'run') {
