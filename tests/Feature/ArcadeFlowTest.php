@@ -213,3 +213,46 @@ test('adoption does not strand a pending choice owned by the other team', functi
     $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'preferences', 'human_side' => 'home', 'defense_mode' => 'fast']))->assertConflict();
     expect($game->fresh()->arcadeFlow)->toBeNull()->and($game->fresh()->state['controls']['away'])->toBe('human');
 });
+
+test('shared Coach form automatic defaults do not block human defense', function () {
+    $game = flowTestGame(['possession' => 'away']);
+    $rosters = $game->rosters;
+    foreach (['home', 'away'] as $side) {
+        $rosters[$side]['pool'] = array_values($rosters[$side]['players']);
+    }
+    $game->update(['rosters' => $rosters]);
+    enableFlow($game);
+    $id = $game->rosters['home']['players']['CB1']['id'];
+    $payload = flowCommand($game, ['action' => 'play', 'defense' => 'man_to_man', 'defense_formation' => 'base_4_3',
+        'team_play' => ['home' => '', 'away' => ''], 'one_play' => ['home' => ['CB1' => $id], 'away' => ['QB' => null, 'RB' => '']]]);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk();
+    $saved = $game->fresh();
+    expect($saved->history)->toHaveCount(1)->and($saved->history[0]['before']['_snap_lineup']['home']['CB1'])->toBe($id);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->state)->toBe($saved->state);
+});
+
+test('shared form defaults never authorize actual opponent personnel choices', function (array $selection) {
+    $game = flowTestGame(['possession' => 'away']);
+    enableFlow($game);
+    $before = $game->fresh()->state;
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'play', 'defense' => 'man_to_man'] + $selection))->assertUnprocessable();
+    expect($game->fresh()->state)->toBe($before)->and($game->fresh()->history)->toBe([]);
+})->with([
+    [['team_play' => ['home' => null, 'away' => '11111111-1111-4111-8111-111111111111']]],
+    [['one_play' => ['away' => ['QB' => 32]]]],
+    [['one_play' => ['away' => ['not_a_role' => null]]]],
+    [['team_play' => ['unrecognized' => null]]],
+]);
+
+test('successful opening coin choice durably marks intro seen without an extra football action', function () {
+    $game = flowTestGame(['phase' => 'kickoff', 'coin_toss' => ['pending' => true, 'winner' => 'home', 'call' => 'heads', 'result' => 'tails', 'choice' => null]]);
+    enableFlow($game);
+    $game->arcadeFlow()->update(['opening_enabled' => true, 'intro_seen' => false]);
+    $before = $game->fresh()->state;
+    $payload = flowCommand($game, ['action' => 'coin', 'choice' => 'receive']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('flow.intro_seen', true);
+    $after = $game->fresh()->state;
+    expect($after['version'])->toBe($before['version'])->and($after['seed'])->toBe($before['seed'])->and($after['clock'])->toBe($before['clock'])->and($game->fresh()->history)->toBe([]);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('flow.intro_seen', true);
+});

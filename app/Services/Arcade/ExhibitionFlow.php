@@ -160,7 +160,20 @@ class ExhibitionFlow
                     $args = $request->only(['action', 'call', 'defense', 'offense_formation', 'defense_formation', 'tempo', 'clock_strategy', 'timeout_team', 'timeout_timing', 'decision', 'choice', 'toss_call', 'team', 'role', 'player', 'expect', 'blitz', 'motion', 'one_play', 'team_play']);
                     foreach (['one_play', 'team_play'] as $field) {
                         if (isset($args[$field])) {
-                            abort_unless(is_array($args[$field]) && ! array_diff(array_keys($args[$field]), [$meta->human_side]), 422, 'Only your team personnel may be selected.');
+                            abort_unless(is_array($args[$field]) && ! array_diff(array_keys($args[$field]), ['home', 'away']), 422, 'Only your team personnel may be selected.');
+                            $other = $meta->human_side === 'home' ? 'away' : 'home';
+                            if (array_key_exists($other, $args[$field])) {
+                                $value = $args[$field][$other];
+                                // Shared Coach forms include both teams' Automatic defaults. They
+                                // confer no selection authority and must not block a human call.
+                                $empty = $value === null || $value === '';
+                                if ($field === 'one_play' && is_array($value)) {
+                                    $empty = ! array_diff(array_keys($value), array_keys(\App\Services\Simulation\RosterBuilder::GROUPS))
+                                        && ! array_filter($value, fn ($id) => $id !== null && $id !== '');
+                                }
+                                abort_unless($empty, 422, 'Only your team personnel may be selected.');
+                                unset($args[$field][$other]);
+                            }
                         }
                     }
                     if ($action === 'spike') {
@@ -181,6 +194,9 @@ class ExhibitionFlow
                         abort_unless(in_array($args['call'] ?? null, ['spike', 'kneel', 'punt', 'punt_distance', 'punt_hang', 'punt_pooch', 'punt_coffin', 'field_goal', 'fake_punt_run', 'fake_punt_pass', 'fake_field_goal_run', 'fake_field_goal_pass'], true), 422, 'Run and pass plays must be played in Arcade.');
                     }
                     $this->coachAction($game, $request, $args);
+                    if ($action === 'coin') {
+                        $meta->intro_seen = true;
+                    }
                 }
             }
             $meta->revision++;
