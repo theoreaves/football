@@ -82,6 +82,8 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/teams/{team}/stadium-art/{file}', [\App\Http\Controllers\PracticeController::class, 'stadiumArt'])->name('teams.stadium-art');
         Route::get('/teams/{team}/art/{asset}', [\App\Http\Controllers\PracticeController::class, 'art'])->name('teams.art');
 
+        Route::get('exhibitions/{exhibition}/arcade/flow', [\App\Http\Controllers\ArcadeFlowController::class, 'show'])->name('exhibitions.arcade.flow.status');
+        Route::post('exhibitions/{exhibition}/arcade/flow', [\App\Http\Controllers\ArcadeFlowController::class, 'store'])->name('exhibitions.arcade.flow');
         Route::prefix('exhibitions/{exhibition}/arcade')->name('exhibitions.arcade.')->controller(\App\Http\Controllers\ArcadeExhibitionController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('/sessions', 'start')->name('start');

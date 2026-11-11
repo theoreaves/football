@@ -12,6 +12,11 @@ class Exhibition extends Model
 
     protected $casts = ['state' => 'array', 'rosters' => 'array', 'history' => 'array', 'box_score_cache' => 'array'];
 
+    public function arcadeFlow()
+    {
+        return $this->hasOne(ArcadeGameFlow::class);
+    }
+
     public function seasonFixture()
     {
         return $this->hasOne(SeasonFixture::class);

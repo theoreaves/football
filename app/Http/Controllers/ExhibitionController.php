@@ -37,7 +37,7 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine, CpuCoach $coach)
     {
-        $data = $request->validate(['home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'kickoff_profile' => ['sometimes', Rule::in(['traditional', 'nfl_2024', 'nfl_2025', 'nfl_2026'])], 'overtime' => ['sometimes', Rule::in(['none', 'traditional', 'modern', 'traditional_playoff', 'modern_playoff'])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
+        $data = $request->validate(['play_mode' => ['sometimes', 'boolean'], 'play_side' => ['sometimes', Rule::in(['home', 'away'])], 'defense_mode' => ['sometimes', Rule::in(['coach', 'watch', 'fast'])], 'home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'kickoff_profile' => ['sometimes', Rule::in(['traditional', 'nfl_2024', 'nfl_2025', 'nfl_2026'])], 'overtime' => ['sometimes', Rule::in(['none', 'traditional', 'modern', 'traditional_playoff', 'modern_playoff'])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $coin = random_int(0, 1) === 0 ? 'heads' : 'tails';
@@ -49,6 +49,12 @@ class ExhibitionController extends Controller
         if ($quickSim) {
             $controls = ['home' => 'cpu', 'away' => 'cpu'];
         }
+        if ($data['play_mode'] ?? false) {
+            abort_unless(config('arcade.enabled'), 404);
+            abort_if($quickSim || str_contains($data['overtime'] ?? '', 'playoff'), 422, 'Play mode requires a standalone exhibition.');
+            $human = $data['play_side'] ?? 'home';
+            $controls = [$human => 'human', ($human === 'home' ? 'away' : 'home') => 'cpu'];
+        }
         // Older clients without a coin call retain the receive default.
         $pending = $controls[$winner] === 'human' && isset($data['coin_call']);
         $choice = $controls[$winner] === 'cpu' ? $coach->coinChoice($initial) : ($pending ? null : 'receive');
@@ -59,6 +65,9 @@ class ExhibitionController extends Controller
                 'state' => array_merge($initial, ['coaching' => ['home' => $home->team_settings['coaching'] ?? [], 'away' => $away->team_settings['coaching'] ?? []], 'team_appearance' => app(PracticeController::class)->matchup($home, $away), 'possession' => $receiver === 'home' ? 'away' : 'home', 'opening_receiver' => $receiver, 'coin_toss' => ['call' => $coinCall, 'result' => $coin, 'winner' => $winner, 'choice' => $choice, 'pending' => $pending], 'crowd' => ['fullness' => (int) ($data['crowd_fullness'] ?? 80), 'visitors' => (int) ($data['visiting_fans'] ?? 10), 'seed' => random_int(1, 2147483647)], 'rules' => ['kickoff_profile' => $data['kickoff_profile'] ?? 'traditional', 'overtime' => $data['overtime'] ?? 'none', 'penalties' => (bool) ($data['penalties'] ?? true), 'injuries' => (bool) ($data['injuries'] ?? true)], 'controls' => $controls]),
                 'rosters' => ['home' => $builder->build($home), 'away' => $builder->build($away)], 'history' => [],
             ]);
+            if ($data['play_mode'] ?? false) {
+                \App\Models\ArcadeGameFlow::create(['exhibition_id' => $game->id, 'human_side' => $data['play_side'] ?? 'home', 'defense_mode' => $data['defense_mode'] ?? 'coach', 'opening_enabled' => true, 'intro_seen' => false]);
+            }
             if ($quickSim) {
                 $game->update(app(\App\Services\Simulation\QuickSimulator::class)->run($game->state, $game->rosters));
             }
@@ -66,7 +75,7 @@ class ExhibitionController extends Controller
             return $game;
         });
 
-        return redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => $quickSim ? 1 : 0]);
+        return redirect()->route('exhibitions.show', ['exhibition' => $game, 'summary' => $quickSim ? 1 : 0, 'arcade' => ($data['play_mode'] ?? false) ? 1 : null]);
     }
 
     public function show(Exhibition $exhibition)
@@ -84,7 +93,7 @@ class ExhibitionController extends Controller
         }
         // STAD1 snapshots retain their original concrete and field-wall colors.
         foreach (['home', 'away'] as $side) {
-            if (!isset($appearance[$side]['stadium']['presentation_version'])) {
+            if (! isset($appearance[$side]['stadium']['presentation_version'])) {
                 foreach (['field_wall_art', 'home_tunnel_art', 'away_tunnel_art', 'home_tunnel_color', 'away_tunnel_color'] as $key) {
                     unset($appearance[$side]['stadium'][$key]);
                 }
@@ -189,14 +198,28 @@ class ExhibitionController extends Controller
             $exhibition->state = $last['after'] ?? $last['before'];
         }
 
-        return view('exhibitions.show', compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel'));
+        $arcadeFlow = null;
+        $arcadeFlowUrl = null;
+        $arcadeReturnUrl = null;
+        if (request()->boolean('arcade') || $exhibition->arcadeFlow()->exists()) {
+            app(\App\Services\Arcade\ExhibitionSessions::class)->authorize($exhibition, request()->user()->id);
+            // Hash the persisted state, not show()'s in-memory presentation normalization.
+            $stored = Exhibition::findOrFail($exhibition->id);
+            $arcadeFlow = app(\App\Services\Arcade\ExhibitionFlow::class)->status($stored)['flow'];
+            $arcadeFlowUrl = route('exhibitions.arcade.flow', $exhibition);
+            $arcadeReturnUrl = route('exhibitions.arcade.show', $exhibition);
+        }
+
+        return view('exhibitions.show', compact('arcadeFlow', 'arcadeFlowUrl', 'arcadeReturnUrl', 'replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel'));
     }
 
     public function finish(Request $request, Exhibition $exhibition)
     {
+        abort_if($exhibition->arcadeFlow()->exists(), 409, 'Use Fast Sim in Play mode so player decisions are preserved.');
         $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'scope' => ['sometimes', Rule::in(['drive', 'quarter', 'half', 'game'])]]);
         DB::transaction(function () use ($exhibition, $data) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
+            abort_if($game->arcadeFlow()->exists(), 409, 'Use the versioned Play controls for this game.');
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'The game changed. Reload before finishing with Quick Sim.');
             if ($game->state['status'] === 'final' && ! ($game->state['penalty_pending'] ?? false)) {
                 return;
@@ -274,6 +297,7 @@ class ExhibitionController extends Controller
     /** GAME1: switch human/CPU coaching at the next play boundary. */
     public function teamControl(Request $request, Exhibition $exhibition)
     {
+        abort_if($exhibition->arcadeFlow()->exists(), 409, 'Use Play defense preferences; the player team is fixed.');
         $data = $request->validate([
             'version' => ['required', 'integer', 'min:0'],
             'home_control' => ['required', Rule::in(['human', 'cpu'])],
@@ -281,6 +305,7 @@ class ExhibitionController extends Controller
         ]);
         DB::transaction(function () use ($exhibition, $data) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
+            abort_if($game->arcadeFlow()->exists(), 409, 'Use the versioned Play controls for this game.');
             $state = $game->state;
             abort_if(($state['version'] ?? -1) !== (int) $data['version'], 409,
                 'The game changed. Reload before changing team control.');
@@ -304,6 +329,7 @@ class ExhibitionController extends Controller
 
     public function play(Request $request, Exhibition $exhibition, ExhibitionEngine $engine)
     {
+        abort_if($exhibition->arcadeFlow()->exists() && ! $request->attributes->get('arcade_flow_dispatch'), 409, 'Continue this Play game through its versioned Arcade controls.');
         $controls = app(CpuCoach::class)->controls($exhibition->state);
         $side = $exhibition->state['possession'];
         $rules = ['version' => ['required', 'integer', 'min:0']];
@@ -360,6 +386,7 @@ class ExhibitionController extends Controller
         $data = $request->validate($rules);
         DB::transaction(function () use ($exhibition, $engine, $data, $request, $forceInjuryAllowed) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
+            abort_if($game->arcadeFlow()->exists() && ! $request->attributes->get('arcade_flow_dispatch'), 409, 'Use the versioned Play controls for this game.');
             abort_if($game->state['version'] !== (int) $data['version'], 409, 'This play was already processed. Reload the game.');
             if (in_array($request->input('action'), ['ot_call', 'ot_choice'], true)) {
                 $state = $game->state;

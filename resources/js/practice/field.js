@@ -1,3 +1,4 @@
+import {claimPlayOpening,mountPlayPresentation} from './play-mode-presentation.js';
 import {applyAnimationVariety,tackleFallAngle} from './animation-variety.js';
 import {hasOpenGameDialog} from './game-settings.js';
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
@@ -52,6 +53,7 @@ import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } fro
 export function mountPractice(root, onReady = () => {}) {
     if (root.dataset.mounted) return;
     root.dataset.mounted = 'true';
+    const arcadeFlow = root.dataset.arcadeFlow ? JSON.parse(root.dataset.arcadeFlow) : null;
     const host = root.querySelector('[data-field]');
     const status = root.querySelector('[data-status]');
     const slider = root.querySelector('[data-timeline]');
@@ -1510,7 +1512,7 @@ export function mountPractice(root, onReady = () => {}) {
             callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
         });
     }
-    const cpuTimeoutForm=root.querySelector('[data-cpu-timeout-form]');
+    const cpuTimeoutForm=arcadeFlow?.enabled ? null : root.querySelector('[data-cpu-timeout-form]');
     let cpuTimeoutSent=false;
     const tickPlayWizard = mountPlayWizard(root, {
         skipPlayerChange,
@@ -1595,7 +1597,13 @@ export function mountPractice(root, onReady = () => {}) {
     const pregameDialog = root.querySelector('[data-pregame-dialog]');
     const pregameKey = `${root.dataset.cameraKey}:pregame-shown`;
     let showPregame = Boolean(pregameDialog && root.dataset.playNumber === '0');
-    try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
+    if (arcadeFlow?.enabled) {
+        let openingStorage;
+        try { openingStorage = localStorage; } catch { /* No storage: skip safely. */ }
+        showPregame = Boolean(pregameDialog && claimPlayOpening({flow:arcadeFlow, version:root.dataset.playNumber, key:`${pregameKey}:play`, storage:openingStorage}));
+    } else {
+        try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
+    }
     let openingPregame = showPregame;
     let anthemIntro;
     const entrancePanel=root.querySelector('[data-entrance-panel]');
@@ -1745,9 +1753,9 @@ export function mountPractice(root, onReady = () => {}) {
     const cpuToggle = root.querySelector('[data-cpu-toggle]'), cpuStatus = root.querySelector('[data-cpu-status]');
     const cpuKey = `${cameraKey}:cpu-autoplay`;
     let cpuAuto = false;
-    try { cpuAuto = root.dataset.cpuOnly === 'true' && sessionStorage.getItem(cpuKey) === 'true'; } catch { /* Autoplay starts paused if storage is unavailable. */ }
+    try { cpuAuto = !arcadeFlow?.enabled && root.dataset.cpuOnly === 'true' && sessionStorage.getItem(cpuKey) === 'true'; } catch { /* Autoplay starts paused if storage is unavailable. */ }
     const setCpuAuto = enabled => {
-        cpuAuto = enabled;
+        cpuAuto = !arcadeFlow?.enabled && enabled;
         if (cpuToggle) cpuToggle.textContent = enabled ? 'Pause CPU game' : 'Start CPU game';
         if (cpuStatus) cpuStatus.textContent = enabled ? 'CPU game running · notices advance automatically' : 'Autoplay off · current play finishes';
         try { sessionStorage.setItem(cpuKey, String(enabled)); } catch { /* Optional persistence. */ }
@@ -1758,6 +1766,7 @@ export function mountPractice(root, onReady = () => {}) {
         {dialog: quarterDialog, seconds: quarterDialog?.dataset.breakKind === 'halftime' ? 18 : 12,
             allowed: () => afterState?.status !== 'final'},
     ]);
+    if (arcadeFlow?.enabled && cpuToggle) cpuToggle.hidden = true;
     if (cpuAuto) setCpuAuto(true);
     cpuToggle?.addEventListener('click', () => setCpuAuto(!cpuAuto));
 
@@ -1948,7 +1957,7 @@ export function mountPractice(root, onReady = () => {}) {
             }
         } else if (phase === 'result') {
             postElapsed += delta;
-            if (screenTimerExpired({manual:manualScreens,elapsed:postElapsed,seconds:10,visible:!document.hidden})) {
+            if (screenTimerExpired({manual:arcadeFlow?.enabled && arcadeFlow.defense_mode === 'watch' ? false : manualScreens,elapsed:postElapsed,seconds:10,visible:!document.hidden})) {
                 finishResult();
             }
         } else if (!entrance.active && phase === 'huddle' && huddleProgress < 1) {
@@ -1989,7 +1998,7 @@ export function mountPractice(root, onReady = () => {}) {
             button.disabled = exchangeRate > 1;
             button.textContent = exchangeRate > 1 ? 'Fast-forwarding…' : 'Skip player change';
         }
-        tickNotices({delta, enabled: cpuAuto && root.dataset.cpuOnly === 'true', visible: !document.hidden});
+        tickNotices({delta, enabled: (cpuAuto && root.dataset.cpuOnly === 'true') || (arcadeFlow?.enabled && arcadeFlow.defense_mode === 'watch'), visible: !document.hidden});
         if(cpuTimeoutForm && !cpuTimeoutSent && ((phase==='huddle' && huddleProgress===1) || (root.dataset.playNumber==='0' && !running)) && !document.hidden && !entrance.active && !hasOpenGameDialog(root)){
             cpuTimeoutSent=true;cpuTimeoutForm.requestSubmit();
         }
@@ -2033,14 +2042,20 @@ export function mountPractice(root, onReady = () => {}) {
             submitting: snapButton.disabled || Boolean(cpuTimeoutForm), dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root)), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
+        playPresentation.tick({recorded:root.dataset.autoplay === 'true' && Boolean(animation),
+            completed:!running && ['settling','result','huddle','celebration','big_play','medical','penalty'].includes(phase) && elapsed >= duration,
+            ready:phase === 'huddle' && huddleProgress === 1 && (!exchange || exchangeElapsed >= exchange.duration), visible:!document.hidden,
+            dialogOpen:Boolean(entrance.active || openingPregame || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root))});
         frameId = requestAnimationFrame(animate);
     };
+    const playPresentation = mountPlayPresentation(root, arcadeFlow);
     frameId = requestAnimationFrame(animate);
     let disposed = false;
     const cleanup = (options = {}) => {
         if (disposed) return;
         disposed = true;
         disposeNavigation();
+        playPresentation.dispose();
         queuedCall?.dispose();
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();

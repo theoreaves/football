@@ -45,8 +45,7 @@ class ExhibitionSessions
 
     public function status(Exhibition $game): array
     {
-        return ['state' => $game->state, 'available' => $this->available($game),
-            'coach_url' => route('exhibitions.show', $game)];
+        return app(ExhibitionFlow::class)->status($game);
     }
 
     public function start(Exhibition $game, int $userId, array $data): array

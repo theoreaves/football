@@ -70,6 +70,14 @@ try {
         }
         $service = app(ExhibitionSessions::class);
         $result = match ($input['action']) {
+            'flow_status' => app(App\Services\Arcade\ExhibitionFlow::class)->status($game),
+            'flow' => (function () use ($game, $input) {
+                $request = Illuminate\Http\Request::create('/', 'POST', $input['data']);
+                $request->setUserResolver(fn () => auth()->user());
+                $request->setLaravelSession(app('session')->driver());
+
+                return app(App\Services\Arcade\ExhibitionFlow::class)->execute($game, $request);
+            })(),
             'start' => $service->start($game, $input['user'], ['version' => 0, 'kind' => 'run', 'tempo' => 'normal']),
             'validate' => (function () use ($input, $game) {
                 $session = ArcadePlaySession::findOrFail($input['session']);

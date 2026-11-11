@@ -28,6 +28,15 @@
          <label>Overtime<select name="overtime" class="block bg-gray-900 text-white rounded p-2 mt-1"><option value="none" @selected(old('overtime', 'none') === 'none')>No OT · ties stand</option><option value="traditional" @selected(old('overtime', 'none') === 'traditional')>Traditional · sudden death (10 min)</option><option value="modern" @selected(old('overtime', 'none') === 'modern')>Modern NFL · both teams get a chance (10 min)</option><option value="traditional_playoff" @selected(old('overtime', 'none') === 'traditional_playoff')>Traditional playoff · sudden death (15 min periods)</option><option value="modern_playoff" @selected(old('overtime', 'none') === 'modern_playoff')>Modern NFL playoff · both teams get a chance (15 min periods)</option></select></label>
         <input type="hidden" name="penalties" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="penalties" value="1" @checked(old('penalties', true))>Penalties</label>
         <input type="hidden" name="injuries" value="0"><label class="flex items-center gap-2"><input type="checkbox" name="injuries" value="1" @checked(old('injuries', true))>Injuries</label>
+        @if(config('arcade.enabled'))
+        <fieldset class="w-full rounded border border-blue-500 p-3">
+            <legend>Arcade Play exhibition</legend>
+            <label>Your team<select name="play_side" class="bg-gray-900 rounded p-2 ml-2"><option value="home">Home</option><option value="away">Away</option></select></label>
+            <label class="ml-3">Defense<select name="defense_mode" class="bg-gray-900 rounded p-2 ml-2"><option value="coach">Coach Defense</option><option value="watch">Watch Simulation</option><option value="fast">Fast Sim</option></select></label>
+            <button name="play_mode" value="1" class="bg-blue-700 rounded px-5 py-2 ml-3" @disabled($teams->count() < 2)>Start Play exhibition</button>
+            <p class="mt-2 text-xs text-gray-300">Control your offense with Arcade. Your selected defensive mode handles the opponent; existing football rules and decisions still apply. Human/CPU choices above apply to Coach games.</p>
+        </fieldset>
+        @endif
         <button class="bg-blue-700 rounded px-5 py-2" @disabled($teams->count() < 2)>Start game</button>
         <button name="quick_sim" value="1" class="border border-blue-400 rounded px-5 py-2" @disabled($teams->count() < 2)>Quick Sim</button>
         <p class="text-xs text-gray-400 w-full">Quick Sim lets the CPU coach both teams and opens the final box score, with every play and replay saved.</p>
@@ -35,7 +44,7 @@
     </details>
     <div class="space-y-3">
         @forelse($games as $game)
-            <article class="exhibition-card"><a href="{{ route('exhibitions.show', $game) }}" class="block bg-gray-800 rounded p-4 hover:bg-gray-700">{{ $game->awayTeam->name }} {{ $game->state['away_score'] }} at {{ $game->homeTeam->name }} {{ $game->state['home_score'] }} <span class="text-gray-400 ml-4">{{ $game->state['status'] === 'final' ? 'Final' : 'Resume · Q'.$game->state['quarter'] }}</span></a>
+            <article class="exhibition-card"><a href="{{ route('exhibitions.show', ['exhibition' => $game, ...((config('arcade.enabled') && $game->arcadeFlow) ? ['arcade' => 1] : [])]) }}" class="block bg-gray-800 rounded p-4 hover:bg-gray-700">{{ $game->awayTeam->name }} {{ $game->state['away_score'] }} at {{ $game->homeTeam->name }} {{ $game->state['home_score'] }} <span class="text-gray-400 ml-4">{{ $game->state['status'] === 'final' ? 'Final' : 'Resume · Q'.$game->state['quarter'] }}</span></a>
                 <details class="exhibition-delete"><summary>Delete</summary><form method="POST" action="{{ route('exhibitions.destroy', $game) }}">@csrf @method('DELETE')<p>Delete this exhibition and its saved replays? This cannot be undone.</p><button class="rounded bg-red-800 px-3 py-2 mt-2">Delete exhibition</button></form></details>
             </article>
         @empty<p class="text-gray-400">No exhibitions yet. Create a matchup above to get started.</p>@endforelse

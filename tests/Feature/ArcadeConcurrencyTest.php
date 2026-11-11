@@ -181,3 +181,30 @@ test('a concurrent serialized state mutation cannot be clobbered by an Arcade re
         ->and($saved['history'])->toHaveCount($result['status'] === 200 ? 1 : 0)
         ->and($saved['sessions'][0]['active_slot'])->toBeNull();
 });
+
+function raceFlowPayload(array $fixture, array $fields): array
+{
+    $status = arcadeRaceCall($fixture + ['action' => 'flow_status'])['result'];
+
+    return $fields + ['command_id' => (string) \Illuminate\Support\Str::uuid(), 'version' => $status['state']['version'], 'flow_revision' => $status['flow']['revision'], 'state_hash' => $status['flow']['state_hash']];
+}
+
+test('flow commands racing reservation cannot overwrite an active play', function () {
+    $enable = raceFlowPayload($this->race, ['action' => 'preferences', 'human_side' => 'home', 'defense_mode' => 'coach']);
+    expect(arcadeRaceCall($this->race + ['action' => 'flow', 'data' => $enable])['status'])->toBe(200);
+    $timeout = raceFlowPayload($this->race, ['action' => 'timeout']);
+    [$flow,$start] = arcadeRacePair($this->race, ['action' => 'flow', 'data' => $timeout], ['action' => 'start']);
+    expect([$flow['status'], $start['status']])->toBeIn([[200, 409], [409, 200]]);
+    $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
+    expect(count($saved['history']))->toBe($flow['status'] === 200 ? 1 : 0);
+});
+
+test('identical concurrent flow commands consume timeout only once', function () {
+    $enable = raceFlowPayload($this->race, ['action' => 'preferences', 'human_side' => 'home', 'defense_mode' => 'coach']);
+    arcadeRaceCall($this->race + ['action' => 'flow', 'data' => $enable]);
+    $timeout = raceFlowPayload($this->race, ['action' => 'timeout']);
+    [$one,$two] = arcadeRacePair($this->race, ['action' => 'flow', 'data' => $timeout], ['action' => 'flow', 'data' => $timeout]);
+    expect($one['status'])->toBe(200)->and($two['status'])->toBe(200);
+    $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
+    expect($saved['history'])->toHaveCount(1)->and($saved['state']['timeouts']['home'])->toBe(2);
+});
