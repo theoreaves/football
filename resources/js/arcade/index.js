@@ -93,13 +93,13 @@ export function mountArcade(root) {
         for (const control of [scenario, routes, receiverCount, tempo]) if (control) control.disabled = state.status === 'running';
         const football = state.ball;
         const liveHint = passing ? football.phase === 'flight' ? 'Ball in flight. Find the window.'
-            : football.holderKey === 'qb' ? (state.quarterback.x - state.startX) * state.direction > 0 ? 'Return behind the cyan line to throw, or keep running.' : 'Stay behind the cyan line. Drag toward your target, then release to pass.'
+            : football.holderKey === 'qb' ? (state.quarterback.x - state.startX) * state.direction > 0 ? 'Return behind the cyan line to throw, or keep running.' : 'Stay behind the cyan line. Click your target to pass, or hold and drag to aim.'
                 : 'Caught! You control the receiver. Run right toward the end zone.' : 'Find the gap. Run right toward the end zone.';
-        if (phase) phase.textContent = passing ? state.passOutcome === 'complete' ? 'COMPLETE · RUN AFTER CATCH' : football.phase === 'flight' ? 'BALL IN FLIGHT' : 'QB CONTROL · DRAG TO AIM' : 'RUNNING DRILL';
+        if (phase) phase.textContent = passing ? state.passOutcome === 'complete' ? 'COMPLETE · RUN AFTER CATCH' : football.phase === 'flight' ? 'BALL IN FLIGHT' : 'QB CONTROL · CLICK TO THROW' : 'RUNNING DRILL';
         const resultName = state.result ? RESULTS[state.result.reason] || state.result.reason.toUpperCase() : '';
         const message = state.status === 'finished' ? `${resultName} · ${Math.round(state.result.yards)} yards in ${state.result.time.toFixed(1)} seconds.`
             : state.status === 'paused' ? 'Paused. Resume when you are ready.'
-                : state.status === 'running' ? liveHint : `Ready. Start your ${noun}, then ${passing ? 'drag toward a receiver’s route to throw.' : 'use WASD or the arrow keys.'}`;
+                : state.status === 'running' ? liveHint : `Ready. Start your ${noun}, then ${passing ? 'click where you want to throw. Hold and drag to preview your aim.' : 'use WASD or the arrow keys.'}`;
         if (message !== lastAnnouncement) { status.textContent = message; lastAnnouncement = message; }
         if (state.status === 'finished') {
             best = Math.max(best, state.result.yards);
@@ -109,7 +109,7 @@ export function mountArcade(root) {
             heading.textContent = 'TAKE A BREATHER'; detail.textContent = 'Your play is paused. Nothing moves until you resume.';
         } else {
             heading.textContent = passing ? 'PICK YOUR WINDOW' : 'FIND YOUR GAP';
-            detail.textContent = passing ? 'Follow a route. Lead your receiver. Drag toward the target and release.' : `${scenario.value === '2' ? 'Two defenders. ' : 'One defender. '}Thirty yards to the end zone. Make your move.`;
+            detail.textContent = passing ? 'Lead your receiver. Click the target to throw, or hold and drag to aim.' : `${scenario.value === '2' ? 'Two defenders. ' : 'One defender. '}Thirty yards to the end zone. Make your move.`;
         }
         root.dataset.arcadeState = state.status;
         root.dataset.arcadeOutcome = state.result?.reason || '';

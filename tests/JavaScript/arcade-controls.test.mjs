@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {movementForKeys, editableTarget, createArcadeInput} from '../../resources/js/arcade/input.js';
 import {createFixedStepper} from '../../resources/js/arcade/loop.js';
+import {createPassingDrill, stepPassingDrill} from '../../resources/js/arcade/passing.js';
+import {startDrill, pauseDrill} from '../../resources/js/arcade/simulation.js';
 
 test('Arcade arrows and WASD combine without multiplying movement and opposite directions cancel', () => {
     assert.deepEqual(movementForKeys(new Set(['KeyD', 'ArrowRight', 'KeyW'])), {x: 1, z: -1});
@@ -93,18 +95,18 @@ test('input releases held controls on blur, pause, focus loss and disposal; juke
     }
 });
 
-test('drag aiming queues one pass at the release target and cancelled or tiny drags never throw', () => {
+test('clicks and drag aiming queue exactly one pass at the release target; cancelled gestures never throw', () => {
     const oldDocument = globalThis.document, oldWindow = globalThis.window;
     const document = new EventTarget(), window = new EventTarget(), root = new EventTarget(), host = new EventTarget();
     const field = {closest: () => null};
     document.activeElement = field; root.contains = element => element === field; host.focus = () => { document.activeElement = field; };
-    let captured = null, canPass = true, latestAim = null, pauses = 0;
+    let captured = null, canPass = true, enabled = true, latestAim = null, pauses = 0;
     host.setPointerCapture = id => { captured = id; };
     host.hasPointerCapture = id => captured === id;
     host.releasePointerCapture = () => { captured = null; };
     globalThis.document = document; globalThis.window = window;
     const input = createArcadeInput(root, host, {start() {}, retry() {}, pause() { pauses++; },
-        canPass: () => canPass, aimAt: (x, y) => ({x: x / 2, z: y / 2}), onAim: point => { latestAim = point; }});
+        enabled: () => enabled, canPass: () => canPass, aimAt: (x, y) => ({x: x / 2, z: y / 2}), onAim: point => { latestAim = point; }});
     const pointer = (type, x, y, extra = {}) => {
         const event = new Event(type, {cancelable: true});
         Object.entries({clientX: x, clientY: y, pointerId: 7, button: 0, isPrimary: true, ...extra})
@@ -120,8 +122,14 @@ test('drag aiming queues one pass at the release target and cancelled or tiny dr
         assert.equal(captured, null); assert.equal(latestAim, null);
         assert.deepEqual(input.sample().pass, {x: 90, z: 30});
         assert.equal(input.sample().pass, undefined);
-        pointer('pointerdown', 100, 100); pointer('pointerup', 102, 102);
-        assert.equal(input.sample().pass, undefined, 'clicks do not accidentally throw');
+        for (const [x, y] of [[100, 100], [102, 102]]) {
+            pointer('pointerdown', 100, 100);
+            assert.equal(input.sample().pass, undefined, 'pressing alone does not throw');
+            pointer('pointerup', x, y);
+            assert.deepEqual(input.sample().pass, {x: x / 2, z: y / 2}, 'clicks and tiny movements throw at release');
+            pointer('pointerup', x, y);
+            assert.equal(input.sample().pass, undefined, 'a repeated release cannot queue a second pass');
+        }
         pointer('pointerdown', 100, 100); pointer('pointermove', 180, 60); pointer('pointercancel', 180, 60);
         pointer('pointerup', 180, 60);
         assert.equal(input.sample().pass, undefined); assert.equal(latestAim, null);
@@ -135,8 +143,74 @@ test('drag aiming queues one pass at the release target and cancelled or tiny dr
         assert.equal(input.sample().pass, undefined);
         pointer('pointerdown', 100, 100); canPass = false; pointer('pointermove', 180, 60);
         assert.equal(latestAim, null); assert.equal(captured, null);
+        canPass = true;
+        pointer('pointerdown', 100, 100, {isPrimary: false}); pointer('pointerup', 100, 100);
+        assert.equal(input.sample().pass, undefined, 'secondary pointers cannot throw');
+        pointer('pointerdown', 100, 100); pointer('pointerup', 100, 100, {button: 2});
+        assert.equal(input.sample().pass, undefined, 'non-left releases cannot throw');
+        enabled = false; pointer('pointerdown', 100, 100); pointer('pointerup', 100, 100);
+        assert.equal(captured, null); assert.equal(input.sample().pass, undefined);
+        enabled = true; pointer('pointerdown', 100, 100); enabled = false;
+        pointer('pointermove', 180, 60); pointer('pointerup', 180, 60);
+        assert.equal(captured, null); assert.equal(latestAim, null); assert.equal(input.sample().pass, undefined);
+        enabled = true; pointer('pointerdown', 100, 100); enabled = false; pointer('pointerup', 100, 100);
+        assert.equal(input.sample().pass, undefined, 'disabling between press and release cancels the throw');
+        for (const guard of ['enabled', 'canPass']) {
+            enabled = canPass = true;
+            pointer('pointerdown', 100, 100); pointer('pointerup', 100, 100);
+            if (guard === 'enabled') enabled = false; else canPass = false;
+            assert.equal(input.sample().pass, undefined, 'queued input cannot outlive the play or replay gate');
+            enabled = canPass = true;
+            assert.equal(input.sample().pass, undefined, 'resuming does not resurrect a discarded throw');
+        }
+        pointer('pointerdown', 100, 100); pointer('pointerup', NaN, 100);
+        assert.equal(input.sample().pass, undefined, 'invalid aim cannot throw');
+        pointer('pointerdown', 100, 100); pointer('pointerup', 100, 100, {pointerId: 8});
+        assert.equal(input.sample().pass, undefined, 'unrelated release does not throw');
+        input.clear();
         canPass = true; pointer('pointerdown', 100, 100); input.dispose(); pointer('pointerup', 180, 60);
         assert.equal(captured, null); assert.equal(input.sample().pass, undefined);
+    } finally {
+        input.dispose(); globalThis.document = oldDocument; globalThis.window = oldWindow;
+    }
+});
+
+
+test('target clicks enter the real passing runtime once, only while the QB is live and holding the ball', () => {
+    const oldDocument = globalThis.document, oldWindow = globalThis.window;
+    const document = new EventTarget(), window = new EventTarget(), root = new EventTarget(), host = new EventTarget();
+    const field = {closest: () => null};
+    document.activeElement = field; root.contains = element => element === field; host.focus = () => { document.activeElement = field; };
+    globalThis.document = document; globalThis.window = window;
+    const player = id => ({id, ratings: {throwing: 80, speed: 70, acceleration: 70, awareness: 70, catching: 70, coverage: 70}});
+    const state = createPassingDrill({quarterback: player(1), receivers: [player(2)], defenders: [player(3)], seed: 1234});
+    const target = {x: state.quarterback.x + 10, z: state.quarterback.z};
+    const input = createArcadeInput(root, host, {start: () => startDrill(state), pause: () => pauseDrill(state), retry() {},
+        enabled: () => true,
+        canPass: () => state.status === 'running' && state.ball.phase === 'held' && state.ball.holderKey === 'qb',
+        aimAt: (x, y) => ({x, z: y})});
+    const click = () => {
+        for (const type of ['pointerdown', 'pointerup']) {
+            const event = new Event(type, {cancelable: true});
+            Object.entries({clientX: target.x, clientY: target.z, pointerId: 1, button: 0, isPrimary: true})
+                .forEach(([key, value]) => Object.defineProperty(event, key, {value}));
+            host.dispatchEvent(event);
+        }
+    };
+    try {
+        click(); assert.equal(input.sample().pass, undefined, 'ready is not a live play');
+        startDrill(state); pauseDrill(state);
+        click(); assert.equal(input.sample().pass, undefined, 'paused is not a live play');
+        startDrill(state); click();
+        const command = input.sample(); assert.deepEqual(command.pass, target);
+        stepPassingDrill(state, command);
+        assert.equal(state.ball.phase, 'flight');
+        assert.equal(state.events.filter(event => event.type === 'throw').length, 1);
+        assert.deepEqual(state.events.find(event => event.type === 'throw').target, target);
+        click();
+        const next = input.sample(); assert.equal(next.pass, undefined, 'no second pass while the ball is in flight');
+        stepPassingDrill(state, next);
+        assert.equal(state.events.filter(event => event.type === 'throw').length, 1);
     } finally {
         input.dispose(); globalThis.document = oldDocument; globalThis.window = oldWindow;
     }

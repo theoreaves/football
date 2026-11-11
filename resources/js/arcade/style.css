@@ -49,3 +49,5 @@
 .arcade-diagnostics { margin-top: 14px; font-size: 11px; color: #8fa5b7; }
 .arcade-diagnostics summary { cursor: pointer; }
 .arcade-diagnostics p { margin-top: 5px; }
+
+.arcade-empty { z-index: 1; font-size: 16px; line-height: 1.5; color: #dfffcb; }

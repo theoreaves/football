@@ -10,7 +10,8 @@
         <a href="{{ $startUrl ? url()->full() : $coachUrl }}">Reload saved state</a>
     </div>
     <div class="arcade-stage">
-        <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="Arcade exhibition. WASD or arrow keys move. Drag and release to pass. Q or E juke. Escape pauses." aria-describedby="exhibition-controls"></div>
+        <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="Arcade exhibition. WASD or arrow keys move. Click a target to pass, or hold and drag to aim. Q or E juke. Escape pauses." aria-describedby="exhibition-controls"></div>
+        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose Run or Pass, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
         <div class="arcade-toolbar">
             <button type="button" data-exhibition-start disabled>Start play</button>
             <button type="button" data-exhibition-pause disabled>Pause</button>
@@ -20,7 +21,7 @@
         </div>
     </div>
     <p data-exhibition-status role="status" aria-live="polite">{{ $available ? 'Choose Run or Pass and reserve your play.' : 'This game needs a Coach decision before Arcade offense can continue.' }}</p>
-    <p id="exhibition-controls" class="arcade-help">WASD / arrows: move · Drag → release: pass · Q / E: juke · Space: start/resume · Escape: pause</p>
-    <p class="arcade-help">92.5% movement speed. Cyan: line of scrimmage. Yellow: first down. Live plays continue when the game clock expires. A local recording timeout is not a football result: cancel and reserve again. After possession changes or a kick, try, or half decision, continue in Coach.</p>
+    <p id="exhibition-controls" class="arcade-help">WASD / arrows: move · Click target: pass · Hold + drag: aim · Q / E: juke · Space: start/resume · Escape: pause</p>
+    <p class="arcade-help">92.5% movement speed. Cyan: line of scrimmage. Yellow: first-down and goal lines. White field lines: every 5 yards. Live plays continue when the game clock expires. A local recording timeout is not a football result: cancel and reserve again. After possession changes or a kick, try, or half decision, continue in Coach.</p>
 </div>
 </x-layouts.app>

@@ -15,6 +15,10 @@ export function mountExhibitionHistory(root, data, deps = {}) {
     find('status').textContent = 'Read-only historical replay. These are the original recorded movements. Your live game and pending play are unchanged.';
     find('coach').hidden = false; find('coach').href = data.coachUrl;
     find('replay').disabled = !data.lastRecording;
+    find('empty').hidden = false;
+    find('empty').textContent = data.lastRecording
+        ? 'Choose Replay recorded play to watch this saved play. This historical view does not change your live game.'
+        : 'No recorded replay is available for this play.';
     let lastTime = null, frameId, disposed = false;
     const replay = panel(root, {onOpen(){lastTime=null;},onClose(){lastTime=null;}});
     const open = () => { try { replay.open(data.lastRecording); } catch(error) { find('status').textContent = `Replay unavailable: ${error.message}`; } };

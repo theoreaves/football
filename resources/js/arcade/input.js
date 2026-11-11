@@ -26,6 +26,7 @@ export function createArcadeInput(root, host, callbacks) {
         updateAim(null);
     };
     const clear = () => { keys.clear(); juke = 0; pass = null; cancelAim(); };
+    const canPass = () => callbacks.enabled?.() !== false && callbacks.canPass?.();
     const options = {signal: abort.signal};
     document.addEventListener('keydown', event => {
         if (callbacks.enabled?.() === false || event.metaKey || event.ctrlKey || event.altKey || !root.contains(document.activeElement) || editableTarget(event.target) || !ACTIONS.has(event.code)) return;
@@ -43,24 +44,24 @@ export function createArcadeInput(root, host, callbacks) {
     host.addEventListener('pointerdown', event => {
         if (callbacks.enabled?.() === false) return;
         host.focus({preventScroll: true});
-        if (event.button !== 0 || event.isPrimary === false || drag || !callbacks.canPass?.()) return;
+        if (event.button !== 0 || event.isPrimary === false || drag || !canPass()) return;
         event.preventDefault();
         gesture = 'Aiming';
-        drag = {id: event.pointerId, x: event.clientX, y: event.clientY};
+        drag = {id: event.pointerId};
         host.setPointerCapture?.(event.pointerId);
         updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
     }, options);
     host.addEventListener('pointermove', event => {
         if (!drag || event.pointerId !== drag.id) return;
-        if (!callbacks.canPass?.()) { cancelAim(); return; }
+        if (!canPass()) { cancelAim(); return; }
         updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
     }, options);
     host.addEventListener('pointerup', event => {
         if (!drag || event.pointerId !== drag.id) return;
         updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
-        if (aim && callbacks.canPass?.() && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) >= 6) {
+        if (aim && canPass() && event.button === 0 && event.isPrimary !== false) {
             pass = {...aim}; gesture = `Released at ${aim.x.toFixed(1)}, ${aim.z.toFixed(1)}`;
-        } else gesture = 'Click or cancelled aim';
+        } else gesture = 'Cancelled aim';
         cancelAim();
     }, options);
     for (const type of ['pointercancel', 'lostpointercapture']) host.addEventListener(type, event => {
@@ -78,7 +79,7 @@ export function createArcadeInput(root, host, callbacks) {
     return {
         sample() {
             const value = {...movementForKeys(keys), juke};
-            if (pass) value.pass = {...pass};
+            if (pass && canPass()) value.pass = {...pass};
             juke = 0; pass = null;
             return value;
         },

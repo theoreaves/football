@@ -139,7 +139,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     const canvas = renderer.domElement;
     canvas.style.cssText = 'display:block;width:100%;height:100%';
-    canvas.setAttribute('aria-label', mode === 'passing' ? 'Arcade passing drill. Drag to aim a pass at a receiver.' : 'Arcade running drill. Advance right to the goal line.');
+    canvas.setAttribute('aria-label', mode === 'passing' ? 'Arcade passing drill. Click a target to pass, or hold and drag to aim.' : 'Arcade running drill. Advance right to the goal line.');
     host.appendChild(canvas);
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-24, 24, 19, -19, .1, 300);

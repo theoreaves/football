@@ -32,15 +32,15 @@
     @elseif($controlledPlayer)
         <div class="arcade-stage">
             <div class="arcade-scoreboard">
-                <div class="arcade-runner"><strong data-arcade-carrier>#{{ $controlledPlayer['number'] }} {{ $controlledPlayer['name'] }}</strong><small data-arcade-carrier-info>{{ $home->city }} {{ $home->name }} · SPD {{ $controlledPlayer['ratings']['speed'] }} / ACC {{ $controlledPlayer['ratings']['acceleration'] }}</small><span data-arcade-phase class="arcade-phase">{{ $passing ? 'QB CONTROL · DRAG TO AIM' : 'RUNNING DRILL' }}</span></div>
+                <div class="arcade-runner"><strong data-arcade-carrier>#{{ $controlledPlayer['number'] }} {{ $controlledPlayer['name'] }}</strong><small data-arcade-carrier-info>{{ $home->city }} {{ $home->name }} · SPD {{ $controlledPlayer['ratings']['speed'] }} / ACC {{ $controlledPlayer['ratings']['acceleration'] }}</small><span data-arcade-phase class="arcade-phase">{{ $passing ? 'QB CONTROL · CLICK TO THROW' : 'RUNNING DRILL' }}</span></div>
                 <div class="arcade-metrics">
                     <div class="arcade-metric"><span>Yards</span><strong data-arcade-yards>+0</strong></div>
                     <div class="arcade-metric"><span>Live time</span><strong data-arcade-time>0.0s</strong></div>
                     <div class="arcade-metric"><span>Juke</span><strong data-arcade-juke data-ready="true">READY</strong></div>
                 </div>
             </div>
-            <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="{{ $passing ? 'Passing drill. Start play, move with W A S D or arrows. Drag toward a target and release to throw. After a catch, control the receiver.' : 'Running drill. Start run, move with W A S D or arrows, Q or E to juke, Escape to pause.' }}" aria-describedby="arcade-controls"></div>
-            <div data-arcade-overlay class="arcade-overlay"><h2 data-arcade-heading>{{ $passing ? 'PICK YOUR WINDOW' : 'FIND YOUR GAP' }}</h2><p data-arcade-detail>{{ $passing ? 'Follow a route. Lead your receiver. Drag toward the target and release.' : 'One defender. Thirty yards to the end zone. Make your move.' }}</p></div>
+            <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="{{ $passing ? 'Passing drill. Start play, move with W A S D or arrows. Click a target to throw, or hold and drag to aim. After a catch, control the receiver.' : 'Running drill. Start run, move with W A S D or arrows, Q or E to juke, Escape to pause.' }}" aria-describedby="arcade-controls"></div>
+            <div data-arcade-overlay class="arcade-overlay"><h2 data-arcade-heading>{{ $passing ? 'PICK YOUR WINDOW' : 'FIND YOUR GAP' }}</h2><p data-arcade-detail>{{ $passing ? 'Lead your receiver. Click the target to throw, or hold and drag to aim.' : 'One defender. Thirty yards to the end zone. Make your move.' }}</p></div>
             <div class="arcade-toolbar">
                 <button data-arcade-start class="arcade-primary" type="button">Start {{ $passing ? 'play' : 'run' }}</button>
                 <button data-arcade-pause type="button" disabled>Pause</button>
@@ -65,7 +65,7 @@
             <span>Retry repeats the same setup. No saved game changes.</span>
         </div>
         <div class="arcade-footer">
-            <div id="arcade-controls" class="arcade-help"><span><kbd>WASD</kbd> / <kbd>↑ ↓ ← →</kbd> Move</span>@if($passing)<span><kbd>Drag → release</kbd> Aim / throw</span>@endif<span><kbd>Q</kbd> / <kbd>E</kbd> Juke</span><span><kbd>Space</kbd> Start / resume</span><span><kbd>Esc</kbd> Pause · <kbd>R</kbd> Retry</span></div>
+            <div id="arcade-controls" class="arcade-help"><span><kbd>WASD</kbd> / <kbd>↑ ↓ ← →</kbd> Move</span>@if($passing)<span><kbd>Click target</kbd> Throw</span><span><kbd>Hold + drag</kbd> Aim</span>@endif<span><kbd>Q</kbd> / <kbd>E</kbd> Juke</span><span><kbd>Space</kbd> Start / resume</span><span><kbd>Esc</kbd> Pause · <kbd>R</kbd> Retry</span></div>
             <p>No saved stats. No injuries. Just play.</p>
         </div>
         <p data-arcade-status class="text-sm text-slate-300" role="status" aria-live="polite">Loading your drill…</p>

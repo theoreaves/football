@@ -40,6 +40,12 @@ export function mountExhibition(root) {
         say(transport.pending.body ? 'An unconfirmed recorded play is saved. Retry submission with the same result, or reload to reconcile. Do not play it again.' : 'An unfinished reserved play exists. Cancel it before choosing a new play.');
     }
     function hud() {
+        const empty = find('empty');
+        empty.hidden = Boolean(state && view);
+        if (!empty.hidden) empty.textContent = recovered
+            ? (transport.pending?.body ? 'Your recorded play is recovered. Submit / retry same result, or review its replay.' : 'A reserved play was recovered. Choose Cancel reserved play before reserving a new play.')
+            : stopped || !allowed ? 'This drive needs a Coach decision. Choose Continue in Coach.' + (recording ? ' You can still replay the recorded play.' : '')
+            : 'Choose Run or Pass, then Reserve play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
         const snapshot = transport.pending?.session.prepared_state || official;
         const clock = Number(snapshot.clock || 0);
         find('score').textContent = `Home ${snapshot.home_score ?? 0} · Away ${snapshot.away_score ?? 0}`;
@@ -72,7 +78,7 @@ export function mountExhibition(root) {
     function start() {
         if (busy || recovered || replay?.active || !state || !['ready','paused'].includes(state.status)) return;
         startDrill(state); stepper.reset(); lastTime=null; host.focus({preventScroll:true});
-        say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone.${state.mode === 'passing' ? ' Drag and release to pass. After a catch, run with the receiver.' : ''}`); hud();
+        say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone.${state.mode === 'passing' ? ' Click a target to pass, or hold and drag to aim. Stay behind the cyan line to throw. After a catch, run with the receiver.' : ''}`); hud();
     }
     function clearView() { input?.dispose(); observer?.disconnect(); view?.dispose(); input=null; view=null; }
     function setup(session) {
@@ -109,6 +115,9 @@ export function mountExhibition(root) {
     }),options);
     buttons.submit.addEventListener('click',()=>action(async()=>{
         const result = await transport.submit(); reconcile(result); recovered=false;
+        // The HUD now describes the next snap. Do not leave the completed play's
+        // old LOS/first-down markers beneath it. Keep its exact recording for Replay.
+        clearView(); state=null; aim=null;
         say(stopped ? 'Recorded play saved. This offensive drive has ended or needs a game decision. Continue in Coach.' : 'Recorded play saved. Choose the next play when ready.');
         // Keep exact local recording for replay; the server never supplies a replacement simulation.
     }),options);
