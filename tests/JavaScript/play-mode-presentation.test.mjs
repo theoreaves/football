@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {claimPlayOpening,watchMayAdvance,isPlayFootballForm,mountPlayPresentation,serializePlayForm} from '../../resources/js/practice/play-mode-presentation.js';
+import {claimPlayOpening,watchMayAdvance,isPlayFootballForm,mountPlayPresentation,serializePlayForm,shouldMountCoachWizard} from '../../resources/js/practice/play-mode-presentation.js';
 const memory=()=>{const values=new Map();return{getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};};
 const opening={flow:{enabled:true,opening_enabled:true,intro_seen:false},version:0,key:'game:play'};
 test('new Play opening claims before playback; reload, Skip and closed-tab resume cannot repeat it',()=>{
@@ -16,7 +16,7 @@ test('missing or denied durable storage skips Play opening rather than duplicati
     assert.equal(claimPlayOpening({...opening,storage:{getItem(){throw Error('denied')}}}),false);
     assert.equal(claimPlayOpening({...opening,storage:{getItem(){},setItem(){throw Error('quota')}}}),false);
 });
-const ready={flow:{enabled:true,defense_mode:'watch',can_advance:true},recorded:true,completed:true,ready:true,visible:true,busy:false,dialogOpen:false};
+const ready={flow:{enabled:true,defense_mode:'watch',can_advance:true},recorded:true,completed:true,decisionWindow:true,ready:true,visible:true,busy:false,dialogOpen:false};
 test('Watch only advances after actual recorded animation, result and notices finish',()=>{
     assert.equal(watchMayAdvance(ready),true);
     for(const change of [{recorded:false},{completed:false},{ready:false},{visible:false},{busy:true},{dialogOpen:true},{flow:{...ready.flow,required_decision:'penalty'}},{flow:{...ready.flow,can_advance:false}},{flow:{...ready.flow,defense_mode:'coach'}}])
@@ -38,12 +38,12 @@ test('Watch to Fast sends one durable command, never reruns the recorded result'
     globalThis.localStorage=memory();
     globalThis.fetch=async(url,options)=>{requests.push(JSON.parse(options.body));return{ok:true,json:async()=>({navigation_url:'/exhibitions/3/arcade'})};};
     const root={dataset:{arcadeFlowUrl:'/exhibitions/3/arcade/flow',playNumber:'4'},
-        querySelector:selector=>selector==='[data-play-flow-status]'?status:selector==='[data-play-flow-retry]'?retry:{value:'csrf'},
+        querySelector:selector=>selector==='[data-play-flow-status]'?status:selector==='[data-play-flow-retry]'?retry:selector==='[name="_token"]'?{value:'csrf'}:null,
         querySelectorAll:()=>[fast],addEventListener(){},removeEventListener(){}};
     try{
         const bridge=mountPlayPresentation(root,{...ready.flow,revision:7,state_hash:'a'.repeat(64)});
         assert.equal(requests.length,0,'mount/reload performs no mutation');
-        bridge.tick({...ready,ready:false});events.get('click')();assert.equal(requests.length,0,'cannot switch during animation');
+        bridge.tick({...ready,ready:false,completed:false});events.get('click')();assert.equal(requests.length,0,'cannot switch during animation');
         // Hidden tab prevents automatic Watch while explicitly choosing Fast.
         bridge.tick({...ready,visible:false});events.get('click')();events.get('click')();
         await new Promise(resolve=>setImmediate(resolve));
@@ -91,4 +91,38 @@ test('malformed structure and prototype keys cannot alter JSON object prototypes
         assert.throws(()=>serializePlayForm([[name,'polluted']]),/form field/);
     assert.equal({}.polluted,undefined);
     assert.throws(()=>serializePlayForm([['call',{}]]),/form value/);
+});
+
+test('Watch never mounts the legacy CPU defense picker; Coach and human special-team calls remain unchanged',()=>{
+    assert.equal(shouldMountCoachWizard(null),true);
+    assert.equal(shouldMountCoachWizard({enabled:false,defense_mode:'watch'}),true);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'coach',phase:'defense'}),true);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'defense',can_advance:true}),false);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'offense'}),false);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'special',can_advance:true}),false);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'special',can_advance:false}),true);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'decision',required_decision:'special',can_advance:false}),true);
+});
+test('completed Watch result offers a real Fast Sim click before huddle auto-advance; pause protects the window and pending retry',async()=>{
+    const originals={window:globalThis.window,localStorage:globalThis.localStorage,fetch:globalThis.fetch};
+    const button=dataset=>({dataset,disabled:false,hidden:false,handlers:{},addEventListener(name,fn){this.handlers[name]=fn;},removeEventListener(){},setAttribute(){},click(){assert.equal(this.disabled,false,'user can click without forcing a disabled control');this.handlers.click();}});
+    const fast=button({playFlowAction:'fast'}),pause=button({}),retry=button({}),status={textContent:''};
+    const requests=[];
+    globalThis.window={location:{origin:'http://localhost',href:'http://localhost/exhibitions/3?arcade=1&watch=1',assign(){}}};
+    globalThis.localStorage=memory();
+    let confirm=false;
+    globalThis.fetch=async(url,options)=>{requests.push(options.body);if(!confirm)throw Error('Connection lost');return{ok:true,json:async()=>({navigation_url:'/exhibitions/3/arcade'})};};
+    const root={dataset:{arcadeFlowUrl:'/exhibitions/3/arcade/flow',playNumber:'4'},querySelector:selector=>({'[data-play-flow-status]':status,'[data-play-flow-retry]':retry,'[data-play-watch-pause]':pause,'[name="_token"]':{value:'csrf'}}[selector]),querySelectorAll:()=>[fast],addEventListener(){},removeEventListener(){}};
+    try{
+        const bridge=mountPlayPresentation(root,{...ready.flow,phase:'defense',revision:7,state_hash:'a'.repeat(64)});
+        bridge.tick({...ready,completed:false,ready:false});assert.equal(fast.disabled,true);
+        pause.click();assert.equal(requests.length,0,'pausing is presentation-only');
+        bridge.tick({...ready,completed:true,ready:false});assert.equal(fast.disabled,false,'completed result offers mode change before substitution completes');
+        bridge.tick(ready);assert.equal(requests.length,0,'paused Watch cannot auto-advance at huddle');
+        fast.click();assert.equal(fast.disabled,true);await new Promise(resolve=>setImmediate(resolve));
+        bridge.tick(ready);assert.equal(fast.disabled,true);assert.equal(pause.disabled,true);assert.equal(retry.hidden,false);
+        assert.equal(requests.length,1);assert.equal(JSON.parse(requests[0]).action,'fast');
+        confirm=true;retry.click();await new Promise(resolve=>setImmediate(resolve));
+        assert.equal(requests.length,2);assert.equal(requests[0],requests[1],'retry keeps exact command rather than generating another outcome');bridge.dispose();
+    }finally{Object.assign(globalThis,originals);}
 });

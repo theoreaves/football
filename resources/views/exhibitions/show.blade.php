@@ -19,7 +19,10 @@
             <button type="button" data-play-defense="{{ $mode }}" class="border rounded px-2 py-1" @disabled($arcadeFlow['defense_mode'] === $mode)>{{ $label }}</button>
             @endforeach
         </div>
-        <p class="mt-2">Watch finishes the current animation before continuing. Change modes between plays.</p>
+        <p class="mt-2">Watch finishes the current animation before continuing. Change modes from the completed result, or pause Watch to take your time.</p>
+        @if($arcadeFlow['defense_mode'] === 'watch')
+        <button type="button" data-play-watch-pause aria-pressed="false" class="mt-2 rounded border border-blue-300 px-3 py-2">Pause after this play</button>
+        @endif
         <div class="flex flex-wrap gap-2 mt-2">
             @if($arcadeFlow['can_advance'])<button type="button" data-play-flow-action="advance" class="rounded bg-blue-700 px-2 py-1">Watch next play</button>@endif
             @if($arcadeFlow['can_fast'])<button type="button" data-play-flow-action="fast" class="rounded bg-blue-700 px-2 py-1">Fast Sim to next decision</button>@endif

@@ -11,9 +11,15 @@ export function claimPlayOpening({flow, version, key, storage}) {
     } catch { return false; }
 }
 
-export function watchMayAdvance({flow, recorded, completed, ready, visible, busy, dialogOpen}) {
+export function watchMayAdvance({flow, recorded, completed, ready, visible, busy, dialogOpen, paused = false}) {
     return Boolean(flow?.enabled && flow.defense_mode === 'watch' && flow.can_advance
-        && !flow.required_decision && recorded && completed && ready && visible && !busy && !dialogOpen);
+        && !paused && !flow.required_decision && recorded && completed && ready && visible && !busy && !dialogOpen);
+}
+
+export function shouldMountCoachWizard(flow) {
+    // Watch's CPU chooses its own plays. Human special-team calls remain in
+    // the existing Coach interface; ordinary Coach is entirely unchanged.
+    return !flow?.enabled || flow.defense_mode !== 'watch' || ((flow.required_decision === 'special' || flow.phase === 'special') && !flow.can_advance);
 }
 
 // Only canonical football forms are routed through the Play command boundary.
@@ -53,9 +59,10 @@ export function serializePlayForm(entries) {
 
 export function mountPlayPresentation(root, flow) {
     if (!flow?.enabled) return {tick() {}, dispose() {}};
-    let disposed = false, busy = false, completed = false, blocked = false, viewReady = false;
+    let disposed = false, busy = false, completed = false, blocked = false, viewReady = false, watchPaused = false;
     const status = root.querySelector('[data-play-flow-status]');
     const retry = root.querySelector('[data-play-flow-retry]');
+    const pause = root.querySelector('[data-play-watch-pause]');
     const controls = [...root.querySelectorAll('[data-play-flow-action], [data-play-defense]')];
     const message = text => { if (status) status.textContent = text; };
     let storage;
@@ -74,7 +81,7 @@ export function mountPlayPresentation(root, flow) {
             return data;
         },
     });
-    const setBusy = value => { busy=value; controls.forEach(button => { button.disabled=value; }); };
+    const setBusy = value => { busy=value; if(pause)pause.disabled=value; controls.forEach(button => { button.disabled=value; }); };
     const send = async (action, fields = {}) => {
         if (busy || disposed || (blocked && action !== 'retry')) return;
         setBusy(true); message('Saving decision…');
@@ -118,18 +125,26 @@ export function mountPlayPresentation(root, flow) {
             button.dataset.playDefense ? {defense_mode:button.dataset.playDefense} : {}); };
         button.addEventListener('click',handler); clicks.push([button,handler]);
     });
+    const pauseClick=()=>{
+        if(busy || blocked || disposed || transport.pending) return;
+        watchPaused=!watchPaused;
+        if(pause){pause.textContent=watchPaused?'Resume Watch':'Pause after this play';pause.setAttribute('aria-pressed',String(watchPaused));}
+        message(watchPaused?'Watch paused: the current animation may finish. Choose another defense mode or resume when ready.':'Watch resumed. The next play starts after the current result and notices finish.');
+    };
+    pause?.addEventListener('click',pauseClick);
     const retryClick=()=>send('retry'); retry?.addEventListener('click',retryClick);
     if(transport.pending){blocked=true;message('An earlier decision needs confirmation. Retry it before continuing.');controls.forEach(button=>{button.disabled=true;});if(retry)retry.hidden=false;}
     return {
         tick(view) {
             completed ||= view.completed;
-            viewReady = !view.dialogOpen && !busy && !blocked && (view.ready || (!view.recorded && Number(root.dataset.playNumber) === 0));
+            viewReady = !view.dialogOpen && !busy && !blocked && (view.ready || (view.recorded && completed && view.completed && view.decisionWindow) || (!view.recorded && Number(root.dataset.playNumber) === 0));
+            if(pause)pause.disabled=busy || blocked || Boolean(transport.pending);
             controls.forEach(button => { button.disabled = !viewReady || button.dataset.playDefense === flow.defense_mode; });
-            if (flow.phase === 'offense' && flow.defense_mode === 'watch' && view.recorded && completed && viewReady && view.visible) {
+            if (flow.phase === 'offense' && flow.defense_mode === 'watch' && view.recorded && completed && view.ready && viewReady && view.visible && !watchPaused) {
                 busy=true; window.location.assign(flow.arcade_url); return;
             }
-            if (watchMayAdvance({flow, ...view, completed, busy:busy || Boolean(transport.pending)})) send('advance');
+            if (watchMayAdvance({flow, ...view, completed, paused:watchPaused, busy:busy || Boolean(transport.pending)})) send('advance');
         },
-        dispose(){disposed=true;root.removeEventListener('submit',submit);clicks.forEach(([button,handler])=>button.removeEventListener('click',handler));retry?.removeEventListener('click',retryClick);},
+        dispose(){disposed=true;root.removeEventListener('submit',submit);clicks.forEach(([button,handler])=>button.removeEventListener('click',handler));retry?.removeEventListener('click',retryClick);pause?.removeEventListener('click',pauseClick);},
     };
 }

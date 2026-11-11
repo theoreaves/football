@@ -1,4 +1,4 @@
-import {claimPlayOpening,mountPlayPresentation} from './play-mode-presentation.js';
+import {claimPlayOpening,mountPlayPresentation,shouldMountCoachWizard} from './play-mode-presentation.js';
 import {applyAnimationVariety,tackleFallAngle} from './animation-variety.js';
 import {hasOpenGameDialog} from './game-settings.js';
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
@@ -1514,13 +1514,15 @@ export function mountPractice(root, onReady = () => {}) {
     }
     const cpuTimeoutForm=arcadeFlow?.enabled ? null : root.querySelector('[data-cpu-timeout-form]');
     let cpuTimeoutSent=false;
-    const tickPlayWizard = mountPlayWizard(root, {
+    const useCoachWizard = shouldMountCoachWizard(arcadeFlow);
+    if (!useCoachWizard && callForm) { callForm.inert = true; callForm.style.display = 'none'; }
+    const tickPlayWizard = useCoachWizard ? mountPlayWizard(root, {
         skipPlayerChange,
         exchangeStatus: () => ({
             active: (phase === 'huddle' && Boolean(exchange) && exchangeElapsed < exchange.duration) || phase === 'substituting',
             fastForwarding: exchangeRate > 1,
         }),
-    });
+    }) : null;
     const disposeMobileControls = mobileControls(root);
     root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
     const rememberField = purpose => {
@@ -2043,6 +2045,7 @@ export function mountPractice(root, onReady = () => {}) {
             callForm.requestSubmit();
         }
         playPresentation.tick({recorded:root.dataset.autoplay === 'true' && Boolean(animation),
+            decisionWindow:['result','huddle'].includes(phase),
             completed:!running && ['settling','result','huddle','celebration','big_play','medical','penalty'].includes(phase) && elapsed >= duration,
             ready:phase === 'huddle' && huddleProgress === 1 && (!exchange || exchangeElapsed >= exchange.duration), visible:!document.hidden,
             dialogOpen:Boolean(entrance.active || openingPregame || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root))});
