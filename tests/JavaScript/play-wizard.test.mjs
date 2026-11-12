@@ -1,3 +1,5 @@
+import {shouldAutoOpenCoachWizard,shouldMountCoachWizard} from '../../resources/js/practice/play-mode-presentation.js';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { formationPoints, playGraphic, wizardSteps, canAutoOpenWizard } from '../../resources/js/practice/play-wizard.js';
@@ -66,4 +68,33 @@ test('persistent Arcade ownership cancels delayed Coach wizard without dismissin
     assert.ok(penalty.open && injury.open && drive.open);
     assert.equal(guardWizardOwnership(false,wizard,countdown),false);assert.equal(closed,1);
     assert.equal(guardWizardOwnership(true,wizard,countdown),true);assert.equal(cancelled,2);
+});
+
+
+test('actual wizard timer never interrupts shared offensive handoffs across turnovers, reloads and consecutive possessions',()=>{
+    const source=readFileSync(new URL('../../resources/js/practice/play-wizard.js',import.meta.url),'utf8');
+    const tickBody=source.match(/return \(\{delta, ready, personnelReady = true\}\) => \{([\s\S]*?)\n    \};\n\}/)[1];
+    const fieldSource=readFileSync(new URL('../../resources/js/practice/field.js',import.meta.url),'utf8');
+    assert.match(fieldSource,/autoOpen: \(\) => shouldAutoOpenCoachWizard\(arcadeFlow,\{shared:Boolean\(shared\)\}\)/);
+    let flow,modal=false,opens=0;
+    const tick=new Function('autoOpen','canAutoOpenWizard','root','openWizard',`
+        let idleSeconds=0,opened=false;const isEnabled=()=>true,guardWizardOwnership=()=>true;
+        const dialog={open:false},countdown={tick:()=>null},open={},form={dataset:{}},document={hidden:false};
+        const hurryCalling=()=>{},updateExchangeSkip=()=>{},updateReviewButton=()=>{};
+        return ({delta,ready,personnelReady=true})=>{${tickBody}};
+    `)(()=>shouldAutoOpenCoachWizard(flow,{shared:true}),canAutoOpenWizard,{isConnected:true,querySelector:()=>modal?{}:null},()=>opens++);
+    for(const transition of ['punt','interception','kickoff','quarter change','reload','consecutive possession 1','consecutive possession 2']){
+        flow={enabled:true,defense_mode:'coach',phase:'offense',human_side:'home',required_decision:null};
+        modal=true;tick({delta:2,ready:true}); // Existing result/quarter notice remains open.
+        assert.equal(modal,true,transition);
+        modal=false;for(let frame=0;frame<180;frame++)tick({delta:1/60,ready:true});
+        assert.equal(opens,0,transition+' must hand off without dismissing a Coach offensive picker');
+        assert.equal(shouldMountCoachWizard(flow),true,'manual Coach picker remains mounted');
+    }
+    flow={enabled:true,defense_mode:'coach',phase:'defense'};tick({delta:1.1,ready:true});assert.equal(opens,1,'Coach Defense automatic picker preserved');
+    flow={enabled:true,defense_mode:'watch',phase:'decision',required_decision:'special',can_advance:false};tick({delta:1.1,ready:true});assert.equal(opens,2,'required human special teams preserved');
+    for(const defense_mode of ['coach','watch','fast'])assert.equal(shouldAutoOpenCoachWizard({enabled:true,defense_mode,phase:'offense'},{shared:true}),false);
+    assert.equal(shouldAutoOpenCoachWizard({enabled:true,phase:'offense'},{shared:false}),true,'standalone Coach unchanged');
+    assert.equal(shouldAutoOpenCoachWizard(null,{shared:true}),true);
+    for(const required_decision of ['coin','penalty','ot_call','ot_choice'])assert.equal(shouldAutoOpenCoachWizard({enabled:true,phase:'decision',required_decision},{shared:true}),true,'required decision not suppressed');
 });

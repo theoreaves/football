@@ -16,6 +16,12 @@ export function watchMayAdvance({flow, recorded, completed, ready, visible, busy
         && !paused && !flow.required_decision && recorded && completed && ready && visible && !busy && !dialogOpen);
 }
 
+// The broadcast adapter can still own input while the previous outcome finishes.
+// Its next human scrimmage possession belongs to Arcade, not an automatic picker.
+export function shouldAutoOpenCoachWizard(flow, {shared=false}={}) {
+    return !(shared && flow?.enabled && flow.phase==='offense' && !flow.required_decision);
+}
+
 export function shouldMountCoachWizard(flow) {
     // Watch's CPU chooses its own plays. Human special-team calls remain in
     // the existing Coach interface; ordinary Coach is entirely unchanged.

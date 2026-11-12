@@ -118,7 +118,7 @@ export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
     return list;
 }
 
-export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStatus = () => ({active:false,fastForwarding:false}), isEnabled = () => true} = {}) {
+export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStatus = () => ({active:false,fastForwarding:false}), isEnabled = () => true, autoOpen = () => true} = {}) {
     const form = root.querySelector('[data-call-form]');
     if (root.querySelector('[data-cpu-timeout-form]')) {if(form)form.inert=true;root.querySelectorAll('[data-timeout-form]').forEach(source=>source.hidden=true);return;}
     if (!form || (!form.elements.call && !form.elements.defense)) return;
@@ -289,7 +289,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
             button.textContent = 'Call play & watch · '+seconds+'s';
             if (seconds === 0) button.click();
         }
-        if (!canAutoOpenWizard({ready, opened, visible:!document.hidden, dialogOpen:Boolean(root.querySelector('dialog[open]'))})) {
+        if (!canAutoOpenWizard({autoOpen:autoOpen(), ready, opened, visible:!document.hidden, dialogOpen:Boolean(root.querySelector('dialog[open]'))})) {
             idleSeconds = 0; return;
         }
         idleSeconds += delta;
@@ -297,8 +297,8 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     };
 }
 
-export function canAutoOpenWizard({ready, opened, visible, dialogOpen}) {
-    return ready && !opened && visible && !dialogOpen;
+export function canAutoOpenWizard({autoOpen=true, ready, opened, visible, dialogOpen}) {
+    return autoOpen && ready && !opened && visible && !dialogOpen;
 }
 
 // Only the call wizard belongs to this gate; canonical notice/decision dialogs

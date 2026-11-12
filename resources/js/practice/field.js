@@ -1,6 +1,6 @@
 import {presentationMetrics} from '../arcade/presentation-metrics.js';
 import {prepareCoachBall,setCoachLayerVisible} from './shared-coach-presentation.js';
-import {claimPlayOpening,mountPlayPresentation,shouldMountCoachWizard} from './play-mode-presentation.js';
+import {claimPlayOpening,mountPlayPresentation,shouldMountCoachWizard,shouldAutoOpenCoachWizard} from './play-mode-presentation.js';
 import {applyAnimationVariety,tackleFallAngle} from './animation-variety.js';
 import {hasOpenGameDialog} from './game-settings.js';
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
@@ -1534,6 +1534,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
     if (!useCoachWizard && callForm) { callForm.inert = true; callForm.style.display = 'none'; }
     const tickPlayWizard = useCoachWizard ? mountPlayWizard(root, {
         isEnabled: () => !shared || (sharedInteractive && !suspended && !disposed),
+        autoOpen: () => shouldAutoOpenCoachWizard(arcadeFlow,{shared:Boolean(shared)}),
         skipPlayerChange,
         exchangeStatus: () => ({
             active: (phase === 'huddle' && Boolean(exchange) && exchangeElapsed < exchange.duration) || phase === 'substituting',
