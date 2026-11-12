@@ -1,3 +1,5 @@
+import {createExhibitionFlowTransport} from '../../resources/js/arcade/exhibition-flow.js';
+import {serializePlayForm} from '../../resources/js/practice/play-mode-presentation.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {queuedPlayCall,acceptQueuedPlay,rejectQueuedPlay} from '../../resources/js/practice/queued-play-call.js';
@@ -90,3 +92,48 @@ test('permanent shared preparation failure retains choice and stops frame-by-fra
     const queue=queuedPlayCall(f.form,f.root,{ready:()=>true,requireAcceptance:true,onRelease:()=>released++,onFailure:()=>failures++});
     f.submit(f.event());queue.tick();queue.tick();queue.tick();assert.equal(f.posted.length,1);assert.equal(failures,1);assert.equal(released,0);assert.equal(f.form.dataset.playPending,'true');
 }));
+
+
+test('three consecutive shared calls survive changing presentation gates and prepare once per replaced queue',async()=>{
+    const original=globalThis.FormData;
+    globalThis.FormData=class extends Array {constructor(form){super(...form.values.map(pair=>[...pair]));}append(key,value){this.push([key,value]);}};
+    try {
+        const storageValues=new Map(),prepared=[],requests=[],retired=[];
+        const storage={getItem:key=>storageValues.get(key),setItem:(key,value)=>storageValues.set(key,value),removeItem:key=>storageValues.delete(key)};
+        let nextId=0;
+        const transport=createExhibitionFlowTransport({url:'/exhibitions/15/arcade/flow',origin:'http://localhost',storage,key:'test-flow',
+            idFactory:()=>`00000000-0000-4000-8000-${String(++nextId).padStart(12,'0')}`,
+            request:async(url,body)=>{requests.push(JSON.parse(body));return {accepted:true};}});
+        const orders=[['recorded','dialog','camera','staging'],['staging','recorded','camera','dialog'],['dialog','camera','staging','recorded']];
+        for(let play=0;play<3;play++){
+            const gates={recorded:true,dialog:true,camera:true,staging:true};let receiverBusy=true,released=0,lastProxy;
+            const chosen=['zone','man_to_man','run_stop'][play];
+            const f=fixture(proxy=>{
+                lastProxy=proxy;
+                if(receiverBusy)return; // late parent guard decline must not consume selection
+                const fields=serializePlayForm(proxy.children.map(input=>[input.name,input.value]));
+                transport.prepare({...fields,action:'play',version:play+1,flow_revision:play+1,state_hash:'a'.repeat(64)});
+                prepared.push(JSON.parse(transport.pending.body));acceptQueuedPlay(proxy);
+            });
+            f.form.values=[['_token','csrf'],['version',String(play+1)],['defense',chosen],['team_play[home]',`package-${play}`],['one_play[home][LB1]',String(40+play)]];
+            const queue=queuedPlayCall(f.form,f.root,{ready:()=>!Object.values(gates).some(Boolean),requireAcceptance:true,onRelease:()=>released++});
+            f.submit(f.event());f.form.values[2][1]='changed-after-selection';f.form.values[4][1]='999';
+            for(const gate of orders[play]){
+                queue.tick();assert.equal(f.posted.length,0,`play ${play+1} must wait for ${gate}`);
+                gates[gate]=false;
+            }
+            queue.tick();assert.equal(f.posted.length,1);assert.equal(released,0);assert.equal(prepared.length,play);
+            receiverBusy=false;queue.tick();queue.tick();f.submit(f.event());
+            assert.equal(released,1);assert.equal(prepared.length,play+1);assert.equal(f.posted.length,2);
+            assert.deepEqual(f.posted[0],f.posted[1]);assert.equal(prepared[play].defense,chosen);
+            assert.equal(prepared[play].one_play.home.LB1,String(40+play));assert.equal(prepared[play].team_play.home,`package-${play}`);
+            assert.equal(storageValues.size,1,'transport owns durable retry before queue disposal');
+            queue.dispose();f.root.isConnected=false;retired.push({queue,proxy:lastProxy});
+            await transport.submit();assert.equal(storageValues.size,0);assert.equal(transport.pending,null);
+            for(const old of retired){old.queue.tick();acceptQueuedPlay(old.proxy);}
+            assert.equal(released,1);assert.equal(prepared.length,play+1);
+        }
+        assert.equal(requests.length,3);assert.equal(new Set(requests.map(body=>body.command_id)).size,3);
+        assert.deepEqual(requests.map(body=>body.version),[1,2,3]);
+    } finally {globalThis.FormData=original;}
+});
