@@ -134,8 +134,14 @@ function observe(state, defender) {
     defender.readCount++;
     return defender.observed;
 }
-function pursuit(state, defender, observed) {
-    const runner = observed.actors[observed.holderKey] ?? observed.actors[state.quarterback.key];
+export function fullTeamPursuitTarget(state, defender, observed) {
+    const sample = observed.actors[observed.holderKey] ?? observed.actors[state.quarterback.key];
+    // A delayed observation is not the runner's current location. Project only
+    // its already-observed velocity through the sample age before solving the
+    // interception. Otherwise arrival braking can strand a faster pursuer just
+    // behind the real carrier while it repeatedly reaches the stale position.
+    const age = Math.max(0, state.tick - observed.tick) * STEP_SECONDS;
+    const runner = { ...sample, x: sample.x + sample.vx * age, z: sample.z + sample.vz * age };
     const dx = runner.x - defender.x, dz = runner.z - defender.z, speed = actorSpeed(defender);
     const a = runner.vx ** 2 + runner.vz ** 2 - speed ** 2;
     const b = 2 * (dx * runner.vx + dz * runner.vz), c = dx * dx + dz * dz;
@@ -160,7 +166,7 @@ function defend(state, defender) {
     const runRead = seen.holderKey && seen.holderKey !== state.quarterback.key || (holder && (holder.x - state.startX) * state.direction > 0);
     let target;
     if (readReady && runRead) {
-        defender.assignment = 'pursuit'; target = pursuit(state, defender, seen);
+        defender.assignment = 'pursuit'; target = fullTeamPursuitTarget(state, defender, seen);
     } else if (/^(DE|DT)/.test(defender.role)) {
         defender.assignment = 'rush';
         const qb = seen.actors[state.quarterback.key];

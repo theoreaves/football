@@ -1,3 +1,4 @@
+import {defenseModeNotice} from '../../resources/js/practice/play-mode-presentation.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {claimPlayOpening,watchMayAdvance,isPlayFootballForm,mountPlayPresentation,serializePlayForm,shouldMountCoachWizard} from '../../resources/js/practice/play-mode-presentation.js';
@@ -98,7 +99,7 @@ test('Watch never mounts the legacy CPU defense picker; Coach and human special-
     assert.equal(shouldMountCoachWizard({enabled:false,defense_mode:'watch'}),true);
     assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'coach',phase:'defense'}),true);
     assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'defense',can_advance:true}),false);
-    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'offense'}),false);
+    assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'offense'}),true);
     assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'special',can_advance:true}),false);
     assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'special',can_advance:false}),true);
     assert.equal(shouldMountCoachWizard({enabled:true,defense_mode:'watch',phase:'decision',required_decision:'special',can_advance:false}),true);
@@ -125,4 +126,41 @@ test('completed Watch result offers a real Fast Sim click before huddle auto-adv
         confirm=true;retry.click();await new Promise(resolve=>setImmediate(resolve));
         assert.equal(requests.length,2);assert.equal(requests[0],requests[1],'retry keeps exact command rather than generating another outcome');bridge.dispose();
     }finally{Object.assign(globalThis,originals);}
+});
+
+
+test('saved Fast preference never mounts opponent Coach picker but does not bypass the human post-PAT kickoff',()=>{
+    const kickoff={enabled:true,human_side:'home',defense_mode:'fast',phase:'decision',required_decision:'special',can_advance:false,can_fast:false};
+    assert.equal(shouldMountCoachWizard(kickoff),true,'home7away0 after PAT still needs its legal kickoff choice');
+    assert.equal(watchMayAdvance({flow:kickoff,recorded:true,completed:true,ready:true,visible:true,busy:false,dialogOpen:false}),false);
+    for(const defense_mode of ['watch','fast']){
+        assert.equal(shouldMountCoachWizard({...kickoff,defense_mode}),true);
+        assert.equal(shouldMountCoachWizard({...kickoff,defense_mode,phase:'defense',required_decision:null,can_advance:true,can_fast:true}),false,'delegated opponent scrimmage does not ask for Coach defense');
+        assert.equal(shouldMountCoachWizard({...kickoff,defense_mode,phase:'special',required_decision:null,can_advance:true,can_fast:true}),false,'delegated opponent special teams does not ask for Coach defense');
+        assert.equal(shouldMountCoachWizard({...kickoff,defense_mode,phase:'offense',required_decision:null}),true);
+    }
+    assert.equal(shouldMountCoachWizard({...kickoff,defense_mode:'coach',phase:'defense',required_decision:null,can_advance:true}),true);
+    assert.equal(shouldMountCoachWizard(null),true);assert.equal(shouldMountCoachWizard({...kickoff,enabled:false}),true);
+});
+
+test('delegated mode feedback distinguishes saved preference from pending human kickoff and explicit simulation action',()=>{
+    for(const defense_mode of ['watch','fast']){
+        const flow={enabled:true,defense_mode,required_decision:'special',can_advance:false};
+        assert.match(defenseModeNotice(flow,{phase:'kickoff'}),/Your kickoff decision is still required/);
+        assert.match(defenseModeNotice(flow,{phase:'extra_point'}),/extra-point \/ two-point/);
+        assert.match(defenseModeNotice({...flow,required_decision:'penalty'},{}),/required football decision/);
+        assert.match(defenseModeNotice({...flow,required_decision:null,can_advance:true},{}),defense_mode==='fast'?/Use Fast Sim to next decision/:/Use Watch next play/);
+    }
+    assert.equal(defenseModeNotice({enabled:true,defense_mode:'coach'},{}),'');
+    assert.equal(defenseModeNotice(null,{}),'');
+});
+
+test('manual human fourth-down Coach picker survives every defense preference without automatic offensive opening',async()=>{
+    const {shouldAutoOpenCoachWizard}=await import('../../resources/js/practice/play-mode-presentation.js');
+    for(const defense_mode of ['coach','watch','fast']){
+        const flow={enabled:true,defense_mode,phase:'offense',required_decision:null,can_advance:false};
+        assert.equal(shouldMountCoachWizard(flow),true,'Continue in Coach must retain Punt/FG choice');
+        assert.equal(shouldAutoOpenCoachWizard(flow,{shared:true}),false,'Arcade possession handoff must not auto-open it');
+        assert.equal(shouldAutoOpenCoachWizard(flow,{shared:false}),true,'standalone Coach keeps automatic picker');
+    }
 });

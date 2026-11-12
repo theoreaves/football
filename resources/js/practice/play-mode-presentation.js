@@ -22,10 +22,25 @@ export function shouldAutoOpenCoachWizard(flow, {shared=false}={}) {
     return !(shared && flow?.enabled && flow.phase==='offense' && !flow.required_decision);
 }
 
+export function defenseModeNotice(flow, state) {
+    if(!flow?.enabled || !['watch','fast'].includes(flow.defense_mode))return '';
+    const mode=flow.defense_mode==='fast'?'Fast Sim':'Watch Simulation';
+    if(flow.required_decision==='special'){
+        const decision=state?.phase==='kickoff'?'kickoff':state?.phase==='extra_point'?'extra-point / two-point':'special-team';
+        return `${mode} is selected for opponent possessions. Your ${decision} decision is still required; choose it below to continue.`;
+    }
+    if(flow.required_decision)return `${mode} is selected. Complete the required football decision before continuing.`;
+    if(flow.can_advance)return flow.defense_mode==='fast'
+        ? 'Fast Sim is selected. Use Fast Sim to next decision to simulate the opponent possession.'
+        : 'Watch Simulation is selected. Use Watch next play to start the opponent possession.';
+    return '';
+}
+
 export function shouldMountCoachWizard(flow) {
-    // Watch's CPU chooses its own plays. Human special-team calls remain in
+    // Watch and Fast delegate opponent calls, not manual human offensive calls.
+    // Automatic Play offense opening is separately gated above. Special teams stay in
     // the existing Coach interface; ordinary Coach is entirely unchanged.
-    return !flow?.enabled || flow.defense_mode !== 'watch' || ((flow.required_decision === 'special' || flow.phase === 'special') && !flow.can_advance);
+    return !flow?.enabled || flow.phase === 'offense' || !['watch','fast'].includes(flow.defense_mode) || ((flow.required_decision === 'special' || flow.phase === 'special') && !flow.can_advance);
 }
 
 // Only canonical football forms are routed through the Play command boundary.

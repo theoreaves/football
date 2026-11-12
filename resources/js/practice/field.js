@@ -1,6 +1,6 @@
 import {presentationMetrics} from '../arcade/presentation-metrics.js';
 import {prepareCoachBall,setCoachLayerVisible} from './shared-coach-presentation.js';
-import {claimPlayOpening,mountPlayPresentation,shouldMountCoachWizard,shouldAutoOpenCoachWizard} from './play-mode-presentation.js';
+import {claimPlayOpening,mountPlayPresentation,shouldMountCoachWizard,shouldAutoOpenCoachWizard,defenseModeNotice} from './play-mode-presentation.js';
 import {applyAnimationVariety,tackleFallAngle} from './animation-variety.js';
 import {hasOpenGameDialog} from './game-settings.js';
 import {applyKneelPose,kneelActive} from './kneel-pose.js';
@@ -255,6 +255,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
     const resultPopup = root.querySelector('[data-result-popup]');
     const beforeState = root.dataset.beforeState ? JSON.parse(root.dataset.beforeState) : null;
     const afterState = root.dataset.afterState ? JSON.parse(root.dataset.afterState) : null;
+    if(shared){const notice=root.querySelector('[data-play-flow-status]');if(notice)notice.textContent=defenseModeNotice(arcadeFlow,afterState);}
     // Only a NEW, game-ending injury triggers the sideline medical sequence.
     // Already-injured season players and brief return-snap injuries do not.
     const seriousInjury = (() => {

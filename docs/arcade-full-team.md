@@ -31,6 +31,13 @@ special-team/coin/penalty decisions still appear. **Continue in Coach** remains 
 for manual decisions such as a fourth-down punt. The automatic ordinary offensive
 Coach picker is suppressed only during Play's human Arcade offense.
 
+The defense choice is a saved preference for opponent possessions, not permission to
+skip your kickoff, try or penalty decision. Choose the required football decision
+first. On an opponent possession, use **Watch next play** or **Fast Sim to next decision**
+to begin. Both use the same broadcast stadium; they do not open a different game screen.
+Manual **Continue in Coach** keeps Punt/Field Goal choices available under every defense
+preference, while the ordinary offensive picker never opens automatically over Arcade.
+
 ## Runtime and existing ratings
 
 `full-team.js` is separate from the legacy running/passing drill runtimes and Coach.
@@ -80,7 +87,7 @@ stadium/renderer/canvas. Returning restores the live view without committing aga
 ## Checks and reproducible exploratory observations
 
 ```sh
-php -d memory_limit=1G artisan test --compact
+php -d memory_limit=1G vendor/bin/pest --compact
 npm run test:graphics
 npm run build
 # Optional single-snap matrix, not Stage C game balance acceptance:
@@ -98,3 +105,22 @@ deep route. These are signals for hands-on review, not evidence to change speed,
 or broad difficulty. The main scripted matrix produces no interceptions/sacks; separate
 contact/interception and held-pocket tests cover those paths. Browser visual checks are
 reported separately on issue #4; headless timings are not browser FPS guarantees.
+
+## Focused Stage B review correction
+
+The pursuit calculation now projects a delayed observation through its sample age
+using only the already-observed velocity before computing the bounded interception.
+Previously, treating that old position as current could make a faster defender brake
+behind the carrier. Reaction delays, ratings, acceleration, prediction limits and the
+0.925 scale are unchanged. Saved plays remain recorded history and are not resimulated.
+This corrects a specific movement defect; it is not Stage C balance acceptance.
+
+`node tests/Fixtures/fullteam-observed-run-comparison.mjs` compares the original
+`790a27a` runtime with the current runtime using anonymous ratings/geometry and movement
+inferred from one recorded run. Its original 77-yard touchdown is unchanged. The
+approximation produces a 77-yard baseline touchdown versus a current 53.26-yard safety
+tackle; it is not an exact keypress replay or a target for future balancing.
+
+The PHP command above invokes the test runner directly so its process receives the
+1 GiB limit. Passing that flag only to the Artisan wrapper can leave its child at the
+machine's default 128 MiB and abort the full exhibition-history tests.

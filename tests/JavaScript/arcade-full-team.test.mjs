@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createFullTeamPlay, startFullTeamPlay, pauseFullTeamPlay, stepFullTeamPlay,
-    getFullTeamPassTrajectory, fullTeamCatchTime, FULL_TEAM_CALLS } from '../../resources/js/arcade/full-team.js';
+    getFullTeamPassTrajectory, fullTeamCatchTime, fullTeamPursuitTarget, FULL_TEAM_CALLS } from '../../resources/js/arcade/full-team.js';
 import { actorSpeed } from '../../resources/js/arcade/tuning.js';
 import { STEP_SECONDS } from '../../resources/js/arcade/simulation.js';
 
@@ -277,4 +278,61 @@ test('defender decisions never read hidden intended or random flight target', ()
     a.ball.flight.target={x:5,z:1};b.ball.flight.target={x:115,z:52};
     for(let tick=0;tick<20;tick++) {stepFullTeamPlay(a);stepFullTeamPlay(b);}
     assert.deepEqual(a.defenders,b.defenders);
+});
+
+const observedRun = JSON.parse(readFileSync(new URL('../Fixtures/fullteam-observed-run.json', import.meta.url), 'utf8'));
+
+test('faster safety does not arrival-brake toward a stale constant-velocity runner position', () => {
+    for (const direction of [1,-1]) {
+        const config=structuredClone(observedRun.setup), state=createFullTeamPlay(config);
+        const runner=state.actorByKey.offense_RB, defender=state.actorByKey.defense_S2;
+        state.direction=direction;state.tick=300;
+        const speed=actorSpeed(runner), currentX=60, age=19*STEP_SECONDS;
+        defender.x=currentX-direction*2.39;defender.z=11.35;
+        const seen={tick:state.tick-19,holderKey:runner.key,actors:{[runner.key]:{x:currentX-direction*speed*age,z:11.35,vx:direction*speed,vz:0}}};
+        const target=fullTeamPursuitTarget(state,defender,seen);
+        assert.ok(actorSpeed(defender)>speed);
+        assert.ok((target.x-currentX)*direction>0);
+        assert.ok(Math.hypot(target.x-defender.x,target.z-defender.z)*4>=actorSpeed(defender), 'Pursuit must not brake on a stale point while the carrier is still ahead');
+    }
+});
+
+test('pursuit extrapolation respects stopped/slow observations and delayed turns, including YAC', () => {
+    for (const direction of [1,-1]) {
+        const state=play({call:'short_pass',direction}),defender=state.actorByKey.defense_S2,receiver=state.actorByKey.offense_TE;
+        state.tick=120;defender.x=60-direction*2.4;defender.z=20;
+        const sample={tick:102,holderKey:receiver.key,actors:{[receiver.key]:{x:60,z:20,vx:0,vz:0}}};
+        assert.deepEqual(fullTeamPursuitTarget(state,defender,sample),{x:60,z:20});
+        sample.actors[receiver.key].vx=direction*2;
+        const slow=fullTeamPursuitTarget(state,defender,sample);
+        assert.ok((slow.x-60)*direction>=.6);assert.ok((slow.x-60)*direction<3);
+        const before=fullTeamPursuitTarget(state,defender,sample);
+        receiver.x=90;receiver.z=45;receiver.vx=0;receiver.vz=-8;
+        assert.deepEqual(fullTeamPursuitTarget(state,defender,sample),before,'Unobserved turn must not affect the prediction');
+        sample.actors[receiver.key]={x:60,z:20,vx:0,vz:-8};sample.tick=119;
+        const after=fullTeamPursuitTarget(state,defender,sample);
+        assert.ok(after.z<before.z);assert.equal(after.x,60);
+    }
+});
+
+test('actual saved speed matchup closes a constant-velocity gap in both attack directions', () => {
+    for(const direction of [1,-1]) {
+        const config=structuredClone(observedRun.setup);
+        config.direction=direction;
+        if(direction===-1) {
+            for(const actor of config.players) actor.x=120-actor.x;
+            for(const key of ['startX','goalX','rearX','firstDownX']) config.exhibition[key]=120-config.exhibition[key];
+        }
+        const state=startFullTeamPlay(createFullTeamPlay(config)),runner=state.actorByKey.offense_RB,defender=state.actorByKey.defense_S2;
+        const x=direction===1?35:85;
+        state.handoffComplete=true;state.runner=runner;state.controlledKey=runner.key;state.ball.holderKey=runner.key;
+        runner.x=x;runner.z=11.35;runner.vx=direction*actorSpeed(runner);runner.vz=0;
+        defender.x=x-direction*2.39;defender.z=11.35;defender.vx=direction*actorSpeed(defender);defender.vz=0;defender.facing=direction===1?0:Math.PI;
+        for(const actor of state.actors) if(![runner.key,defender.key].includes(actor.key)) {actor.x=direction===1?115:5;actor.z=50;}
+        state.observations=[{tick:0,holderKey:runner.key,ball:{...state.ball},actors:Object.fromEntries(state.actors.map(a=>[a.key,{x:a.x,z:a.z,vx:a.vx,vz:a.vz}]))}];
+        // Warm the reaction window; then measure only a steady unblocked chase.
+        advance(state,60,{x:direction});const gap=(runner.x-defender.x)*direction;
+        advance(state,180,{x:direction});
+        assert.equal(state.result,null);assert.ok((runner.x-defender.x)*direction<gap-.08);
+    }
 });

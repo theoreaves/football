@@ -482,3 +482,44 @@ test('default Play quarters display fifteen minutes and reset once at the author
         ->and(Exhibition::withoutGlobalScopes()->findOrFail($oldGame->id)->state)->toBe($oldState)
         ->and($oldState['quarter_length'])->toBe(180);
 });
+
+test('delegated defense preference never skips the human kickoff after a score', function (string $mode) {
+    // Disposable reproduction of a completed touchdown and try, before the human kickoff.
+    $game = flowTestGame(['phase' => 'kickoff', 'possession' => 'home', 'home_score' => 7, 'away_score' => 0,
+        'quarter' => 1, 'quarter_length' => 900, 'clock' => 877, 'spot' => 35, 'version' => 2]);
+    enableFlow($game, 'coach');
+    $before = $game->fresh();
+    $preference = flowCommand($game, ['action' => 'preferences', 'defense_mode' => $mode]);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $preference)->assertOk()
+        ->assertJsonPath('flow.defense_mode', $mode)->assertJsonPath('flow.required_decision', 'special')
+        ->assertJsonPath('flow.can_advance', false)->assertJsonPath('flow.can_fast', false)->assertJsonPath('available', false);
+    expect($game->fresh()->state)->toBe($before->state)->and($game->fresh()->history)->toBe($before->history);
+    $revision = app(ExhibitionFlow::class)->status($game->fresh())['flow']['revision'];
+    $this->postJson(route('exhibitions.arcade.flow', $game), $preference)->assertOk()->assertJsonPath('replayed', true)->assertJsonPath('flow.revision', $revision);
+    foreach (['advance', 'fast'] as $action) {
+        $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => $action]))->assertConflict();
+    }
+    expect($game->fresh()->state)->toBe($before->state)->and($game->fresh()->history)->toBe([]);
+
+    $kickoff = flowCommand($game, ['action' => 'play', 'call' => 'kickoff', 'offense_formation' => 'singleback']);
+    $response = $this->postJson(route('exhibitions.arcade.flow', $game), $kickoff)->assertOk()
+        ->assertJsonPath('state.version', 3)->assertJsonPath('state.possession', 'away')->assertJsonPath('flow.can_advance', true)
+        ->assertJsonPath('flow.defense_mode', $mode)->assertJsonPath('play.call', 'kickoff');
+    $afterKickoff = $game->fresh();
+    expect($afterKickoff->history)->toHaveCount(1)->and($afterKickoff->history[0]['before']['phase'])->toBe('kickoff');
+    $this->postJson(route('exhibitions.arcade.flow', $game), $kickoff)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->state)->toBe($afterKickoff->state)->and($game->fresh()->history)->toBe($afterKickoff->history);
+
+    $next = flowCommand($game, ['action' => $mode === 'watch' ? 'advance' : 'fast']);
+    $result = $this->postJson(route('exhibitions.arcade.flow', $game), $next)->assertOk();
+    $saved = $game->fresh();
+    expect($saved->history[1]['before']['possession'])->toBe('away')->and($saved->state['controls'])->toBe(['home' => 'human', 'away' => 'cpu']);
+    if ($mode === 'watch') {
+        expect($saved->history)->toHaveCount(2)->and($result->json('plays'))->toHaveCount(1);
+    } else {
+        $result->assertJsonPath('flow.can_advance', false);
+        expect($saved->state['possession'] === 'home' || $saved->state['status'] !== 'playing' || $result->json('flow.required_decision') !== null)->toBeTrue();
+    }
+    $this->postJson(route('exhibitions.arcade.flow', $game), $next)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->state)->toBe($saved->state)->and($game->fresh()->history)->toBe($saved->history);
+})->with(['watch', 'fast']);
