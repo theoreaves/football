@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {queuedPlayCall} from '../../resources/js/practice/queued-play-call.js';
+import {queuedPlayCall,acceptQueuedPlay,rejectQueuedPlay} from '../../resources/js/practice/queued-play-call.js';
 import {unitExchange,playerKey} from '../../resources/js/practice/unit-exchange.js';
 
 function fixture(callback=()=>{}) {
@@ -10,7 +10,7 @@ function fixture(callback=()=>{}) {
     const root={isConnected:true,append(){}};
     form.ownerDocument={createElement(tag){
         if(tag==='input')return {};
-        return {children:[],setAttribute(name,value){this[name]=value;},append(input){this.children.push(input);},requestSubmit(){posted.push(this.children.map(input=>[input.name,input.value]));callback();},remove(){}};
+        return {children:[],setAttribute(name,value){this[name]=value;},append(input){this.children.push(input);},requestSubmit(){posted.push(this.children.map(input=>[input.name,input.value]));callback(this);},remove(){}};
     }};
     const event=()=>({submitter:{},preventDefault(){this.prevented=true;},stopImmediatePropagation(){this.stopped=true;}});
     return {form,root,posted,event,submit(event){listeners.get('submit')?.(event);}};
@@ -67,4 +67,26 @@ test('old exchange completes before release and a newly selected package starts 
         assert.equal(new Set(ids).size,ids.length);
     }
     assert.deepEqual(nextExchange.sample(nextExchange.duration).incoming.map(player=>player.id),[5,4]);
+}));
+
+
+test('shared handoff retains frozen selection while presentation declines then accepts exactly once',()=>withFormData(()=>{
+    let ready=false,accept=false,released=0;const f=fixture(proxy=>{if(accept)acceptQueuedPlay(proxy);});
+    const queue=queuedPlayCall(f.form,f.root,{ready:()=>ready,requireAcceptance:true,onRelease:()=>released++});
+    f.submit(f.event());f.form.values[2][1]='deep_pass';queue.tick();assert.equal(f.posted.length,0);
+    ready=true;queue.tick();assert.equal(released,0); // old failure: this consumed the choice
+    accept=true;queue.tick();queue.tick();assert.equal(released,1);assert.equal(f.posted.length,2);
+    assert.deepEqual(f.posted[0],f.posted[1]);assert.equal(f.posted[1][2][1],'power');
+}));
+test('ready shared calls still capture before acknowledgement; delayed ack and disposal are safe',()=>withFormData(()=>{
+    let proxy,released=0;const f=fixture(value=>{proxy=value;});
+    const queue=queuedPlayCall(f.form,f.root,{ready:()=>true,requireAcceptance:true,onRelease:()=>released++});
+    const event=f.event();f.submit(event);assert.equal(event.prevented,true);queue.tick();assert.equal(released,0);
+    acceptQueuedPlay(proxy);acceptQueuedPlay(proxy);queue.tick();assert.equal(released,1);assert.equal(f.posted.length,1);
+    let late;const other=fixture(value=>{late=value;});const disposed=queuedPlayCall(other.form,other.root,{ready:()=>true,requireAcceptance:true,onRelease:()=>released++});other.submit(other.event());disposed.tick();disposed.dispose();acceptQueuedPlay(late);assert.equal(released,1);
+}));
+test('permanent shared preparation failure retains choice and stops frame-by-frame submission',()=>withFormData(()=>{
+    let failures=0,released=0;const f=fixture(proxy=>rejectQueuedPlay(proxy,new Error('Storage unavailable')));
+    const queue=queuedPlayCall(f.form,f.root,{ready:()=>true,requireAcceptance:true,onRelease:()=>released++,onFailure:()=>failures++});
+    f.submit(f.event());queue.tick();queue.tick();queue.tick();assert.equal(f.posted.length,1);assert.equal(failures,1);assert.equal(released,0);assert.equal(f.form.dataset.playPending,'true');
 }));

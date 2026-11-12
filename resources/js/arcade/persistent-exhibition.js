@@ -1,3 +1,4 @@
+import {acceptQueuedPlay,rejectQueuedPlay} from '../practice/queued-play-call.js';
 import {mountButtonFeedback} from '../button-feedback.js';
 import {presentationHandoffNotice} from './presentation-handoff.js';
 import {mountGameSettings} from '../practice/game-settings.js';
@@ -34,6 +35,7 @@ export async function mountPersistentExhibition(root) {
     const say=text=>{status.textContent=text;};
     const resetFeedback=()=>feedback.reset();
     const sendFlow=(...args)=>Promise.resolve(arcade.flowAction(...args)).finally(resetFeedback);
+    const canSubmitPlay=()=>!readBlocked && !coachHistory && !loading && !opening && !sharedHost.staging && !sharedHost.cameraDirector.transitioning && !arcade.busy && !arcade.pending && !arcade.replaying && !presentation?.recorded && !presentation?.dialogOpen;
     const handoffNotice=()=>presentationHandoffNotice({presentation,opening,staging:sharedHost.staging,transitioning:sharedHost.cameraDirector.transitioning,requiredDecision:snapshot.flow.required_decision});
     async function read(target){const parsed=new URL(target,window.location.origin);if(parsed.origin!==window.location.origin)throw new Error('Invalid game presentation URL.');const response=await fetch(parsed,{credentials:'same-origin',headers:{Accept:'application/json'},signal:abort.signal});if(!response.ok)throw new Error(response.status===401||response.status===419?'Sign-in expired. Reload to sign in; your pending result is retained.':`Presentation unavailable (${response.status}). Retry loading saved state.`);return response.json();}
     function arcadeCamera(){if(!sharedHost)return;const state=snapshot.state;const direction=(state.possession==='home'?1:-1)*(state.quarter%2===0?-1:1);const x=direction===1?10+state.spot:110-state.spot;const frame=arcadeCameraFrame(canvasHost.clientWidth,canvasHost.clientHeight,direction,exhibitionCameraX(x,direction));const camera=sharedHost.cameras.arcade;Object.assign(camera,{left:frame.left,right:frame.right,top:frame.top,bottom:frame.bottom});camera.position.set(...frame.position);camera.lookAt(...frame.target);camera.updateProjectionMatrix();sharedHost.cameraDirector.use(camera);}
@@ -67,7 +69,7 @@ export async function mountPersistentExhibition(root) {
         if(coachHistory){const back=document.createElement('button');back.type='button';back.textContent='Return to game';back.className='persistent-history-return';back.addEventListener('click',()=>{coachHistory=false;refresh();});controls.append(back);}
         arcade.reconcile({state:next.state,available:next.available,flow:next.flow,coach_url:next.flow.coach_url});
         mountGameSettings(phaseRoot);
-        coach=mountPractice(phaseRoot,()=>{}, {sharedHost,openingClaimed,onFrame});liveSuspendedCoach=null;
+        coach=mountPractice(phaseRoot,()=>{}, {sharedHost,openingClaimed,onFrame,canSubmitPlay});liveSuspendedCoach=null;
         if(!coachHistory)sharedHost.stageNextFrame?.();
         setMode();
     }
@@ -87,7 +89,7 @@ export async function mountPersistentExhibition(root) {
         }
         if(target.origin!==window.location.origin || target.pathname!==expected)return;
         event.preventDefault();event.stopImmediatePropagation();if(readBlocked||coachHistory||sharedHost.staging||sharedHost.cameraDirector.transitioning||loading||arcade.pending||arcade.replaying)return;
-        try{const body=new FormData(form);if(event.submitter?.name)body.set(event.submitter.name,event.submitter.value);const fields=serializePlayForm(body.entries());const action=fields.action || 'play';delete fields.action;delete fields.version;sendFlow(action,fields);}catch(error){say(error.message);}
+        try{const body=new FormData(form);if(event.submitter?.name)body.set(event.submitter.name,event.submitter.value);const fields=serializePlayForm(body.entries());const action=fields.action || 'play';delete fields.action;delete fields.version;sendFlow(action,fields,{onPrepared:()=>acceptQueuedPlay(form),onPrepareError:error=>rejectQueuedPlay(form,error)});}catch(error){rejectQueuedPlay(form,error);say(error.message);}
     },options);
     controls.addEventListener('click',event=>{
         const replayButton=event.target.closest('[data-play]');if(replayButton && !coachHistory && snapshot.latest_play){event.preventDefault();event.stopImmediatePropagation();openHistory(String(snapshot.latest_play.number));return;}

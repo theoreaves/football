@@ -142,11 +142,13 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!flow) stopped ||= !canContinueExhibitionDrive(official, allowed, driveSide);
     }
     async function action(callback) { if(busy || replay?.active) return; busy=true; pause(); try { await callback(); } catch(error) {say(error.message);} finally {busy=false;hud();} }
-    async function flowAction(actionName, extra={}) {
+    async function flowAction(actionName, extra={}, {onPrepared=()=>{},onPrepareError=()=>{}}={}) {
         if (!flowTransport || replay?.active || !inputEnabled() || transport.pending || flowBlocked) return;
         return action(async()=>{
+            let prepared=false;
             try {
                 if (actionName) flowTransport.prepare({action:actionName,version:official.version,flow_revision:flow.revision,state_hash:flow.state_hash,...extra});
+                prepared=true;onPrepared();
                 const result=await flowTransport.submit(); if(disposed)return; reconcile(result);
                 if(onCanonical) await onCanonical(result,{kind:actionName || "retry"});
                 say('Game decision saved. ' + flowGuidance());
@@ -155,7 +157,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
                     const target=new URL(destination,window.location.origin);
                     if(target.origin===window.location.origin && target.pathname!==window.location.pathname) window.location.assign(target.href);
                 }
-            } catch(error) { if(flowTransport.reject(error)) flowBlocked=true; throw error; }
+            } catch(error) { if(!prepared)onPrepareError(error);if(flowTransport.reject(error)) flowBlocked=true; throw error; }
         });
     }
     if (flowTransport) {

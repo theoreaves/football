@@ -52,7 +52,7 @@ import { buildPenaltyContact, applyPenaltyContact, resetPenaltyContactPose } fro
 import { buildChainGang } from './chain-gang.js';
 import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } from './referees.js';
 
-export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFrame = () => {}, openingClaimed} = {}) {
+export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFrame = () => {}, openingClaimed, canSubmitPlay = () => false} = {}) {
     const shared = sharedHost;
     let disposed = false, suspended = false, presentationState = null, suspendedTarget = null, sharedInteractive = false;
     if (root.dataset.mounted) return;
@@ -1550,7 +1550,9 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
     const queuedNotice = document.createElement('p');
     queuedNotice.className = 'game-call-pending';queuedNotice.hidden = true;queuedNotice.setAttribute('role','status');root.append(queuedNotice);
     const queuedCall = callForm ? queuedPlayCall(callForm, root, {
-        ready: () => !document.hidden && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration),
+        requireAcceptance: Boolean(shared),
+        onFailure: error => {queuedNotice.textContent=`The selected play was not sent: ${error.message || error}. Reload saved state before choosing again.`;queuedNotice.hidden=false;},
+        ready: () => (!shared || canSubmitPlay()) && !document.hidden && (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration),
         onQueued: () => {
             root.classList.remove('game-replay-controls');
             queuedNotice.textContent = 'Play selected · Finishing player change…';queuedNotice.hidden = false;
@@ -2059,7 +2061,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
         if(entrance.active){sideline.update(new Set(),entranceClock());hideOpeningUnits(players,incomingPlayers,preOutgoingPlayers);carrierArrow.visible=carrierRing.visible=ballGlow.visible=false;}
         else if(entrancePanel && entrance.seconds>0){entrance.seconds=0;}
         updateEnding(delta);
-        queuedCall?.tick();
+        if(!shared)queuedCall?.tick();
         resultReferee.update(document.hidden ? 0 : delta);
         controls.update(); if (!shared) renderer.render(scene, camera);
         onReady(); onReady = () => {};
@@ -2074,7 +2076,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
             ready:phase === 'huddle' && huddleProgress === 1 && (!exchange || exchangeElapsed >= exchange.duration), visible:!document.hidden,
             dialogOpen:Boolean(entrance.active || openingPregame || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root))};
         playPresentation.tick(presentationState);
-        if (shared) onFrame(presentationState);
+        if (shared) {onFrame(presentationState);queuedCall?.tick();}
         if(baselineDebug){
             baselineCpu.push(performance.now()-baselineStart);if(baselineCpu.length>240)baselineCpu.shift();baselineFrames++;
             if(now-baselinePublish>1000){baselinePublish=now;baselineDebug.textContent=JSON.stringify({mode:'standalone-coach',...presentationMetrics({sceneId:scene.uuid,stadiumId:stadium.group.uuid,ballId:ball.uuid,canvasId:`coach-canvas:${scene.uuid}`,rendererId:`coach-renderer:${scene.uuid}`,frames:baselineFrames,cpuFrameMs:baselineCpu,frameIntervals:baselineIntervals,actors:players.length,visibleActors:players.filter(player=>player.visible).length,rafCount:1,audioOwners:1,activeAdapters:1,drawCalls:renderer.info.render.calls,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures})},null,2);}
