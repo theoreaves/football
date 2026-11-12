@@ -54,7 +54,7 @@ import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } fro
 
 export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFrame = () => {}, openingClaimed} = {}) {
     const shared = sharedHost;
-    let disposed = false, suspended = false, presentationState = null, suspendedTarget = null;
+    let disposed = false, suspended = false, presentationState = null, suspendedTarget = null, sharedInteractive = false;
     if (root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const arcadeFlow = root.dataset.arcadeFlow ? JSON.parse(root.dataset.arcadeFlow) : null;
@@ -1532,6 +1532,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
     const useCoachWizard = shouldMountCoachWizard(arcadeFlow);
     if (!useCoachWizard && callForm) { callForm.inert = true; callForm.style.display = 'none'; }
     const tickPlayWizard = useCoachWizard ? mountPlayWizard(root, {
+        isEnabled: () => !shared || (sharedInteractive && !suspended && !disposed),
         skipPlayerChange,
         exchangeStatus: () => ({
             active: (phase === 'huddle' && Boolean(exchange) && exchangeElapsed < exchange.duration) || phase === 'substituting',
@@ -2134,6 +2135,6 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
         suspend(){if(!suspended)suspendedTarget=controls.target.clone();suspended=true;controls.enabled=false;scene.visible=false;lastTime=null;audio.setPlayback(false,false);audio.stopPlayerVoices();},
         resume(){if(suspendedTarget){controls.target.copy(suspendedTarget);suspendedTarget=null;}suspended=false;scene.visible=true;lastTime=null;shared.cameraDirector.use(camera);},
         setVisible(enabled){setCoachLayerVisible(scene,enabled && !suspended && !disposed);},
-        setInteractive(enabled){controls.enabled=Boolean(enabled) && !disposed && !suspended && !shared.cameraDirector.transitioning && !shared.staging;},
+        setInteractive(enabled){sharedInteractive=Boolean(enabled);controls.enabled=Boolean(enabled) && !disposed && !suspended && !shared.cameraDirector.transitioning && !shared.staging;},
     };
 }

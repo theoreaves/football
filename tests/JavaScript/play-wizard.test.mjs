@@ -57,3 +57,13 @@ test('designed QB and crossing concepts have distinct diagrams and empty fields 
     assert.equal(formationPoints('offense','empty').WR4[1],6);
     assert.equal(formationPoints('offense','bunch').WR2[1],43);
 });
+
+test('persistent Arcade ownership cancels delayed Coach wizard without dismissing required decisions',async()=>{
+    const {guardWizardOwnership}=await import('../../resources/js/practice/play-wizard.js');
+    let closed=0,cancelled=0;const wizard={open:true,close(){closed++;this.open=false;}},countdown={cancel(){cancelled++;}},penalty={open:true},injury={open:true},drive={open:true};
+    assert.equal(guardWizardOwnership(false,wizard,countdown),false);
+    assert.equal(closed,1);assert.equal(cancelled,1);assert.equal(wizard.open,false);
+    assert.ok(penalty.open && injury.open && drive.open);
+    assert.equal(guardWizardOwnership(false,wizard,countdown),false);assert.equal(closed,1);
+    assert.equal(guardWizardOwnership(true,wizard,countdown),true);assert.equal(cancelled,2);
+});

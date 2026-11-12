@@ -23,3 +23,11 @@
 .persistent-play > .arcade-replay.arcade-replay-shared {position:absolute;z-index:100;}
 
 .persistent-play > .persistent-debug,.persistent-play.persistent-coach-active > .persistent-debug {display:block;position:absolute;right:4px;top:4px;z-index:120;max-width:330px;max-height:45vh;overflow:auto;font-size:9px;background:#000c;color:#bdfdc9;pointer-events:none;}
+
+/* Stage A only: stack the existing timeout forms after the defense choices. */
+.persistent-phase-controls [data-play-flow-panel] {max-height:40vh;overflow-y:auto;}
+.persistent-phase-controls [data-play-flow-panel] .game-timeouts {position:static;inset:auto;margin-top:12px;max-width:100%;}
+.persistent-phase-controls [data-play-flow-panel] .game-timeouts form {display:flex;flex-wrap:wrap;gap:6px;}
+@media (max-width:950px) {
+    .persistent-phase-controls [data-play-flow-panel] {max-height:30vh;}
+}

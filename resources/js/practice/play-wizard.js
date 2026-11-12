@@ -118,7 +118,7 @@ export function wizardSteps(humanOffense, humanDefense, call, calls = []) {
     return list;
 }
 
-export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStatus = () => ({active:false,fastForwarding:false})} = {}) {
+export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStatus = () => ({active:false,fastForwarding:false}), isEnabled = () => true} = {}) {
     const form = root.querySelector('[data-call-form]');
     if (root.querySelector('[data-cpu-timeout-form]')) {if(form)form.inert=true;root.querySelectorAll('[data-timeout-form]').forEach(source=>source.hidden=true);return;}
     if (!form || (!form.elements.call && !form.elements.defense)) return;
@@ -269,7 +269,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
         updateReviewButton();
     }
     const openWizard = () => {
-        if (form.dataset.playPending === 'true') return;
+        if (!isEnabled() || form.dataset.playPending === 'true') return;
         opened = true;
         // Close the compact Call play sheet before opening the centered wizard.
         const parent=launch.closest('dialog'); if(parent?.open)parent.close();
@@ -277,6 +277,7 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
     };
     open.addEventListener('click', openWizard);
     return ({delta, ready, personnelReady = true}) => {
+        if (!guardWizardOwnership(isEnabled(),dialog,countdown)) {idleSeconds=0;return;}
         open.disabled = form.dataset.playPending === 'true';
         if (open.disabled) open.textContent = 'Play selected…';
         hurryCalling();
@@ -298,4 +299,13 @@ export function mountPlayWizard(root, {skipPlayerChange = () => {}, exchangeStat
 
 export function canAutoOpenWizard({ready, opened, visible, dialogOpen}) {
     return ready && !opened && visible && !dialogOpen;
+}
+
+// Only the call wizard belongs to this gate; canonical notice/decision dialogs
+// are deliberately not queried or dismissed when presentation ownership changes.
+export function guardWizardOwnership(enabled, dialog, countdown) {
+    if(enabled)return true;
+    countdown.cancel();
+    if(dialog.open)dialog.close();
+    return false;
 }

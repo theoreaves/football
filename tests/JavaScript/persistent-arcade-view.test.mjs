@@ -55,7 +55,7 @@ test('camera capture restores mutable broadcast pose, projection and zoom after 
  const f=fixture(),camera=f.sharedHost.cameraDirector.camera;camera.position.set(12,40,80);camera.zoom=1.4;camera.updateProjectionMatrix();const position=camera.position.clone(),projection=camera.projectionMatrix.clone();const restore=captureSharedPresentation(f.sharedHost);camera.position.set(99,2,4);camera.zoom=.7;camera.updateProjectionMatrix();restore();assert.deepEqual(camera.position,position);assert.equal(camera.zoom,1.4);assert.deepEqual(camera.projectionMatrix,projection);
 });
 const historySource=readerSource.slice(readerSource.indexOf('    async function openHistory(number)'),readerSource.indexOf('    const dispose='));
-function historyHarness(){let complete,reads=0,opened=0;const arcade={hasLive:false,pending:false,busy:false,replaying:false,openReplay(){opened++;}};const api=new Function('arcade','sharedHost','snapshot','read','say',`let readBlocked=false,coachHistory=false,loading=false,historyGeneration=0,activityGeneration=0,disposed=false;${historySource};return {open:openHistory,invalidate(){historyGeneration++;activityGeneration++;},get loading(){return loading;}};`)(arcade,{staging:false,cameraDirector:{transitioning:false}},{urls:{playback_base:'/exhibitions/3/arcade/playback'}},()=>{reads++;return new Promise(resolve=>{complete=resolve;});},()=>{});return {api,arcade,resolve:()=>complete({recording:{}}),get reads(){return reads;},get opened(){return opened;}};}
+function historyHarness(){let complete,reads=0,opened=0;const messages=[];const arcade={hasLive:false,pending:false,busy:false,replaying:false,openReplay(){opened++;}};const api=new Function('arcade','sharedHost','snapshot','read','say',`let readBlocked=false,coachHistory=false,loading=false,historyGeneration=0,activityGeneration=0,disposed=false;${historySource};return {open:openHistory,invalidate(){historyGeneration++;activityGeneration++;},get loading(){return loading;}};`)(arcade,{staging:false,cameraDirector:{transitioning:false}},{urls:{playback_base:'/exhibitions/3/arcade/playback'}},()=>{reads++;return new Promise(resolve=>{complete=resolve;});},message=>messages.push(message));return {api,arcade,messages,resolve:()=>complete({recording:{}}),get reads(){return reads;},get opened(){return opened;}};}
 test('slow history read locks competing replay and rejects late response after refresh or reservation',async()=>{
  for(const invalidate of [h=>h.api.invalidate(),h=>{h.arcade.hasLive=true;},h=>{h.arcade.pending=true;}]){const h=historyHarness();const loading=h.api.open('1');assert.equal(h.api.loading,true);await h.api.open('2');assert.equal(h.reads,1);invalidate(h);h.resolve();await loading;assert.equal(h.opened,0);}
  const h=historyHarness();h.arcade.replaying=true;await h.api.open('1');assert.equal(h.reads,0);h.arcade.replaying=false;const load=h.api.open('1');h.resolve();await load;assert.equal(h.opened,1);assert.equal(h.api.loading,false);
@@ -66,3 +66,14 @@ test('every replaced live and historical controls fragment initializes its own s
 });
 
 test('shared form endpoints read attributes instead of named action inputs',()=>{const source=readFileSync(new URL('../../resources/js/arcade/persistent-exhibition.js',import.meta.url),'utf8');assert.doesNotMatch(source,/form\.action/);assert.match(source,/form\.getAttribute\('action'\)/);});
+
+test('saved Arcade history replaces loading status only after replay opens successfully',async()=>{
+ const h=historyHarness(),load=h.api.open('1');assert.match(h.messages.at(-1),/Loading/);h.resolve();await load;assert.match(h.messages.at(-1),/Recorded play loaded/);assert.doesNotMatch(h.messages.at(-1),/Loading/);
+ const failed=historyHarness();failed.arcade.openReplay=()=>{throw new Error('Replay unavailable');};const attempt=failed.api.open('1');failed.resolve();await attempt;assert.equal(failed.messages.at(-1),'Replay unavailable');
+});
+test('persistent-only timeout tray is stacked inside the defense panel rather than absolutely overlapping it',()=>{
+ assert.match(readerSource,/if\(flowPanel && timeoutTray\)flowPanel\.append\(timeoutTray\)/);
+ const css=readFileSync(new URL('../../resources/js/arcade/persistent-exhibition.css',import.meta.url),'utf8');
+ assert.match(css,/\.persistent-phase-controls \[data-play-flow-panel\] \.game-timeouts \{position:static;inset:auto;/);
+ assert.match(css,/\.persistent-phase-controls \[data-play-flow-panel\] \.game-timeouts form \{display:flex;flex-wrap:wrap;/);
+});
