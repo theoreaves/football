@@ -37,13 +37,15 @@ class ExhibitionController extends Controller
 
     public function store(Request $request, RosterBuilder $builder, ExhibitionEngine $engine, CpuCoach $coach)
     {
-        $data = $request->validate(['play_mode' => ['sometimes', 'boolean'], 'play_side' => ['sometimes', Rule::in(['home', 'away'])], 'defense_mode' => ['sometimes', Rule::in(['coach', 'watch', 'fast'])], 'home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in([180, 300, 600, 900])], 'kickoff_profile' => ['sometimes', Rule::in(['traditional', 'nfl_2024', 'nfl_2025', 'nfl_2026'])], 'overtime' => ['sometimes', Rule::in(['none', 'traditional', 'modern', 'traditional_playoff', 'modern_playoff'])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
+        $data = $request->validate(['play_mode' => ['sometimes', 'boolean'], 'play_side' => ['sometimes', Rule::in(['home', 'away'])], 'defense_mode' => ['sometimes', Rule::in(['coach', 'watch', 'fast'])], 'home' => ['required', 'integer'], 'away' => ['required', 'integer', 'different:home'], 'quarter_length' => ['required', Rule::in(['default', 180, 300, 600, 900])], 'kickoff_profile' => ['sometimes', Rule::in(['traditional', 'nfl_2024', 'nfl_2025', 'nfl_2026'])], 'overtime' => ['sometimes', Rule::in(['none', 'traditional', 'modern', 'traditional_playoff', 'modern_playoff'])], 'quick_sim' => ['sometimes', 'boolean'], 'home_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'away_control' => ['sometimes', 'required', Rule::in(['human', 'cpu'])], 'penalties' => ['sometimes', 'boolean'], 'injuries' => ['sometimes', 'boolean'], 'coin_call' => ['sometimes', 'required', Rule::in(['heads', 'tails'])], 'crowd_fullness' => ['sometimes', 'required', 'integer', 'between:0,100'], 'visiting_fans' => ['sometimes', 'required', 'integer', 'between:0,100']]);
         $home = Team::findOrFail($data['home']);
         $away = Team::findOrFail($data['away']);
         $coin = random_int(0, 1) === 0 ? 'heads' : 'tails';
         $coinCall = $data['coin_call'] ?? 'heads';
         $winner = $coin === $coinCall ? 'away' : 'home';
-        $initial = $engine->initial((int) $data['quarter_length']);
+        // Resolve only a new form's mode default; explicit durations remain unchanged.
+        $quarterLength = $data['quarter_length'] === 'default' ? (($data['play_mode'] ?? false) ? 900 : 180) : (int) $data['quarter_length'];
+        $initial = $engine->initial($quarterLength);
         $controls = ['home' => $data['home_control'] ?? 'human', 'away' => $data['away_control'] ?? 'human'];
         $quickSim = (bool) ($data['quick_sim'] ?? false);
         if ($quickSim) {

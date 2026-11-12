@@ -58,3 +58,7 @@ test('pending penalty previews never claim acceptance or enforcement, settled de
     assert.ok(canonicalExhibitionNotices({play,state:{penalty_pending:false}}).some(message=>message.includes('accepted')));
     assert.ok(canonicalExhibitionNotices({play:{...play,penalty:{type:'holding',accepted:false}},state:{penalty_pending:false}}).some(message=>message.includes('declined')));
 });
+
+test('fifteen minute quarters display 15:00 at both opening and quarter reset',()=>{
+    for(const quarter of [1,2])assert.ok(exhibitionStateLabel({quarter,clock:900,down:1,distance:10,spot:25,possession:'home'}).startsWith(`Q${quarter} · 15:00 ·`));
+});

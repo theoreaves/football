@@ -338,3 +338,147 @@ test('pending penalty status labels the preview as awaiting a decision without c
     expect(array_column($notices, 'type'))->not->toContain('nullified')
         ->and(array_column($notices, 'message'))->toContain('Holding declined');
 });
+
+test('new exhibition mode defaults preserve Coach and explicit quarter durations', function (bool $play, string $duration, int $expected) {
+    $worldId = (int) session('current_world_id');
+    $this->artisan('world:seed-demo', ['world' => $worldId, '--teams' => 2])->assertSuccessful();
+    $teams = Team::all();
+    $existing = flowTestGame();
+    $before = Exhibition::withoutGlobalScopes()->findOrFail($existing->id)->getAttributes();
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => $duration, 'play_mode' => $play ? 1 : 0])->assertSessionHasNoErrors()->assertRedirect();
+    $created = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    expect($created->id)->not->toBe($existing->id)
+        ->and($created->state['quarter_length'])->toBe($expected)
+        ->and($created->state['clock'])->toBe($expected)
+        ->and($existing->withoutGlobalScopes()->findOrFail($existing->id)->getAttributes())->toBe($before);
+})->with([[true, 'default', 900], [false, 'default', 180], [true, '180', 180], [true, '300', 300], [true, '600', 600], [true, '900', 900], [false, '900', 900]]);
+
+test('Arcade creation default remains feature gated', function () {
+    $existing = flowTestGame();
+    config(['arcade.enabled' => false]);
+    $this->post(route('exhibitions.store'), ['home' => $existing->home_team_id, 'away' => $existing->away_team_id, 'quarter_length' => 'default', 'play_mode' => 1])->assertNotFound();
+    expect(Exhibition::withoutGlobalScopes()->count())->toBe(1);
+});
+
+test('fourth down CPU decisions match ordinary Coach in every Play defense mode', function (string $mode, array $changes, string $expectedCall) {
+    $game = flowTestGame($changes + ['possession' => 'away', 'quarter' => 1, 'clock' => 120, 'down' => 4, 'distance' => 26, 'spot' => 60]);
+    $baseline = $game->replicate();
+    $baseline->save();
+    $coach = app(\App\Services\Simulation\CpuCoach::class);
+    $plan = $coach->offense($game->state, app(\App\Services\Simulation\GamePersonnel::class)->active($game->rosters, $game->state));
+    if ($expectedCall === 'go_for_it') {
+        expect($plan['call'])->not->toBeIn(['field_goal', 'punt', 'punt_coffin', 'punt_hang', 'punt_distance']);
+    } else {
+        expect($plan['call'])->toBe($expectedCall);
+    }
+    $defense = $coach->defense($game->state, $plan['call']);
+    $args = ['action' => 'play', 'defense' => $defense['call'], 'defense_formation' => $defense['formation'], 'expect' => $game->state['distance'] >= 8 ? 'pass' : ($game->state['distance'] <= 2 ? 'run' : 'balanced')];
+    $this->post(route('exhibitions.play', $baseline), $args + ['version' => $baseline->state['version']])->assertRedirect();
+    enableFlow($game, $mode);
+    $command = flowCommand($game, $mode === 'coach' ? $args : ['action' => $mode === 'watch' ? 'advance' : 'fast']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk();
+    $saved = $game->fresh();
+    expect($saved->history[0])->toBe($baseline->fresh()->history[0]);
+    $attributes = $saved->getAttributes();
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->getAttributes())->toBe($attributes);
+    if ($expectedCall === 'punt_coffin') {
+        expect($saved->history)->toHaveCount(1)->and($saved->state['possession'])->toBe('home')->and($saved->state['down'])->toBe(1)->and($saved->state['distance'])->toBe(10);
+    }
+})->with(['coach', 'watch', 'fast'])->with([
+    'punt at fourth and long' => [[], 'punt_coffin'],
+    'field goal in range' => [['spot' => 85], 'field_goal'],
+    'late touchdown needed' => [['quarter' => 4, 'clock' => 25, 'home_score' => 14, 'away_score' => 0], 'go_for_it'],
+]);
+
+test('human fourth down retains Arcade go for it and explicit punt and field goal match Coach', function (string $call) {
+    $game = flowTestGame(['down' => 4, 'spot' => 75, 'distance' => 8]);
+    $baseline = $game->replicate();
+    $baseline->save();
+    $args = ['action' => 'play', 'call' => $call, 'offense_formation' => 'singleback'];
+    $this->post(route('exhibitions.play', $baseline), $args + ['version' => $baseline->state['version']])->assertRedirect();
+    enableFlow($game);
+    $status = app(ExhibitionFlow::class)->status($game->fresh());
+    expect($status['available'])->toBeTrue()->and($status['flow']['phase'])->toBe('offense');
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, $args))->assertOk();
+    expect($game->fresh()->state)->toBe($baseline->fresh()->state)->and($game->fresh()->history)->toBe($baseline->fresh()->history);
+})->with(['punt', 'field_goal']);
+
+test('new exhibition durations still require a supported explicit value or mode default', function (?string $duration) {
+    $existing = flowTestGame();
+    $payload = ['home' => $existing->home_team_id, 'away' => $existing->away_team_id, 'play_mode' => 1];
+    if ($duration !== null) {
+        $payload['quarter_length'] = $duration;
+    }
+    $this->postJson(route('exhibitions.store'), $payload)->assertUnprocessable()->assertJsonValidationErrors('quarter_length');
+    expect(Exhibition::withoutGlobalScopes()->count())->toBe(1);
+})->with([null, '120', 'invalid']);
+
+test('accepted fourth down offside repeats the down and timeout does not consume it', function () {
+    $game = flowTestGame(['down' => 4, 'distance' => 26, 'spot' => 60, 'rules' => ['penalties' => true, 'injuries' => false]]);
+    $before = $game->state;
+    $after = array_replace($before, ['possession' => 'away', 'down' => 1, 'distance' => 10, 'spot' => 40]);
+    $play = ['source' => 'arcade', 'arcade_recording' => ['format' => 'test-recording'], 'call' => 'short_pass', 'outcome' => 'incomplete', 'gain' => 0, 'flip' => true, 'summary' => 'Incomplete fourth down pass', 'carrier' => 'QB', 'target' => 0, 'defense' => 'man_to_man', 'offense_formation' => 'shotgun', 'defense_formation' => 'base_4_3', 'dev_force_result' => 'defensive_offside'];
+    $result = app(\App\Services\Simulation\PlayFinalizer::class)->finish($after, $before, $play, $game->rosters, 5, ['events' => [[0, 'Snap'], [5, 'Incomplete']], 'players' => [], 'ball' => []]);
+    $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
+    $baseline = $game->replicate();
+    $baseline->save();
+    $this->post(route('exhibitions.play', $baseline), ['action' => 'penalty', 'decision' => 'accept', 'version' => $baseline->state['version']])->assertRedirect();
+    enableFlow($game);
+    $command = flowCommand($game, ['action' => 'penalty', 'decision' => 'accept']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk();
+    expect($game->fresh()->state)->toBe($baseline->fresh()->state)->and($game->fresh()->state['down'])->toBe(4)->and($game->fresh()->state['possession'])->toBe('home')->and($game->fresh()->state['distance'])->toBe(21);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('replayed', true);
+    $command = flowCommand($game, ['action' => 'timeout']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('state.down', 4)->assertJsonPath('state.distance', 21);
+    $history = $game->fresh()->history;
+    expect($history)->toHaveCount(2)->and($history[1]['no_snap'])->toBeTrue();
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->history)->toBe($history);
+});
+
+test('Coach Defense special teams choices survive delegated mode switch without an automatic snap', function (array $changes, string $choice) {
+    $game = flowTestGame($changes + ['possession' => 'away', 'down' => 4, 'spot' => 60, 'distance' => 26]);
+    $baseline = $game->replicate();
+    $baseline->save();
+    enableFlow($game, 'watch');
+    $state = $game->fresh()->state;
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'preferences', 'defense_mode' => 'coach']))->assertOk();
+    expect($game->fresh()->state)->toBe($state)->and($game->fresh()->history)->toBe([]);
+    $view = app(\App\Services\Arcade\ExhibitionPresentation::class)->viewData($game->fresh());
+    expect($view['cpuOffense'])->toBeTrue()->and($view['cpuDefense'])->toBeFalse()->and($view['humanDefenseOptions'])->toContain($choice);
+    $args = ['action' => 'play', 'defense' => $choice, 'defense_formation' => 'base_4_3'];
+    $this->post(route('exhibitions.play', $baseline), $args + ['version' => $baseline->state['version']])->assertRedirect();
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, $args))->assertOk();
+    expect($game->fresh()->history[0]['defense'])->toBe($choice)->and($game->fresh()->state)->toBe($baseline->fresh()->state)->and($game->fresh()->history)->toBe($baseline->fresh()->history);
+})->with([
+    'punt left' => [[], 'punt_return_left'],
+    'punt safe' => [[], 'punt_safe'],
+    'punt block' => [[], 'punt_block'],
+    'field goal block' => [['spot' => 85], 'field_goal_block'],
+    'kickoff safe' => [['phase' => 'kickoff', 'down' => 1, 'spot' => 35], 'kickoff_return_safe'],
+    'extra point block' => [['phase' => 'extra_point', 'down' => 1, 'spot' => 85], 'field_goal_block'],
+]);
+
+test('default Play quarters display fifteen minutes and reset once at the authoritative boundary', function () {
+    $worldId = (int) session('current_world_id');
+    $this->artisan('world:seed-demo', ['world' => $worldId, '--teams' => 2])->assertSuccessful();
+    $teams = Team::all();
+    $oldGame = flowTestGame();
+    $oldState = $oldGame->state;
+    $this->post(route('exhibitions.store'), ['home' => $teams[0]->id, 'away' => $teams[1]->id, 'quarter_length' => 'default', 'play_mode' => 1])->assertSessionHasNoErrors()->assertRedirect();
+    $game = Exhibition::withoutGlobalScopes()->latest('id')->firstOrFail();
+    $presentation = $this->getJson(route('exhibitions.arcade.presentation', $game))->assertOk();
+    expect($presentation->json('controls_html'))->toContain('Q1 · 15:00');
+    // Disposable test fixture: approach the boundary without simulating a whole quarter.
+    app(\App\Support\CurrentWorld::class)->id = $worldId;
+    $game->update(['state' => array_replace($game->state, ['phase' => 'scrimmage', 'possession' => 'home', 'quarter' => 1, 'clock' => 1, 'clock_running' => true, 'coin_toss' => ['pending' => false]])]);
+    $command = flowCommand($game, ['action' => 'spike']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('state.quarter', 2)->assertJsonPath('state.clock', 900);
+    $saved = $game->fresh();
+    expect($saved->history)->toHaveCount(1)->and($saved->history[0]['no_snap'])->toBeTrue();
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->state)->toBe($saved->state)->and($game->fresh()->history)->toBe($saved->history)
+        ->and(Exhibition::withoutGlobalScopes()->findOrFail($oldGame->id)->state)->toBe($oldState)
+        ->and($oldState['quarter_length'])->toBe(180);
+});

@@ -334,6 +334,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
         if (count) count.textContent = committed ? afterState.version : beforeState.version;
         const form = root.querySelector('[data-call-form]'); if (form) form.hidden = !committed;
     };
+    if(shared)showState(revealed); // Synchronize DOM and stadium before the recorded outcome is revealed.
     if (new URLSearchParams(window.location.search).get('debug_replay') === '1') root.classList.add('game-debug-replay');
 
     const audio = shared?.audio || stadiumAudio(root);

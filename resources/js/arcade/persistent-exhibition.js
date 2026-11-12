@@ -2,7 +2,7 @@ import {acceptQueuedPlay,rejectQueuedPlay} from '../practice/queued-play-call.js
 import {mountButtonFeedback} from '../button-feedback.js';
 import {presentationHandoffNotice} from './presentation-handoff.js';
 import {mountGameSettings} from '../practice/game-settings.js';
-import {acceptedPlaybackUrl} from './presentation-playback.js';
+import {acceptedPlaybackUrl,applyPresentationPlayback,refreshSharedCpuSpecial} from './presentation-playback.js';
 import {saveExhibitionHighlight, highlightRequiresPresentation} from './highlight-save.js';
 import {presentationMetrics} from './presentation-metrics.js';
 import {captureSharedPresentation} from './replay-view.js';
@@ -64,14 +64,15 @@ export async function mountPersistentExhibition(root) {
         const template=document.createElement('template');template.innerHTML=next.controls_html;
         const phaseRoot=template.content.querySelector('[data-practice]');if(!phaseRoot)throw new Error('Game controls are missing. Reload saved state.');
         phaseRoot.classList.add('persistent-phase-controls');
+        refreshSharedCpuSpecial(phaseRoot,next.scene?.next_animation);
         // Keep timeout forms in normal flow below the defense choices, not in
         // Coach's independent absolute tray which shares the panel's coordinates.
         const flowPanel=phaseRoot.querySelector('[data-play-flow-panel]'),timeoutTray=phaseRoot.querySelector('.game-timeouts');
         if(flowPanel && timeoutTray)flowPanel.append(timeoutTray);
         const acceptedUrl=acceptedPlaybackUrl(next,result);
         const shouldWatch=Boolean(requestedPlayback || acceptedUrl);
-        if(shouldWatch){const playback=requestedPlayback || await read(acceptedUrl);if(disposed || !isCurrent())return;if(playback.animation){phaseRoot.dataset.animation=JSON.stringify(playback.animation);phaseRoot.dataset.beforeState=JSON.stringify(playback.before);phaseRoot.dataset.afterState=JSON.stringify(playback.after);phaseRoot.dataset.autoplay='true';lastRecorded=playback;}else phaseRoot.dataset.autoplay='false';}
-        else {phaseRoot.dataset.autoplay='false';if(next.scene?.next_animation)phaseRoot.dataset.animation=JSON.stringify(next.scene.next_animation);phaseRoot.dataset.beforeState=JSON.stringify(next.state);}
+        if(shouldWatch){const playback=requestedPlayback || await read(acceptedUrl);if(disposed || !isCurrent())return;applyPresentationPlayback(phaseRoot.dataset,playback);if(playback.animation)lastRecorded=playback;}
+        else applyPresentationPlayback(phaseRoot.dataset);
         if(disposed || !isCurrent())return;
         let openingClaimed=false;
         if(!sharedHost){let storage;try{storage=window.localStorage;}catch{}openingClaimed=claimPlayOpening({flow:next.flow,version:next.state.version,key:`${phaseRoot.dataset.cameraKey}:pregame-shown:play`,storage});opening=openingClaimed;
