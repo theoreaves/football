@@ -124,3 +124,25 @@ tackle; it is not an exact keypress replay or a target for future balancing.
 The PHP command above invokes the test runner directly so its process receives the
 1 GiB limit. Passing that flag only to the Artisan wrapper can leave its child at the
 machine's default 128 MiB and abort the full exhibition-history tests.
+
+## Submit memory regression
+
+Arcade canonical fingerprints are now hashed incrementally rather than allocating a
+second recursively sorted copy of every saved recording. Canonical JSON bytes, hash
+values, session bindings, expiry checks and exactly-once behavior are unchanged. Flow
+status also releases its full-history temporary after extracting the latest notice.
+
+A disposable copy of a 13-play review history reproduced an HTTP 500 under a 128 MiB
+PHP worker with the old implementation. The same HTTP request succeeded after the
+fix at 107.4 MiB peak, and its identical retry kept one accepted result at 63.3 MiB.
+The request recording was generated from the reserved setup, not recovered from the
+user browser; the live game was never submitted or modified by the reproduction.
+A database-independent synthetic 22-player history test guards against reintroducing
+the recursive allocation, alongside canonical hash and encoding/depth parity tests.
+This is not a claim that all possible full-game histories fit a 128 MiB worker.
+
+A local recording timeout now consistently says that no football result was saved
+and directs the player to cancel the reservation instead of offering submission.
+This wording correction is separate from the HTTP 500. A reservation that expires
+while diagnosing a failed submission must still be cancelled; do not extend it or
+manufacture an accepted result. The saved game remains at the prior accepted play.

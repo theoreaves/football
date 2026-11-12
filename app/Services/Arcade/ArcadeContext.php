@@ -80,19 +80,41 @@ final readonly class ArcadeContext
 
     public static function hash(array $value): string
     {
-        $sort = function (array $data) use (&$sort): array {
-            if (! array_is_list($data)) {
+        // Hash the identical canonical JSON incrementally. Full-game histories
+        // contain large recording tuples: sorting a recursive copy and encoding
+        // that whole copy can exceed the web worker memory limit during submit.
+        $hash = hash_init('sha256');
+        $flags = JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION;
+        $write = function (mixed $data, int $depth = 1) use (&$write, $hash, $flags): void {
+            if (! is_array($data)) {
+                hash_update($hash, json_encode($data, $flags, 513 - $depth));
+
+                return;
+            }
+            if ($depth > 512) {
+                throw new \JsonException('Maximum stack depth exceeded', JSON_ERROR_DEPTH);
+            }
+            $list = array_is_list($data);
+            if (! $list) {
                 ksort($data);
+                $list = array_is_list($data);
             }
-            foreach ($data as &$item) {
-                if (is_array($item)) {
-                    $item = $sort($item);
+            hash_update($hash, $list ? '[' : '{');
+            $first = true;
+            foreach ($data as $key => $item) {
+                if (! $first) {
+                    hash_update($hash, ',');
                 }
+                $first = false;
+                if (! $list) {
+                    hash_update($hash, json_encode((string) $key, $flags).':');
+                }
+                $write($item, $depth + 1);
             }
-
-            return $data;
+            hash_update($hash, $list ? ']' : '}');
         };
+        $write($value);
 
-        return hash('sha256', json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
+        return hash_final($hash);
     }
 }

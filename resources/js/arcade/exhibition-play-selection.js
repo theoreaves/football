@@ -10,6 +10,7 @@ export function exhibitionCanPass(state) {
 }
 export function exhibitionControlHint(state) {
     if(!state?.fullTeam)return '';
+    if(state.status==='finished' && state.result?.reason==='timeout')return 'Local recording limit reached. No football result was saved. Cancel the reserved play, then reserve again.';
     if(state.status==='finished')return state.result?.reason==='interception' ? 'Interception ends at the catch. Replay or submit the recorded result.' : 'Play finished. Replay or submit the recorded result.';
     if(state.mode!=='passing' && state.ball?.holderKey===state.quarterback?.key)return 'Automatic handoff: control transfers to your running back when he takes the ball.';
     if(state.mode==='passing' && state.ball?.holderKey===state.quarterback?.key)return 'Control your quarterback. Click a target to throw; control transfers to the receiver after a catch.';

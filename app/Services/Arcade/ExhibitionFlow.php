@@ -40,6 +40,7 @@ class ExhibitionFlow
         $watch = route('exhibitions.show', ['exhibition' => $game, 'arcade' => 1, 'watch' => 1]);
         $history = $game->history ?? [];
         $last = $history ? $history[array_key_last($history)] : null;
+        unset($history); // Do not retain every recording while fingerprinting the game again.
         $notices = [];
         if ($s['penalty_pending'] ?? false) {
             // The finalizer's accepted result is a preview until the human decides.

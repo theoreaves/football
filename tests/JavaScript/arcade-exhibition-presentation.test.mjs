@@ -13,14 +13,14 @@ const source = readFileSync(new URL('../../resources/js/arcade/exhibition.js', i
     .replace(/^window.addEventListener\('pageshow'.*$/m, '');
 const node = () => ({disabled:false, hidden:false, textContent:'', value:'', listeners:new Map(),
     addEventListener(type,fn){this.listeners.set(type,fn);}, removeEventListener(type){this.listeners.delete(type);}, focus(){}});
-function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions={}}={}) {
+function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions={},terminalReason='tackle'}={}) {
     const nodes=Object.fromEntries(['reserve','start','pause','cancel','submit','replay','score','state','live','status','kind','tempo','coach','empty','preferences','side','defense','advance','fast','timeout','spike','retry-flow','flow-status','clock','notices'].map(key=>[key,node()]));
     nodes.kind.value='inside_run';nodes.tempo.value='normal';
     const official={version:0,possession:'home',phase:'scrimmage',status:'playing',quarter:1,clock:180,down:1,distance:10,spot:25};
     const root={dataset:{exhibition:JSON.stringify({flow,flowUrl:flow?'/exhibitions/3/arcade/flow':null,state:official,available:true,startUrl:'/exhibitions/3/arcade/sessions',csrf:'test',pendingSession:pending})},isConnected:true,
         querySelector(selector){return selector==='[data-arcade-field]'?host:nodes[selector.match(/data-exhibition-([^\]]+)/)[1]];}};
     const host={...node(),clientWidth:800,clientHeight:500};
-    const queue=[],requests=[],views=[],recording={version:1,frames:[[0]],events:[],actors:[],result:{reason:'tackle'}};
+    const queue=[],requests=[],views=[],recording={version:1,frames:[[0]],events:[],actors:[],result:{reason:terminalReason}};
     let frame,transport,opened,step,replayActive=false;
     const document=node(),window={...node(),location:{origin:'http://test',pathname:'/exhibitions/3/arcade',assign(url){this.destination=url;}},localStorage:{getItem(key){return key.startsWith('arcade-flow:')?flowSaved:stored?JSON.stringify(stored):null;},setItem(){},removeItem(){}}};
     const deps={exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel,createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
@@ -29,7 +29,7 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions
         createDrill(config){return {status:'ready',mode:'running',direction:1,startX:config.exhibition.startX,firstDownX:config.exhibition.firstDownX,runner:{x:config.exhibition.startX},elapsed:0};},
         createFullTeamPlay(config){return {...deps.createDrill(config),fullTeam:true,quarterback:{key:'offense_QB'},ball:{phase:'held',holderKey:'offense_QB'}};},stepFullTeamPlay(s){deps.stepDrill(s);},
         createPassingDrill(){assert.fail('not a passing test');},startDrill(s){s.status='running';},pauseDrill(s){if(s.status==='running')s.status='paused';},
-        stepDrill(s){s.runner.x+=14;s.elapsed=2;s.status='finished';s.result={reason:'tackle',yards:14};},stepPassingDrill(){},STEP_SECONDS:1/60,
+        stepDrill(s){s.runner.x+=14;s.elapsed=terminalReason==='timeout'?20:2;s.status='finished';s.result={reason:terminalReason,yards:14};},stepPassingDrill(){},STEP_SECONDS:1/60,
         createFixedStepper(fn){step=fn;return {reset(){},advance(){step();}};},
         createDrillRecording(){return {capture(){},export(){return recording;}};},
         createArcadeInput(){return {sample(){return {};},clear(){},dispose(){}};},
@@ -173,4 +173,22 @@ test('five-call reservation opts in to v2 while setup controls legacy versus ful
  assert.deepEqual(JSON.parse(h.requests[0].body),{version:0,kind:'run',call:'outside_run',tempo:'normal',contract_version:'live-recording-2'});
  assert.equal(h.views[0].last.fullTeam,true);assert.match(h.nodes.status.textContent,/Automatic handoff/);
  h.click('start');h.frame();assert.ok(h.transport.pending.body);
+});
+
+
+test('local recording timeout keeps submission disabled and consistently offers cancellation',async()=>{
+    const h=harness({terminalReason:'timeout'}),session=h.session();session.setup.fullTeam=true;
+    h.queue.push({session});await h.click('reserve');h.click('start');h.frame();
+    assert.equal(h.transport.pending.body,null);assert.equal(h.nodes.submit.disabled,true);
+    assert.equal(h.nodes.cancel.disabled,false);assert.equal(h.requests.length,1);
+    for(const key of ['status','live']){
+        assert.match(h.nodes[key].textContent,/No football result was saved/);
+        assert.match(h.nodes[key].textContent,/Cancel/);
+        assert.doesNotMatch(h.nodes[key].textContent,/submit the recorded result/);
+    }
+    assert.throws(()=>h.transport.prepare(h.recording),/cannot be submitted/);
+    h.frame();assert.equal(h.nodes.submit.disabled,true);assert.equal(h.requests.length,1);
+    h.queue.push({cancelled:true});await h.click('cancel');
+    assert.equal(h.transport.pending,null);assert.equal(h.requests[1].url,session.cancel_url);
+    assert.equal(h.nodes.reserve.disabled,false);
 });
