@@ -64,3 +64,5 @@ test('slow history read locks competing replay and rejects late response after r
 test('every replaced live and historical controls fragment initializes its own settings controls',()=>{
  assert.match(readerSource,/mountGameSettings\(phaseRoot\)/);assert.match(readerSource,/mountGameSettings\(historical\)/);
 });
+
+test('shared form endpoints read attributes instead of named action inputs',()=>{const source=readFileSync(new URL('../../resources/js/arcade/persistent-exhibition.js',import.meta.url),'utf8');assert.doesNotMatch(source,/form\.action/);assert.match(source,/form\.getAttribute\('action'\)/);});

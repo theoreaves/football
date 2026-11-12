@@ -60,3 +60,11 @@ test('overlapping Livewire requests keep feedback until the last request finishe
     let first,second;request({succeed:handler=>first=handler,fail(){}});request({succeed:handler=>second=handler,fail(){}});
     first();assert.equal(button.getAttribute('aria-busy'),'true');second();assert.equal(button.getAttribute('aria-busy'),null);
 });
+
+test('in-place reconciliation clears the existing feedback owner and permits the next queued form',async()=>{
+ const {doc,win,dispatch}=surface(),owner=mountButtonFeedback(doc,win);
+ const form=new Element('FORM',{method:'post'}),button=new Element('BUTTON');form.button=button;
+ dispatch('submit',{target:form,submitter:button});await flush();assert.equal(button.getAttribute('aria-busy'),'true');
+ owner.reset();assert.equal(doc.body.children.length,0);assert.equal(button.children.length,0);assert.equal(button.getAttribute('aria-busy'),null);
+ const next=dispatch('submit',{target:form,submitter:button});await flush();assert.equal(next.defaultPrevented,false);owner.reset();
+});
