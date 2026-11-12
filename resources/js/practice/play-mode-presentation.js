@@ -148,3 +148,8 @@ export function mountPlayPresentation(root, flow) {
         dispose(){disposed=true;root.removeEventListener('submit',submit);clicks.forEach(([button,handler])=>button.removeEventListener('click',handler));retry?.removeEventListener('click',retryClick);pause?.removeEventListener('click',pauseClick);},
     };
 }
+
+export function requiredDecisionReady({action, requiredDecision, dialogOpen, blocked=false}) {
+    return !blocked && ['penalty','coin','ot_call','ot_choice'].includes(action)
+        && action===requiredDecision && Boolean(dialogOpen);
+}

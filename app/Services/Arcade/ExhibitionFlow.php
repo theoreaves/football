@@ -41,7 +41,10 @@ class ExhibitionFlow
         $history = $game->history ?? [];
         $last = $history ? $history[array_key_last($history)] : null;
         $notices = [];
-        if ($last) {
+        if ($s['penalty_pending'] ?? false) {
+            // The finalizer's accepted result is a preview until the human decides.
+            $notices[] = ['type' => 'penalty', 'message' => 'Penalty awaiting decision. Accept or decline before the next play.'];
+        } elseif ($last) {
             $notices[] = ['type' => 'result', 'message' => $last['summary'] ?? 'Play completed.'];
             $before = $last['before'] ?? [];
             $after = $last['after'] ?? $s;
@@ -59,9 +62,6 @@ class ExhibitionFlow
             }
             if (isset($last['penalty'])) {
                 $notices[] = ['type' => 'penalty', 'message' => $last['penalty']['summary'] ?? 'Penalty recorded. See the official play result and enforcement.'];
-            }
-            if ($s['penalty_pending'] ?? false) {
-                $notices[] = ['type' => 'penalty', 'message' => 'Penalty decision required before the next play.'];
             }
         }
         $flow = ['enabled' => (bool) $meta, 'revision' => $meta?->revision ?? 0, 'state_hash' => $this->fingerprint($game), 'human_side' => $human,

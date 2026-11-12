@@ -319,3 +319,22 @@ test('CPU advance preplans with canonical active ratings when kicker fatigue cha
     $play = $game->fresh()->history[0];
     expect($play['call'])->toBe('punt')->and($play['punt_strategy'])->toBe('coffin')->and($play['defense'])->toBeIn(ExhibitionEngine::defensesForCall($canonical['call']));
 });
+
+test('pending penalty status labels the preview as awaiting a decision without claiming enforcement', function () {
+    $game = flowTestGame(['penalty_pending' => true]);
+    $game->history = [['summary' => 'Penalty enforced; repeat down', 'nullified_summary' => 'Run', 'penalty' => ['accepted' => true, 'summary' => 'Holding accepted']]];
+    $before = $game->getAttributes();
+    $notices = app(ExhibitionFlow::class)->status($game)['flow']['notices'];
+    expect($notices)->toBe([['type' => 'penalty', 'message' => 'Penalty awaiting decision. Accept or decline before the next play.']])
+        ->and($game->getAttributes())->toBe($before);
+    $state = $game->state;
+    $state['penalty_pending'] = false;
+    $game->state = $state;
+    $notices = app(ExhibitionFlow::class)->status($game)['flow']['notices'];
+    expect(array_column($notices, 'type'))->toContain('nullified')
+        ->and(array_column($notices, 'message'))->toContain('Holding accepted');
+    $game->history = [['summary' => 'Run stands', 'penalty' => ['accepted' => false, 'summary' => 'Holding declined']]];
+    $notices = app(ExhibitionFlow::class)->status($game)['flow']['notices'];
+    expect(array_column($notices, 'type'))->not->toContain('nullified')
+        ->and(array_column($notices, 'message'))->toContain('Holding declined');
+});

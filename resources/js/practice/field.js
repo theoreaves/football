@@ -1540,7 +1540,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
         }),
     }) : null;
     const disposeMobileControls = mobileControls(root);
-    root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); form.querySelector('button').disabled = true; }));
+    root.querySelectorAll('[data-timeout-form]').forEach(form => form.addEventListener('submit', () => { saveCamera(); setCpuAuto(false); if(!shared)form.querySelector('button').disabled = true; }));
     const rememberField = purpose => {
         try {
             const current = exchange ? exchange.sample(exchangeElapsed).incoming : sampleHuddle(sample(type,duration),nextLine,root.dataset.nextPossession,1,nextHomeDirection).players;
@@ -1732,6 +1732,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
     };
     penaltyDialog?.addEventListener('cancel', event => event.preventDefault());
     root.querySelectorAll('[data-penalty-form]').forEach(form => form.addEventListener('submit', event => {
+        if(shared){saveCamera();setCpuAuto(false);return;} // Persistent transport owns accepted/saving state.
         if (penaltyDialog?.dataset.saving === 'true') {event.preventDefault();return;}
         if (penaltyDialog) penaltyDialog.dataset.saving = 'true';
         root.querySelector('[data-penalty-saving]')?.removeAttribute('hidden');

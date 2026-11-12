@@ -1,3 +1,4 @@
+import {requiredDecisionReady} from '../../resources/js/practice/play-mode-presentation.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from '../../resources/js/arcade/exhibition-flow.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +12,7 @@ const source = readFileSync(new URL('../../resources/js/arcade/exhibition.js', i
     .replace(/^window.addEventListener\('pageshow'.*$/m, '');
 const node = () => ({disabled:false, hidden:false, textContent:'', value:'', listeners:new Map(),
     addEventListener(type,fn){this.listeners.set(type,fn);}, removeEventListener(type){this.listeners.delete(type);}, focus(){}});
-function harness({pending=null,stored=null,flow=null,flowSaved=null}={}) {
+function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions={}}={}) {
     const nodes=Object.fromEntries(['reserve','start','pause','cancel','submit','replay','score','state','live','status','kind','tempo','coach','empty','preferences','side','defense','advance','fast','timeout','spike','retry-flow','flow-status','clock','notices'].map(key=>[key,node()]));
     nodes.kind.value='run';nodes.tempo.value='normal';
     const official={version:0,possession:'home',phase:'scrimmage',status:'playing',quarter:1,clock:180,down:1,distance:10,spot:25};
@@ -34,7 +35,7 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null}={}) {
         createReplayPanel(){return {get active(){return replayActive;},open(value){opened=value;},advance(){},dispose(){}};},
         createExhibitionTransport(options){transport=createExhibitionTransport(options);return transport;},canContinueExhibitionDrive,noSnapNotice,
         mountExhibitionHistory(){assert.fail('not a history test');}};
-    const dispose=new Function(...Object.keys(deps),source+'\nreturn mountExhibition;')(...Object.values(deps))(root);
+    const dispose=new Function(...Object.keys(deps),source+'\nreturn mountExhibition;')(...Object.values(deps))(root,mountOptions);
     const state={...official,version:1,spot:39,clock:177};
     const session=(startX=35)=>({envelope:{session_id:'s'+startX,result_id:'r'+startX},setup:{mode:'running',exhibition:{startX,firstDownX:startX+10}},prepared_state:{...official,spot:startX-10},submit_url:`/exhibitions/3/arcade/sessions/s${startX}/submit`,cancel_url:`/exhibitions/3/arcade/sessions/s${startX}/cancel`});
     return {dispose,window,nodes,views,requests,recording,state,session,queue,get transport(){return transport;},get opened(){return opened;},
@@ -134,4 +135,32 @@ test('shared nonmodal replay blocks every mutation and keeps the exact pending r
 
 test('late reserve response after disposal preserves recovery but never mounts a destroyed host',async()=>{
  const h=harness();let resolve;h.queue.push(new Promise(done=>{resolve=done;}));const reservation=h.click('reserve');h.dispose();resolve({session:h.session()});await reservation;assert.equal(h.views.length,0);assert.ok(h.transport.pending);assert.equal(h.transport.pending.session.envelope.session_id,h.session().envelope.session_id);
+});
+
+
+for(const action of ['penalty','coin','ot_call','ot_choice'])test(`matching ${action} decision commits while recorded presentation blocks live input`,async()=>{
+    let dialogOpen=true,blocked=false,prepared=0,declined=0;
+    const flow={...flowState,phase:'decision',required_decision:action};
+    const h=harness({flow,mountOptions:{inputEnabled:()=>false,flowEnabled:name=>requiredDecisionReady({action:name,requiredDecision:action,dialogOpen,blocked})}});
+    h.queue.push({flow:{...flowState,required_decision:null},state:h.state});
+    await h.dispose.flowAction('fast',{}, {onDeclined:()=>declined++});assert.equal(h.requests.length,0);
+    dialogOpen=false;await h.dispose.flowAction(action,{}, {onDeclined:()=>declined++});assert.equal(h.requests.length,0);
+    dialogOpen=true;blocked=true;await h.dispose.flowAction(action,{}, {onDeclined:()=>declined++});assert.equal(h.requests.length,0);
+    blocked=false;await h.dispose.flowAction(action,{choice:'accept'},{onPrepared:()=>prepared++});
+    assert.equal(h.requests.length,1);assert.equal(prepared,1);assert.equal(declined,3);assert.equal(JSON.parse(h.requests[0].body).action,action);
+});
+test('required penalty unknown outcome retains exact choice and retry works despite blocked live input',async()=>{
+    let prepared=0,declined=0;
+    const flow={...flowState,phase:'decision',required_decision:'penalty'};
+    const h=harness({flow,mountOptions:{inputEnabled:()=>false,flowEnabled:action=>requiredDecisionReady({action,requiredDecision:'penalty',dialogOpen:true})}});
+    h.queue.push(new Error('Lost response'));
+    await h.dispose.flowAction('penalty',{choice:'accept'},{onPrepared:()=>prepared++});assert.equal(h.requests.length,1);assert.equal(h.dispose.pendingFlow,true);
+    await h.dispose.flowAction('penalty',{choice:'decline'},{onDeclined:()=>declined++});assert.equal(declined,1);assert.equal(h.requests.length,1);
+    h.queue.push({flow:{...flowState,required_decision:null},state:h.state});await h.dispose.flowAction(null);
+    assert.equal(h.requests.length,2);assert.equal(h.requests[0].body,h.requests[1].body);assert.equal(prepared,1);assert.equal(h.dispose.pendingFlow,false);
+});
+test('required decision preparation failure reports failure rather than an accepted saving state',async()=>{
+    let prepared=0,errors=0;const h=harness({flow:{...flowState,state_hash:'bad'},mountOptions:{inputEnabled:()=>false,flowEnabled:()=>true}});
+    await h.dispose.flowAction('penalty',{choice:'accept'},{onPrepared:()=>prepared++,onPrepareError:()=>errors++});
+    assert.equal(prepared,0);assert.equal(errors,1);assert.equal(h.requests.length,0);assert.equal(h.dispose.pendingFlow,false);
 });

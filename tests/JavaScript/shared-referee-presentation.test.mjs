@@ -23,3 +23,17 @@ test('Coach reacquires the same carried ball and restores its long axis without 
     prepareCoachBall({scene,ball});assert.equal(ball.parent,scene);assert.equal(ball.geometry,geometry);assert.deepEqual(ball.scale.toArray(),[1.6,.85,.85]);assert.ok(ball.position.distanceTo(position)<1e-9);
     prepareCoachBall({scene,ball});assert.equal(scene.children.filter(child=>child===ball).length,1);
 });
+
+
+test('actual timeout submit handler leaves shared choice usable before transport acceptance but preserves standalone lock',async()=>{
+    const {readFile}=await import('node:fs/promises');
+    const source=await readFile(new URL('../../resources/js/practice/field.js',import.meta.url),'utf8');
+    const body=source.match(/root\.querySelectorAll\('\[data-timeout-form\]'\)\.forEach\(form => form\.addEventListener\('submit', \(\) => \{([^}]+)\}\)\);/)[1];
+    const submit=new Function('form','shared','saveCamera','setCpuAuto',body);
+    for(const shared of [true,false]){
+        const button={disabled:false},form={querySelector:()=>button};let saved=0,auto=true;
+        submit(form,shared,()=>saved++,value=>auto=value);
+        assert.equal(button.disabled,!shared);assert.equal(saved,1);assert.equal(auto,false);
+        if(shared){submit(form,shared,()=>saved++,value=>auto=value);assert.equal(button.disabled,false,'transiently declined shared timeout remains selectable');}
+    }
+});

@@ -11,7 +11,7 @@ import {createExhibitionTransport, canContinueExhibitionDrive, noSnapNotice} fro
 import './style.css';
 import './replay-panel.css';
 
-export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputEnabled=()=>true} = {}) {
+export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputEnabled=()=>true, flowEnabled=inputEnabled} = {}) {
     if (!root || root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const data = JSON.parse(root.dataset.exhibition), find = name => root.querySelector(`[data-exhibition-${name}]`);
@@ -142,8 +142,8 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!flow) stopped ||= !canContinueExhibitionDrive(official, allowed, driveSide);
     }
     async function action(callback) { if(busy || replay?.active) return; busy=true; pause(); try { await callback(); } catch(error) {say(error.message);} finally {busy=false;hud();} }
-    async function flowAction(actionName, extra={}, {onPrepared=()=>{},onPrepareError=()=>{}}={}) {
-        if (!flowTransport || replay?.active || !inputEnabled() || transport.pending || flowBlocked) return;
+    async function flowAction(actionName, extra={}, {onPrepared=()=>{},onPrepareError=()=>{},onDeclined=()=>{}}={}) {
+        if (!flowTransport || busy || replay?.active || !flowEnabled(actionName || flowTransport?.pending?.action) || transport.pending || flowBlocked || (actionName && flowTransport.pending)) {onDeclined();return;}
         return action(async()=>{
             let prepared=false;
             try {

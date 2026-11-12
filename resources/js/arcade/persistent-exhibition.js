@@ -9,7 +9,7 @@ import {captureSharedPresentation} from './replay-view.js';
 import {mountExhibition} from './exhibition.js';
 import {createExhibitionSceneHost} from '../practice/exhibition-scene-host.js';
 import {mountPractice} from '../practice/field.js';
-import {claimPlayOpening, serializePlayForm, watchMayAdvance} from '../practice/play-mode-presentation.js';
+import {claimPlayOpening, serializePlayForm, watchMayAdvance, requiredDecisionReady} from '../practice/play-mode-presentation.js';
 import {arcadeCameraFrame, exhibitionCameraX} from './view.js';
 import './persistent-exhibition.css';
 
@@ -34,7 +34,24 @@ export async function mountPersistentExhibition(root) {
     let debug=null,lastDebug=0;if(new URL(window.location.href).searchParams.get('debug_presentation')==='1'){debug=document.createElement('pre');debug.className='persistent-debug';debug.setAttribute('data-presentation-metrics','');root.append(debug);}
     const say=text=>{status.textContent=text;};
     const resetFeedback=()=>feedback.reset();
-    const sendFlow=(...args)=>Promise.resolve(arcade.flowAction(...args)).finally(resetFeedback);
+    const sendFlow=(action,fields={},hooks={})=>Promise.resolve(arcade.flowAction(action,fields,{onDeclined:()=>say('Decision was not sent. Wait for the current presentation, or retry the saved decision if one is pending.'),...hooks})).finally(resetFeedback);
+    const liveInputEnabled=()=>!readBlocked && !loading && !opening && !coachHistory && !presentation?.recorded;
+    const flowEnabled=action=>{
+        const required=['penalty','coin','ot_call','ot_choice'].includes(action);
+        if(!required)return liveInputEnabled();
+        const selector=action==='penalty'?'[data-penalty-dialog]':action==='coin'?'[data-coin-dialog]':'[data-ot-dialog]';
+        const dialog=controls.querySelector(selector);
+        return requiredDecisionReady({action,requiredDecision:snapshot?.flow.required_decision,dialogOpen:dialog?.open,
+            blocked:readBlocked || loading || opening || coachHistory || sharedHost.staging || sharedHost.cameraDirector.transitioning || arcade?.replaying || arcade?.hasLive
+                || [...controls.querySelectorAll('dialog[open]')].some(other=>other!==dialog)});
+    };
+    const decisionFeedback=(form, text, retry=false)=>{
+        const owner=form.closest('dialog') || form;
+        let notice=owner.querySelector('[data-shared-decision-status]');
+        if(!notice){notice=document.createElement('p');notice.setAttribute('data-shared-decision-status','');notice.setAttribute('role','status');owner.append(notice);}
+        notice.textContent=text;
+        if(retry){const button=document.createElement('button');button.type='button';button.textContent='Retry saved decision';button.addEventListener('click',()=>{button.disabled=true;sendFlow(null).finally(()=>{button.disabled=false;if(arcade.pendingFlow)decisionFeedback(form,'Decision still unconfirmed. Retry the same saved choice.',true);else if(owner.isConnected)decisionFeedback(form,'Reload saved state to reconcile this decision.');});});notice.append(button);}
+    };
     const canSubmitPlay=()=>!readBlocked && !coachHistory && !loading && !opening && !sharedHost.staging && !sharedHost.cameraDirector.transitioning && !arcade.busy && !arcade.pending && !arcade.replaying && !presentation?.recorded && !presentation?.dialogOpen;
     const handoffNotice=()=>presentationHandoffNotice({presentation,opening,staging:sharedHost.staging,transitioning:sharedHost.cameraDirector.transitioning,requiredDecision:snapshot.flow.required_decision});
     async function read(target){const parsed=new URL(target,window.location.origin);if(parsed.origin!==window.location.origin)throw new Error('Invalid game presentation URL.');const response=await fetch(parsed,{credentials:'same-origin',headers:{Accept:'application/json'},signal:abort.signal});if(!response.ok)throw new Error(response.status===401||response.status===419?'Sign-in expired. Reload to sign in; your pending result is retained.':`Presentation unavailable (${response.status}). Retry loading saved state.`);return response.json();}
@@ -62,7 +79,7 @@ export async function mountPersistentExhibition(root) {
             sharedHost=createExhibitionSceneHost(canvasHost,{appearance:next.appearance,crowd:next.crowd,sidelineRoster:next.scene?.sideline_roster,audioRoot:root});
             root.classList.add('persistent-play');
             root.dataset.exhibition=JSON.stringify({...data,state:next.state,available:next.available,flow:next.flow,pendingSession:next.pending_session});
-            arcade=mountExhibition(root,{sharedHost,inputEnabled:()=>!readBlocked && !loading && !opening && !coachHistory && !presentation?.recorded,onCanonical:async(response,context)=>{await refresh({...context,result:response});}});
+            arcade=mountExhibition(root,{sharedHost,inputEnabled:liveInputEnabled,flowEnabled,onCanonical:async(response,context)=>{await refresh({...context,result:response});}});
             sharedHost.activate({tick(now,delta){if(!disposed){if(arcade.hasLive && liveSuspendedCoach!==coach){coach?.suspend?.();liveSuspendedCoach=coach;}else if(!arcade.hasLive && liveSuspendedCoach===coach){coach?.resume?.();liveSuspendedCoach=null;if(mode==='arcade')arcadeCamera();}coach?.setInteractive?.(mode==='coach' && !readBlocked && !loading && !arcade.replaying && !arcade.hasLive && !sharedHost.staging && !sharedHost.cameraDirector.transitioning);if(!arcade.replaying && !arcade.hasLive)coach?.tick(now);else sharedHost.tickIdleAtmosphere?.(delta);arcade.tick(now);if(debug && now-lastDebug>1000){debug.textContent=JSON.stringify(presentationMetrics(sharedHost.metrics()),null,2);lastDebug=now;}}}});
         }
         coach?.dispose();controls.replaceChildren(phaseRoot);snapshot=next;presentation={recorded:shouldWatch};mode=null;forcedCoach=false;
@@ -88,8 +105,9 @@ export async function mountPersistentExhibition(root) {
             }).catch(error=>{if(!disposed && activity===activityGeneration){readBlocked=true;say(error.message+' Reload saved state to reconcile before continuing.');}}).finally(()=>{if(activity===activityGeneration)loading=false;});return;
         }
         if(target.origin!==window.location.origin || target.pathname!==expected)return;
-        event.preventDefault();event.stopImmediatePropagation();if(readBlocked||coachHistory||sharedHost.staging||sharedHost.cameraDirector.transitioning||loading||arcade.pending||arcade.replaying)return;
-        try{const body=new FormData(form);if(event.submitter?.name)body.set(event.submitter.name,event.submitter.value);const fields=serializePlayForm(body.entries());const action=fields.action || 'play';delete fields.action;delete fields.version;sendFlow(action,fields,{onPrepared:()=>acceptQueuedPlay(form),onPrepareError:error=>rejectQueuedPlay(form,error)});}catch(error){rejectQueuedPlay(form,error);say(error.message);}
+        event.preventDefault();event.stopImmediatePropagation();if(readBlocked||coachHistory||sharedHost.staging||sharedHost.cameraDirector.transitioning||loading||arcade.pending||arcade.replaying){decisionFeedback(form,arcade.pendingFlow?'A saved decision is awaiting confirmation. Retry that same choice.':'Wait for the current presentation to finish, then choose again.',arcade.pendingFlow);resetFeedback();return;}
+        try{const body=new FormData(form);if(event.submitter?.name)body.set(event.submitter.name,event.submitter.value);const fields=serializePlayForm(body.entries());const action=fields.action || 'play';delete fields.action;delete fields.version;const required=['penalty','coin','ot_call','ot_choice'].includes(action);let prepared=false;
+            sendFlow(action,fields,{onPrepared:()=>{prepared=true;acceptQueuedPlay(form);if(required)decisionFeedback(form,'Saving decision…');},onPrepareError:error=>{rejectQueuedPlay(form,error);decisionFeedback(form,'Decision was not sent. '+error.message);},onDeclined:()=>{decisionFeedback(form,'Decision was not sent. Wait for the current presentation, then choose again.');}}).finally(()=>{if(required && prepared && form.isConnected){if(arcade.pendingFlow)decisionFeedback(form,'Decision is unconfirmed. Retry the same saved choice.',true);else decisionFeedback(form,'Reload saved state to reconcile this decision.');}});}catch(error){rejectQueuedPlay(form,error);say(error.message);}
     },options);
     controls.addEventListener('click',event=>{
         const replayButton=event.target.closest('[data-play]');if(replayButton && !coachHistory && snapshot.latest_play){event.preventDefault();event.stopImmediatePropagation();openHistory(String(snapshot.latest_play.number));return;}

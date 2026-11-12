@@ -49,3 +49,12 @@ test('scoreboard shows goal-to-go, possession direction and authoritative clock 
     assert.equal(exhibitionClockLabel({...s,untimed_down:true}),'Untimed down');
     assert.equal(exhibitionClockLabel({...s,status:'final'}),'Final whistle');
 });
+
+test('pending penalty previews never claim acceptance or enforcement, settled decisions still do',()=>{
+    const play={summary:'Penalty enforced; repeat down',outcome:'penalty',nullified_summary:'Run',penalty:{type:'holding',accepted:true},after:{penalty_pending:true}};
+    for(const context of [{state:{penalty_pending:true}},{flow:{required_decision:'penalty'}},{}]) {
+        assert.deepEqual(canonicalExhibitionNotices({play,...context}),['Penalty awaiting decision. Accept or decline before the next play.']);
+    }
+    assert.ok(canonicalExhibitionNotices({play,state:{penalty_pending:false}}).some(message=>message.includes('accepted')));
+    assert.ok(canonicalExhibitionNotices({play:{...play,penalty:{type:'holding',accepted:false}},state:{penalty_pending:false}}).some(message=>message.includes('declined')));
+});

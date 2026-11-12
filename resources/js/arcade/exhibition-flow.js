@@ -83,7 +83,15 @@ export function canonicalExhibitionNotices({flow, plays = [], play = null, state
     const messages = [];
     const add = value => { if (typeof value === 'string' && value.trim() && !messages.includes(value.trim())) messages.push(value.trim()); };
     const saved = plays.length ? plays : play ? [play] : [];
-    for (const item of saved) {
+    for (const [index, item] of saved.entries()) {
+        const latest = index === saved.length - 1;
+        const pending = latest && (state != null || flow?.required_decision != null)
+            ? Boolean(state?.penalty_pending || flow?.required_decision === 'penalty')
+            : Boolean(item.after?.penalty_pending);
+        if (pending) {
+            add('Penalty awaiting decision. Accept or decline before the next play.');
+            continue; // Accepted/enforced fields are only a preview at this point.
+        }
         add(item.summary);
         const prior = item.before || before, after = item.after || state;
         if (prior && after) {
