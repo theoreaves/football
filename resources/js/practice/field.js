@@ -1,3 +1,5 @@
+import {presentationMetrics} from '../arcade/presentation-metrics.js';
+import {prepareCoachBall,setCoachLayerVisible} from './shared-coach-presentation.js';
 import {claimPlayOpening,mountPlayPresentation,shouldMountCoachWizard} from './play-mode-presentation.js';
 import {applyAnimationVariety,tackleFallAngle} from './animation-variety.js';
 import {hasOpenGameDialog} from './game-settings.js';
@@ -50,22 +52,25 @@ import { buildPenaltyContact, applyPenaltyContact, resetPenaltyContactPose } fro
 import { buildChainGang } from './chain-gang.js';
 import { buildReferees, refereeSignal, buildRefereePaths, refereeFormation } from './referees.js';
 
-export function mountPractice(root, onReady = () => {}) {
+export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFrame = () => {}, openingClaimed} = {}) {
+    const shared = sharedHost;
+    let disposed = false, suspended = false, presentationState = null, suspendedTarget = null;
     if (root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const arcadeFlow = root.dataset.arcadeFlow ? JSON.parse(root.dataset.arcadeFlow) : null;
-    const host = root.querySelector('[data-field]');
+    const host = shared?.host || root.querySelector('[data-field]');
     const status = root.querySelector('[data-status]');
     const slider = root.querySelector('[data-timeline]');
     const playButton = root.querySelector('[data-play]');
     let renderer;
     try {
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer = shared?.renderer || new THREE.WebGLRenderer({ antialias: true });
     } catch {
         status.textContent = 'The 3D field needs WebGL. Try hardware acceleration or another browser.';
         root.querySelectorAll('button, input, select').forEach(element => element.disabled = true);
         return;
     }
+    if (!shared) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x101a2b);
     renderer.shadowMap.enabled = true;
@@ -75,13 +80,14 @@ export function mountPractice(root, onReady = () => {}) {
     renderer.domElement.style.display = 'block';
     host.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('aria-label', 'Three-dimensional practice football field');
+    }
     const appearance = JSON.parse(root.dataset.appearance || '{}');
     const home = appearance.home || {}, away = appearance.away || {};
     const textures = new Map(), textureLoader = new THREE.TextureLoader();
-    const textureFor = url => {
+    const textureFor = shared?.textureFor || (url => {
         if (!textures.has(url)) { const texture = textureLoader.load(url); texture.colorSpace = THREE.SRGBColorSpace; textures.set(url, texture); }
         return textures.get(url);
-    };
+    });
     const animation = root.dataset.animation ? JSON.parse(root.dataset.animation) : null;
     const sample = (type, time) => animation ? sampleEnginePlay(animation, time) : samplePlay(type, time);
     const sidelineRoster = JSON.parse(root.dataset.sidelineRoster || '{}');
@@ -89,10 +95,13 @@ export function mountPractice(root, onReady = () => {}) {
     const duration = animation?.duration || DURATION;
     slider.max = duration;
     const offenseSide = animation?.possession || 'home';
-    const scene = new THREE.Scene();
+    const scene = shared ? shared.createLayer('coach-play') : new THREE.Scene();
     scene.fog = new THREE.Fog(0x101a2b, 160, 280);
-    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 350);
+    const camera = shared?.cameras.broadcast || new THREE.PerspectiveCamera(42, 1, 0.1, 350);
+    const playerModel = (player, kit, doc, texture) => shared ? shared.player({...player,side:player.side || (player.team === 'offense' ? offenseSide : offenseSide === 'home' ? 'away' : 'home')},kit) : buildFootballPlayer(player,kit,doc,texture);
+    const canvasListeners = new AbortController();
     const controls = new OrbitControls(camera, renderer.domElement);
+    if (shared) controls.enabled = false;
     // Opt-in championship mesh inspector. Shift-click the black line in the
     // browser, then copy the named hit list from the DevTools console.
     // This only attaches for the explicit diagnostic URL parameter.
@@ -112,7 +121,7 @@ export function mountPractice(root, onReady = () => {}) {
                 size:hit.object.geometry?.type || null
             }));
             console.info('[Championship mesh debug] Shift-click hits:',hits);
-        });
+        }, {signal:canvasListeners.signal});
         console.info('[Championship mesh debug] Enabled: Shift-click the black artifact to inspect its meshes.');
     }
     controls.enableDamping = true;
@@ -158,6 +167,7 @@ export function mountPractice(root, onReady = () => {}) {
         controls.target.set(...savedCamera.target); camera.position.set(...savedCamera.position); controls.update();
     } else setCamera('broadcast');
     controls.addEventListener('end', saveCamera);
+    if (!shared) {
     scene.add(new THREE.HemisphereLight(0xbad7ff, 0x314b27, 2.2));
     const light = new THREE.DirectionalLight(0xfff5dc, 3);
     light.position.set(45, 70, 15);
@@ -165,6 +175,7 @@ export function mountPractice(root, onReady = () => {}) {
     Object.assign(light.shadow.camera, { left: -90, right: 90, top: 80, bottom: -80 });
     light.shadow.mapSize.set(2048, 2048);
     scene.add(light);
+    }
     const material = color => new THREE.MeshStandardMaterial({ color, roughness: 0.8 });
     const addBox = (width, height, depth, color, x, y, z) => {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material(color));
@@ -173,16 +184,16 @@ export function mountPractice(root, onReady = () => {}) {
         scene.add(mesh);
         return mesh;
     };
-    buildFieldSurface(scene, home, away, document, textureFor, addBox);
+    if (!shared) buildFieldSurface(scene, home, away, document, textureFor, addBox);
     const scrimmageLine = addBox(0.2, 0.04, 53.33, 0x379aff, animation?.line || 40, 0.08, 26.665);
     const firstDownLine = addBox(0.2, 0.04, 53.33, 0xffc441, animation?.firstDown || 50, 0.08, 26.665);
     const chainGang = buildChainGang(scene, document);
     chainGang.update(animation?.line ?? 40, animation?.firstDown ?? null, JSON.parse(root.dataset.beforeState || '{}').down ?? 1, animation?.direction ?? 1, root.dataset.chainGang !== 'false');
     const referees = buildReferees(scene);
     const refereePaths = buildRefereePaths(animation);
-    const stadium = buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'),textureFor);
-    scene.add(stadium.group);
-    for (const x of [0, 120]) {
+    const stadium = shared?.stadium || buildStadium(home, document, away, JSON.parse(root.dataset.crowd || '{}'),textureFor);
+    if (!shared) scene.add(stadium.group);
+    if (!shared) for (const x of [0, 120]) {
         addBox(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
         addBox(.18, .18, 6.2, 0xffcc33, x, 3.5, 26.7);
         for (const z of [23.6, 29.8]) addBox(.18, 5, .18, 0xffcc33, x, 6, z);
@@ -192,7 +203,7 @@ export function mountPractice(root, onReady = () => {}) {
         const side = player.side || (player.team === 'offense' ? offenseSide : (offenseSide === 'home' ? 'away' : 'home'));
         const team = side === 'home' ? home : away;
         const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
-        const group = buildFootballPlayer(player, kit, document, textureFor);
+        const group = playerModel(player, kit, document, textureFor);
         group.rotation.y = (player.team === 'offense' ? 1 : -1) * playDirection * Math.PI / 2;
         // Temporary QB handedness diagnostic. By default, do not override
         // saved player appearance. Compare ?qb_hand=right and ?qb_hand=left
@@ -225,11 +236,11 @@ export function mountPractice(root, onReady = () => {}) {
                 });
             }
         }
-        scene.add(group);
+        if (!shared) scene.add(group);
         return group;
     });
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), material(0x9d5829));
-    ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; scene.add(ball);
+    const ball = shared?.ball || new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), material(0x9d5829));
+    ball.scale.set(1.6, 0.85, 0.85); ball.castShadow = true; if (!shared) scene.add(ball);
     const carrierArrow = new THREE.Mesh(new THREE.ConeGeometry(.5, .9, 4), new THREE.MeshBasicMaterial({ color: 0xffdf00 }));
     carrierArrow.rotation.z = Math.PI;
     scene.add(carrierArrow);
@@ -325,16 +336,17 @@ export function mountPractice(root, onReady = () => {}) {
     };
     if (new URLSearchParams(window.location.search).get('debug_replay') === '1') root.classList.add('game-debug-replay');
 
-    const audio = stadiumAudio(root);
+    const audio = shared?.audio || stadiumAudio(root);
+    const unbindAudio = shared?.audio.bindControls(root);
     const cues = soundCues(animation, beforeState, afterState, JSON.parse(root.dataset.penalty || 'null'));
     const quarterbackCues = cadenceCues(animation);
     let cadenceTime = -4;
     const ruling = refereeSignal(animation, beforeState, afterState);
-    const resultReferee = buildResultReferee(root.querySelector('[data-result-popup]'),animation,beforeState,afterState);
+    const resultReferee = buildResultReferee(root.querySelector('[data-result-popup]'),animation,beforeState,afterState,{inset:!shared});
     const penalty = JSON.parse(root.dataset.penalty || 'null');
     const foul = penaltyMoment(animation, penalty, refereePaths);
     const penaltyContact = buildPenaltyContact(animation, foul);
-    const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending));
+    const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending),{inset:!shared});
     let audioTime = -2, mascotCueTime = -2;
     const bigPlayMascotCue = mascotBigPlayCue(animation,beforeState,afterState,penalty);
     const mascotCues = bigPlayMascotCue ? [...cues,bigPlayMascotCue] : cues;
@@ -374,10 +386,10 @@ export function mountPractice(root, onReady = () => {}) {
     if (phase === 'huddle' && previousField?.purpose === 'lineup' && nextAnimation) {
         exchange = unitExchange(previousField,sampleEnginePlay(nextAnimation,0),nextLine,root.dataset.nextPossession,nextHomeDirection,sidelineRoster,{partial:true});
         previousField.players.forEach((player,i) => {
-            scene.remove(players[i]);
+            if (!shared) scene.remove(players[i]); else players[i].visible = false;
             const team = player.side === 'home' ? home : away;
-            players[i] = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
-            scene.add(players[i]);
+            players[i] = playerModel(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+            if (!shared) scene.add(players[i]);
         });
     }
     const nextSnap = animation ? sample(type,0) : null;
@@ -389,8 +401,8 @@ export function mountPractice(root, onReady = () => {}) {
     if (preExchange) phase = 'substituting';
     const preOutgoingPlayers = (preExchange ? previousField.players : []).map(player => {
         const team = player.side === 'home' ? home : away;
-        const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
-        mesh.visible = false;scene.add(mesh);return mesh;
+        const mesh = playerModel(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+        mesh.visible = false;if (!shared) scene.add(mesh);return mesh;
     });
     const skipPlayerChange = () => {
         if (phase === 'substituting' && preExchange) {
@@ -416,14 +428,14 @@ export function mountPractice(root, onReady = () => {}) {
     let earlyExitElapsed = 0, celebrationSpots = null;
     const incomingPlayers = (nextAnimation?.players || []).map(player => {
         const team = player.side === 'home' ? home : away;
-        const mesh = buildFootballPlayer(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
-        mesh.visible = false;scene.add(mesh);return mesh;
+        const mesh = playerModel(player,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+        mesh.visible = false;if (!shared) scene.add(mesh);return mesh;
     });
-    const sidelineCheerleaders = buildSidelineCheerleaders(scene,appearance,textureFor);
-    const sidelineMascot = buildSidelineMascot(scene,appearance,textureFor,`${cameraKey}:mascot-time`);
-    const championshipAwayEntourage = buildChampionshipAwayEntourage(scene,appearance,textureFor);
-    const sidelineCoaches = buildSidelineCoaches(scene,appearance,textureFor);
-    const sideline = buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
+    const sidelineCheerleaders = shared?.sidelineCheerleaders || buildSidelineCheerleaders(scene,appearance,textureFor);
+    const sidelineMascot = shared?.sidelineMascot || buildSidelineMascot(scene,appearance,textureFor,`${cameraKey}:mascot-time`);
+    const championshipAwayEntourage = shared?.championshipAwayEntourage || buildChampionshipAwayEntourage(scene,appearance,textureFor);
+    const sidelineCoaches = shared?.sidelineCoaches || buildSidelineCoaches(scene,appearance,textureFor);
+    const sideline = shared?.sideline || buildSidelinePlayers(scene,sidelineRoster,appearance,document,textureFor);
     // Fast no-huddle transition applies only with a running game clock.
     // A stopped clock still permits play calling but uses the usual lineup path.
     const wantsHurry=()=>Boolean(afterState?.on_field && afterState.clock_running === true
@@ -433,6 +445,7 @@ export function mountPractice(root, onReady = () => {}) {
         ? sampleNoHuddle(hurryStart || frame,sampleEnginePlay(nextAnimation,0),hurryStart?hurryProgress:progress)
         : regularHuddle(frame,line,possession,progress,homeDirection);
     const renderState = () => {
+        if (shared) { shared.hidePlayers();prepareCoachBall(shared); }
         const finalFrame = phase === 'huddle' ? sample(type, duration) : null;
         let frame = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, huddleProgress, nextHomeDirection) : sample(type, elapsed);
         let future = finalFrame ? sampleHuddle(finalFrame, nextLine, root.dataset.nextPossession, Math.min(1, huddleProgress + .02), nextHomeDirection) : sample(type, Math.min(duration, elapsed + 0.03));
@@ -491,6 +504,7 @@ export function mountPractice(root, onReady = () => {}) {
         const motionTime = phase === 'substituting' ? preExchangeElapsed : phase === 'liningup' ? lineupProgress * lineupDuration : earlyExit && ['celebration','result'].includes(phase) ? duration + earlyExitElapsed : exchangeFrame ? duration + exchangeElapsed : phase === 'huddle' ? duration + huddleProgress * 1.5 : phase === 'set' ? setElapsed : elapsed;
         frame.players.forEach((player, i) => {
             const mesh = players[i];
+            if (shared && player.visible === false) return;
             mesh.visible = player.visible !== false;
             resetPenaltyContactPose(mesh);
             // Reset the articulated stance every frame. Running, throws,
@@ -1412,7 +1426,8 @@ export function mountPractice(root, onReady = () => {}) {
         camera.aspect = width / height; camera.updateProjectionMatrix();
     };
     const disposeViewport = gameViewport(root);
-    const observer = new ResizeObserver(resize); observer.observe(host); resize();
+    const unsubscribeResize = shared?.subscribeResize(() => { camera.aspect = Math.max(1,host.clientWidth) / Math.max(1,host.clientHeight);camera.updateProjectionMatrix(); });
+    const observer = shared ? null : new ResizeObserver(resize); observer?.observe(host); if (!shared) resize();
     const moveFocus = (line, direction = cameraDirection) => {
         if (cameraMode === 'quarterback' && direction !== cameraDirection) {
             camera.position.x = 2 * focus[0] - camera.position.x;
@@ -1512,7 +1527,7 @@ export function mountPractice(root, onReady = () => {}) {
             callForm.querySelector('[name="expect"]').value = plan.call === 'run_stop' ? 'run' : plan.call === 'zone' ? 'pass' : 'balanced';
         });
     }
-    const cpuTimeoutForm=arcadeFlow?.enabled ? null : root.querySelector('[data-cpu-timeout-form]');
+    const cpuTimeoutForm=shared || arcadeFlow?.enabled ? null : root.querySelector('[data-cpu-timeout-form]');
     let cpuTimeoutSent=false;
     const useCoachWizard = shouldMountCoachWizard(arcadeFlow);
     if (!useCoachWizard && callForm) { callForm.inert = true; callForm.style.display = 'none'; }
@@ -1602,7 +1617,7 @@ export function mountPractice(root, onReady = () => {}) {
     if (arcadeFlow?.enabled) {
         let openingStorage;
         try { openingStorage = localStorage; } catch { /* No storage: skip safely. */ }
-        showPregame = Boolean(pregameDialog && claimPlayOpening({flow:arcadeFlow, version:root.dataset.playNumber, key:`${pregameKey}:play`, storage:openingStorage}));
+        showPregame = Boolean(pregameDialog && (typeof openingClaimed === 'boolean' ? openingClaimed : claimPlayOpening({flow:arcadeFlow, version:root.dataset.playNumber, key:`${pregameKey}:play`, storage:openingStorage})));
     } else {
         try { if (sessionStorage.getItem(pregameKey) === 'yes') showPregame = false; } catch { /* Storage optional */ }
     }
@@ -1629,7 +1644,7 @@ export function mountPractice(root, onReady = () => {}) {
     }
     const entranceCamera={position:camera.position.clone(),target:controls.target.clone()};
     const finishEntrance=(skipIntro=false)=>finishOpeningEntrance({
-        entrance,panel:entrancePanel,stopMusic:()=>entranceSound.finish(),isConnected:()=>root.isConnected,
+        entrance,panel:entrancePanel,stopMusic:()=>entranceSound.finish(),isConnected:()=>!disposed && root.isConnected,
         continueIntro:skip=>{
             camera.position.copy(entranceCamera.position);controls.target.copy(entranceCamera.target);
             if(callForm)callForm.inert=false;
@@ -1755,9 +1770,9 @@ export function mountPractice(root, onReady = () => {}) {
     const cpuToggle = root.querySelector('[data-cpu-toggle]'), cpuStatus = root.querySelector('[data-cpu-status]');
     const cpuKey = `${cameraKey}:cpu-autoplay`;
     let cpuAuto = false;
-    try { cpuAuto = !arcadeFlow?.enabled && root.dataset.cpuOnly === 'true' && sessionStorage.getItem(cpuKey) === 'true'; } catch { /* Autoplay starts paused if storage is unavailable. */ }
+    try { cpuAuto = !shared && !arcadeFlow?.enabled && root.dataset.cpuOnly === 'true' && sessionStorage.getItem(cpuKey) === 'true'; } catch { /* Autoplay starts paused if storage is unavailable. */ }
     const setCpuAuto = enabled => {
-        cpuAuto = !arcadeFlow?.enabled && enabled;
+        cpuAuto = !shared && !arcadeFlow?.enabled && enabled;
         if (cpuToggle) cpuToggle.textContent = enabled ? 'Pause CPU game' : 'Start CPU game';
         if (cpuStatus) cpuStatus.textContent = enabled ? 'CPU game running · notices advance automatically' : 'Autoplay off · current play finishes';
         try { sessionStorage.setItem(cpuKey, String(enabled)); } catch { /* Optional persistence. */ }
@@ -1802,8 +1817,8 @@ export function mountPractice(root, onReady = () => {}) {
             const person=people.find(p=>track && p.id===track.id) || people.find(p=>p.depth==='QB1') || people.find(p=>p.position==='QB');
             if(!person)continue;
             const team=appearance[side] || {};
-            const model=buildFootballPlayer(person,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
-            scene.add(model);
+            const model=playerModel(shared ? {...person,side} : person,{...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right},document,textureFor);
+            if (!shared) scene.add(model);
             const index=people.indexOf(person),start=ending.field.get(playerKey({...person,side})) || {x:18+(index%36)*2.3,z:side==='home'?-6:59.33};
             ending.quarterbacks.push({model,side,person,start,index});
         }
@@ -1857,8 +1872,16 @@ export function mountPractice(root, onReady = () => {}) {
     else if ((driveDialog || otDialog || quarterDialog || injuryDialog) && root.dataset.autoplay !== 'true') showQuarter();
     const silenceHidden = () => { if (document.hidden) { audio.setActive(false); audio.setAmbienceActive(false); } };
     document.addEventListener('visibilitychange', silenceHidden);
+    let baselineDebug=null,baselineLast=null,baselineFrames=0,baselinePublish=0;
+    const baselineCpu=[],baselineIntervals=[];
+    if(!shared && new URL(window.location.href).searchParams.get('debug_presentation')==='1'){
+        baselineDebug=document.createElement('pre');baselineDebug.setAttribute('data-presentation-metrics','');root.append(baselineDebug);
+    }
     let idleTime=0;
     const animate = now => {
+        if (disposed || suspended) return;
+        const baselineStart=baselineDebug?performance.now():0;
+        if(baselineDebug){if(baselineLast!==null)baselineIntervals.push({ms:Math.max(0,now-baselineLast),visible:!document.hidden,staging:false});baselineLast=now;if(baselineIntervals.length>240)baselineIntervals.shift();}
         const delta = lastTime === null || document.hidden ? 0 : (now - lastTime) / 1000;
         if (running && phase === 'substituting') {
             preExchangeElapsed = Math.min(preExchange.duration,preExchangeElapsed+Math.min(delta,.1)*exchangeRate);
@@ -2037,33 +2060,43 @@ export function mountPractice(root, onReady = () => {}) {
         updateEnding(delta);
         queuedCall?.tick();
         resultReferee.update(document.hidden ? 0 : delta);
-        controls.update(); renderer.render(scene, camera);
+        controls.update(); if (!shared) renderer.render(scene, camera);
         onReady(); onReady = () => {};
-        if (cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
+        if (!shared && cpuToggle && callForm && canAdvanceCpu({ enabled: cpuAuto, visible: !document.hidden,
             ready: (!exchange || phase !== 'huddle' || exchangeElapsed >= exchange.duration) && playCallVisible(callForm) && ((phase === 'huddle' && huddleProgress === 1) || (root.dataset.playNumber === '0' && !running)),
             submitting: snapButton.disabled || Boolean(cpuTimeoutForm), dialogOpen: Boolean(entrance.active || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root)), final: afterState?.status === 'final' })) {
             callForm.requestSubmit();
         }
-        playPresentation.tick({recorded:root.dataset.autoplay === 'true' && Boolean(animation),
+        presentationState = {phase, opening:entrance.active || openingPregame, final:afterState?.status === 'final', recorded:root.dataset.autoplay === 'true' && Boolean(animation),
             decisionWindow:['result','huddle'].includes(phase),
             completed:!running && ['settling','result','huddle','celebration','big_play','medical','penalty'].includes(phase) && elapsed >= duration,
             ready:phase === 'huddle' && huddleProgress === 1 && (!exchange || exchangeElapsed >= exchange.duration), visible:!document.hidden,
-            dialogOpen:Boolean(entrance.active || openingPregame || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root))});
-        frameId = requestAnimationFrame(animate);
+            dialogOpen:Boolean(entrance.active || openingPregame || breakWaiting || (driveDialog && !driveShown) || hasOpenGameDialog(root))};
+        playPresentation.tick(presentationState);
+        if (shared) onFrame(presentationState);
+        if(baselineDebug){
+            baselineCpu.push(performance.now()-baselineStart);if(baselineCpu.length>240)baselineCpu.shift();baselineFrames++;
+            if(now-baselinePublish>1000){baselinePublish=now;baselineDebug.textContent=JSON.stringify({mode:'standalone-coach',...presentationMetrics({sceneId:scene.uuid,stadiumId:stadium.group.uuid,ballId:ball.uuid,canvasId:`coach-canvas:${scene.uuid}`,rendererId:`coach-renderer:${scene.uuid}`,frames:baselineFrames,cpuFrameMs:baselineCpu,frameIntervals:baselineIntervals,actors:players.length,visibleActors:players.filter(player=>player.visible).length,rafCount:1,audioOwners:1,activeAdapters:1,drawCalls:renderer.info.render.calls,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures})},null,2);}
+        }
+        if (!shared) frameId = requestAnimationFrame(animate);
     };
-    const playPresentation = mountPlayPresentation(root, arcadeFlow);
-    frameId = requestAnimationFrame(animate);
-    let disposed = false;
+    const playPresentation = shared ? {tick(){},dispose(){}} : mountPlayPresentation(root, arcadeFlow);
+    if (!shared) frameId = requestAnimationFrame(animate);
+    if (shared) shared.cameraDirector.use(camera);
     const cleanup = (options = {}) => {
         if (disposed) return;
         disposed = true;
+        baselineDebug?.remove();
         disposeNavigation();
+        canvasListeners.abort();
         playPresentation.dispose();
         queuedCall?.dispose();
         document.removeEventListener('visibilitychange', silenceHidden);
         disposeMobileControls();
         disposeViewport();
-        audio.dispose(options.handoff === true);
+        unbindAudio?.();
+        if (!shared) audio.dispose(options.handoff === true);
+        else { audio.setActive(false);audio.setAmbienceActive(false);audio.stopPlayerVoices(); }
         penaltyPresentation.dispose();
         resultReferee.dispose();
         sidelineMascot.save();
@@ -2071,16 +2104,19 @@ export function mountPractice(root, onReady = () => {}) {
         controls.removeEventListener('end', saveCamera);
         document.removeEventListener('livewire:navigating', cleanup);
         window.removeEventListener('pagehide', cleanup);
-        cancelAnimationFrame(frameId); observer.disconnect(); controls.dispose();
+        if (!shared) cancelAnimationFrame(frameId); observer?.disconnect(); unsubscribeResize?.(); controls.dispose();
+        if (shared) { shared.releaseLayer(scene);delete root.dataset.mounted;return; }
         scene.traverse(object => {
             if (object.geometry) object.geometry.dispose();
             if (object.material) { object.material.map?.dispose(); object.material.dispose(); }
         });
         renderer.dispose(); renderer.domElement.remove(); delete root.dataset.mounted;
     };
+    if (!shared) {
     document.addEventListener('livewire:navigating', cleanup, { once: true });
     window.addEventListener('pagehide', cleanup, { once: true });
-    const disposeNavigation = gameNavigation(root, {
+    }
+    const disposeNavigation = shared ? () => {} : gameNavigation(root, {
         dispose: cleanup,
         mount: mountPractice,
         freeze: () => {
@@ -2094,4 +2130,10 @@ export function mountPractice(root, onReady = () => {}) {
             return cover;
         },
     });
+    if (shared) return {tick:animate,dispose:cleanup,getPresentationState:()=>presentationState,
+        suspend(){if(!suspended)suspendedTarget=controls.target.clone();suspended=true;controls.enabled=false;scene.visible=false;lastTime=null;audio.setPlayback(false,false);audio.stopPlayerVoices();},
+        resume(){if(suspendedTarget){controls.target.copy(suspendedTarget);suspendedTarget=null;}suspended=false;scene.visible=true;lastTime=null;shared.cameraDirector.use(camera);},
+        setVisible(enabled){setCoachLayerVisible(scene,enabled && !suspended && !disposed);},
+        setInteractive(enabled){controls.enabled=Boolean(enabled) && !disposed && !suspended && !shared.cameraDirector.transitioning && !shared.staging;},
+    };
 }

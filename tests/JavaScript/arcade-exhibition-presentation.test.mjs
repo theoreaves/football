@@ -19,7 +19,7 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null}={}) {
         querySelector(selector){return selector==='[data-arcade-field]'?host:nodes[selector.match(/data-exhibition-([^\]]+)/)[1]];}};
     const host={...node(),clientWidth:800,clientHeight:500};
     const queue=[],requests=[],views=[],recording={version:1,frames:[[0]],events:[],actors:[],result:{reason:'tackle'}};
-    let frame,transport,opened,step;
+    let frame,transport,opened,step,replayActive=false;
     const document=node(),window={...node(),location:{origin:'http://test',pathname:'/exhibitions/3/arcade',assign(url){this.destination=url;}},localStorage:{getItem(key){return key.startsWith('arcade-flow:')?flowSaved:stored?JSON.stringify(stored):null;},setItem(){},removeItem(){}}};
     const deps={createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
         requestAnimationFrame(fn){frame=fn;return 1;},cancelAnimationFrame(){},
@@ -31,14 +31,14 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null}={}) {
         createDrillRecording(){return {capture(){},export(){return recording;}};},
         createArcadeInput(){return {sample(){return {};},clear(){},dispose(){}};},
         createArcadeView(host,config){const view={config,disposed:0,render(s){this.last=s;},resize(){},dispose(){this.disposed++;}};views.push(view);return view;},
-        createReplayPanel(){return {active:false,open(value){opened=value;},advance(){},dispose(){}};},
+        createReplayPanel(){return {get active(){return replayActive;},open(value){opened=value;},advance(){},dispose(){}};},
         createExhibitionTransport(options){transport=createExhibitionTransport(options);return transport;},canContinueExhibitionDrive,noSnapNotice,
         mountExhibitionHistory(){assert.fail('not a history test');}};
-    new Function(...Object.keys(deps),source+'\nreturn mountExhibition;')(...Object.values(deps))(root);
+    const dispose=new Function(...Object.keys(deps),source+'\nreturn mountExhibition;')(...Object.values(deps))(root);
     const state={...official,version:1,spot:39,clock:177};
     const session=(startX=35)=>({envelope:{session_id:'s'+startX,result_id:'r'+startX},setup:{mode:'running',exhibition:{startX,firstDownX:startX+10}},prepared_state:{...official,spot:startX-10},submit_url:`/exhibitions/3/arcade/sessions/s${startX}/submit`,cancel_url:`/exhibitions/3/arcade/sessions/s${startX}/cancel`});
-    return {window,nodes,views,requests,recording,state,session,queue,get transport(){return transport;},get opened(){return opened;},
-        click(key){return nodes[key].listeners.get('click')();},frame(){frame(16);}};
+    return {dispose,window,nodes,views,requests,recording,state,session,queue,get transport(){return transport;},get opened(){return opened;},
+        setReplayActive(value){replayActive=value;},click(key){return nodes[key].listeners.get('click')();},frame(){frame(16);}};
 }
 async function finishPlay(h){h.queue.push({session:h.session()});await h.click('reserve');h.click('start');h.frame();assert.ok(h.transport.pending.body);}
 
@@ -123,4 +123,15 @@ test('definitive stale-state rejection requires reload; unknown outcome remains 
 test('reserved live play blocks flow mutations, timeout and spike',()=>{
  const initial=harness();const h=harness({flow:{...flowState,phase:'offense',can_spike:true},pending:initial.session()});
  for(const name of ['preferences','advance','fast','timeout','spike'])assert.equal(h.nodes[name].disabled,true);
+});
+
+test('shared nonmodal replay blocks every mutation and keeps the exact pending result',async()=>{
+ const h=harness({flow:{...flowState,phase:'offense'}});await finishPlay(h);const body=h.transport.pending.body,count=h.requests.length;
+ h.setReplayActive(true);h.frame();for(const key of ['reserve','cancel','submit','preferences','fast','timeout','spike'])assert.equal(h.nodes[key].disabled,true,key);
+ for(const key of ['reserve','cancel','submit','fast'])await h.click(key);
+ assert.equal(h.requests.length,count);assert.equal(h.transport.pending.body,body);h.setReplayActive(false);h.frame();assert.equal(h.nodes.submit.disabled,false);
+});
+
+test('late reserve response after disposal preserves recovery but never mounts a destroyed host',async()=>{
+ const h=harness();let resolve;h.queue.push(new Promise(done=>{resolve=done;}));const reservation=h.click('reserve');h.dispose();resolve({session:h.session()});await reservation;assert.equal(h.views.length,0);assert.ok(h.transport.pending);assert.equal(h.transport.pending.session.envelope.session_id,h.session().envelope.session_id);
 });

@@ -49,7 +49,7 @@ function initializePractice() {
     mountSeasonRoster();
     mountSeasonSetup(document.querySelector('[data-season-setup]'));
     const exhibition = document.querySelector('[data-arcade-exhibition]');
-    if (exhibition) import('./arcade/exhibition.js').then(module => module.mountExhibition(exhibition)).catch(error => {
+    if (exhibition) (exhibition.dataset.persistentPresentation ? import('./arcade/persistent-exhibition.js') : import('./arcade/exhibition.js')).then(module => exhibition.dataset.persistentPresentation ? module.mountPersistentExhibition(exhibition) : module.mountExhibition(exhibition)).catch(error => {
         console.error('[WebSports Arcade] Exhibition initialization failed:', error);
         exhibition.querySelector('[data-exhibition-status]').textContent = 'Unable to initialize Arcade. Reload saved state to recover any reserved play.';
     });
@@ -59,7 +59,7 @@ function initializePractice() {
         const status = arcade.querySelector('[data-arcade-status]');
         if (status) status.textContent = 'Unable to load the drill. Reload to try again.';
     });
-    const root = document.querySelector('[data-practice]');
+    const root = exhibition?.dataset.persistentPresentation ? null : document.querySelector('[data-practice]');
     mountGameSettings(root);
     if (root) import('./practice/field.js').then(module => module.mountPractice(root)).catch((error) => {
         console.error('[WebSports] Field initialization failed:', error);

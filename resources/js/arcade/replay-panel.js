@@ -5,7 +5,7 @@ const clock = seconds => `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(1
 let nextPanelId = 0;
 
 /** A disposable presentation-only overlay. Never changes simulation state. */
-export function createReplayPanel(root, { onOpen = () => {}, onClose = () => {}, deps = {} } = {}) {
+export function createReplayPanel(root, { onOpen = () => {}, onClose = () => {}, sharedHost = null, deps = {} } = {}) {
     const document = deps.document ?? root.ownerDocument;
     const window = deps.window ?? document.defaultView;
     const timelineFactory = deps.createReplayTimeline ?? createReplayTimeline;
@@ -46,7 +46,7 @@ export function createReplayPanel(root, { onOpen = () => {}, onClose = () => {},
         const dialog = element('dialog', undefined, { class: 'arcade-replay', 'aria-labelledby': `replay-title-${++nextPanelId}` });
         const header = element('header', undefined, { class: 'arcade-replay-header' });
         header.append(element('h2', automatic ? 'Highlight replay' : 'Replay', { id: `replay-title-${nextPanelId}` }));
-        const exit = element('button', automatic ? 'Skip replay' : 'Return to drill', { type: 'button', 'data-replay': 'close' });
+        const exit = element('button', automatic ? 'Skip replay' : sharedHost ? 'Return to game' : 'Return to drill', { type: 'button', 'data-replay': 'close' });
         header.append(exit);
         const host = element('div', undefined, { class: 'arcade-replay-field', 'aria-label': 'Recorded drill playback' });
         const controls = element('div', undefined, { class: 'arcade-replay-controls' });
@@ -89,8 +89,9 @@ export function createReplayPanel(root, { onOpen = () => {}, onClose = () => {},
             if (events.textContent !== text) events.textContent = text;
         };
         try {
-            root.append(dialog); dialog.showModal();
-            current.view = viewFactory(host, timeline.recording);
+            root.append(dialog);
+            if(sharedHost) { onOpen(); host.hidden=true; dialog.classList.add('arcade-replay-shared'); dialog.show(); } else dialog.showModal();
+            current.view = viewFactory(sharedHost?.host ?? host, timeline.recording, {sharedHost});
             reset.hidden = typeof current.view.resetCamera !== 'function';
             listen(exit, 'click', () => close());
             listen(toggle, 'click', () => {
@@ -120,7 +121,7 @@ export function createReplayPanel(root, { onOpen = () => {}, onClose = () => {},
             listen(window, 'resize', () => { current.view.resize(); current.update(); });
             playback.play();
             if (document.hidden) playback.pause();
-            current.view.resize(); current.update(); exit.focus(); onOpen();
+            current.view.resize(); current.update(); exit.focus(); if(!sharedHost) onOpen();
             return true;
         } catch (error) { close(); throw error; }
     }

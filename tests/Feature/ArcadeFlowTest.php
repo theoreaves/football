@@ -206,7 +206,7 @@ test('new Play exhibition owns one team and enables opening without changing Coa
 test('plain saved game URL resumes persisted Play controls', function () {
     $game = flowTestGame();
     enableFlow($game);
-    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewHas('arcadeFlow', fn ($flow) => $flow['enabled'] && $flow['human_side'] === 'home')->assertSee('data-arcade-flow', false);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertViewIs('arcade.exhibition')->assertViewHas('flow', fn ($flow) => $flow['enabled'] && $flow['human_side'] === 'home')->assertViewHas('presentationUrl', route('exhibitions.arcade.presentation', $game));
 });
 test('adoption does not strand a pending choice owned by the other team', function () {
     $game = flowTestGame(['controls' => ['home' => 'human', 'away' => 'human'], 'coin_toss' => ['pending' => true, 'winner' => 'away', 'choice' => null, 'call' => 'heads', 'result' => 'heads']]);

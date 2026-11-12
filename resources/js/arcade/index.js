@@ -1,3 +1,4 @@
+import {presentationMetrics,createPresentationMetricsSampler} from './presentation-metrics.js';
 import {createDrill, startDrill, pauseDrill, stepDrill, STEP_SECONDS} from './simulation.js';
 import {createPassingDrill, stepPassingDrill} from './passing.js';
 import {createArcadeView} from './view.js';
@@ -17,6 +18,9 @@ export function mountArcade(root) {
     activeDrill?.();
     root.dataset.arcadeMounted = 'true';
     const host = root.querySelector('[data-arcade-field]');
+    const debugEnabled=new URL(window.location.href).searchParams.get('debug_presentation')==='1';
+    const metricSampler=debugEnabled?createPresentationMetricsSampler():null;let debug=null,lastMetricOutput=0;
+    if(debugEnabled){debug=document.createElement('pre');debug.setAttribute('data-presentation-metrics','');debug.style.cssText='font-size:10px;max-height:280px;overflow:auto;background:#101827;color:#bdfdc9;padding:8px';root.append(debug);}
     if (!host) return;
     const payload = JSON.parse(root.dataset.drill), passing = payload.mode === 'passing';
     const scenario = root.querySelector('[data-arcade-defenders]');
@@ -139,6 +143,7 @@ export function mountArcade(root) {
         heading.textContent = 'FIELD UNAVAILABLE'; detail.textContent = 'Your games and saved data are unchanged.';
         root.querySelectorAll('button').forEach(button => button.disabled = true);
         console.error('[WebSports Arcade] Field initialization failed:', error);
+        debug?.remove();
         delete root.dataset.arcadeMounted; return;
     }
     const options = {signal: abort.signal};
@@ -181,6 +186,7 @@ export function mountArcade(root) {
     const frame = timestamp => {
         if (disposed) return;
         if (!root.isConnected) { dispose(); return; }
+        const cpuStarted=metricSampler?performance.now():0;
         const seconds = lastTime === null ? 0 : (timestamp - lastTime) / 1000;
         lastTime = timestamp;
         if (replay.active) {
@@ -204,11 +210,13 @@ export function mountArcade(root) {
             diagnostics.textContent = `${fps} recent FPS · ${metrics.drawCalls} draw calls · ${metrics.geometries} geometries · ${metrics.textures} textures · ${host.querySelectorAll('canvas').length} canvas · ${metrics.visibleActors} active players${passing ? ` · ${input.aimStatus()}` : ''}`;
             diagnosticAt = timestamp; diagnosticFrames = 0;
         }
+        if(metricSampler){metricSampler.sample({now:timestamp,cpuMs:performance.now()-cpuStarted,visible:!document.hidden&&!replay.active});if(timestamp-lastMetricOutput>=1000){debug.textContent=JSON.stringify(presentationMetrics({...view.metrics(),...metricSampler.metrics(),rafCount:1,audioOwners:0,activeAdapters:1,resizeSubscriptions:1,layers:1}),null,2);lastMetricOutput=timestamp;}}
         frameId = requestAnimationFrame(frame);
     };
     function dispose() {
         if (disposed) return;
         disposed = true; importGeneration++; cancelAnimationFrame(frameId); replay.dispose(); input.dispose(); observer.disconnect(); abort.abort(); view.dispose();
+        debug?.remove();
         delete root.dataset.arcadeMounted;
         if (activeDrill === dispose) activeDrill = null;
     }

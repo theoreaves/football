@@ -1,5 +1,5 @@
-<x-layouts.app>
-<div class="arcade-shell" data-arcade-exhibition data-exhibition="{{ json_encode(['flow'=>$flow ?? null,'flowUrl'=>$flowUrl ?? null,'state'=>$state,'available'=>$available,'coachUrl'=>$coachUrl,'startUrl'=>$startUrl,'lastRecording'=>$lastRecording ?? null,'pendingSession'=>$pendingSession ?? null,'replayOnly'=>$replayOnly ?? false,'selectedPlay'=>$selectedPlay ?? null,'csrf'=>csrf_token()]) }}">
+<x-layouts.app :immersive="(bool) ($presentationUrl ?? false)">
+<div class="arcade-shell" @if($presentationUrl ?? null) data-persistent-presentation="{{ $presentationUrl }}" @endif data-arcade-exhibition data-exhibition="{{ json_encode(['flow'=>$flow ?? null,'flowUrl'=>$flowUrl ?? null,'state'=>$state,'available'=>$available,'coachUrl'=>$coachUrl,'startUrl'=>$startUrl,'lastRecording'=>$lastRecording ?? null,'pendingSession'=>$pendingSession ?? null,'replayOnly'=>$replayOnly ?? false,'selectedPlay'=>$selectedPlay ?? null,'csrf'=>csrf_token()]) }}">
     <header class="arcade-top"><div><p class="arcade-eyebrow">WebSports Arcade · Exhibition</p><h1>{{ ($replayOnly ?? false) ? 'Recorded exhibition play.' : 'Your exhibition game.' }}</h1></div><p>Real roster. Real recorded movement. Official game state updates only when your recorded play is accepted.</p></header>
     <div class="arcade-scoreboard"><strong data-exhibition-score></strong><span data-exhibition-state></span><span data-exhibition-live></span></div>
     @unless($replayOnly ?? false)

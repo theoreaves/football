@@ -32,7 +32,7 @@ export function stadiumAudio(root, environment = window) {
     }
     const voices = new Set();
     const supported = Boolean(environment.AudioContext || environment.webkitAudioContext);
-    const controls = [...new Set([root.querySelector('[data-sound-toggle]'),root.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
+    const controls = new Set(), controlBindings = new Map();
     let breakMusic;
     const teamTracks = teamAudioUrls(root);
     const entranceTrack=recordedStadiumMusic(environment,teamTracks.entrance.url,teamTracks.entrance.fallback);
@@ -122,14 +122,29 @@ export function stadiumAudio(root, environment = window) {
         }
     };
     const save = () => { try { environment.localStorage.setItem(key,JSON.stringify(settings)); } catch { /* Optional persistence. */ } levels(); label(); root.querySelectorAll('[data-sound-volume]').forEach(input => { input.value = Math.round(settings[input.dataset.soundVolume] * 100); }); };
-    controls.forEach(control => control.addEventListener('click', () => { settings.enabled = !settings.enabled; save(); if (settings.enabled) prepare(); }));
-    root.querySelectorAll('[data-sound-volume]').forEach(input => {
-        input.value = Math.round(settings[input.dataset.soundVolume] * 100);
-        input.addEventListener('input', () => { settings[input.dataset.soundVolume] = Number(input.value)/100; save(); prepare(); });
-    });
+    const bindControls = target => {
+        if (disposed) return () => {};
+        controlBindings.get(target)?.();
+        const buttons = [...new Set([target.querySelector('[data-sound-toggle]'),target.querySelector('[data-intro-sound-toggle]')].filter(Boolean))];
+        const bindings=[];
+        for (const control of buttons) {
+            controls.add(control);
+            const toggle=()=>{settings.enabled=!settings.enabled;save();if(settings.enabled)prepare();};
+            control.addEventListener('click',toggle);bindings.push(()=>{control.removeEventListener?.('click',toggle);controls.delete(control);});
+        }
+        target.querySelectorAll('[data-sound-volume]').forEach(input=>{
+            input.value=Math.round(settings[input.dataset.soundVolume]*100);
+            const change=()=>{settings[input.dataset.soundVolume]=Number(input.value)/100;save();prepare();};
+            input.addEventListener('input',change);bindings.push(()=>input.removeEventListener?.('input',change));
+        });
+        let released=false;
+        const unbind=()=>{if(released)return;released=true;bindings.forEach(remove=>remove());controlBindings.delete(target);};
+        controlBindings.set(target,unbind);label();return unbind;
+    };
+    bindControls(root);
     const unlock = () => { prepare(); music.unlock(); entranceTrack.unlock(); breakMusic?.unlock(); }; root.addEventListener('pointerdown',unlock); root.addEventListener('keydown',unlock); label();
     return {
-        play, prepare,
+        play, prepare, bindControls,
         whenReactionFinished() { return stadiumRecordings?.whenFinished() ?? Promise.resolve(); },
         startBreakMusic(kind) {
             breakMusic?.dispose();
@@ -161,7 +176,7 @@ export function stadiumAudio(root, environment = window) {
         setAmbienceActive(value) { if (ambienceActive === value) return; ambienceActive = value; if (ambienceActive) prepare(); levels(); },
         dispose(handoff = false) {
             if (disposed) return;
-            disposed = true; entranceTrack.dispose(); music.dispose(); breakMusic?.dispose();
+            disposed = true; [...controlBindings.values()].forEach(unbind=>unbind()); entranceTrack.dispose(); music.dispose(); breakMusic?.dispose();
             root.removeEventListener('pointerdown',unlock); root.removeEventListener('keydown',unlock);
             for (const source of voices) { try { source.stop(); } catch { /* Already ended. */ } }
             const graph = {gameKey, context, master, crowd, effects, players, stadium, recordings,

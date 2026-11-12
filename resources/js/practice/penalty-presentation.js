@@ -56,7 +56,8 @@ export function penaltyText(penalty, names, pending = false) {
     return `${labels[penalty.type] ?? 'Penalty'} — ${team}. ${ruling}.`;
 }
 
-export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
+export function buildPenaltyPresentation(root, scene, penalty, names, pending, {inset = true} = {}) {
+    const document = root.ownerDocument || globalThis.document;
     const flag = new THREE.Group(); scene.add(flag); flag.visible = false;
     const yellow = new THREE.MeshStandardMaterial({color: 0xffdf00, roughness: .85, side: THREE.DoubleSide});
     const cloth = new THREE.Mesh(new THREE.PlaneGeometry(.55, .45, 2, 2), yellow);
@@ -73,7 +74,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending) {
     const title = document.createElement('strong'); title.textContent = 'REFEREE ANNOUNCEMENT'; panel.append(title);
     const caption = document.createElement('p'); caption.textContent = penalty ? penaltyText(penalty,names,pending) : ''; caption.style.margin = '10px 0';
     let renderer = null, insetScene, insetCamera, insetRefs;
-    if (penalty) {
+    if (penalty && inset) {
         try {
             renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
             renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setSize(320,220);

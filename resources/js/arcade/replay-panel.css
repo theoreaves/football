@@ -14,3 +14,5 @@
 .arcade-replay :focus-visible { outline: 3px solid #9cfa83; outline-offset: 3px; }
 .arcade-replay [hidden] { display: none !important; }
 @media(max-width: 600px) { .arcade-replay { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); } .arcade-replay-controls input[type="range"] { order: -1; flex-basis: 100%; } .arcade-replay-header { padding: 10px; } }
+
+.arcade-replay.arcade-replay-shared {position:absolute;top:auto;bottom:1rem;left:1rem;right:1rem;width:auto;max-height:45vh;margin:0;z-index:80;background:#101827ee;}

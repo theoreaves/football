@@ -3,6 +3,7 @@ import { buildFootballPlayer, animateFootballPlayer } from '../practice/player-m
 import { buildFieldSurface } from '../practice/field-scene.js';
 import { getPassTrajectory } from './passing.js';
 
+let nextArcadeViewId=0;
 const ROUTE_COLORS = [0x6ee7ff, 0xb6fa7b, 0xe7adff];
 
 export function arcadeCameraFrame(width, height, direction = 1, centerX = null) {
@@ -130,9 +131,10 @@ export function disposeArcadeScene(scene, extraTextures = []) {
 
 // The renderer factory permits lifecycle tests without replacing shared player art.
 export function createArcadeView(host, { appearance = {}, mode = 'running', runner, quarterback, receivers = [], defenders = [], exhibition = null },
-    { rendererFactory = options => new THREE.WebGLRenderer(options) } = {}) {
-    const document = host.ownerDocument;
-    const renderer = rendererFactory({ antialias: true, alpha: false });
+    { rendererFactory = options => new THREE.WebGLRenderer(options), sharedHost = null } = {}) {
+    const document = host.ownerDocument,viewIdentity=++nextArcadeViewId;
+    const renderer = sharedHost?.renderer ?? rendererFactory({ antialias: true, alpha: false });
+    if (!sharedHost) {
     renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x101f30);
     renderer.shadowMap.enabled = true;
@@ -141,13 +143,15 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     canvas.style.cssText = 'display:block;width:100%;height:100%';
     canvas.setAttribute('aria-label', mode === 'passing' ? 'Arcade passing drill. Click a target to pass, or hold and drag to aim.' : 'Arcade running drill. Advance right to the goal line.');
     host.appendChild(canvas);
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-24, 24, 19, -19, .1, 300);
+    }
+    const canvas = renderer.domElement;
+    const scene = sharedHost ? sharedHost.createLayer('arcade-live') : new THREE.Scene();
+    const camera = sharedHost?.cameras.arcade ?? new THREE.OrthographicCamera(-24, 24, 19, -19, .1, 300);
     let disposed = false, direction = 1, lastState = null, lastTick = -1, lastElapsed = 0, aim = null;
     let cameraX = exhibition ? exhibitionCameraX(exhibition.startX, 1) : null;
     let lastBallPhase = null, throwStartedAt = null, labelUnits = 1;
     const textures = new Map(), loader = new THREE.TextureLoader();
-    const textureFor = (url, onLoad) => {
+    const textureFor = sharedHost?.textureFor ?? ((url, onLoad) => {
         if (!url) return null;
         if (textures.has(url)) {
             const texture = textures.get(url);
@@ -164,7 +168,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         texture.userData.callbacks = [onLoad];
         textures.set(url, texture);
         return texture;
-    };
+    });
     const box = (width, height, depth, color, x, y, z) => {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth),
             new THREE.MeshStandardMaterial({ color, roughness: .85 }));
@@ -175,16 +179,16 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
             new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthWrite: false }));
         ring.rotation.x = -Math.PI / 2; scene.add(ring); return ring;
     };
-    scene.add(new THREE.HemisphereLight(0xd5e9ff, 0x305239, 2.5));
+    if (!sharedHost) scene.add(new THREE.HemisphereLight(0xd5e9ff, 0x305239, 2.5));
     const sun = new THREE.DirectionalLight(0xffefd6, 3);
     sun.position.set(70, 75, 40); sun.target.position.set(96, 0, 26.665);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -65, right: 65, top: 65, bottom: -65 });
-    sun.shadow.normalBias = .03; scene.add(sun, sun.target);
+    sun.shadow.normalBias = .03; if (!sharedHost) scene.add(sun, sun.target);
     const home = appearance.home || {}, away = appearance.away || {};
-    buildFieldSurface(scene, home, away, document, textureFor, box, { load: textureFor });
+    if (!sharedHost) buildFieldSurface(scene, home, away, document, textureFor, box, { load: textureFor });
     // A low stadium edge frames the drill without hiding the playable sideline.
-    for (const z of [-5, 58.33]) {
+    for (const z of sharedHost ? [] : [-5, 58.33]) {
         box(144, 1.5, 1, home.stadium_wall_color || 0x263d52, 60, .5, z);
         for (let row = 0; row < 3; row++) box(144, .55, 1.8,
             home.stadium_seat_color || home.primary_color || 0x355b79,
@@ -194,7 +198,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     const firstDownLine = box(.18, .035, 53.33, 0xffda6a, 90, .1, 26.665);
     firstDownLine.visible = false;
     const goalLine = box(.24, .04, 53.33, 0xffda6a, 110, .09, 26.665);
-    for (const x of [0, 120]) {
+    for (const x of sharedHost ? [] : [0, 120]) {
         box(.18, 3.5, .18, 0xffcc33, x, 1.75, 26.7);
         box(.18, .18, 6.2, 0xffcc33, x, 3.5, 26.7);
         for (const z of [23.6, 29.8]) box(.18, 5, .18, 0xffcc33, x, 6, z);
@@ -205,11 +209,11 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         const offensive = !key.startsWith('defender:');
         const team = appearance[player.side || (offensive ? 'home' : 'away')] || {};
         const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
-        const model = buildFootballPlayer(player, kit, document, textureFor);
+        const model = sharedHost ? sharedHost.player(player, kit) : buildFootballPlayer(player, kit, document, textureFor);
         model.name = `arcade-player-${key}`;
         model.userData.carryingArm = 0;
         model.visible = false;
-        scene.add(model);
+        (sharedHost?.scene ?? scene).add(model);
         const ring = groundRing(.85, 1.08, offensive ? 0xffda6a : 0xff867d);
         ring.name = `arcade-ring-${key}`;
         ring.visible = false;
@@ -221,9 +225,9 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         receivers.forEach((player, index) => addPlayer(player, `receiver:${index}`));
     } else addPlayer(runner, 'runner');
     defenders.forEach((player, index) => addPlayer(player, `defender:${index}`));
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(.25, 12, 8), new THREE.MeshStandardMaterial({ color: 0x9d5829, roughness: .9 }));
+    const ball = sharedHost?.ball ?? new THREE.Mesh(new THREE.SphereGeometry(.25, 12, 8), new THREE.MeshStandardMaterial({ color: 0x9d5829, roughness: .9 }));
     ball.name = 'arcade-football'; ball.scale.set(.85, 1.6, .85); ball.castShadow = true; ball.visible = false;
-    scene.add(ball);
+    (sharedHost?.scene ?? scene).add(ball);
     const ballShadow = groundRing(0, .35, 0x07130b);
     ballShadow.material.transparent = true; ballShadow.material.opacity = .3; ballShadow.visible = false;
     const trajectory = createPath(0xffe28b);
@@ -287,13 +291,13 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     function resize() {
         if (disposed) return;
         const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
-        renderer.setSize(width, height, false);
+        if (!sharedHost) renderer.setSize(width, height, false);
         const frame = arcadeCameraFrame(width, height, direction, cameraX);
         Object.assign(camera, { left: frame.left, right: frame.right, top: frame.top, bottom: frame.bottom });
         camera.position.set(...frame.position); camera.lookAt(...frame.target); camera.updateProjectionMatrix(); camera.updateMatrixWorld();
         labelUnits = (frame.top - frame.bottom) / height;
         routes.forEach(({ label }) => label.scale.set(96 * labelUnits, 24 * labelUnits, 1));
-        if (lastState) renderer.render(scene, camera);
+        if (!sharedHost && lastState) renderer.render(scene, camera);
     }
 
     function render(state, options = {}) {
@@ -323,10 +327,12 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         }
         if (Number.isFinite(state.ball?.flight?.startedAt)) throwStartedAt = state.ball.flight.startedAt;
         else if (state.ball?.phase === 'flight' && lastBallPhase !== 'flight') throwStartedAt = state.elapsed;
+        sharedHost?.hidePlayers();
         const entries = arcadeActorEntries(state), activeKeys = new Set(entries.map(([key]) => key));
         entries.forEach(([key, actor]) => addPlayer(actor, key));
+        sharedHost?.sideline?.update(new Set(entries.map(([,actor])=>`${actor.side}:${actor.id ?? actor.role}`)));
         models.forEach(({ model, ring }, key) => { model.visible = activeKeys.has(key); ring.visible = model.visible; });
-        const holderKey = attachArcadeBall(ball, scene, models, state);
+        const holderKey = attachArcadeBall(ball, sharedHost?.scene ?? scene, models, state);
         const controlledKey = state.mode === 'passing' ? state.controlledKey : 'runner';
         entries.forEach(([key, actor], index) => {
             const entry = models.get(key), { model, ring } = entry, pose = arcadePlayerPose(actor, state);
@@ -355,9 +361,11 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         if (ballShadow.visible) ballShadow.position.set(ball.position.x, .12, ball.position.z);
         updateRoutes(state); updateAim(state);
         lastTick = state.tick; lastElapsed = state.elapsed; lastState = state; lastBallPhase = state.ball?.phase;
-        renderer.render(scene, camera);
+        if (!sharedHost) renderer.render(scene, camera);
     }
     resize();
+    if (sharedHost) sharedHost.cameraDirector.use(camera);
+    const releaseResize=sharedHost?.subscribeResize(resize);
     return { render, resize,
         groundPoint(clientX, clientY) { return disposed ? null : arcadeGroundPoint(camera, canvas.getBoundingClientRect(), clientX, clientY); },
         setAim(target, state = lastState) {
@@ -365,12 +373,15 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
             aim = target && Number.isFinite(target.x) && Number.isFinite(target.z) ? { x: target.x, z: target.z } : null;
             if (state) render(state);
         },
-        metrics() { return { geometries: renderer.info?.memory.geometries ?? 0, textures: renderer.info?.memory.textures ?? 0,
+        metrics() { return {sceneId:sharedHost?.scene.uuid ?? scene.uuid,ballId:ball.uuid,canvasId:`arcade-canvas-${viewIdentity}`,rendererId:`arcade-renderer-${viewIdentity}`,
+            geometries: renderer.info?.memory.geometries ?? 0, textures: renderer.info?.memory.textures ?? 0,
             drawCalls: renderer.info?.render.calls ?? 0, actors: models.size,
             visibleActors: [...models.values()].filter(({ model }) => model.visible).length, routes: routes.size, disposed }; },
         dispose() {
             if (disposed) return;
             disposed = true;
+            releaseResize?.();
+            if (sharedHost) { sharedHost.scene.attach(ball); sharedHost.releaseLayer(scene); models.clear(); routes.clear(); lastState=null; aim=null; return; }
             disposeArcadeScene(scene, textures.values());
             sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); canvas.remove();
             scene.clear(); textures.clear(); models.clear(); routes.clear(); lastState = null; aim = null;

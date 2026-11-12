@@ -11,12 +11,12 @@ import {createExhibitionTransport, canContinueExhibitionDrive, noSnapNotice} fro
 import './style.css';
 import './replay-panel.css';
 
-export function mountExhibition(root) {
+export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputEnabled=()=>true} = {}) {
     if (!root || root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const data = JSON.parse(root.dataset.exhibition), find = name => root.querySelector(`[data-exhibition-${name}]`);
     if (data.replayOnly === true) return mountExhibitionHistory(root, data);
-    const host = root.querySelector('[data-arcade-field]'), status = find('status');
+    const host = sharedHost?.host ?? root.querySelector('[data-arcade-field]'), status = find('status');
     const buttons = Object.fromEntries(['reserve','start','pause','cancel','submit','replay'].map(key => [key,find(key)]));
     const abort = new AbortController(), options = {signal: abort.signal};
     let official = data.state, allowed = data.available, busy = false, stopped = false;
@@ -51,7 +51,7 @@ export function mountExhibition(root) {
     }
     function flowHud() {
         if (!flow || !find('preferences')) return;
-        const locked=busy || !!transport.pending || !!flowTransport?.pending || flowBlocked;
+        const locked=!!replay?.active || !inputEnabled() || sharedHost?.staging || sharedHost?.cameraDirector.transitioning || sharedHost?.staging || busy || !!transport.pending || !!flowTransport?.pending || flowBlocked;
         find('preferences').disabled=locked || flow.phase==='final';
         find('preferences').textContent=flow.enabled?'Apply defense choice':'Start Play mode';
         find('side').disabled=locked || flow.enabled;
@@ -79,7 +79,7 @@ export function mountExhibition(root) {
     function hud() {
         const empty = find('empty');
         if (flow) stopped=!flow.enabled || flow.phase!=='offense' || flowBlocked || !!flowTransport?.pending;
-        empty.hidden = Boolean(state && view);
+        empty.hidden = !!sharedHost || Boolean(state && view);
         if (!empty.hidden) empty.textContent = recovered
             ? (transport.pending?.body ? 'Your recorded play is recovered. Submit / retry same result, or review its replay.' : 'A reserved play was recovered. Choose Cancel reserved play before reserving a new play.')
             : flow ? flowGuidance() : stopped || !allowed ? 'This drive needs a Coach decision. Choose Continue in Coach.' + (recording ? ' You can still replay the recorded play.' : '')
@@ -90,14 +90,14 @@ export function mountExhibition(root) {
         find('state').textContent = `Q${snapshot.quarter} · ${Math.floor(clock/60)}:${String(Math.floor(clock%60)).padStart(2,'0')} · Down ${snapshot.down} & ${snapshot.distance} · Ball ${snapshot.spot}`;
         if (flow) find('state').textContent=exhibitionStateLabel(snapshot);
         find('live').textContent = state ? `${state.runner.name || 'Ball carrier'} · ${((state.runner.x-state.startX)*state.direction).toFixed(1)} yards · ${state.elapsed.toFixed(1)}s live` : '';
-        buttons.reserve.disabled = busy || !!transport.pending || !allowed || stopped;
-        buttons.start.disabled = busy || recovered || !state || !['ready','paused'].includes(state.status) || replay?.active;
+        buttons.reserve.disabled = !!replay?.active || !inputEnabled() || busy || !!transport.pending || !allowed || stopped;
+        buttons.start.disabled = !inputEnabled() || sharedHost?.cameraDirector.transitioning || sharedHost?.staging || busy || recovered || !state || !['ready','paused'].includes(state.status) || replay?.active;
         buttons.start.textContent = state?.status === 'paused' ? 'Resume play' : 'Start play';
         buttons.pause.disabled = state?.status !== 'running' || busy;
-        buttons.cancel.disabled = busy || !transport.pending;
-        buttons.submit.disabled = busy || !transport.pending?.body;
-        buttons.replay.disabled = !recording || state?.status === 'running' || busy;
-        find('kind').disabled = find('tempo').disabled = !!transport.pending || busy || stopped || !allowed;
+        buttons.cancel.disabled = !!replay?.active || busy || !transport.pending;
+        buttons.submit.disabled = !!replay?.active || busy || !transport.pending?.body;
+        buttons.replay.disabled = sharedHost?.staging || sharedHost?.cameraDirector.transitioning || !recording || state?.status === 'running' || busy;
+        find('kind').disabled = find('tempo').disabled = !!replay?.active || !!transport.pending || busy || stopped || !allowed;
         find('coach').hidden = false;
         flowHud();
     }
@@ -116,7 +116,7 @@ export function mountExhibition(root) {
     }, STEP_SECONDS);
     function pause() { if(state) pauseDrill(state); input?.clear(); stepper.reset(); lastTime = null; hud(); }
     function start() {
-        if (busy || recovered || replay?.active || !state || !['ready','paused'].includes(state.status)) return;
+        if (!inputEnabled() || sharedHost?.cameraDirector.transitioning || sharedHost?.staging || busy || recovered || replay?.active || !state || !['ready','paused'].includes(state.status)) return;
         startDrill(state); stepper.reset(); lastTime=null; host.focus({preventScroll:true});
         say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone.${state.mode === 'passing' ? ' Click a target to pass, or hold and drag to aim. Stay behind the cyan line to throw. After a catch, run with the receiver.' : ''}`); hud();
     }
@@ -126,11 +126,11 @@ export function mountExhibition(root) {
         const config = session.setup;
         state = config.mode === 'passing' ? createPassingDrill(config) : createDrill(config);
         recorder = createDrillRecording(state, {appearance:config.appearance});
-        view = createArcadeView(host, config);
-        input = createArcadeInput(root, host, {start,pause,retry:pause, enabled:()=>!replay?.active && !busy,
+        view = createArcadeView(host, config, {sharedHost});
+        input = createArcadeInput(root, host, {start,pause,retry:pause, enabled:()=>inputEnabled() && !sharedHost?.cameraDirector.transitioning && !sharedHost?.staging && !replay?.active && !busy,
             canPass:()=>state.mode==='passing' && state.status==='running' && state.ball.phase==='held' && state.ball.holderKey==='qb',
             aimAt:(x,y)=>view.groundPoint(x,y),onAim:point=>{aim=point;}});
-        observer = new ResizeObserver(()=>view.resize()); observer.observe(host); view.render(state);
+        if(!sharedHost) { observer = new ResizeObserver(()=>view.resize()); observer.observe(host); } view.render(state); sharedHost?.stageNextFrame?.();
     }
     function reconcile(result) {
         const before=official;
@@ -141,16 +141,17 @@ export function mountExhibition(root) {
         if (result.coach_url) find('coach').href = result.coach_url;
         if (!flow) stopped ||= !canContinueExhibitionDrive(official, allowed, driveSide);
     }
-    async function action(callback) { if(busy) return; busy=true; pause(); try { await callback(); } catch(error) {say(error.message);} finally {busy=false;hud();} }
+    async function action(callback) { if(busy || replay?.active) return; busy=true; pause(); try { await callback(); } catch(error) {say(error.message);} finally {busy=false;hud();} }
     async function flowAction(actionName, extra={}) {
-        if (!flowTransport || transport.pending || flowBlocked) return;
+        if (!flowTransport || replay?.active || !inputEnabled() || transport.pending || flowBlocked) return;
         return action(async()=>{
             try {
                 if (actionName) flowTransport.prepare({action:actionName,version:official.version,flow_revision:flow.revision,state_hash:flow.state_hash,...extra});
-                const result=await flowTransport.submit(); reconcile(result);
+                const result=await flowTransport.submit(); if(disposed)return; reconcile(result);
+                if(onCanonical) await onCanonical(result,{kind:actionName || "retry"});
                 say('Game decision saved. ' + flowGuidance());
                 const destination=result.navigation_url || (actionName==='advance' ? result.watch_url : null);
-                if (destination) {
+                if (destination && !sharedHost) {
                     const target=new URL(destination,window.location.origin);
                     if(target.origin===window.location.origin && target.pathname!==window.location.pathname) window.location.assign(target.href);
                 }
@@ -165,8 +166,9 @@ export function mountExhibition(root) {
     buttons.reserve.addEventListener('click',()=>action(async()=>{
         if (flow && (!flow.enabled || flow.phase!=='offense' || flowBlocked || flowTransport?.pending)) return;
         const result = await request(data.startUrl, JSON.stringify({version:official.version,kind:find('kind').value,tempo:find('tempo').value}));
+        if(disposed){if(result.session)transport.reserve(result.session);return;}
         reconcile(result);
-        if (!result.session) {say(noSnapNotice(result.play, stopped)); return;}
+        if (!result.session) {say(noSnapNotice(result.play, stopped)); if(onCanonical) await onCanonical(result,{kind:'no-snap'}); return;}
         transport.reserve(result.session);
         try { setup(result.session); } catch (error) { clearView(); state=null; recovered=true; throw new Error(`Field unavailable: ${error.message}. Cancel the reserved play or reload to recover.`); }
         say('Play reserved with the saved roster. Start when ready. Pausing and replaying do not drain the official clock.');
@@ -174,28 +176,32 @@ export function mountExhibition(root) {
     buttons.start.addEventListener('click',start,options);
     buttons.pause.addEventListener('click',pause,options);
     buttons.cancel.addEventListener('click',()=>action(async()=>{
-        const result = await transport.cancel(); if(result)reconcile(result);
-        clearView(); state=null; recovered=false; say(result?.cancelled ? 'Reserved play cancelled. No play or clock change was committed.' : 'Session reconciled with the saved game. Check the official state before reserving another play.');
+        const result = await transport.cancel(); if(disposed)return; if(result)reconcile(result);
+        clearView(); state=null; recovered=false; if(onCanonical) await onCanonical(result,{kind:'cancel'}); say(result?.cancelled ? 'Reserved play cancelled. No play or clock change was committed.' : 'Session reconciled with the saved game. Check the official state before reserving another play.');
     }),options);
     buttons.submit.addEventListener('click',()=>action(async()=>{
-        const result = await transport.submit(); reconcile(result); recovered=false;
+        const result = await transport.submit(); if(disposed)return; reconcile(result); recovered=false;
         // The HUD now describes the next snap. Do not leave the completed play's
         // old LOS/first-down markers beneath it. Keep its exact recording for Replay.
         clearView(); state=null; aim=null;
+        if(onCanonical) await onCanonical(result,{kind:'submit'});
         say(flow ? 'Recorded play saved. ' + flowGuidance() : stopped ? 'Recorded play saved. This offensive drive has ended or needs a game decision. Continue in Coach.' : 'Recorded play saved. Choose the next play when ready.');
         // Keep exact local recording for replay; the server never supplies a replacement simulation.
     }),options);
-    replay = createReplayPanel(root,{onOpen:pause,onClose(){lastTime=null;stepper.reset();hud();}});
+    replay = createReplayPanel(root,{sharedHost,onOpen:pause,onClose(){lastTime=null;stepper.reset();hud();}});
     buttons.replay.addEventListener('click',()=>{try{replay.open(recording);}catch(error){say(error.message);}},options);
     function frame(time) {
         if(disposed)return; if(!root.isConnected){dispose();return;}
         const delta=lastTime===null?0:(time-lastTime)/1000;lastTime=time;
         if(replay.active){stepper.reset();replay.advance(delta);}else{stepper.advance(delta);view?.render(state,{aim});} hud();
-        frameId=requestAnimationFrame(frame);
+        if(!sharedHost) frameId=requestAnimationFrame(frame);
     }
     function dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(frameId);clearView();replay.dispose();abort.abort();delete root.dataset.mounted;}
     document.addEventListener('livewire:navigating',dispose,options);window.addEventListener('pagehide',dispose,options);
-    hud();frameId=requestAnimationFrame(frame);return dispose;
+    hud();if(!sharedHost) frameId=requestAnimationFrame(frame);
+    Object.assign(dispose,{tick:frame,pause,flowAction,reconcile,openReplay:value=>replay.open(value)});
+    Object.defineProperties(dispose,{busy:{get:()=>busy},hasLive:{get:()=>!!state},pendingFlow:{get:()=>!!flowTransport?.pending},pending:{get:()=>!!transport.pending || !!flowTransport?.pending},replaying:{get:()=>!!replay?.active}});
+    return dispose;
 }
 
-window.addEventListener('pageshow', event => {if(event.persisted) mountExhibition(document.querySelector('[data-arcade-exhibition]'));});
+window.addEventListener('pageshow', event => {if(event.persisted && !document.querySelector('[data-persistent-presentation]')) mountExhibition(document.querySelector('[data-arcade-exhibition]'));});

@@ -53,7 +53,7 @@ export function resultSignalPose(refs, signal, time, direction = 1) {
     applyResultSignal({arms,elbows:arms.map(arm => arm.children.at(-1))},signal,time,direction);
 }
 
-export function buildResultReferee(popup, animation, before, after) {
+export function buildResultReferee(popup, animation, before, after, {inset = true} = {}) {
     const sequence = resultRefereeSequence(animation,before,after);
     const signal = sequence[0];
     if (!popup || !signal) return {update(){},dispose(){}};
@@ -81,7 +81,7 @@ export function buildResultReferee(popup, animation, before, after) {
         update(delta) {
             const shown = !popup.hidden;
             if (!shown) {visible=false;elapsed=0;return;}
-            if (!visible) {visible=true;elapsed=0;if(!refs && !renderer)setup();}
+            if (!visible) {visible=true;elapsed=0;if(inset && !refs && !renderer)setup();}
             elapsed += Math.max(0,Math.min(delta,.1));
             const current = resultSignalAt(sequence,elapsed);
             caption.textContent = labels[current.signal];panel.dataset.resultReferee = current.signal;

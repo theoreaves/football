@@ -32,6 +32,7 @@ class ArcadeExhibitionController extends Controller
         $pending = $selectedPlay === null ? ArcadePlaySession::where('active_slot', $exhibition->id)->where('user_id', $request->user()->id)->where('expires_at', '>', now())->first() : null;
 
         return view('arcade.exhibition', ['exhibition' => $exhibition, 'state' => $selectedPlay !== null ? ($play['after'] ?? $play['before']) : $status['state'], 'available' => $selectedPlay === null && $status['available'],
+            'presentationUrl' => $selectedPlay === null ? route('exhibitions.arcade.presentation', $exhibition) : null,
             'flow' => $status['flow'], 'flowUrl' => route('exhibitions.arcade.flow', $exhibition), 'coachUrl' => $status['coach_url'], 'startUrl' => route('exhibitions.arcade.start', $exhibition),
             'pendingSession' => $pending ? $sessions->publicSession($pending) : null,
             'replayOnly' => $selectedPlay !== null, 'selectedPlay' => $selectedPlay, 'lastRecording' => $lastRecording]);
