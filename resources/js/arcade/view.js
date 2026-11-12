@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildFootballPlayer, animateFootballPlayer } from '../practice/player-model.js';
 import { buildFieldSurface } from '../practice/field-scene.js';
 import { getPassTrajectory } from './passing.js';
+import { getFullTeamPassTrajectory } from './full-team.js';
 
 let nextArcadeViewId=0;
 const ROUTE_COLORS = [0x6ee7ff, 0xb6fa7b, 0xe7adff];
@@ -32,11 +33,27 @@ export function arcadeGroundPoint(camera, rect, clientX, clientY) {
 
 export function arcadePlayerPose(actor, state) {
     const speed = Math.hypot(actor.vx || 0, actor.vz || 0);
-    const tackled = state.status === 'finished' && ['tackle', 'sack'].includes(state.result?.reason);
+    const tackled = state.status === 'finished' && ['tackle', 'sack'].includes(state.result?.reason)
+        && (!state.fullTeam || actor.key === state.controlledKey);
     return { speed, moving: speed > .08 && !tackled,
         heading: Math.PI / 2 - (actor.facing ?? Math.atan2(actor.vz || 0, actor.vx || 1)),
         jukeLean: !tackled && actor.jukeRemaining > 0 ? Math.sign(actor.vz || 1) * .22 : 0,
         tackled };
+}
+
+export function resetArcadePlayerPose(model) {
+    model.userData.holderKneel = false;
+    model.userData.knees?.forEach(knee => knee.rotation.set(0, 0, 0));
+}
+
+// Visual only: engagement and exchange outcomes come from the live state/recording.
+export function applyArcadeInteractionPose(model, pose) {
+    if (!['block', 'handoff'].includes(pose)) return;
+    model.userData.waist.rotation.x = pose === 'block' ? .12 : 0;
+    model.userData.arms?.forEach((arm, index) => {
+        arm.rotation.set(pose === 'block' ? -1.15 : -.85, 0, index === 0 ? -.12 : .12);
+    });
+    model.userData.elbows?.forEach(elbow => elbow.rotation.set(pose === 'block' ? -.42 : -.9, 0, 0));
 }
 
 export function setArcadeDefenderVisibility(models, defenderCount) {
@@ -49,6 +66,7 @@ export function setArcadeDefenderVisibility(models, defenderCount) {
 }
 
 export function arcadeActorEntries(state) {
+    if (state.fullTeam) return (state.actors || state.players || []).map(actor => [actor.key, actor]);
     const offense = state.mode === 'passing' ? [
         ['qb', state.quarterback], ...(state.receivers || []).map((actor, index) => [`receiver:${index}`, actor]),
     ] : [['runner', state.runner]];
@@ -58,9 +76,10 @@ export function arcadeActorEntries(state) {
 
 // Reparent ONE ball rather than leaving a carried copy behind after the throw/catch.
 export function attachArcadeBall(ball, scene, models, state) {
-    const key = state.mode === 'passing' ? state.ball?.holderKey : 'runner';
+    const explicitBall = state.fullTeam || state.mode === 'passing';
+    const key = explicitBall ? state.ball?.holderKey : 'runner';
     // Terminal plays keep holderKey so tackles, touchdowns and interceptions retain possession.
-    const held = state.mode !== 'passing' || (state.ball?.phase !== 'flight' && key != null);
+    const held = !explicitBall || (state.ball?.phase !== 'flight' && key != null);
     const holder = held && models.get(key)?.model;
     models.forEach(({ model }, actorKey) => { model.userData.cradlingBall = Boolean(holder && actorKey === key); });
     if (holder) {
@@ -130,7 +149,7 @@ export function disposeArcadeScene(scene, extraTextures = []) {
 }
 
 // The renderer factory permits lifecycle tests without replacing shared player art.
-export function createArcadeView(host, { appearance = {}, mode = 'running', runner, quarterback, receivers = [], defenders = [], exhibition = null },
+export function createArcadeView(host, { appearance = {}, mode = 'running', runner, quarterback, receivers = [], defenders = [], exhibition = null, fullTeam = false, actors = [], players = [] },
     { rendererFactory = options => new THREE.WebGLRenderer(options), sharedHost = null } = {}) {
     const document = host.ownerDocument,viewIdentity=++nextArcadeViewId;
     const renderer = sharedHost?.renderer ?? rendererFactory({ antialias: true, alpha: false });
@@ -206,7 +225,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     const models = new Map(), routes = new Map();
     const addPlayer = (player, key) => {
         if (!player || models.has(key)) return;
-        const offensive = !key.startsWith('defender:');
+        const offensive = !key.startsWith('defender:') && !key.startsWith('defense_');
         const team = appearance[player.side || (offensive ? 'home' : 'away')] || {};
         const kit = { ...team.uniform, helmet_logo_left: team.helmet_logo_left, helmet_logo_right: team.helmet_logo_right };
         const model = sharedHost ? sharedHost.player(player, kit) : buildFootballPlayer(player, kit, document, textureFor);
@@ -220,11 +239,13 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         models.set(key, { model, ring, phase: 0 });
     };
     // Payloads include both rosters; construct only the current mode's offense.
-    if (mode === 'passing') {
+    if (fullTeam) {
+        (players.length ? players : actors).forEach(player => addPlayer(player, player.key));
+    } else if (mode === 'passing') {
         addPlayer(quarterback, 'qb');
         receivers.forEach((player, index) => addPlayer(player, `receiver:${index}`));
     } else addPlayer(runner, 'runner');
-    defenders.forEach((player, index) => addPlayer(player, `defender:${index}`));
+    if (!fullTeam) defenders.forEach((player, index) => addPlayer(player, `defender:${index}`));
     const ball = sharedHost?.ball ?? new THREE.Mesh(new THREE.SphereGeometry(.25, 12, 8), new THREE.MeshStandardMaterial({ color: 0x9d5829, roughness: .9 }));
     ball.name = 'arcade-football'; ball.scale.set(.85, 1.6, .85); ball.castShadow = true; ball.visible = false;
     (sharedHost?.scene ?? scene).add(ball);
@@ -255,7 +276,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     function updateRoutes(state) {
         routes.forEach(({ line, endpoint, label }) => { line.visible = false; endpoint.visible = false; label.visible = false; });
         if (state.mode !== 'passing') return;
-        const showRoutes = state.ball?.phase === 'held' && state.ball?.holderKey === 'qb' && state.status !== 'finished';
+        const showRoutes = state.ball?.phase === 'held' && state.ball?.holderKey === (state.fullTeam ? 'offense_QB' : 'qb') && state.status !== 'finished';
         (state.receivers || []).forEach((actor, index) => {
             const entry = routeFor(index), points = arcadeRoutePoints(actor);
             const signature = points.map(point => `${point.x},${point.z}`).join(';');
@@ -282,7 +303,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     }
 
     function updateAim(state) {
-        const points = aim && state.mode === 'passing' ? getPassTrajectory(state, aim, { samples: 32 }) : [];
+        const points = aim && state.mode === 'passing' ? (state.fullTeam ? getFullTeamPassTrajectory : getPassTrajectory)(state, aim, { samples: 32 }) : [];
         updatePath(trajectory, points);
         landingRing.visible = trajectory.visible;
         if (points.length) { const end = points.at(-1); landingRing.position.set(end.x, .17, end.z); }
@@ -325,7 +346,9 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
             models.forEach(entry => { entry.phase = 0; });
             throwStartedAt = null; lastBallPhase = null;
         }
-        if (Number.isFinite(state.ball?.flight?.startedAt)) throwStartedAt = state.ball.flight.startedAt;
+        const recordedThrow = state.fullTeam ? state.events?.findLast(event => event.type === 'throw') : null;
+        if (recordedThrow) throwStartedAt = recordedThrow.time;
+        else if (Number.isFinite(state.ball?.flight?.startedAt)) throwStartedAt = state.ball.flight.startedAt;
         else if (state.ball?.phase === 'flight' && lastBallPhase !== 'flight') throwStartedAt = state.elapsed;
         sharedHost?.hidePlayers();
         const entries = arcadeActorEntries(state), activeKeys = new Set(entries.map(([key]) => key));
@@ -333,9 +356,10 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         sharedHost?.sideline?.update(new Set(entries.map(([,actor])=>`${actor.side}:${actor.id ?? actor.role}`)));
         models.forEach(({ model, ring }, key) => { model.visible = activeKeys.has(key); ring.visible = model.visible; });
         const holderKey = attachArcadeBall(ball, sharedHost?.scene ?? scene, models, state);
-        const controlledKey = state.mode === 'passing' ? state.controlledKey : 'runner';
+        const controlledKey = state.fullTeam || state.mode === 'passing' ? state.controlledKey : 'runner';
         entries.forEach(([key, actor], index) => {
             const entry = models.get(key), { model, ring } = entry, pose = arcadePlayerPose(actor, state);
+            resetArcadePlayerPose(model);
             model.position.set(actor.x, 0, actor.z);
             model.rotation.set(0, pose.heading, 0);
             model.userData.waist.rotation.set(0, 0, 0);
@@ -344,7 +368,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
             model.userData.elbows?.forEach(elbow => { elbow.rotation.y = 0; elbow.rotation.z = 0; });
             if (state.status === 'running') entry.phase += delta * pose.speed / 7;
             const throwAge = throwStartedAt === null ? Infinity : state.elapsed - throwStartedAt;
-            const throwing = key === 'qb' && throwAge >= 0 && throwAge < .3 ? 2.2 + throwAge / .3 * .7 : null;
+            const throwing = key === (state.fullTeam ? 'offense_QB' : 'qb') && throwAge >= 0 && throwAge < .3 ? 2.2 + throwAge / .3 * .7 : null;
             animateFootballPlayer(model, pose.moving, entry.phase, index, throwing);
             // Apply a lateral waist cut AFTER gait: a juke never triggers shared tackle poses.
             model.userData.waist.rotation.z = pose.jukeLean;
@@ -352,7 +376,9 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
                 model.rotation.z = -1.15; model.position.y = .5;
                 animateFootballPlayer(model, false, entry.phase, index);
             }
+            if (state.fullTeam && !pose.tackled) applyArcadeInteractionPose(model, actor.handoffRemaining > 0 ? 'handoff' : (actor.blockingKey || actor.blockedBy) ? 'block' : null);
             const receiverIndex = key.startsWith('receiver:') ? Number(key.split(':')[1]) : -1;
+            ring.visible = !state.fullTeam || key === controlledKey || key === holderKey;
             ring.material.color.setHex(key === controlledKey ? 0xffda6a : receiverIndex >= 0 ? ROUTE_COLORS[receiverIndex % ROUTE_COLORS.length] : key === 'qb' ? 0x6ee7ff : 0xff867d);
             ring.scale.setScalar(key === controlledKey ? 1 : .85);
             ring.position.set(actor.x, .11, actor.z);

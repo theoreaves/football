@@ -19,16 +19,23 @@ export function createExhibitionTransport({storage, key, request, startUrl, orig
             } catch { return false; }
         });
     };
-    const recordingValid = value => object(value) && value.version === 1 && Array.isArray(value.frames)
+    const recordingValid = (value, session) => object(value)
+        && ((value.version === 1 && session.setup.fullTeam !== true) || (value.version === 2 && value.fullTeam === true
+            && value.contractVersion === 'live-recording-2' && value.catalogVersion === 'arcade-fullteam-1'
+            && session.envelope.contract_version === 'live-recording-2'
+            && session.setup.fullTeam === true && session.setup.contractVersion === 'live-recording-2'
+            && value.call === session.setup.call && Array.isArray(value.actors) && value.actors.length === 22))
+        && Array.isArray(value.frames)
         && Array.isArray(value.actors) && Array.isArray(value.events) && object(value.result)
         && typeof value.result.reason === 'string' && value.result.reason !== 'timeout';
     const pendingValid = value => {
         if (!object(value) || !sessionValid(value.session)) return false;
         if (value.body === null) return true;
-        if (typeof value.body !== 'string' || value.body.length > 2 * 1024 * 1024) return false;
+        const bodyLimit = value.session.envelope.contract_version === 'live-recording-2' ? 4 * 1024 * 1024 : 2 * 1024 * 1024;
+        if (typeof value.body !== 'string' || value.body.length > bodyLimit || new TextEncoder().encode(value.body).length > bodyLimit) return false;
         try {
             const body = JSON.parse(value.body);
-            return object(body) && recordingValid(body.recording) && JSON.stringify(body.envelope) === JSON.stringify(value.session.envelope);
+            return object(body) && recordingValid(body.recording, value.session) && JSON.stringify(body.envelope) === JSON.stringify(value.session.envelope);
         } catch { return false; }
     };
     const remove = () => { try { storage?.removeItem(key); } catch { warn(); } };

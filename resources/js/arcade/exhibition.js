@@ -1,3 +1,5 @@
+import {createFullTeamPlay,stepFullTeamPlay} from './full-team.js';
+import {exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from './exhibition-play-selection.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from './exhibition-flow.js';
 import {createDrill, startDrill, pauseDrill, stepDrill, STEP_SECONDS} from './simulation.js';
 import {createPassingDrill, stepPassingDrill} from './passing.js';
@@ -47,7 +49,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (flow.required_decision || (flow.phase === 'special' && !flow.can_advance)) return 'A football decision is required. Continue in Coach to choose, then return to Arcade.';
         if (flow.phase === 'special') return 'Opponent special teams play. Watch the next simulated play or Fast Sim to your next decision.';
         if (flow.phase === 'defense') return flow.defense_mode === 'coach' ? 'Opponent possession. Continue in Coach to call your defense.' : 'Opponent possession. Watch the next simulated play or Fast Sim to your next decision.';
-        return 'Choose Run or Pass, then Reserve play to load the field.';
+        return 'Choose one of five plays, then Reserve play to load the field.';
     }
     function flowHud() {
         if (!flow || !find('preferences')) return;
@@ -83,14 +85,14 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!empty.hidden) empty.textContent = recovered
             ? (transport.pending?.body ? 'Your recorded play is recovered. Submit / retry same result, or review its replay.' : 'A reserved play was recovered. Choose Cancel reserved play before reserving a new play.')
             : flow ? flowGuidance() : stopped || !allowed ? 'This drive needs a Coach decision. Choose Continue in Coach.' + (recording ? ' You can still replay the recorded play.' : '')
-            : 'Choose Run or Pass, then Reserve play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
+            : 'Choose one of five plays, then Reserve play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
         const snapshot = transport.pending?.session.prepared_state || official;
         const clock = Number(snapshot.clock || 0);
         find('score').textContent = `Home ${snapshot.home_score ?? 0} · Away ${snapshot.away_score ?? 0}`;
         find('state').textContent = `Q${snapshot.quarter} · ${Math.floor(clock/60)}:${String(Math.floor(clock%60)).padStart(2,'0')} · Down ${snapshot.down} & ${snapshot.distance} · Ball ${snapshot.spot}`;
         if (flow) find('state').textContent=exhibitionStateLabel(snapshot);
-        find('live').textContent = state ? `${state.runner.name || 'Ball carrier'} · ${((state.runner.x-state.startX)*state.direction).toFixed(1)} yards · ${state.elapsed.toFixed(1)}s live` : '';
-        buttons.reserve.disabled = !!replay?.active || !inputEnabled() || busy || !!transport.pending || !allowed || stopped;
+        find('live').textContent = exhibitionLiveLabel(state);
+        buttons.reserve.disabled = !!replay?.active || !inputEnabled() || sharedHost?.staging || sharedHost?.cameraDirector.transitioning || busy || !!transport.pending || !allowed || stopped;
         buttons.start.disabled = !inputEnabled() || sharedHost?.cameraDirector.transitioning || sharedHost?.staging || busy || recovered || !state || !['ready','paused'].includes(state.status) || replay?.active;
         buttons.start.textContent = state?.status === 'paused' ? 'Resume play' : 'Start play';
         buttons.pause.disabled = state?.status !== 'running' || busy;
@@ -103,7 +105,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     }
     const stepper = createFixedStepper(() => {
         if (!state || state.status !== 'running' || replay?.active) return;
-        (state.mode === 'passing' ? stepPassingDrill : stepDrill)(state, input.sample());
+        (state.fullTeam ? stepFullTeamPlay : state.mode === 'passing' ? stepPassingDrill : stepDrill)(state, input.sample());
         recorder.capture(state);
         if (state.status === 'finished' && !completed) {
             completed = true; input.clear(); recording = recorder.export();
@@ -118,17 +120,17 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     function start() {
         if (!inputEnabled() || sharedHost?.cameraDirector.transitioning || sharedHost?.staging || busy || recovered || replay?.active || !state || !['ready','paused'].includes(state.status)) return;
         startDrill(state); stepper.reset(); lastTime=null; host.focus({preventScroll:true});
-        say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone.${state.mode === 'passing' ? ' Click a target to pass, or hold and drag to aim. Stay behind the cyan line to throw. After a catch, run with the receiver.' : ''}`); hud();
+        say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone. ${exhibitionControlHint(state)}${state.mode === 'passing' ? ' Click a target to pass, or hold and drag to aim. Stay behind the cyan line to throw. After a catch, run with the receiver.' : ''}`); hud();
     }
     function clearView() { input?.dispose(); observer?.disconnect(); view?.dispose(); input=null; view=null; }
     function setup(session) {
         clearView(); recovered = false; completed = false; aim = null;
         const config = session.setup;
-        state = config.mode === 'passing' ? createPassingDrill(config) : createDrill(config);
+        state = config.fullTeam ? createFullTeamPlay(config) : config.mode === 'passing' ? createPassingDrill(config) : createDrill(config);
         recorder = createDrillRecording(state, {appearance:config.appearance});
         view = createArcadeView(host, config, {sharedHost});
         input = createArcadeInput(root, host, {start,pause,retry:pause, enabled:()=>inputEnabled() && !sharedHost?.cameraDirector.transitioning && !sharedHost?.staging && !replay?.active && !busy,
-            canPass:()=>state.mode==='passing' && state.status==='running' && state.ball.phase==='held' && state.ball.holderKey==='qb',
+            canPass:()=>exhibitionCanPass(state),
             aimAt:(x,y)=>view.groundPoint(x,y),onAim:point=>{aim=point;}});
         if(!sharedHost) { observer = new ResizeObserver(()=>view.resize()); observer.observe(host); } view.render(state); sharedHost?.stageNextFrame?.();
     }
@@ -166,14 +168,15 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         find('retry-flow')?.addEventListener('click',()=>flowAction(null),options);
     }
     buttons.reserve.addEventListener('click',()=>action(async()=>{
+        if (!inputEnabled() || sharedHost?.staging || sharedHost?.cameraDirector.transitioning || transport.pending || !allowed || stopped) return;
         if (flow && (!flow.enabled || flow.phase!=='offense' || flowBlocked || flowTransport?.pending)) return;
-        const result = await request(data.startUrl, JSON.stringify({version:official.version,kind:find('kind').value,tempo:find('tempo').value}));
+        const result = await request(data.startUrl, JSON.stringify(exhibitionReservation({version:official.version,call:find('kind').value,tempo:find('tempo').value})));
         if(disposed){if(result.session)transport.reserve(result.session);return;}
         reconcile(result);
         if (!result.session) {say(noSnapNotice(result.play, stopped)); if(onCanonical) await onCanonical(result,{kind:'no-snap'}); return;}
         transport.reserve(result.session);
         try { setup(result.session); } catch (error) { clearView(); state=null; recovered=true; throw new Error(`Field unavailable: ${error.message}. Cancel the reserved play or reload to recover.`); }
-        say('Play reserved with the saved roster. Start when ready. Pausing and replaying do not drain the official clock.');
+        say('Play reserved with the saved roster. Start when ready. '+exhibitionControlHint(state)+' Pausing and replaying do not drain the official clock.');
     }),options);
     buttons.start.addEventListener('click',start,options);
     buttons.pause.addEventListener('click',pause,options);

@@ -136,3 +136,27 @@ test('no-snap warning and quarter advance preserve same offensive drive, but hal
         assert.equal(stopped,true);assert.match(noSnapNotice({summary:'Phase changed.'},stopped),/Continue in Coach/);
     }
 });
+
+test('v2 full-team recovery preserves exact recording and call without reserving or regenerating',async()=>{
+ const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)};
+ const sent=[],args={...transportContext,storage,key:'v2',request:async(url,body)=>{sent.push([url,body]);return {accepted:true};}};
+ const s=session();s.envelope.contract_version='live-recording-2';s.setup={fullTeam:true,contractVersion:'live-recording-2',call:'outside_run'};
+ const recording={...evidence(),version:2,fullTeam:true,contractVersion:'live-recording-2',catalogVersion:'arcade-fullteam-1',call:'outside_run',actors:Array.from({length:22},(_,id)=>({id}))};
+ const first=createExhibitionTransport(args);first.reserve(s);const body=first.prepare(recording);
+ const recovered=createExhibitionTransport(args);assert.equal(sent.length,0);assert.equal(recovered.pending.body,body);
+ assert.equal(recovered.prepare({...recording,call:'inside_run'}),body);await recovered.submit();assert.equal(sent[0][1],body);
+ const other=createExhibitionTransport(args);other.reserve(s);other.prepare({...recording,call:'inside_run'});
+ assert.equal(createExhibitionTransport(args).pending,null,'mismatched stored call is not replayed');
+});
+
+
+test('v2 recovery reserves bounded request space for envelope overhead and rejects UTF8 overflow',()=>{
+ const s=session();s.envelope.contract_version='live-recording-2';s.setup={fullTeam:true,contractVersion:'live-recording-2',call:'inside_run'};
+ const recording={...evidence(),version:2,fullTeam:true,contractVersion:'live-recording-2',catalogVersion:'arcade-fullteam-1',call:'inside_run',actors:Array.from({length:22},(_,id)=>({id})),padding:''};
+ recording.padding='x'.repeat(2*1024*1024-JSON.stringify(recording).length);
+ const body=JSON.stringify({envelope:s.envelope,recording});assert.ok(body.length>2*1024*1024);
+ const recover=value=>{const raw=JSON.stringify({session:s,body:value});return createExhibitionTransport({...transportContext,key:'budget',request:async()=>{},storage:{getItem:()=>raw,setItem(){},removeItem(){}}});};
+ assert.equal(recover(body).pending.body,body,'recording bound excludes its envelope');
+ const oversized=JSON.stringify({envelope:s.envelope,recording:{...recording,padding:'é'.repeat(2200000)}});
+ assert.ok(oversized.length<4*1024*1024);assert.equal(recover(oversized).pending,null,'request budget is bytes, not JS characters');
+});

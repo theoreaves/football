@@ -1,0 +1,1901 @@
+{
+  "description": "Stage B single-snap implementation QA. Exploratory, not a balance baseline or acceptance threshold.",
+  "scope": "Five calls, both attacking directions, three fixed seeds. No complete games, season integration, defensive UI or Stage C work.",
+  "command": "FULLTEAM_BENCHMARK_REPORT=1 FULLTEAM_SAVED_ROSTER_FIXTURE=/path/to/approved-export.json php artisan test --compact tests/Unit/FullTeamBenchmarkTest.php",
+  "inputPolicy": "Visible-state route-leading reads with short outlets, deadline/pressure fallback, then forward YAC/run steering toward visible gaps. No future state, hidden throw target, RNG inspection, Coach resolution or speculative candidate replay.",
+  "rosters": "Synthetic equal-70 snapshots through production GamePersonnel/FullTeamSetup, plus an optional approved read-only saved-roster export. Saved-roster names, appearances, source IDs and raw snapshots are not copied into this report.",
+  "interventions": "Four isolated one-field changes: home LG blocking, QB throwing, WR1 catching, or away LB2 tackling, from 70 to 90. No speed changes or balance tuning.",
+  "limitations": [
+    "Scripted inputs are not human decisions. Thirty baseline samples include mirrored pairs, not thirty independent games.",
+    "YAC uses actual catch contact to terminal runner position, so a behind-line outlet can have YAC greater than net gain.",
+    "Block hold durations ending at dead ball are right-censored, not proven sheds.",
+    "Headless JavaScript simulation timings include policy decision cost; exclude browser rendering, networking and Node startup. Capture/serialization and PHP derive are separate measurements.",
+    "Wall timings are observations on one Mac and vary with JIT/system scheduling; no FPS or production performance guarantee.",
+    "PHP checks validate bounded evidence and finalization, not anti-cheat proof. HTTP persistence/concurrency are covered separately."
+  ],
+  "snapCount": 180,
+  "speedScale": 0.925,
+  "verification": {
+    "passedTests": 16,
+    "assertions": 594,
+    "allScenarioRecordingsAcceptedByPhp": true
+  },
+  "groups": {
+    "baseline": {
+      "deep_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 49.85258562996193,
+          "median": 49.85258562996193,
+          "max": 49.85258562996193
+        },
+        "liveSeconds": {
+          "min": 2.399016387304486,
+          "median": 2.4031311917478555,
+          "max": 8.563900961365352
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 10
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 9
+        },
+        "blockContactDistanceYards": {
+          "min": 0.30016662039607267,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5661579699750847,
+          "median": 1.5661579699751629,
+          "max": 1.566157969975241
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.6736201939207251,
+          "median": 1.6736201939207251,
+          "max": 1.6736201939207251
+        },
+        "selectedReceiverRoles": {
+          "offense_WR1": 6
+        },
+        "blockHoldSeconds": {
+          "min": 1.3156830539711526,
+          "median": 2.169797858414522,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 22
+      },
+      "inside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": 2.9699626405103956,
+          "median": 3.4567858624527688,
+          "max": 3.456785862452989
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.714335130493415,
+          "median": 1.777595238779521,
+          "max": 1.7775952387795477
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0438869670610895,
+          "median": 1.0460871543754056,
+          "max": 1.0555093557141026
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.9143351304934149,
+          "median": 1.412631851303148,
+          "max": 1.5609285721128812
+        },
+        "censoredBlockHolds": 48
+      },
+      "medium_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 53.73302916132824,
+          "median": 53.73302916132824,
+          "max": 53.73302916132824
+        },
+        "liveSeconds": {
+          "min": 1.8859664193320949,
+          "median": 1.8883932237799086,
+          "max": 8.476106613850675
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 8
+        },
+        "blockContactDistanceYards": {
+          "min": 0.7083078426785913,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5673446885375848,
+          "median": 1.5673446885375881,
+          "max": 1.5673446885375917
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.140186828746581,
+          "median": 1.1401868287466663,
+          "max": 1.1401868287467518
+        },
+        "selectedReceiverRoles": {
+          "offense_WR2": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.8026330859987616,
+          "median": 1.6550598904465752,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 20
+      },
+      "outside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": -0.7861461636366158,
+          "median": -0.33846928853436964,
+          "max": -0.33846928853436964
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.3495044376705196,
+          "median": 1.4162362559788977,
+          "max": 1.4162362559789066
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 7,
+          "median": 7.0,
+          "max": 7
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.042928568982555,
+          "median": 1.0480458005259121,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.7495044376705197,
+          "median": 1.0995044376705208,
+          "max": 1.1995695893122398
+        },
+        "censoredBlockHolds": 42
+      },
+      "short_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 68.35053607793532,
+          "median": 68.39444483105014,
+          "max": 68.43835358416496
+        },
+        "liveSeconds": {
+          "min": 0.9407041005000494,
+          "median": 9.622677644777273,
+          "max": 9.632909260930441
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 14.0,
+          "max": 15
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 13.0,
+          "max": 14
+        },
+        "blockContactDistanceYards": {
+          "min": 0.70178344238091,
+          "median": 1.0492378186092988,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.746043868247734,
+          "median": 4.746043868247741,
+          "max": 4.746043868247748
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.184182618685347,
+          "median": 4.193422076959424,
+          "max": 4.202661535233511
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.057370767166716075,
+          "median": 2.283333333333333,
+          "max": 2.283333333333333
+        },
+        "censoredBlockHolds": 14
+      }
+    },
+    "lb2_tackling_90": {
+      "deep_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 49.85258562996193,
+          "median": 49.85258562996193,
+          "max": 49.85258562996193
+        },
+        "liveSeconds": {
+          "min": 2.399016387304486,
+          "median": 2.4031311917478555,
+          "max": 8.563900961365352
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 10
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 9
+        },
+        "blockContactDistanceYards": {
+          "min": 0.30016662039607267,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5661579699750847,
+          "median": 1.5661579699751629,
+          "max": 1.566157969975241
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.6736201939207251,
+          "median": 1.6736201939207251,
+          "max": 1.6736201939207251
+        },
+        "selectedReceiverRoles": {
+          "offense_WR1": 6
+        },
+        "blockHoldSeconds": {
+          "min": 1.3156830539711526,
+          "median": 2.169797858414522,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 22
+      },
+      "inside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": 2.9699626405103956,
+          "median": 3.4567858624527688,
+          "max": 3.456785862452989
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.714335130493415,
+          "median": 1.777595238779521,
+          "max": 1.7775952387795477
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0438869670610895,
+          "median": 1.0460871543754056,
+          "max": 1.0555093557141026
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.9143351304934149,
+          "median": 1.412631851303148,
+          "max": 1.5609285721128812
+        },
+        "censoredBlockHolds": 48
+      },
+      "medium_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 53.73302916132824,
+          "median": 53.73302916132824,
+          "max": 53.73302916132824
+        },
+        "liveSeconds": {
+          "min": 1.8859664193320949,
+          "median": 1.8883932237799086,
+          "max": 8.476106613850675
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 8
+        },
+        "blockContactDistanceYards": {
+          "min": 0.7083078426785913,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5673446885375848,
+          "median": 1.5673446885375881,
+          "max": 1.5673446885375917
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.140186828746581,
+          "median": 1.1401868287466663,
+          "max": 1.1401868287467518
+        },
+        "selectedReceiverRoles": {
+          "offense_WR2": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.8026330859987616,
+          "median": 1.6550598904465752,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 20
+      },
+      "outside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": -0.7861461636366158,
+          "median": -0.33846928853436964,
+          "max": -0.33846928853436964
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.3495044376705196,
+          "median": 1.4162362559788977,
+          "max": 1.4162362559789066
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 7,
+          "median": 7.0,
+          "max": 7
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.042928568982555,
+          "median": 1.0480458005259121,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.7495044376705197,
+          "median": 1.0995044376705208,
+          "max": 1.1995695893122398
+        },
+        "censoredBlockHolds": 42
+      },
+      "short_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 68.35053607793532,
+          "median": 68.39444483105014,
+          "max": 68.43835358416496
+        },
+        "liveSeconds": {
+          "min": 0.9407041005000494,
+          "median": 9.622677644777273,
+          "max": 9.632909260930441
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 14.0,
+          "max": 15
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 13.0,
+          "max": 14
+        },
+        "blockContactDistanceYards": {
+          "min": 0.70178344238091,
+          "median": 1.0492378186092988,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.746043868247734,
+          "median": 4.746043868247741,
+          "max": 4.746043868247748
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.184182618685347,
+          "median": 4.193422076959424,
+          "max": 4.202661535233511
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.057370767166716075,
+          "median": 2.283333333333333,
+          "max": 2.283333333333333
+        },
+        "censoredBlockHolds": 14
+      }
+    },
+    "lg_blocking_90": {
+      "deep_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 49.85258562996193,
+          "median": 49.85258562996193,
+          "max": 49.85258562996193
+        },
+        "liveSeconds": {
+          "min": 2.399016387304486,
+          "median": 2.4031311917478555,
+          "max": 8.563900961365352
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 12
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 10
+        },
+        "blockContactDistanceYards": {
+          "min": 0.30016662039607267,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5661579699750847,
+          "median": 1.5661579699751629,
+          "max": 1.566157969975241
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.6736201939207251,
+          "median": 1.6736201939207251,
+          "max": 1.6736201939207251
+        },
+        "selectedReceiverRoles": {
+          "offense_WR1": 6
+        },
+        "blockHoldSeconds": {
+          "min": 1.080567628031944,
+          "median": 2.208516076556567,
+          "max": 3.1333333333333333
+        },
+        "censoredBlockHolds": 24
+      },
+      "inside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 2,
+          "touchdown": 4
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": 2.960225536934672,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.7133283256897773,
+          "median": 9.554296636297813,
+          "max": 9.554296636297881
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 18.0,
+          "max": 18
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 16.0,
+          "max": 16
+        },
+        "blockContactDistanceYards": {
+          "min": 0.9674709297958259,
+          "median": 1.0469956322932843,
+          "max": 1.0555093557141026
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.9133283256897773,
+          "median": 2.283333333333333,
+          "max": 3.1333333333333333
+        },
+        "censoredBlockHolds": 24
+      },
+      "medium_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 53.73302916132824,
+          "median": 53.73302916132824,
+          "max": 53.73302916132824
+        },
+        "liveSeconds": {
+          "min": 1.8859664193320949,
+          "median": 1.8883932237799086,
+          "max": 8.476106613850675
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 7
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0423531071570706,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5673446885375848,
+          "median": 1.5673446885375881,
+          "max": 1.5673446885375917
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.140186828746581,
+          "median": 1.1401868287466663,
+          "max": 1.1401868287467518
+        },
+        "selectedReceiverRoles": {
+          "offense_WR2": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.8026330859987616,
+          "median": 1.6550598904465752,
+          "max": 3.1333333333333333
+        },
+        "censoredBlockHolds": 22
+      },
+      "outside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": -0.7861461636366158,
+          "median": -0.29129959062599653,
+          "max": -0.2912995906259397
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.3495044376705196,
+          "median": 1.4232674873994795,
+          "max": 1.42326748739948
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 7,
+          "median": 7.0,
+          "max": 7
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.042928568982555,
+          "median": 1.0480458005259121,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.7495044376705197,
+          "median": 1.0995044376705208,
+          "max": 1.2066008207328132
+        },
+        "censoredBlockHolds": 42
+      },
+      "short_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 68.35053607793532,
+          "median": 68.39444483105014,
+          "max": 68.43835358416496
+        },
+        "liveSeconds": {
+          "min": 0.9407041005000494,
+          "median": 9.622677644777273,
+          "max": 9.632909260930441
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 16.0,
+          "max": 17
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 15.0,
+          "max": 15
+        },
+        "blockContactDistanceYards": {
+          "min": 0.70178344238091,
+          "median": 1.0492378186092988,
+          "max": 1.0565036677645752
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.746043868247734,
+          "median": 4.746043868247741,
+          "max": 4.746043868247748
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.184182618685347,
+          "median": 4.193422076959424,
+          "max": 4.202661535233511
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.057370767166716075,
+          "median": 2.283333333333333,
+          "max": 3.1333333333333333
+        },
+        "censoredBlockHolds": 16
+      }
+    },
+    "qb_throwing_90": {
+      "deep_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 50.03278818905546,
+          "median": 50.032788189055466,
+          "max": 50.032788189055466
+        },
+        "liveSeconds": {
+          "min": 2.3168781014173154,
+          "median": 2.319237286560284,
+          "max": 8.598470165522723
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 11
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 8
+        },
+        "blockContactDistanceYards": {
+          "min": 0.9538343671728335,
+          "median": 1.0492378186092988,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5661579699750836,
+          "median": 1.5661579699751618,
+          "max": 1.56615796997524
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.1941608320708537,
+          "median": 1.1941608320708752,
+          "max": 1.1941608320708967
+        },
+        "selectedReceiverRoles": {
+          "offense_WR2": 6
+        },
+        "blockHoldSeconds": {
+          "min": 1.2335447680839822,
+          "median": 2.0835447680839825,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 26
+      },
+      "inside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": 2.9699626405103956,
+          "median": 3.4567858624527688,
+          "max": 3.456785862452989
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.714335130493415,
+          "median": 1.777595238779521,
+          "max": 1.7775952387795477
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0438869670610895,
+          "median": 1.0460871543754056,
+          "max": 1.0555093557141026
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.9143351304934149,
+          "median": 1.412631851303148,
+          "max": 1.5609285721128812
+        },
+        "censoredBlockHolds": 48
+      },
+      "medium_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 7.756407480787406,
+          "max": 7.766316585817407
+        },
+        "yardsAfterCatch": {
+          "min": 9.354489634742102,
+          "median": 9.369639044133887,
+          "max": 9.384788453525701
+        },
+        "liveSeconds": {
+          "min": 1.383586828362207,
+          "median": 2.646755906051607,
+          "max": 2.6485720355312075
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 4.0,
+          "max": 4
+        },
+        "blockContactDistanceYards": {
+          "min": 0.49678969393496886,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.453454772483818,
+          "median": 4.453454772483823,
+          "max": 4.453454772483828
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.550364547306795,
+          "median": 4.551067048748297,
+          "max": 4.551769550189805
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.1300892393849371,
+          "median": 1.231905368864537,
+          "max": 2.283333333333333
+        },
+        "censoredBlockHolds": 26
+      },
+      "outside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": -0.7861461636366158,
+          "median": -0.33846928853436964,
+          "max": -0.33846928853436964
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.3495044376705196,
+          "median": 1.4162362559788977,
+          "max": 1.4162362559789066
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 7,
+          "median": 7.0,
+          "max": 7
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.042928568982555,
+          "median": 1.0480458005259121,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.7495044376705197,
+          "median": 1.0995044376705208,
+          "max": 1.1995695893122398
+        },
+        "censoredBlockHolds": 42
+      },
+      "short_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 68.34110081177961,
+          "median": 68.35584638846947,
+          "max": 68.37059196515935
+        },
+        "liveSeconds": {
+          "min": 0.9418583797768559,
+          "median": 9.622944552573742,
+          "max": 9.624756227880319
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 14.0,
+          "max": 14
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 13.0,
+          "max": 13
+        },
+        "blockContactDistanceYards": {
+          "min": 0.70178344238091,
+          "median": 1.0504284840006959,
+          "max": 1.0565036677645752
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.746043868247734,
+          "median": 4.746043868247741,
+          "max": 4.746043868247748
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.181822098150423,
+          "median": 4.185040961837141,
+          "max": 4.188259825523857
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.05852504644352263,
+          "median": 2.283333333333333,
+          "max": 2.283333333333333
+        },
+        "censoredBlockHolds": 14
+      }
+    },
+    "saved_roster": {
+      "deep_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 6
+        },
+        "passesAttempted": 6,
+        "completions": 6,
+        "gainYards": {
+          "min": 65,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 48.51407369145292,
+          "median": 48.62647799539478,
+          "max": 48.866375297668895
+        },
+        "liveSeconds": {
+          "min": 8.086102110393046,
+          "median": 8.086102110393249,
+          "max": 8.089838952695995
+        },
+        "firstBlockSeconds": {
+          "min": 0.25,
+          "median": 0.25,
+          "max": 0.25
+        },
+        "blockContacts": {
+          "min": 9,
+          "median": 9.0,
+          "max": 9
+        },
+        "blockSheds": {
+          "min": 8,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockContactDistanceYards": {
+          "min": 0.8635392289873113,
+          "median": 1.0473776778220931,
+          "max": 1.0547511554864493
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 3.9710425227509867,
+          "median": 3.9710425227512203,
+          "max": 3.971042522751454
+        },
+        "catchReceiverSeparationYards": {
+          "min": 3.160777944949483,
+          "median": 3.162291579178259,
+          "max": 3.165310429033964
+        },
+        "selectedReceiverRoles": {
+          "offense_WR1": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.7027687770597133,
+          "median": 2.283333333333333,
+          "max": 3.716666666666667
+        },
+        "censoredBlockHolds": 6
+      },
+      "inside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": 3.231771464385318,
+          "median": 3.544544525128984,
+          "max": 65
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.7339836269759832,
+          "median": 1.7730671011203025,
+          "max": 9.316152169415416
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 8.0,
+          "max": 13
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 13
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0438869670610895,
+          "median": 1.050761628534274,
+          "max": 1.0554619841567008
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.9339836269759831,
+          "median": 1.5064004344536368,
+          "max": 4.25
+        },
+        "censoredBlockHolds": 32
+      },
+      "medium_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "tackle": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 8.0767734332764
+        },
+        "yardsAfterCatch": {
+          "min": 9.655391301036502,
+          "median": 9.655391301036524,
+          "max": 9.655391301036545
+        },
+        "liveSeconds": {
+          "min": 1.383959068227487,
+          "median": 1.3860879173793155,
+          "max": 2.657999426001249
+        },
+        "firstBlockSeconds": {
+          "min": 0.25,
+          "median": 0.25,
+          "max": 0.25
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 2
+        },
+        "blockContactDistanceYards": {
+          "min": 0.44102154142399896,
+          "median": 1.048307748215696,
+          "max": 1.0538500842150178
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.640910664755018,
+          "median": 4.640910664755134,
+          "max": 4.64091066475525
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.805484671760777,
+          "median": 4.80548467176089,
+          "max": 4.805484671761004
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.007999426001246146,
+          "median": 1.1339590682274872,
+          "max": 2.407999426001249
+        },
+        "censoredBlockHolds": 32
+      },
+      "outside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": -0.38666748326197364,
+          "median": -0.386667483261963,
+          "max": -0.3866674832619523
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.4086826336642868,
+          "median": 1.4086826336642915,
+          "max": 1.4086826336642964
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0421612159354232,
+          "median": 1.0477115141881521,
+          "max": 1.0560303025955269
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.008682633664286898,
+          "median": 1.0253493003309582,
+          "max": 1.175349300330963
+        },
+        "censoredBlockHolds": 48
+      },
+      "short_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 68.31275263966221,
+          "median": 68.31275263966221,
+          "max": 68.31275263966221
+        },
+        "liveSeconds": {
+          "min": 0.9444131842310053,
+          "median": 0.9450168997908572,
+          "max": 9.375755617062756
+        },
+        "firstBlockSeconds": {
+          "min": 0.25,
+          "median": 0.25,
+          "max": 0.25
+        },
+        "blockContacts": {
+          "min": 4,
+          "median": 4.0,
+          "max": 15
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 12
+        },
+        "blockContactDistanceYards": {
+          "min": 0.5047771785649585,
+          "median": 1.0492378186092988,
+          "max": 1.0538500842150178
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.797189856376162,
+          "median": 4.797189856376249,
+          "max": 4.7971898563763355
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.356284776452825,
+          "median": 4.35628477645295,
+          "max": 4.356284776453076
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.661079850897672,
+          "median": 1.5166666666666666,
+          "max": 4.25
+        },
+        "censoredBlockHolds": 22
+      }
+    },
+    "wr1_catching_90": {
+      "deep_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 49.49308646991557,
+          "median": 49.71462378022362,
+          "max": 49.93616109053167
+        },
+        "liveSeconds": {
+          "min": 2.395024506642083,
+          "median": 8.558113059067358,
+          "max": 8.563900961365352
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 10.0,
+          "max": 10
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 9.0,
+          "max": 9
+        },
+        "blockContactDistanceYards": {
+          "min": 0.30016662039607267,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5661579699750847,
+          "median": 1.5661579699751629,
+          "max": 1.566157969975241
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.6215916992889323,
+          "median": 1.6500331366616763,
+          "max": 1.6784745740344122
+        },
+        "selectedReceiverRoles": {
+          "offense_WR1": 6
+        },
+        "blockHoldSeconds": {
+          "min": 1.31169117330875,
+          "median": 2.283333333333333,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 14
+      },
+      "inside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": 2.9699626405103956,
+          "median": 3.4567858624527688,
+          "max": 3.456785862452989
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.714335130493415,
+          "median": 1.777595238779521,
+          "max": 1.7775952387795477
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 8,
+          "median": 8.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.0438869670610895,
+          "median": 1.0460871543754056,
+          "max": 1.0555093557141026
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.9143351304934149,
+          "median": 1.412631851303148,
+          "max": 1.5609285721128812
+        },
+        "censoredBlockHolds": 48
+      },
+      "medium_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "incomplete": 4,
+          "touchdown": 2
+        },
+        "passesAttempted": 6,
+        "completions": 2,
+        "gainYards": {
+          "min": 0,
+          "median": 0.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 53.73302916132824,
+          "median": 53.73302916132824,
+          "max": 53.73302916132824
+        },
+        "liveSeconds": {
+          "min": 1.8859664193320949,
+          "median": 1.8883932237799086,
+          "max": 8.476106613850675
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 5.0,
+          "max": 8
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 8
+        },
+        "blockContactDistanceYards": {
+          "min": 0.7083078426785913,
+          "median": 1.0511898020814319,
+          "max": 1.056834897228512
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 1.5673446885375848,
+          "median": 1.5673446885375881,
+          "max": 1.5673446885375917
+        },
+        "catchReceiverSeparationYards": {
+          "min": 1.140186828746581,
+          "median": 1.1401868287466663,
+          "max": 1.1401868287467518
+        },
+        "selectedReceiverRoles": {
+          "offense_WR2": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.8026330859987616,
+          "median": 1.6550598904465752,
+          "max": 2.2833333333333337
+        },
+        "censoredBlockHolds": 20
+      },
+      "outside_run": {
+        "snaps": 6,
+        "outcomes": {
+          "tackle": 6
+        },
+        "passesAttempted": 0,
+        "completions": 0,
+        "gainYards": {
+          "min": -0.7861461636366158,
+          "median": -0.33846928853436964,
+          "max": -0.33846928853436964
+        },
+        "yardsAfterCatch": null,
+        "liveSeconds": {
+          "min": 1.3495044376705196,
+          "median": 1.4162362559788977,
+          "max": 1.4162362559789066
+        },
+        "firstBlockSeconds": {
+          "min": 0.21666666666666667,
+          "median": 0.21666666666666667,
+          "max": 0.21666666666666667
+        },
+        "blockContacts": {
+          "min": 7,
+          "median": 7.0,
+          "max": 7
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 0.0,
+          "max": 0
+        },
+        "blockContactDistanceYards": {
+          "min": 1.042928568982555,
+          "median": 1.0480458005259121,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": null,
+        "catchReceiverSeparationYards": null,
+        "selectedReceiverRoles": {},
+        "blockHoldSeconds": {
+          "min": 0.7495044376705197,
+          "median": 1.0995044376705208,
+          "max": 1.1995695893122398
+        },
+        "censoredBlockHolds": 42
+      },
+      "short_pass": {
+        "snaps": 6,
+        "outcomes": {
+          "touchdown": 4,
+          "incomplete": 2
+        },
+        "passesAttempted": 6,
+        "completions": 4,
+        "gainYards": {
+          "min": 0,
+          "median": 65.0,
+          "max": 65
+        },
+        "yardsAfterCatch": {
+          "min": 68.35053607793532,
+          "median": 68.39444483105014,
+          "max": 68.43835358416496
+        },
+        "liveSeconds": {
+          "min": 0.9407041005000494,
+          "median": 9.622677644777273,
+          "max": 9.632909260930441
+        },
+        "firstBlockSeconds": {
+          "min": 0.23333333333333334,
+          "median": 0.23333333333333334,
+          "max": 0.23333333333333334
+        },
+        "blockContacts": {
+          "min": 5,
+          "median": 14.0,
+          "max": 15
+        },
+        "blockSheds": {
+          "min": 0,
+          "median": 13.0,
+          "max": 14
+        },
+        "blockContactDistanceYards": {
+          "min": 0.70178344238091,
+          "median": 1.0492378186092988,
+          "max": 1.057024124606435
+        },
+        "releaseReceiverSeparationYards": {
+          "min": 4.746043868247734,
+          "median": 4.746043868247741,
+          "max": 4.746043868247748
+        },
+        "catchReceiverSeparationYards": {
+          "min": 4.184182618685347,
+          "median": 4.193422076959424,
+          "max": 4.202661535233511
+        },
+        "selectedReceiverRoles": {
+          "offense_RB": 6
+        },
+        "blockHoldSeconds": {
+          "min": 0.057370767166716075,
+          "median": 2.283333333333333,
+          "max": 2.283333333333333
+        },
+        "censoredBlockHolds": 14
+      }
+    }
+  },
+  "pairedRatingEffects": {
+    "lb2_tackling_90": {
+      "pairedSnaps": 30,
+      "changedTerminalOutcomes": 0,
+      "gainDeltaYards": {
+        "min": 0.0,
+        "median": 0.0,
+        "max": 0.0
+      },
+      "liveTimeDeltaSeconds": {
+        "min": 0.0,
+        "median": 0.0,
+        "max": 0.0
+      },
+      "changedRecordingHashes": 0
+    },
+    "lg_blocking_90": {
+      "pairedSnaps": 30,
+      "changedTerminalOutcomes": 4,
+      "gainDeltaYards": {
+        "min": -0.009737103575758965,
+        "median": 0.0,
+        "max": 61.54321413754723
+      },
+      "liveTimeDeltaSeconds": {
+        "min": -0.0010068048036375732,
+        "median": 0.0,
+        "max": 7.77670139751836
+      },
+      "changedRecordingHashes": 30
+    },
+    "qb_throwing_90": {
+      "pairedSnaps": 30,
+      "changedTerminalOutcomes": 4,
+      "gainDeltaYards": {
+        "min": -57.24359251921265,
+        "median": 0.0,
+        "max": 7.766316585817407
+      },
+      "liveTimeDeltaSeconds": {
+        "min": -5.827534578319475,
+        "median": 0.0,
+        "max": 0.7583626822717018
+      },
+      "changedRecordingHashes": 18
+    },
+    "wr1_catching_90": {
+      "pairedSnaps": 30,
+      "changedTerminalOutcomes": 2,
+      "gainDeltaYards": {
+        "min": 0.0,
+        "median": 0.0,
+        "max": 65
+      },
+      "liveTimeDeltaSeconds": {
+        "min": -0.003991880662402636,
+        "median": 0.0,
+        "max": 6.15498186731954
+      },
+      "changedRecordingHashes": 6
+    }
+  },
+  "payloadObserved": {
+    "bytes": {
+      "min": 24946,
+      "median": 43019.0,
+      "max": 211509
+    },
+    "nodes": {
+      "min": 6535,
+      "median": 11771.0,
+      "max": 57781
+    },
+    "frames": {
+      "min": 33,
+      "median": 61.0,
+      "max": 306
+    },
+    "events": {
+      "min": 9,
+      "median": 13.0,
+      "max": 39
+    },
+    "ticks": {
+      "min": 57,
+      "median": 114.0,
+      "max": 578
+    }
+  },
+  "payloadLimits": {
+    "bytes": 2097152,
+    "nodes": 250000,
+    "frames": 858,
+    "events": 256,
+    "ticks": 1200
+  },
+  "timingObserved": {
+    "simulationMs": {
+      "min": 14.615204811096191,
+      "median": 25.75585675239563,
+      "max": 1045.4009866714478
+    },
+    "captureMs": {
+      "min": 1.9288759231567383,
+      "median": 4.074233174324036,
+      "max": 94.13692033290863
+    },
+    "serializationMs": {
+      "min": 0.6509160995483398,
+      "median": 1.469728946685791,
+      "max": 12.083791017532349
+    },
+    "stepP50Ms": {
+      "min": 0.0851670503616333,
+      "median": 0.12295800447463989,
+      "max": 0.5390830039978027
+    },
+    "stepP95Ms": {
+      "min": 0.277290940284729,
+      "median": 0.5004374980926514,
+      "max": 7.631583094596863
+    },
+    "stepMaxMs": {
+      "min": 1.5544589757919312,
+      "median": 2.35133296251297,
+      "max": 112.06095910072327
+    },
+    "phpValidationMs": {
+      "min": 2.052916,
+      "median": 4.193021,
+      "max": 307.993833
+    }
+  },
+  "sourceSha256": {
+    "resources/js/arcade/full-team.js": "2c680929453e9ade61d9e7c02039621ad1a4e97f81d592fed831fa9d3376bb7a",
+    "resources/js/arcade/full-team-plays.js": "6881812d163076fd050e7d28f141c6bc85546adbaeaf9bb718004a9069d055f7",
+    "resources/js/arcade/recording.js": "fbf73ab40990ccdd5039b5f74154349b1c4a7de7c5ae3de0bf8fc6eb6520173b",
+    "resources/js/arcade/tuning.js": "62928dad325de133719795bc949e030d0ec487f7fc7f8861c793c7fc01b503c9",
+    "app/Services/Arcade/FullTeamSetup.php": "45b80bea6432123bb9a688bcd8390d50d52284f268ad7192fbec80f4c42b67cc",
+    "app/Services/Arcade/FullTeamLivePlayContract.php": "7dda420a6e81d604f776645f7ac1a36fb415da72e3f669c93c88ff76781e01ca",
+    "tests/Fixtures/fullteam-benchmark-physics.mjs": "05c0234ed8eebfff59acb2f37dd353d6df0d44f07a76d16919b21e7328c39156",
+    "tests/Fixtures/fullteam-benchmark-support.php": "a80f1a3022d974d7ab124cb78b2b5054250b524f108a3791edff30663bc8f31e",
+    "tests/Unit/FullTeamBenchmarkTest.php": "0529fe7e02ca340b1287e90008d3667c2f0d858b680a9edf16d16b465447ba3f"
+  },
+  "scenarioRecordingHashesSha256": "18ad0db75100248e23cb0797cdc4c881ac5566b6a77011bcbb5e04962e7f1396",
+  "finalMetadataRefresh": {
+    "change": "PHP terminal interception participant carrier now identifies the actual interceptor.",
+    "snapshotsCompared": 180,
+    "nonTimingMetricRowsChanged": 0,
+    "recordingHashesChanged": 0,
+    "sourceHashesStableDuringRun": true,
+    "timingContext": "This rerun was started while other full-suite validation was in progress. Wall-time outliers are reported unchanged, not interpreted as a deterministic performance regression. No browser FPS claim."
+  }
+}

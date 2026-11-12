@@ -78,13 +78,17 @@ try {
 
                 return app(App\Services\Arcade\ExhibitionFlow::class)->execute($game, $request);
             })(),
-            'start' => $service->start($game, $input['user'], ['version' => 0, 'kind' => 'run', 'tempo' => 'normal']),
+            'start' => $service->start($game, $input['user'], ($input['start_data'] ?? []) + ['version' => 0, 'kind' => 'run', 'tempo' => 'normal']),
             'validate' => (function () use ($input, $game) {
                 $session = ArcadePlaySession::findOrFail($input['session']);
                 $snap = $session->snapshot;
                 $context = new App\Services\Arcade\ArcadeContext($game->id, $input['user'], $game->world_id,
                     $snap['state']['possession'], $snap['state'], $snap['rosters'], $session->setup['actors']);
-                app(App\Services\Arcade\LivePlayContract::class)->derive($context, $input['data']['recording']);
+                if ($session->binding['contract_version'] === 'live-recording-2') {
+                    app(App\Services\Arcade\FullTeamLivePlayContract::class)->derive($context, $input['data']['recording'], $session->setup);
+                } else {
+                    app(App\Services\Arcade\LivePlayContract::class)->derive($context, $input['data']['recording']);
+                }
 
                 return ['valid' => true];
             })(),

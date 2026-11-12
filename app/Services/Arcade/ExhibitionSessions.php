@@ -51,6 +51,9 @@ class ExhibitionSessions
     public function start(Exhibition $game, int $userId, array $data): array
     {
         return $this->locked($game, $userId, function (Exhibition $game) use ($userId, $data): array {
+            $fullTeam = ($data['contract_version'] ?? 'live-recording-1') === 'live-recording-2';
+            $call = $fullTeam ? ($data['call'] ?? '') : ($data['kind'] === 'run' ? 'inside_run' : 'short_pass');
+            abort_unless(! $fullTeam || (in_array($call, FullTeamSetup::CALLS, true) && ($data['kind'] === 'run') === in_array($call, ['inside_run', 'outside_run'], true)), 422, 'Call and play kind do not match.');
             abort_unless($this->available($game), 409, 'Continue this decision or phase in Coach mode.');
             abort_unless($game->state['version'] === (int) $data['version'], 409, 'The game has changed. Reload before starting.');
             $active = ArcadePlaySession::where('active_slot', $game->id)->lockForUpdate()->first();
@@ -59,11 +62,10 @@ class ExhibitionSessions
                 $active = null;
             }
             if ($active) {
-                abort_unless((int) $active->user_id === $userId && $active->snapshot['kind'] === $data['kind'] && $active->snapshot['tempo'] === $data['tempo'], 409, 'An Arcade play is already reserved.');
+                abort_unless((int) $active->user_id === $userId && $active->snapshot['kind'] === $data['kind'] && $active->snapshot['tempo'] === $data['tempo'] && ($active->binding['contract_version'] === ($fullTeam ? 'live-recording-2' : 'live-recording-1')) && (! $fullTeam || ($active->snapshot['call'] ?? null) === $call), 409, 'An Arcade play is already reserved.');
 
                 return $this->status($game) + ['session' => $this->publicSession($active)];
             }
-            $call = $data['kind'] === 'run' ? 'inside_run' : 'short_pass';
             $state = $game->state;
             $state['controls'] = app(CpuCoach::class)->controls($state);
             $offenseFormation = 'shotgun';
@@ -77,17 +79,20 @@ class ExhibitionSessions
                 return $this->status($game) + ['session' => null, 'play' => $prepared['result']['play']];
             }
             $state = $prepared['state'];
-            $setup = $this->setup($game, $state, $rosters, $data['kind']);
+            $setup = $fullTeam ? app(FullTeamSetup::class)->build($game, $state, $rosters, $call) : $this->setup($game, $state, $rosters, $data['kind']);
             $context = new ArcadeContext($game->id, $userId, $game->world_id, $state['possession'], $state, $rosters, $setup['actors']);
             $context->assertPlayable();
             $id = (string) Str::uuid();
             $expires = now()->addSeconds((int) config('arcade.session_ttl', 180));
-            $binding = $context->binding() + ['contract_version' => 'live-recording-1', 'session_id' => $id, 'result_id' => (string) Str::uuid(), 'expires_at' => $expires->timestamp,
+            $binding = $context->binding() + ['contract_version' => $fullTeam ? 'live-recording-2' : 'live-recording-1', 'session_id' => $id, 'result_id' => (string) Str::uuid(), 'expires_at' => $expires->timestamp,
                 'setup_hash' => ArcadeContext::hash($setup)];
+            if ($fullTeam) {
+                $binding += ['call' => $call, 'catalog_version' => $setup['catalogVersion'], 'runtime_tuning_version' => 'arcade-fullteam-1', 'eligible_receiver_keys' => $setup['eligibleReceiverKeys'], 'limits' => $setup['limits']];
+            }
             $session = ArcadePlaySession::create(['id' => $id, 'result_id' => $binding['result_id'], 'exhibition_id' => $game->id,
                 'world_id' => $game->world_id, 'user_id' => $userId, 'active_slot' => $game->id, 'status' => 'active',
                 'snapshot_hash' => $this->fingerprint($game), 'binding' => $binding, 'expires_at' => $expires,
-                'snapshot' => ['state' => $state, 'rosters' => $rosters, 'kind' => $data['kind'], 'tempo' => $data['tempo'], 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation], 'setup' => $setup]);
+                'snapshot' => ['call' => $call, 'state' => $state, 'rosters' => $rosters, 'kind' => $data['kind'], 'tempo' => $data['tempo'], 'offense_formation' => $offenseFormation, 'defense_formation' => $defenseFormation], 'setup' => $setup]);
 
             return $this->status($game) + ['session' => $this->publicSession($session)];
         });
@@ -121,8 +126,9 @@ class ExhibitionSessions
             abort_unless(($data['recording']['seed'] ?? null) === $session->setup['seed']
                 && ($data['recording']['routeSet'] ?? null) === ($snap['kind'] === 'pass' ? $session->setup['routeSet'] : null)
                 && ($data['recording']['speedScale'] ?? null) === $session->setup['speedScale'], 422, 'Recording setup does not match the reservation.');
-            $resolved = app(LivePlayContract::class)->derive($context, $data['recording']);
-            abort_unless(($resolved['kind'] ?? ($resolved['call'] === 'inside_run' ? 'run' : 'pass')) === $snap['kind'], 422, 'Recording play kind does not match.');
+            $fullTeam = $session->binding['contract_version'] === 'live-recording-2';
+            $resolved = $fullTeam ? app(FullTeamLivePlayContract::class)->derive($context, $data['recording'], $session->setup) : app(LivePlayContract::class)->derive($context, $data['recording']);
+            abort_unless(($resolved['kind'] ?? (in_array($resolved['call'], ['inside_run', 'outside_run'], true) ? 'run' : 'pass')) === $snap['kind'], 422, 'Recording play kind does not match.');
             $accounted = app(ScrimmageAccounting::class)->apply($snap['state'], $snap['state'], $resolved['outcome'], $resolved['gain'], $resolved['flip'], $resolved['summary']);
             $play = $resolved;
             unset($play['recording'], $play['animation'], $play['elapsed_seconds']);

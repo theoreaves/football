@@ -1,6 +1,8 @@
 // The v1 playback contract is deliberately independent of simulation and input code.
 export const REPLAY_SPEEDS = Object.freeze([.25, .5, 1, 2]);
 export const REPLAY_LIMITS = Object.freeze({ bytes: 1000000, frames: 730, events: 128, actors: 6, seconds: 20 });
+export const FULL_TEAM_REPLAY_LIMITS = Object.freeze({ bytes: 2097152, frames: 858, events: 256, actors: 22, seconds: 20, nodes: 250000 });
+const FULL_TEAM_KEYS = ['offense_QB', 'offense_C', 'offense_LG', 'offense_RG', 'offense_LT', 'offense_RT', 'offense_RB', 'offense_TE', 'offense_WR1', 'offense_WR2', 'offense_WR3', 'defense_DE1', 'defense_DT1', 'defense_DT2', 'defense_DE2', 'defense_LB1', 'defense_LB2', 'defense_LB3', 'defense_CB1', 'defense_CB2', 'defense_S1', 'defense_S2'];
 const POSES = ['idle', 'run', 'juke', 'tackled', 'throw'];
 const BALL_PHASES = ['held', 'flight', 'dead'];
 const fail = message => { throw new Error(`Invalid replay: ${message}`); };
@@ -18,16 +20,16 @@ function freeze(value) {
 }
 
 // Bound object inputs too, without invoking arbitrary toJSON methods or traversing cycles.
-function copyJson(input) {
+function copyJson(input, nodeLimit = 100000, characterLimit = 200000) {
     let nodes = 0, characters = 0;
     const ancestors = new Set();
     function copy(value, depth) {
-        if (++nodes > 100000 || depth > 12) fail('payload is too complex.');
+        if (++nodes > nodeLimit || depth > 12) fail('payload is too complex.');
         if (value === null || typeof value === 'boolean') return value;
         if (typeof value === 'number' && Number.isFinite(value)) return value;
         if (typeof value === 'string') {
             characters += value.length;
-            if (value.length > 4096 || characters > 100000) fail('text exceeds the size limit.');
+            if (value.length > 4096 || characters > characterLimit / 2) fail('text exceeds the size limit.');
             return value;
         }
         if (typeof value !== 'object' || ancestors.has(value)) fail('expected finite JSON data.');
@@ -38,7 +40,7 @@ function copyJson(input) {
         if (Array.isArray(value) && (value.length > 1000 || Object.keys(value).length !== value.length)) fail('expected a bounded dense array.');
         for (const key of Object.keys(value)) {
             characters += key.length;
-            if (key.length > 128 || characters > 200000) fail('object keys exceed the size limit.');
+            if (key.length > 128 || characters > characterLimit) fail('object keys exceed the size limit.');
             if (['__proto__', 'constructor', 'prototype'].includes(key)) fail('unsafe object key.');
             const descriptor = Object.getOwnPropertyDescriptor(value, key);
             if (!descriptor || !('value' in descriptor)) fail('expected JSON values, not accessors.');
@@ -61,24 +63,31 @@ function validateAppearance(value, label) {
 }
 
 function validate(input) {
+    const sourceBytes = typeof input === 'string' ? new TextEncoder().encode(input).length : 0;
     if (typeof input === 'string') {
-        if (input.length > REPLAY_LIMITS.bytes || new TextEncoder().encode(input).length > REPLAY_LIMITS.bytes) fail('file exceeds 1 MB.');
-        try { input = JSON.parse(input); } catch { fail('file is not valid JSON.'); }
+        if (input.length > FULL_TEAM_REPLAY_LIMITS.bytes || new TextEncoder().encode(input).length > FULL_TEAM_REPLAY_LIMITS.bytes) fail('file exceeds 2 MiB.');
+        try { input = JSON.parse(input); } catch { fail(sourceBytes > REPLAY_LIMITS.bytes ? 'file exceeds 1 MB.' : 'file is not valid JSON.'); }
     }
-    const data = copyJson(input);
+    // Read only an own data property before copying; object inputs must not execute getters.
+    const version = input && typeof input === 'object' ? Object.getOwnPropertyDescriptor(input, 'version')?.value : null;
+    const limits = version === 2 ? FULL_TEAM_REPLAY_LIMITS : REPLAY_LIMITS;
+    const data = copyJson(input, limits.nodes ?? 100000, version === 2 ? 1000000 : 200000);
     if (!object(data)) fail('expected a recording object.');
-    if (data.version !== 1) fail('unsupported recording version.');
+    if (![1, 2].includes(data.version)) fail('unsupported recording version.');
+    const fullTeam = data.version === 2, poses = fullTeam ? [...POSES, 'block', 'handoff'] : POSES;
+    if (fullTeam && (data.fullTeam !== true || data.contractVersion !== 'live-recording-2' || data.catalogVersion !== 'arcade-fullteam-1')) fail('unsupported full-team contract.');
+    if (sourceBytes > limits.bytes || (fullTeam && new TextEncoder().encode(JSON.stringify(data)).length > limits.bytes)) fail('file exceeds version size limit.');
     if (!['running', 'passing'].includes(data.mode) || ![1, -1].includes(data.direction)) fail('unknown drill mode or direction.');
     if (data.tickRate !== 60 || data.sampleRate !== 30 || !object(data.scales)
         || data.scales.position !== 100 || data.scales.angle !== 1000 || data.scales.time !== 1000000
         || data.scales.gait !== 1000) fail('unsupported v1 timing or scales.');
-    if (JSON.stringify(data.poses) !== JSON.stringify(POSES)
+    if (JSON.stringify(data.poses) !== JSON.stringify(poses)
         || JSON.stringify(data.ballPhases) !== JSON.stringify(BALL_PHASES)) fail('unknown pose or ball phase table.');
     if (!object(data.field) || !['startX', 'goalX', 'rearX'].every(key => finite(data.field[key], -1000, 1000))) fail('invalid field.');
-    if (!Array.isArray(data.actors) || data.actors.length < 1 || data.actors.length > REPLAY_LIMITS.actors) fail('invalid actor count.');
-    const keys = new Set();
+    if (!Array.isArray(data.actors) || data.actors.length < 1 || data.actors.length > limits.actors) fail('invalid actor count.');
+    const keys = new Set(), identities = new Set();
     data.actors.forEach(actor => {
-        if (!object(actor) || typeof actor.key !== 'string' || !/^(runner|qb|receiver:[0-2]|defender:[0-1])$/.test(actor.key)
+        if (!object(actor) || typeof actor.key !== 'string' || !(fullTeam ? FULL_TEAM_KEYS.includes(actor.key) : /^(runner|qb|receiver:[0-2]|defender:[0-1])$/.test(actor.key))
             || keys.has(actor.key)) fail('invalid or duplicate actor key.');
         for (const field of ['name', 'firstname', 'lastname', 'role', 'position', 'side', 'skin_tone']) {
             if (actor[field] != null && (typeof actor[field] !== 'string' || actor[field].length > 255)) fail(`invalid actor ${field}.`);
@@ -92,9 +101,16 @@ function validate(input) {
             if (actor[field] != null && !finite(actor[field], 0, 1000)) fail(`invalid actor ${field}.`);
         }
         if (actor.appearance != null) validateAppearance(actor.appearance, 'actor appearance');
+        if (fullTeam) {
+            if (!integer(actor.id, 1, Number.MAX_SAFE_INTEGER) || identities.has(actor.id)
+                || !['home', 'away'].includes(actor.side) || actor.role !== actor.key.split('_')[1]) fail('invalid full-team identity.');
+            identities.add(actor.id);
+        }
         keys.add(actor.key);
     });
-    if (!keys.has(data.mode === 'running' ? 'runner' : 'qb')) fail('missing starting actor.');
+    if (fullTeam && (keys.size !== 22 || FULL_TEAM_KEYS.some((key, index) => data.actors[index]?.key !== key))) fail('missing full-team actor.');
+    if (fullTeam && data.actors.some(actor => (actor.key.startsWith('offense_') ? actor.side !== data.actors[0].side : actor.side === data.actors[0].side))) fail('invalid full-team sides.');
+    if (!keys.has(fullTeam ? 'offense_QB' : data.mode === 'running' ? 'runner' : 'qb')) fail('missing starting actor.');
     if (typeof data.truncated !== 'boolean' || !object(data.appearance)) fail('invalid recording metadata.');
     for (const side of ['home', 'away']) {
         const team = data.appearance[side];
@@ -110,7 +126,7 @@ function validate(input) {
         }
     }
     if (data.result !== null && (!object(data.result) || typeof data.result.reason !== 'string')) fail('invalid result.');
-    if (!Array.isArray(data.frames) || !data.frames.length || data.frames.length > REPLAY_LIMITS.frames) fail('invalid frame count.');
+    if (!Array.isArray(data.frames) || !data.frames.length || data.frames.length > limits.frames) fail('invalid frame count.');
     const actorIndex = index => integer(index, -1, data.actors.length - 1);
     let previousTime = -1, previousTick = -1;
     data.frames.forEach(frame => {
@@ -120,7 +136,7 @@ function validate(input) {
         previousTick = frame[0]; previousTime = frame[1];
         frame[3].forEach(player => {
             if (!Array.isArray(player) || player.length !== 7 || !player.every(value => integer(value, -1000000, 1000000))
-                || !integer(player[2], -3142, 3142) || !integer(player[3], 0, POSES.length - 1)
+                || !integer(player[2], -3142, 3142) || !integer(player[3], 0, poses.length - 1)
                 || player[4] < 0 || player[5] < 0 || !integer(player[6], -1000, 1000)) fail('invalid player pose.');
         });
         const ball = frame[4];
@@ -128,11 +144,15 @@ function validate(input) {
             || !integer(ball[3], 0, BALL_PHASES.length - 1) || !actorIndex(ball[4])) fail('invalid ball.');
     });
     if (data.frames[0][1] !== 0) fail('missing initial frame.');
-    if (!Array.isArray(data.events) || data.events.length > REPLAY_LIMITS.events) fail('invalid event count.');
+    if (!Array.isArray(data.events) || data.events.length > limits.events) fail('invalid event count.');
+    let previousEventTime = -1, previousEventTick = -1;
+    const fullTeamEvents = ['start', 'throw', 'catch_attempt', 'catch', 'control_changed', 'interception', 'incomplete', 'juke', 'broken_tackle', 'tackle', 'finished', 'handoff', 'block', 'block_shed', 'pressure', 'pass_breakup'];
     data.events.forEach(event => {
         if (!Array.isArray(event) || event.length !== 6 || !integer(event[0], 0, 1200)
             || !integer(event[1], 0, 20000000) || typeof event[2] !== 'string' || !event[2].length || event[2].length > 64
             || !actorIndex(event[3]) || !actorIndex(event[4]) || !emptyMap(event[5])) fail('invalid event.');
+        if (fullTeam && (!fullTeamEvents.includes(event[2]) || event[0] < previousEventTick || event[1] < previousEventTime)) fail('unknown or unordered full-team event.');
+        previousEventTick = event[0]; previousEventTime = event[1];
         // Normalize only the detached top-level event map, not legitimate nested lists.
         if (Array.isArray(event[5])) event[5] = {};
     });
@@ -162,11 +182,11 @@ export function createReplayTimeline(input) {
             const a = left[3][index], b = right[3][index], facing = a[2] / 1000;
             const delta = Math.atan2(Math.sin((b[2] - a[2]) / 1000), Math.cos((b[2] - a[2]) / 1000));
             return { ...metadata, x: lerp(a[0], b[0], amount) / 100, z: lerp(a[1], b[1], amount) / 100,
-                facing: facing + delta * amount, pose: POSES[a[3]], speed: lerp(a[4], b[4], amount) / 100,
+                facing: facing + delta * amount, pose: recording.poses[a[3]], speed: lerp(a[4], b[4], amount) / 100,
                 gaitPhase: lerp(a[5], b[5], amount) / 1000, jukeLean: lerp(a[6], b[6], amount) / 1000 };
         });
         const a = left[4], b = right[4];
-        return freeze({ mode: recording.mode, direction: recording.direction, elapsed, field: recording.field, actors,
+        return freeze({ ...(recording.version === 2 ? { fullTeam: true } : {}), mode: recording.mode, direction: recording.direction, elapsed, field: recording.field, actors,
             ball: { x: lerp(a[0], b[0], amount) / 100, y: lerp(a[1], b[1], amount) / 100,
                 z: lerp(a[2], b[2], amount) / 100, phase: BALL_PHASES[a[3]], holderKey: actorKey(a[4]) },
             controlledKey: actorKey(left[2]), events: events.filter(event => event.time <= elapsed),

@@ -5,6 +5,9 @@ export const RECORDING_LIMITS = Object.freeze({
     seconds: DRILL_SECONDS, tickRate: Math.round(1 / STEP_SECONDS), sampleRate: 30,
     events: 128, frames: DRILL_SECONDS * 30 + 130,
 });
+export const FULL_TEAM_RECORDING_LIMITS = Object.freeze({
+    seconds: 20, tickRate: 60, sampleRate: 30, events: 256, frames: 858,
+});
 const POSITION_SCALE = 100, ANGLE_SCALE = 1000, TIME_SCALE = 1000000;
 const POSES = ['idle', 'run', 'juke', 'tackled', 'throw'];
 const BALL_PHASES = ['held', 'flight', 'dead'];
@@ -21,6 +24,7 @@ function freeze(value) {
     return value;
 }
 function actorsFor(state) {
+    if (state.fullTeam) return state.actors.map(actor => [actor.key, actor]);
     return state.mode === 'passing'
         ? [['qb', state.quarterback], ...state.receivers.map((actor, index) => [`receiver:${index}`, actor]),
             ...state.defenders.map((actor, index) => [`defender:${index}`, actor])]
@@ -39,26 +43,30 @@ function actorsFor(state) {
  * Export is detached, deeply frozen JSON; create a new recorder on every retry.
  */
 export function createDrillRecording(initialState, { appearance = initialState.appearance ?? {} } = {}) {
+    const fullTeam = initialState.fullTeam === true;
+    const limits = fullTeam ? FULL_TEAM_RECORDING_LIMITS : RECORDING_LIMITS;
+    const poses = fullTeam ? [...POSES, 'block', 'handoff'] : POSES;
     const entries = actorsFor(initialState);
     const actorIndex = new Map(entries.map(([key], index) => [key, index]));
     const indexFor = key => actorIndex.get(key) ?? -1;
     const recording = {
-        version: RECORDING_VERSION, mode: initialState.mode || 'running', direction: initialState.direction,
+        version: fullTeam ? 2 : RECORDING_VERSION,
+        ...(fullTeam ? { contractVersion: 'live-recording-2', catalogVersion: 'arcade-fullteam-1', fullTeam: true, call: initialState.call } : {}), mode: initialState.mode || 'running', direction: initialState.direction,
         seed: initialState.seed ?? null, tuningVersion: initialState.tuningVersion ?? null,
         speedScale: initialState.speedScale ?? null, routeSet: initialState.routeSet ?? null,
         tickRate: RECORDING_LIMITS.tickRate, sampleRate: RECORDING_LIMITS.sampleRate,
         scales: { position: POSITION_SCALE, angle: ANGLE_SCALE, time: TIME_SCALE, gait: ANGLE_SCALE },
-        poses: [...POSES], ballPhases: [...BALL_PHASES],
+        poses: [...poses], ballPhases: [...BALL_PHASES],
         field: { startX: initialState.startX, goalX: initialState.goalX, rearX: initialState.rearX },
         actors: entries.map(([key, actor]) => ({ key, ...Object.fromEntries(PLAYER_FIELDS
             .filter(field => actor[field] !== undefined).map(field => [field, clone(actor[field])])) })),
         appearance: clone(appearance), frames: [], events: [], result: null, truncated: false,
     };
     const gait = entries.map(() => 0), juking = entries.map(() => false);
-    let lastTick = -1, lastTime = 0, eventCursor = 0, brokenTackles = 0, closed = false;
+    let lastTick = -1, lastTime = 0, eventCursor = 0, brokenTackles = 0, closed = false, lastBallBoundary = null;
     function addEvent(state, type, actorKey, targetKey, data = {}, time = state.elapsed, terminal = false) {
         // Keep one event slot available for the final result, even after a flood.
-        if (recording.events.length >= RECORDING_LIMITS.events - (terminal ? 0 : 1)) {
+        if (recording.events.length >= limits.events - (terminal ? 0 : 1)) {
             recording.truncated = true;
             return false;
         }
@@ -77,8 +85,9 @@ export function createDrillRecording(initialState, { appearance = initialState.a
         if (actors.length !== entries.length || actors.some(([key], index) => key !== entries[index][0])) {
             throw new Error('A new drill roster requires a new recording.');
         }
-        const controlledKey = state.controlledKey || 'runner';
+        const controlledKey = state.controlledKey || (fullTeam ? 'offense_QB' : 'runner');
         let eventAdded = false;
+        const boundaries = [], gaitBefore = [...gait], previousTime = lastTime;
         if (lastTick < 0) eventAdded = addEvent(state, 'start', controlledKey);
         const events = state.events || [];
         for (; eventCursor < events.length; eventCursor++) {
@@ -100,12 +109,14 @@ export function createDrillRecording(initialState, { appearance = initialState.a
                     data.contactExact = [event.contact.x, event.contact.y, event.contact.z];
                 }
             }
-            eventAdded = addEvent({ tick: event.tick ?? state.tick }, event.type, event.actorKey, event.targetKey,
-                data, event.time ?? state.elapsed) || eventAdded;
+            const accepted = addEvent({ tick: event.tick ?? state.tick }, event.type, event.actorKey, event.targetKey,
+                data, event.time ?? state.elapsed);
+            if (fullTeam && accepted && event.snapshot) boundaries.push(event);
+            eventAdded = accepted || eventAdded;
         }
         actors.forEach(([key, actor], index) => {
             const isJuking = actor.jukeRemaining > 0;
-            if (isJuking && !juking[index]) eventAdded = addEvent(state, 'juke', key, null,
+            if (!fullTeam && isJuking && !juking[index]) eventAdded = addEvent(state, 'juke', key, null,
                 { direction: Math.sign(actor.jukeDirection || actor.vz || 1) }) || eventAdded;
             juking[index] = isJuking;
             gait[index] += Math.max(0, state.elapsed - lastTime) * Math.hypot(finite(actor.vx), finite(actor.vz)) / 7;
@@ -120,29 +131,52 @@ export function createDrillRecording(initialState, { appearance = initialState.a
             eventAdded = addEvent(state, 'finished', controlledKey, null, { reason: state.result.reason, ...(state.exhibition && [state.runner.x, state.runner.z].every(Number.isFinite) ? {position: [state.runner.x, state.runner.z]} : {}) }, state.elapsed, true) || eventAdded;
             closed = true;
         }
-        const sample = lastTick < 0 || state.tick % 2 === 0 || eventAdded || closed;
+        const ballBoundary = `${state.ball?.phase}:${state.ball?.holderKey}:${state.controlledKey}`;
+        const sample = lastTick < 0 || state.tick % 2 === 0 || closed
+            || (eventAdded && (!fullTeam || boundaries.length === 0))
+            || (fullTeam && boundaries.length === 0 && ballBoundary !== lastBallBoundary);
+        lastBallBoundary = ballBoundary;
         lastTick = state.tick;
         lastTime = state.elapsed;
-        if (!sample) return false;
-        const players = actors.map(([key, actor], index) => {
-            const speed = Math.hypot(finite(actor.vx), finite(actor.vz));
-            const tackled = ['tackle', 'sack'].includes(state.result?.reason) && key === controlledKey;
-            const throwing = key === 'qb' && state.ball?.flight && state.elapsed >= state.ball.flight.startedAt
-                && state.elapsed - state.ball.flight.startedAt < .3;
-            const pose = tackled ? 3 : throwing ? 4 : juking[index] ? 2 : speed > .08 ? 1 : 0;
-            const facing = Math.atan2(Math.sin(finite(actor.facing)), Math.cos(finite(actor.facing)));
-            return [quantize(actor.x), quantize(actor.z), quantize(facing, ANGLE_SCALE), pose,
-                quantize(speed), quantize(gait[index], ANGLE_SCALE),
-                pose === 2 ? quantize(Math.sign(actor.vz || 1) * .22, ANGLE_SCALE) : 0];
-        });
-        const ball = state.ball || { x: state.runner.x, y: 1.28, z: state.runner.z, phase: 'held', holderKey: 'runner' };
-        const frame = [state.tick, quantize(state.elapsed, TIME_SCALE), indexFor(controlledKey), players,
-            [quantize(ball.x), quantize(ball.y), quantize(ball.z), BALL_PHASES.indexOf(ball.phase), indexFor(ball.holderKey)]];
-        if (recording.frames.length < RECORDING_LIMITS.frames) recording.frames.push(frame);
-        else {
-            recording.truncated = true;
-            if (closed) recording.frames[recording.frames.length - 1] = frame;
+        if (!sample && boundaries.length === 0) return false;
+        function frameFor(snapshot, time, tick, terminal = false) {
+            const controlled = snapshot.controlledKey || controlledKey;
+            const sourceActors = snapshot === state ? actors : snapshot.actors.map(actor => [actor.key, actor]);
+            if (sourceActors.length !== entries.length || sourceActors.some(([key], index) => key !== entries[index][0])) {
+                throw new Error('Event snapshots must retain the full recording roster.');
+            }
+            const throwTime = fullTeam ? events.findLast(event => event.type === 'throw' && event.time <= time)?.time : state.ball?.flight?.startedAt;
+            const players = sourceActors.map(([key, actor], index) => {
+                const speed = Math.hypot(finite(actor.vx), finite(actor.vz));
+                const tackled = terminal && ['tackle', 'sack'].includes(state.result?.reason) && key === controlled;
+                const throwing = key === (fullTeam ? 'offense_QB' : 'qb') && (fullTeam || state.ball?.flight)
+                    && time >= throwTime && time - throwTime < .3;
+                const pose = tackled ? 3 : throwing ? 4 : fullTeam && actor.handoffRemaining > 0 ? 6
+                    : fullTeam && (actor.blockingKey || actor.blockedBy) ? 5 : actor.jukeRemaining > 0 ? 2 : speed > .08 ? 1 : 0;
+                const facing = Math.atan2(Math.sin(finite(actor.facing)), Math.cos(finite(actor.facing)));
+                const amount = state.elapsed > previousTime ? Math.max(0, Math.min(1, (time - previousTime) / (state.elapsed - previousTime))) : 1;
+                const phase = gaitBefore[index] + (gait[index] - gaitBefore[index]) * amount;
+                return [quantize(actor.x), quantize(actor.z), quantize(facing, ANGLE_SCALE), pose,
+                    quantize(speed), quantize(phase, ANGLE_SCALE),
+                    pose === 2 ? quantize(Math.sign(actor.vz || 1) * .22, ANGLE_SCALE) : 0];
+            });
+            const ball = snapshot.ball || { x: state.runner.x, y: 1.28, z: state.runner.z, phase: 'held', holderKey: 'runner' };
+            return [tick, quantize(time, TIME_SCALE), indexFor(controlled), players,
+                [quantize(ball.x), quantize(ball.y), quantize(ball.z), BALL_PHASES.indexOf(ball.phase), indexFor(ball.holderKey)]];
         }
+        function appendFrame(frame, terminal = false) {
+            const last = recording.frames.at(-1);
+            // Several contacts can share an instant. Keep their final presentation,
+            // but retain the tick-zero initial frame when release occurs at time zero.
+            if (fullTeam && last?.[0] === frame[0] && last?.[1] === frame[1]) recording.frames[recording.frames.length - 1] = frame;
+            else if (recording.frames.length < limits.frames) recording.frames.push(frame);
+            else {
+                recording.truncated = true;
+                if (terminal) recording.frames[recording.frames.length - 1] = frame;
+            }
+        }
+        for (const event of boundaries) appendFrame(frameFor(event.snapshot, event.time, event.tick));
+        if (sample) appendFrame(frameFor(state, state.elapsed, state.tick, Boolean(state.result)), closed);
         return true;
     }
     capture(initialState);

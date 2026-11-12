@@ -63,6 +63,11 @@ function arcadeRacePair(array $fixture, array $one, array $two): array
 
 function arcadeRaceRecording(array $session, float $lateral = 0): array
 {
+    if ($session['setup']['fullTeam'] ?? false) {
+        require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
+
+        return fullteamBenchmarkRun(['setup' => $session['setup']])['recording'];
+    }
     $script = <<<'JS'
 import {createDrill,startDrill,stepDrill} from './resources/js/arcade/simulation.js';
 import {createDrillRecording} from './resources/js/arcade/recording.js';
@@ -207,4 +212,56 @@ test('identical concurrent flow commands consume timeout only once', function ()
     expect($one['status'])->toBe(200)->and($two['status'])->toBe(200);
     $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
     expect($saved['history'])->toHaveCount(1)->and($saved['state']['timeouts']['home'])->toBe(2);
+});
+
+function fullTeamRaceStart(string $call = 'inside_run'): array
+{
+    return ['action' => 'start', 'start_data' => ['contract_version' => 'live-recording-2', 'call' => $call, 'kind' => 'run', 'tempo' => 'normal', 'version' => 0]];
+}
+
+test('v2 simultaneous same-call reservations share one full-team binding', function () {
+    [$one, $two] = arcadeRacePair($this->race, fullTeamRaceStart(), fullTeamRaceStart());
+    expect($one['status'])->toBe(200)->and($two['status'])->toBe(200)
+        ->and($one['result']['session'])->toBe($two['result']['session'])
+        ->and($one['result']['session']['setup']['players'])->toHaveCount(22);
+    $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
+    expect($saved['sessions'])->toHaveCount(1)->and($saved['history'])->toBe([])->and($saved['state']['version'])->toBe(0);
+});
+
+test('v2 conflicting simultaneous selected calls cannot replace the winning reservation', function () {
+    $results = arcadeRacePair($this->race, fullTeamRaceStart('inside_run'), fullTeamRaceStart('outside_run'));
+    expect(array_column($results, 'status'))->toContain(200, 409);
+    $winner = $results[0]['status'] === 200 ? $results[0] : $results[1];
+    $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
+    expect($saved['sessions'])->toHaveCount(1)->and($saved['sessions'][0]['setup']['call'])->toBe($winner['result']['session']['setup']['call'])
+        ->and($saved['sessions'][0]['binding'])->toBe($winner['result']['session']['envelope'])->and($saved['history'])->toBe([]);
+});
+
+test('v2 identical full-team recordings commit exactly once across independent processes', function () {
+    $session = arcadeRaceCall(fullTeamRaceStart() + $this->race)['result']['session'];
+    $recording = arcadeRaceRecording($session);
+    expect($recording['actors'])->toHaveCount(22);
+    $operation = ['action' => 'submit', 'session' => $session['envelope']['session_id'], 'data' => ['envelope' => $session['envelope'], 'recording' => $recording]];
+    expect(arcadeRaceCall(array_replace($operation, ['action' => 'validate']) + $this->race)['status'])->toBe(200);
+    [$one, $two] = arcadeRacePair($this->race, $operation, $operation);
+    expect($one['status'])->toBe(200)->and($two['status'])->toBe(200)->and($one['result']['receipt'])->toBe($two['result']['receipt']);
+    $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
+    expect($saved['history'])->toHaveCount(1)->and($saved['state']['version'])->toBe(1)
+        ->and($saved['state']['personnel_snaps'])->toBe(1)->and($saved['state']['stats']['home']['plays'])->toBe(1)
+        ->and($saved['history'][0]['arcade_recording']['actors'])->toHaveCount(22)->and($saved['sessions'][0]['active_slot'])->toBeNull();
+    expect(arcadeRaceCall($operation + $this->race)['result']['receipt'])->toBe($one['result']['receipt']);
+    expect(arcadeRaceCall($this->race + ['action' => 'inspect'])['result'])->toBe($saved);
+});
+
+test('v2 cancellation racing a full-team commit produces only one terminal result', function () {
+    $session = arcadeRaceCall(fullTeamRaceStart() + $this->race)['result']['session'];
+    $submit = ['action' => 'submit', 'session' => $session['envelope']['session_id'], 'data' => ['envelope' => $session['envelope'], 'recording' => arcadeRaceRecording($session)]];
+    expect(arcadeRaceCall(array_replace($submit, ['action' => 'validate']) + $this->race)['status'])->toBe(200);
+    [$result, $cancel] = arcadeRacePair($this->race, $submit, ['action' => 'cancel', 'session' => $submit['session']]);
+    expect($cancel['status'])->toBe(200)->and($result['status'])->toBeIn([200, 409]);
+    $saved = arcadeRaceCall($this->race + ['action' => 'inspect'])['result'];
+    $accepted = $saved['sessions'][0]['status'] === 'accepted';
+    expect($saved['sessions'][0]['status'])->toBeIn(['accepted', 'cancelled'])->and($saved['sessions'][0]['active_slot'])->toBeNull()
+        ->and($saved['history'])->toHaveCount($accepted ? 1 : 0)->and($saved['state']['version'])->toBe($accepted ? 1 : 0)
+        ->and($saved['state']['personnel_snaps'] ?? 0)->toBe($accepted ? 1 : 0)->and($result['status'])->toBe($accepted ? 200 : 409);
 });

@@ -18,7 +18,7 @@ class ArcadeExhibitionRequest extends FormRequest
     public function rules(): array
     {
         return match ($this->route()->getActionMethod()) {
-            'start' => ['version' => ['required', 'integer', 'min:0'], 'kind' => ['required', Rule::in(['run', 'pass'])], 'tempo' => ['required', Rule::in(['normal', 'hurry', 'drain'])]],
+            'start' => ['contract_version' => ['sometimes', Rule::in(['live-recording-1', 'live-recording-2'])], 'call' => ['required_if:contract_version,live-recording-2', Rule::in(\App\Services\Arcade\FullTeamSetup::CALLS)], 'version' => ['required', 'integer', 'min:0'], 'kind' => ['required', Rule::in(['run', 'pass'])], 'tempo' => ['required', Rule::in(['normal', 'hurry', 'drain'])]],
             'submit' => ['envelope' => ['required', 'array'], 'recording' => ['required', 'array']],
             default => [],
         };

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildFootballPlayer, animateFootballPlayer } from '../practice/player-model.js';
 import { buildFieldSurface } from '../practice/field-scene.js';
-import { arcadeCameraFrame, exhibitionCameraX, disposeArcadeScene } from './view.js';
+import { arcadeCameraFrame, exhibitionCameraX, disposeArcadeScene, applyArcadeInteractionPose, resetArcadePlayerPose } from './view.js';
 
 const CAMERAS = ['original', 'broadcast', 'follow', 'field', 'free'];
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -74,7 +74,7 @@ export function createReplayView(host, recording, {
         box(.18, .035, 53.33, 0x4bd4f0, recording.field?.startX ?? (direction < 0 ? 40 : 80), .085, 26.665);
         box(.24, .04, 53.33, 0xffda6a, recording.field?.goalX ?? (direction < 0 ? 10 : 110), .09, 26.665);
         for (const actor of recording.actors) {
-            const team = appearance[actor.side || (actor.key.startsWith('defender:') ? 'away' : 'home')] || {};
+            const team = appearance[actor.side || ((actor.key.startsWith('defender:') || actor.key.startsWith('defense_')) ? 'away' : 'home')] || {};
             const kit={...team.uniform,helmet_logo_left:team.helmet_logo_left,helmet_logo_right:team.helmet_logo_right};
             const model=sharedHost ? sharedHost.player(actor,kit) : buildFootballPlayer(actor,kit,document,textureFor);
             model.name = `replay-player-${actor.key}`;
@@ -183,6 +183,7 @@ export function createReplayView(host, recording, {
                 const model = models.get(actor.key);
                 if (!model) return;
                 model.visible = true;
+                resetArcadePlayerPose(model);
                 model.position.set(actor.x, actor.pose === 'tackled' ? .5 : 0, actor.z);
                 model.rotation.set(0, Math.PI / 2 - actor.facing, actor.pose === 'tackled' ? -1.15 : 0);
                 model.userData.waist.rotation.set(0, 0, 0);
@@ -193,6 +194,7 @@ export function createReplayView(host, recording, {
                 animateFootballPlayer(model, actor.speed > .08 && actor.pose !== 'tackled', actor.gaitPhase, index,
                     actor.pose === 'throw' ? 2.2 + Math.min(1, throwAge / .3) * .7 : null);
                 model.userData.waist.rotation.z = actor.pose === 'juke' ? actor.jukeLean : 0;
+                applyArcadeInteractionPose(model, actor.pose);
             });
             // Held positions in v1 are actor centers, not hand transforms. Reconstruct the
             // same single carried mesh; flight/dead positions remain the recorded world path.
@@ -241,8 +243,8 @@ export function createReplayView(host, recording, {
 // Replay borrows models and the ball, restoring the exact presentation, not game state.
 export function captureSharedPresentation(host) {
     const entries=[]; const camera=host.cameraDirector.camera,cameraSnapshot=camera.clone();
-    host.scene.traverse(object=>entries.push({object,parent:object.parent,visible:object.visible,position:object.position.clone(),quaternion:object.quaternion.clone(),scale:object.scale.clone(),instanceMatrix:object.isInstancedMesh?object.instanceMatrix.array.slice():null}));
+    host.scene.traverse(object=>entries.push({object,parent:object.parent,name:object.name,flags:Object.fromEntries(['holderKneel','cradlingBall','carryingArm','receptionBlend'].filter(key=>Object.hasOwn(object.userData,key)).map(key=>[key,object.userData[key]])),visible:object.visible,position:object.position.clone(),quaternion:object.quaternion.clone(),scale:object.scale.clone(),instanceMatrix:object.isInstancedMesh?object.instanceMatrix.array.slice():null}));
     for(const {object} of entries)if(['coach-play','arcade-live'].includes(object.name))object.visible=false;
     let restored=false;
-    return ()=>{if(restored)return;restored=true;host.hidePlayers();for(const item of entries){const {object,parent}=item;if(parent && object.parent!==parent)parent.add(object);object.visible=item.visible;object.position.copy(item.position);object.quaternion.copy(item.quaternion);object.scale.copy(item.scale);if(item.instanceMatrix){object.instanceMatrix.array.set(item.instanceMatrix);object.instanceMatrix.needsUpdate=true;}}camera.copy(cameraSnapshot);camera.updateMatrixWorld();host.cameraDirector.use(camera);};
+    return ()=>{if(restored)return;restored=true;host.hidePlayers();for(const item of entries){const {object,parent}=item;if(parent && object.parent!==parent)parent.add(object);object.name=item.name;for(const key of ['holderKneel','cradlingBall','carryingArm','receptionBlend']){if(Object.hasOwn(item.flags,key))object.userData[key]=item.flags[key];else delete object.userData[key];}object.visible=item.visible;object.position.copy(item.position);object.quaternion.copy(item.quaternion);object.scale.copy(item.scale);if(item.instanceMatrix){object.instanceMatrix.array.set(item.instanceMatrix);object.instanceMatrix.needsUpdate=true;}}camera.copy(cameraSnapshot);camera.updateMatrixWorld();host.cameraDirector.use(camera);};
 }

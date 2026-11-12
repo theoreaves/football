@@ -1,3 +1,4 @@
+import {exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from '../../resources/js/arcade/exhibition-play-selection.js';
 import {requiredDecisionReady} from '../../resources/js/practice/play-mode-presentation.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from '../../resources/js/arcade/exhibition-flow.js';
 import test from 'node:test';
@@ -14,7 +15,7 @@ const node = () => ({disabled:false, hidden:false, textContent:'', value:'', lis
     addEventListener(type,fn){this.listeners.set(type,fn);}, removeEventListener(type){this.listeners.delete(type);}, focus(){}});
 function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions={}}={}) {
     const nodes=Object.fromEntries(['reserve','start','pause','cancel','submit','replay','score','state','live','status','kind','tempo','coach','empty','preferences','side','defense','advance','fast','timeout','spike','retry-flow','flow-status','clock','notices'].map(key=>[key,node()]));
-    nodes.kind.value='run';nodes.tempo.value='normal';
+    nodes.kind.value='inside_run';nodes.tempo.value='normal';
     const official={version:0,possession:'home',phase:'scrimmage',status:'playing',quarter:1,clock:180,down:1,distance:10,spot:25};
     const root={dataset:{exhibition:JSON.stringify({flow,flowUrl:flow?'/exhibitions/3/arcade/flow':null,state:official,available:true,startUrl:'/exhibitions/3/arcade/sessions',csrf:'test',pendingSession:pending})},isConnected:true,
         querySelector(selector){return selector==='[data-arcade-field]'?host:nodes[selector.match(/data-exhibition-([^\]]+)/)[1]];}};
@@ -22,12 +23,13 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions
     const queue=[],requests=[],views=[],recording={version:1,frames:[[0]],events:[],actors:[],result:{reason:'tackle'}};
     let frame,transport,opened,step,replayActive=false;
     const document=node(),window={...node(),location:{origin:'http://test',pathname:'/exhibitions/3/arcade',assign(url){this.destination=url;}},localStorage:{getItem(key){return key.startsWith('arcade-flow:')?flowSaved:stored?JSON.stringify(stored):null;},setItem(){},removeItem(){}}};
-    const deps={createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
+    const deps={exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel,createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
         requestAnimationFrame(fn){frame=fn;return 1;},cancelAnimationFrame(){},
         async fetch(url,options){requests.push({url,body:options.body});const response=queue.shift();if(response instanceof Error)throw response;return {ok:!response?.httpError,status:response?.status || 200,json:async()=>response?.httpError?{message:response.httpError}:response};},
         createDrill(config){return {status:'ready',mode:'running',direction:1,startX:config.exhibition.startX,firstDownX:config.exhibition.firstDownX,runner:{x:config.exhibition.startX},elapsed:0};},
+        createFullTeamPlay(config){return {...deps.createDrill(config),fullTeam:true,quarterback:{key:'offense_QB'},ball:{phase:'held',holderKey:'offense_QB'}};},stepFullTeamPlay(s){deps.stepDrill(s);},
         createPassingDrill(){assert.fail('not a passing test');},startDrill(s){s.status='running';},pauseDrill(s){if(s.status==='running')s.status='paused';},
-        stepDrill(s){s.runner.x+=14;s.elapsed=2;s.status='finished';s.result={reason:'tackle'};},stepPassingDrill(){},STEP_SECONDS:1/60,
+        stepDrill(s){s.runner.x+=14;s.elapsed=2;s.status='finished';s.result={reason:'tackle',yards:14};},stepPassingDrill(){},STEP_SECONDS:1/60,
         createFixedStepper(fn){step=fn;return {reset(){},advance(){step();}};},
         createDrillRecording(){return {capture(){},export(){return recording;}};},
         createArcadeInput(){return {sample(){return {};},clear(){},dispose(){}};},
@@ -163,4 +165,12 @@ test('required decision preparation failure reports failure rather than an accep
     let prepared=0,errors=0;const h=harness({flow:{...flowState,state_hash:'bad'},mountOptions:{inputEnabled:()=>false,flowEnabled:()=>true}});
     await h.dispose.flowAction('penalty',{choice:'accept'},{onPrepared:()=>prepared++,onPrepareError:()=>errors++});
     assert.equal(prepared,0);assert.equal(errors,1);assert.equal(h.requests.length,0);assert.equal(h.dispose.pendingFlow,false);
+});
+
+test('five-call reservation opts in to v2 while setup controls legacy versus full-team dispatch',async()=>{
+ const h=harness();h.nodes.kind.value='outside_run';const session=h.session();session.setup.fullTeam=true;
+ h.queue.push({session});await h.click('reserve');
+ assert.deepEqual(JSON.parse(h.requests[0].body),{version:0,kind:'run',call:'outside_run',tempo:'normal',contract_version:'live-recording-2'});
+ assert.equal(h.views[0].last.fullTeam,true);assert.match(h.nodes.status.textContent,/Automatic handoff/);
+ h.click('start');h.frame();assert.ok(h.transport.pending.body);
 });

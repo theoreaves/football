@@ -17,7 +17,7 @@
     <p data-exhibition-notices role="status" aria-live="polite" style="white-space:pre-line"></p>
     @endunless
     <div class="arcade-setup">
-        <label>Play<select data-exhibition-kind><option value="run">Run</option><option value="pass">Pass</option></select></label>
+        <label>Play<select data-exhibition-kind><option value="inside_run">Inside run</option><option value="outside_run">Outside run</option><option value="short_pass">Short pass</option><option value="medium_pass">Medium pass</option><option value="deep_pass">Deep pass</option></select></label>
         <label>Tempo<select data-exhibition-tempo><option value="normal">Normal</option><option value="hurry">Hurry</option><option value="drain">Drain</option></select></label>
         <button type="button" data-exhibition-reserve>Reserve play</button>
         <a data-exhibition-coach href="{{ $coachUrl }}">Continue in Coach</a>
@@ -25,7 +25,7 @@
     </div>
     <div class="arcade-stage">
         <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="Arcade exhibition. WASD or arrow keys move. Click a target to pass, or hold and drag to aim. Q or E juke. Escape pauses." aria-describedby="exhibition-controls"></div>
-        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose Run or Pass, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
+        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose one of five plays, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
         <div class="arcade-toolbar">
             <button type="button" data-exhibition-start disabled>Start play</button>
             <button type="button" data-exhibition-pause disabled>Pause</button>
@@ -34,8 +34,8 @@
             <button type="button" data-exhibition-replay disabled>Replay recorded play</button>
         </div>
     </div>
-    <p data-exhibition-status role="status" aria-live="polite">{{ $available ? 'Choose Run or Pass and reserve your play.' : 'This game needs a Coach decision before Arcade offense can continue.' }}</p>
-    <p id="exhibition-controls" class="arcade-help">WASD / arrows: move · Click target: pass · Hold + drag: aim · Q / E: juke · Space: start/resume · Escape: pause</p>
+    <p data-exhibition-status role="status" aria-live="polite">{{ $available ? 'Choose one of five plays and reserve your play.' : 'This game needs a Coach decision before Arcade offense can continue.' }}</p>
+    <p id="exhibition-controls" class="arcade-help">Runs: automatic QB-to-RB handoff, then control the RB · Passes: control the QB, then the receiver after a catch · WASD / arrows: move · Click target: pass · Hold + drag: aim · Q / E: juke · Space: start/resume · Escape: pause</p>
     <p class="arcade-help">92.5% movement speed. Cyan: line of scrimmage. Yellow: first-down and goal lines. White field lines: every 5 yards. Live plays continue when the game clock expires. A local recording timeout is not a football result: cancel and reserve again. Choose Coach Defense to call defensive plays, Watch Simulation to view committed 3D plays, or Fast Sim to reach your next offensive opportunity. Required kick, try, penalty and half decisions open in Coach, then return here. No game action runs simply by loading this page.</p>
 </div>
 </x-layouts.app>
