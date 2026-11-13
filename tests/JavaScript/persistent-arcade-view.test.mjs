@@ -55,7 +55,7 @@ test('camera capture restores mutable broadcast pose, projection and zoom after 
  const f=fixture(),camera=f.sharedHost.cameraDirector.camera;camera.position.set(12,40,80);camera.zoom=1.4;camera.updateProjectionMatrix();const position=camera.position.clone(),projection=camera.projectionMatrix.clone();const restore=captureSharedPresentation(f.sharedHost);camera.position.set(99,2,4);camera.zoom=.7;camera.updateProjectionMatrix();restore();assert.deepEqual(camera.position,position);assert.equal(camera.zoom,1.4);assert.deepEqual(camera.projectionMatrix,projection);
 });
 const historySource=readerSource.slice(readerSource.indexOf('    async function openHistory(number)'),readerSource.indexOf('    const dispose='));
-function historyHarness(){let complete,reads=0,opened=0;const messages=[];const arcade={hasLive:false,pending:false,busy:false,replaying:false,openReplay(){opened++;}};const api=new Function('arcade','sharedHost','snapshot','read','say',`let readBlocked=false,coachHistory=false,loading=false,historyGeneration=0,activityGeneration=0,disposed=false;${historySource};return {open:openHistory,invalidate(){historyGeneration++;activityGeneration++;},get loading(){return loading;}};`)(arcade,{staging:false,cameraDirector:{transitioning:false}},{urls:{playback_base:'/exhibitions/3/arcade/playback'}},()=>{reads++;return new Promise(resolve=>{complete=resolve;});},message=>messages.push(message));return {api,arcade,messages,resolve:()=>complete({recording:{}}),get reads(){return reads;},get opened(){return opened;}};}
+function historyHarness(dialogs=[]){let complete,reject,reads=0,opened=0,focused=0;const messages=[];const arcade={hasLive:false,pending:false,busy:false,replaying:false,openReplay(){opened++;}};const api=new Function('arcade','sharedHost','snapshot','read','say','controls','root',`let readBlocked=false,coachHistory=false,loading=false,historyGeneration=0,activityGeneration=0,disposed=false;${historySource};return {open:openHistory,invalidate(){historyGeneration++;activityGeneration++;},get loading(){return loading;}};`)(arcade,{staging:false,cameraDirector:{transitioning:false}},{urls:{playback_base:'/exhibitions/3/arcade/playback'}},()=>{reads++;return new Promise((resolve,fail)=>{complete=resolve;reject=fail;});},message=>messages.push(message),{querySelectorAll(selector){assert.equal(selector,'dialog[data-stats-dialog][open], dialog[data-highlights-dialog][open]');return dialogs;}},{querySelector(selector){assert.equal(selector,'.arcade-replay-shared[open] [data-replay="close"]');return {focus(){focused++;}};}});return {api,arcade,messages,get focused(){return focused;},reject:error=>reject(error),resolve:()=>complete({recording:{}}),get reads(){return reads;},get opened(){return opened;}};}
 test('slow history read locks competing replay and rejects late response after refresh or reservation',async()=>{
  for(const invalidate of [h=>h.api.invalidate(),h=>{h.arcade.hasLive=true;},h=>{h.arcade.pending=true;}]){const h=historyHarness();const loading=h.api.open('1');assert.equal(h.api.loading,true);await h.api.open('2');assert.equal(h.reads,1);invalidate(h);h.resolve();await loading;assert.equal(h.opened,0);}
  const h=historyHarness();h.arcade.replaying=true;await h.api.open('1');assert.equal(h.reads,0);h.arcade.replaying=false;const load=h.api.open('1');h.resolve();await load;assert.equal(h.opened,1);assert.equal(h.api.loading,false);
@@ -76,4 +76,26 @@ test('persistent-only timeout tray is stacked inside the defense panel rather th
  const css=readFileSync(new URL('../../resources/js/arcade/persistent-exhibition.css',import.meta.url),'utf8');
  assert.match(css,/\.persistent-phase-controls \[data-play-flow-panel\] \.game-timeouts \{position:static;inset:auto;/);
  assert.match(css,/\.persistent-phase-controls \[data-play-flow-panel\] \.game-timeouts form \{display:flex;flex-wrap:wrap;/);
+});
+
+
+test('historical replay closes only its Stats and Highlights browsers after opening successfully',async()=>{
+ for(const name of ['Stats','Highlights']){
+  let closed=0;const h=historyHarness([{close(){assert.equal(h.opened,1,`${name} closes only after replay opens`);closed++;}}]);
+  const load=h.api.open('1');assert.equal(closed,0);h.resolve();await load;assert.equal(closed,1);assert.equal(h.focused,1);
+ }
+ // Selection is limited to these optional browsers, never penalty, coin-toss or other decision dialogs.
+ assert.match(historySource,/dialog\[data-stats-dialog\]\[open\], dialog\[data-highlights-dialog\]\[open\]/);
+ assert.match(historySource,/closeBrowsers\(\);\s*const back=document.createElement/, 'Coach replay closes the captured browsers after a successful mount too');
+});
+test('failed stale and blocked historical replay loads leave their browsing dialog available',async()=>{
+ for(const scenario of ['read failure','replay failure','stale','blocked']){
+  let closed=0;const h=historyHarness([{close(){closed++;}}]);
+  if(scenario==='blocked')h.arcade.pending=true;
+  if(scenario==='replay failure')h.arcade.openReplay=()=>{throw new Error('Replay unavailable');};
+  const load=h.api.open('1');
+  if(scenario==='read failure')h.reject(new Error('Read failed'));
+  else if(scenario!=='blocked'){if(scenario==='stale')h.api.invalidate();h.resolve();}
+  await load;assert.equal(closed,0,scenario);assert.equal(h.focused,0,scenario);
+ }
 });
