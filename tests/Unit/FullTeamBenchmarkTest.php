@@ -117,3 +117,35 @@ test('full team held pocket resolves a real sack and short outlet keeps actual r
         ->and($caught['resolved']['participants']['receiver']['role'])->toBeIn(['RB', 'TE'])
         ->and($caught['resolved']['participants']['carrier']['player_id'])->toBe($caught['resolved']['participants']['receiver']['player_id']);
 })->with([1, -1]);
+
+test('full team distinguishes live contact and terminal frames sharing one tick', function () {
+    $fixture = fullteamBenchmarkFixture('inside_run');
+    $recording = fullteamBenchmarkRun($fixture)['recording'];
+    $lastIndex = array_key_last($recording['frames']);
+    $last = $recording['frames'][$lastIndex];
+    expect($recording['result']['reason'])->toBe('tackle');
+    // A contact can force a live sample just before a terminal collision in the same tick.
+    $contact = $last;
+    $contact[1]--;
+    $contact[4][3] = 0;
+    expect($contact[1])->toBeGreaterThan($recording['frames'][$lastIndex - 1][1]);
+    array_splice($recording['frames'], $lastIndex, 0, [$contact]);
+    $tackleIndex = array_search('tackle', array_column($recording['events'], 2), true);
+    $tackle = $recording['events'][$tackleIndex];
+    $broken = $tackle;
+    $broken[1] = $contact[1];
+    $broken[2] = 'broken_tackle';
+    array_splice($recording['events'], $tackleIndex, 0, [$broken]);
+
+    $accepted = fullteamBenchmarkValidate($fixture, $recording);
+    expect($accepted['resolved']['outcome'])->toBe('tackle');
+
+    $forgedTerminal = $recording;
+    $forgedTerminal['frames'][$lastIndex + 1][4][4] = -1;
+    expect(fn () => fullteamBenchmarkValidate($fixture, $forgedTerminal))
+        ->toThrow(DomainException::class, 'Invalid terminal ball ownership.');
+    $deadTooSoon = $recording;
+    $deadTooSoon['frames'][$lastIndex][4][3] = 2;
+    expect(fn () => fullteamBenchmarkValidate($fixture, $deadTooSoon))
+        ->toThrow(DomainException::class, 'Illegal possession or flight transition.');
+});

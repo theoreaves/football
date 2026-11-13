@@ -6,6 +6,7 @@ use App\Models\ArcadePlaySession;
 use App\Models\Exhibition;
 use App\Services\Arcade\ExhibitionPresentation;
 use App\Services\Arcade\ExhibitionSessions;
+use App\Support\ExhibitionHistory;
 use Illuminate\Http\Request;
 
 /** Authorized reads only. Gameplay and command receipts remain in their existing APIs. */
@@ -16,8 +17,7 @@ class ArcadePresentationController extends Controller
         $sessions->authorize($exhibition, $request->user()->id);
         $status = $sessions->status($exhibition);
         $data = $presentation->viewData($exhibition);
-        $history = $exhibition->history ?? [];
-        $last = $history ? $history[array_key_last($history)] : null;
+        $last = $data['last'];
         $pending = ArcadePlaySession::where('active_slot', $exhibition->id)->where('user_id', $request->user()->id)->where('expires_at', '>', now())->first();
         $controlsData = $data + ['arcadeFlow' => $status['flow'], 'arcadeFlowUrl' => route('exhibitions.arcade.flow', $exhibition),
             'arcadeReturnUrl' => route('exhibitions.arcade.show', $exhibition), 'state' => $status['state'],
@@ -41,7 +41,7 @@ class ArcadePresentationController extends Controller
             'crowd' => $status['state']['crowd'] ?? ['fullness' => 80, 'visitors' => 10, 'seed' => $exhibition->id],
             'pending_session' => $pending ? $sessions->publicSession($pending) : null,
             'latest_play' => $last ? $this->descriptor($exhibition, $last) : null,
-            'history_cursor' => count($history),
+            'history_cursor' => $data['historyCount'],
             'scene' => ['animation' => $animation, 'next_animation' => $nextAnimation,
                 'unit_change' => (bool) $data['unitChange'], 'substitution_change' => $data['substitutionChange'],
                 'sideline_roster' => $data['sidelineRoster'], 'personnel' => $data['personnel'],
@@ -59,7 +59,7 @@ class ArcadePresentationController extends Controller
     {
         $sessions->authorize($exhibition, $request->user()->id);
         abort_unless(preg_match('/^[1-9][0-9]{0,8}$/D', $number), 404);
-        $play = collect($exhibition->history ?? [])->firstWhere('number', (int) $number);
+        $play = ExhibitionHistory::find($exhibition, fn (array $play) => ($play['number'] ?? null) == (int) $number);
         abort_unless($play && isset($play['animation']), 404, 'This saved play is unavailable.');
         $arcade = ($play['source'] ?? null) === 'arcade';
         abort_if($arcade && ! is_array($play['arcade_recording'] ?? null), 404, 'This recorded play is unavailable.');

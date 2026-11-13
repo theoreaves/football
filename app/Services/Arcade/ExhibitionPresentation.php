@@ -7,6 +7,9 @@ use App\Models\Exhibition;
 use App\Services\Simulation\CpuCoach;
 use App\Services\Simulation\ExhibitionEngine;
 use App\Services\Simulation\GameClock;
+use App\Support\ExhibitionHistory;
+use App\Support\PlayHighlights;
+use Illuminate\Support\Arr;
 
 /** Display-only assembly shared by Coach HTML and the persistent Play read API. */
 class ExhibitionPresentation
@@ -38,14 +41,36 @@ class ExhibitionPresentation
             }
         }
         $exhibition->state = app(GameClock::class)->normalize($exhibition->state);
-        $history = $exhibition->history;
-        $last = $history ? $history[array_key_last($history)] : null;
+        $last = null;
         $replayOnly = $replayNumber !== null;
+        $highlights = $historyLog = $breakHistory = [];
+        $historyCount = 0;
+        foreach (ExhibitionHistory::entries($exhibition) as $index => $play) {
+            $historyCount++;
+            if (! $replayOnly || ($last === null && ($play['number'] ?? null) == $replayNumber)) {
+                $last = $play;
+            }
+            $reasons = PlayHighlights::reasons($play);
+            $highlight = ($play['saved_highlight'] ?? false) || $reasons !== [];
+            if ($highlight) {
+                $highlights[] = Arr::only($play, ['number', 'summary', 'saved_highlight']) + ['reasons' => $reasons];
+            }
+            // Display metadata must not retain every embedded recording or animation.
+            $historyLog[$index] = Arr::only($play, ['number', 'summary', 'source']) + [
+                'before' => Arr::only($play['before'] ?? [], ['quarter', 'clock', 'possession']),
+                'has_recording' => isset($play['arcade_recording']),
+                'has_animation' => isset($play['animation']), 'highlight' => $highlight,
+            ];
+            $item = Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap', 'gain', 'penalty']);
+            foreach (['before', 'after'] as $when) {
+                $item[$when] = Arr::only($play[$when] ?? [], ['stats', 'quarter', 'clock', 'phase', 'possession', 'status', 'home_score', 'away_score', 'penalty_pending', 'down', 'distance']);
+            }
+            $breakHistory[] = $item;
+        }
+        unset($play);
         if ($replayOnly) {
-            $last = collect($history)->firstWhere('number', $replayNumber);
             abort_unless($last && isset($last['animation']), 404, 'This saved replay is unavailable.');
         }
-        $highlights = array_values(array_filter($history, \App\Support\PlayHighlights::saved(...)));
         $preview = $last ?? ['before' => $exhibition->state, 'call' => 'inside_run', 'outcome' => 'tackle', 'carrier' => 'RB', 'gain' => 0, 'target' => 0, 'summary' => 'Ready for the snap'];
         $animation = $last['animation'] ?? \App\Services\Simulation\FieldOrientation::animation(app(\App\Services\Simulation\PlayTimeline::class)->build($preview, $exhibition->rosters), $preview['before']);
 
@@ -136,6 +161,6 @@ class ExhibitionPresentation
             $exhibition->state = $last['after'] ?? $last['before'];
         }
 
-        return compact('replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel');
+        return compact('historyLog', 'breakHistory', 'historyCount', 'replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel');
     }
 }

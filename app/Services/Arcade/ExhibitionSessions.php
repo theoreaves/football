@@ -14,6 +14,7 @@ use App\Services\Simulation\PlayFinalizer;
 use App\Services\Simulation\PreSnapPolicy;
 use App\Services\Simulation\ScrimmageAccounting;
 use App\Support\CurrentWorld;
+use App\Support\ExhibitionHistory;
 use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -106,7 +107,10 @@ class ExhibitionSessions
             if ($session->status === 'accepted') {
                 abort_unless(hash_equals($session->accepted_hash, $hash), 409, 'This result was already submitted with different evidence.');
 
-                return array_replace($this->status($game), ['available' => $this->available($game) && $game->state['possession'] === $session->snapshot['state']['possession']]) + ['receipt' => $session->receipt, 'recording' => $session->recording, 'play' => $session->receipt['play']];
+                $status = array_replace($this->status($game), ['available' => $this->available($game) && $game->state['possession'] === $session->snapshot['state']['possession']]);
+                $receipt = $session->receipt;
+
+                return $status + ['receipt' => $receipt, 'recording' => $session->recording, 'play' => $receipt['play']];
             }
             abort_unless($session->status === 'active', 409, 'This Arcade session is no longer active.');
             if ($session->expires_at->timestamp <= now()->timestamp) {
@@ -192,14 +196,12 @@ class ExhibitionSessions
 
     private function fingerprint(Exhibition $game): string
     {
-        return ArcadeContext::hash([$game->state, $game->rosters, $game->history, $game->home_team_id, $game->away_team_id, $game->world_id]);
+        return ArcadeContext::exhibitionHash($game);
     }
 
     private function saveResult(Exhibition $game, array $result): void
     {
-        $history = $game->history;
-        $history[] = $result['play'];
-        $game->update(['state' => $result['state'], 'history' => $history, 'box_score_cache' => null]);
+        ExhibitionHistory::append($game, $result['play'], ['state' => $result['state'], 'box_score_cache' => null]);
     }
 
     public function publicSession(ArcadePlaySession $session): array

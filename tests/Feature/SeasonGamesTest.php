@@ -76,14 +76,22 @@ test('quick sim records one final result with box score and saved replays and ca
     $this->get(route('exhibitions.index'))->assertOk()->assertViewHas('games', fn ($games) => $games->isEmpty());
 });
 
-test('season final play records its result and provisional penalties do not finalize', function () {
+test('season final play records its result and provisional penalties do not finalize', function (string $phase, string $call, string $defense, int $awayScore, string $outcome) {
     $this->post(route('seasons.game', [$this->season, $this->fixture]))->assertRedirect();
     $game = $this->fixture->fresh()->exhibition;
     $state = $game->state;
     $game->update(['state' => array_merge($state, ['status' => 'final', 'penalty_pending' => true])]);
     app(SeasonGames::class)->record($game);
     expect($this->fixture->fresh()->status)->toBe('playing');
-    $state['controls'] = ['home' => 'cpu', 'away' => 'cpu'];
+    // The finalization contract records the actual final snap, not the pre-snap score.
+    // A random opening kickoff here could return a touchdown even at Q4 0:00.
+    $state['controls'] = ['home' => 'human', 'away' => 'human'];
+    $state['seed'] = 151;
+    $state['phase'] = $phase;
+    $state['possession'] = 'home';
+    $state['spot'] = 35;
+    $state['rules']['penalties'] = false;
+    $state['rules']['injuries'] = false;
     $state['coin_toss']['pending'] = false;
     $state['quarter'] = 4;
     $state['clock'] = 0;
@@ -91,11 +99,20 @@ test('season final play records its result and provisional penalties do not fina
     $state['away_score'] = 0;
     $state['rules']['overtime'] = 'none';
     $game->update(['state' => $state]);
-    $this->post(route('exhibitions.play', $game), ['version' => 0])->assertRedirect();
-    expect($game->fresh()->state['status'])->toBe('final');
+    $this->post(route('exhibitions.play', $game), ['version' => 0, 'call' => $call, 'defense' => $defense])->assertRedirect();
+    $saved = $game->fresh();
+    expect($saved->state['status'])->toBe('final')
+        ->and($saved->history[0]['outcome'])->toBe($outcome)
+        ->and($saved->state['home_score'])->toBe(14)
+        ->and($saved->state['away_score'])->toBe($awayScore);
     expect($this->fixture->fresh()->status)->toBe('final');
-    $this->assertDatabaseHas('season_fixtures', ['id' => $this->fixture->id, 'home_score' => 14, 'away_score' => 0]);
-});
+    $this->assertDatabaseHas('season_fixtures', ['id' => $this->fixture->id, 'home_score' => 14, 'away_score' => $awayScore]);
+    expect((int) $this->fixture->fresh()->home_score)->toBe($saved->state['home_score'])
+        ->and((int) $this->fixture->fresh()->away_score)->toBe($saved->state['away_score']);
+})->with([
+    'non-scoring final kneel' => ['scrimmage', 'kneel', 'man_to_man', 0, 'kneel'],
+    'final kickoff return touchdown' => ['kickoff', 'kickoff', 'kickoff_return', 6, 'kickoff_return_touchdown'],
+]);
 
 test('advance requires every game final rejects stale weeks and completes only the regular season', function () {
     $this->post(route('seasons.advance', $this->season), ['week' => 1])->assertSessionHasErrors('week');
@@ -646,7 +663,7 @@ test('leader jobs restore world scope after success and failure and stay below q
     expect($context->id)->toBe($previous);
 });
 
-test('box scores decode saved JSON once per game rather than once per play', function () {
+test('box scores stream saved history without whole-history casts and decode state and rosters once', function () {
     $this->post(route('seasons.game', [$this->season, $this->fixture]), ['quick_sim' => 1])->assertRedirect();
     $game = $this->fixture->fresh()->exhibition;
     $counted = new class extends Exhibition
@@ -662,7 +679,7 @@ test('box scores decode saved JSON once per game rather than once per play', fun
     };
     $counted->setRawAttributes($game->getAttributes(), true);
     $box = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($counted);
-    expect($counted->decoded)->toBe(['state' => 1, 'rosters' => 1, 'history' => 1]);
+    expect($counted->decoded)->toBe(['state' => 1, 'rosters' => 1]);
     expect($box)->toBe(app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game));
     expect($game->fresh()->getAttributes())->toBe($game->getAttributes());
 });

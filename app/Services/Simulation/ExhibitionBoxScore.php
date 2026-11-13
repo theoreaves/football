@@ -3,6 +3,7 @@
 namespace App\Services\Simulation;
 
 use App\Models\Exhibition;
+use App\Support\ExhibitionHistory;
 
 class ExhibitionBoxScore
 {
@@ -12,7 +13,6 @@ class ExhibitionBoxScore
         // for the whole game, especially the roster used by every saved snap.
         $state = $game->state;
         $rosters = $game->rosters;
-        $history = $game->history;
         $personnel = app(SavedPlayPersonnel::class);
         $quarters = ['home' => array_fill(1, max(4, $state['quarter']), 0), 'away' => array_fill(1, max(4, $state['quarter']), 0)];
         $teams = [];
@@ -31,7 +31,7 @@ class ExhibitionBoxScore
                 $identityKeys[$side][$row['id']] = $key;
             }
         }
-        foreach ($history as $play) {
+        foreach (ExhibitionHistory::entries($game) as $play) {
             $snap = $personnel->rosters($rosters, $play);
             foreach ($snap as $snapSide => $roster) {
                 foreach ($roster['players'] as $role => $person) {

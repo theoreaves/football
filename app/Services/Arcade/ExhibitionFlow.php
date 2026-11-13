@@ -10,6 +10,7 @@ use App\Models\Exhibition;
 use App\Services\Simulation\CpuCoach;
 use App\Services\Simulation\ExhibitionEngine;
 use App\Services\Simulation\TimeoutRules;
+use App\Support\ExhibitionHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,7 @@ class ExhibitionFlow
 {
     public function fingerprint(Exhibition $game): string
     {
-        return ArcadeContext::hash([$game->state, $game->rosters, $game->history, $game->home_team_id, $game->away_team_id, $game->world_id]);
+        return ArcadeContext::exhibitionHash($game);
     }
 
     public function status(Exhibition $game): array
@@ -38,9 +39,7 @@ class ExhibitionFlow
         $coach = route('exhibitions.show', ['exhibition' => $game, 'arcade' => 1]);
         $arcade = route('exhibitions.arcade.show', $game);
         $watch = route('exhibitions.show', ['exhibition' => $game, 'arcade' => 1, 'watch' => 1]);
-        $history = $game->history ?? [];
-        $last = $history ? $history[array_key_last($history)] : null;
-        unset($history); // Do not retain every recording while fingerprinting the game again.
+        $last = ExhibitionHistory::last($game);
         $notices = [];
         if ($s['penalty_pending'] ?? false) {
             // The finalizer's accepted result is a preview until the human decides.
@@ -65,6 +64,7 @@ class ExhibitionFlow
                 $notices[] = ['type' => 'penalty', 'message' => $last['penalty']['summary'] ?? 'Penalty recorded. See the official play result and enforcement.'];
             }
         }
+        unset($last);
         $flow = ['enabled' => (bool) $meta, 'revision' => $meta?->revision ?? 0, 'state_hash' => $this->fingerprint($game), 'human_side' => $human,
             'defense_mode' => $meta?->defense_mode ?? 'coach', 'phase' => $final ? 'final' : ($required ? 'decision' : ($offense ? 'offense' : ($special ? 'special' : 'defense'))),
             'required_decision' => $required, 'can_advance' => (bool) $advance, 'can_fast' => (bool) $advance,
@@ -106,8 +106,13 @@ class ExhibitionFlow
             }
             abort_if($active && $data['action'] !== 'intro_seen', 409, 'Finish or cancel the reserved Arcade play first.');
             $meta = ArcadeGameFlow::where('exhibition_id', $game->id)->first();
-            $before = $game->history ?? [];
             $action = $data['action'];
+            $legacyBefore = ExhibitionHistory::isList($game) ? null : iterator_to_array(ExhibitionHistory::entries($game));
+            $beforeCount = $legacyBefore === null ? ExhibitionHistory::count($game) : count($legacyBefore);
+            $lastIndex = $beforeCount > 0 ? $beforeCount - 1 : null;
+            $beforeLast = $action === 'penalty' || ($flow['required_decision'] === 'penalty' && ! $meta)
+                ? ExhibitionHistory::last($game) : null;
+            $penaltyBeneficiary = $beforeLast['penalty']['beneficiary'] ?? null;
             if ($action === 'preferences') {
                 abort_unless(isset($data['defense_mode']), 422, 'Choose a defense mode.');
                 $human = $meta?->human_side ?? ($data['human_side'] ?? null);
@@ -118,7 +123,7 @@ class ExhibitionFlow
                         'coin' => $game->state['coin_toss']['winner'] ?? null,
                         'ot_call' => 'away',
                         'ot_choice' => $game->state['overtime']['toss']['winner'] ?? null,
-                        'penalty' => ($before ? $before[array_key_last($before)]['penalty']['beneficiary'] ?? null : null),
+                        'penalty' => $penaltyBeneficiary,
                         default => null,
                     };
                     $controls = app(CpuCoach::class)->controls($game->state);
@@ -202,13 +207,24 @@ class ExhibitionFlow
             }
             $meta->revision++;
             $meta->save();
-            $after = $game->history ?? [];
+            // Coach actions append history; only a penalty decision replaces its last play.
+            $afterCount = ExhibitionHistory::count($game);
             $indices = [];
-            foreach ($after as $index => $play) {
-                if (! isset($before[$index]) || $before[$index] !== $play) {
-                    $indices[] = $index;
+            if ($legacyBefore !== null) {
+                foreach (ExhibitionHistory::entries($game) as $index => $play) {
+                    if (! isset($legacyBefore[$index]) || $legacyBefore[$index] !== $play) {
+                        $indices[] = $index;
+                    }
+                }
+            } else {
+                if ($action === 'penalty' && $lastIndex !== null && $beforeLast !== ExhibitionHistory::at($game, $lastIndex)) {
+                    $indices[] = $lastIndex;
+                }
+                if ($afterCount > $beforeCount) {
+                    $indices = array_merge($indices, range($beforeCount, $afterCount - 1));
                 }
             }
+            unset($beforeLast, $legacyBefore, $play);
             $result = ['version' => $game->state['version'], 'revision' => $meta->revision, 'indices' => $indices, 'watch' => $action === 'advance' || ($action === 'play' && count($indices) > 0), 'command_id' => $data['command_id']];
             ArcadeFlowReceipt::create(['exhibition_id' => $game->id, 'command_id' => $data['command_id'], 'request_hash' => $hash, 'result' => $result]);
 
@@ -239,7 +255,7 @@ class ExhibitionFlow
     {
         $status = $this->status($game);
         $flow = $status['flow'];
-        $plays = array_values(array_intersect_key($game->history ?? [], array_flip($receipt['indices'])));
+        $plays = array_values(ExhibitionHistory::select($game, $receipt['indices']));
         $showAnimation = $receipt['watch'] && (! $replayed || (($receipt['version'] ?? -1) === $game->state['version'] && ($receipt['revision'] ?? -1) === $flow['revision']));
         $url = $showAnimation ? $flow['watch_url'] : (($flow['phase'] === 'offense' || $flow['phase'] === 'final') ? $flow['arcade_url'] : $flow['coach_url']);
 

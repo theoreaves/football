@@ -2,7 +2,11 @@
 
 namespace App\Services\Arcade;
 
+use App\Models\Exhibition;
+use App\Support\ExhibitionHistory;
+use Closure;
 use DomainException;
+use HashContext;
 
 /**
  * Server-only input. The caller must authorize the current owner/user/world/game,
@@ -84,6 +88,44 @@ final readonly class ArcadeContext
         // contain large recording tuples: sorting a recursive copy and encoding
         // that whole copy can exceed the web worker memory limit during submit.
         $hash = hash_init('sha256');
+        $write = self::canonicalWriter($hash);
+        $write($value);
+
+        return hash_final($hash);
+    }
+
+    public static function exhibitionHash(Exhibition $game): string
+    {
+        if (! ExhibitionHistory::isList($game)) {
+            return self::hash([$game->state, $game->rosters, $game->history, $game->home_team_id, $game->away_team_id, $game->world_id]);
+        }
+        $hash = hash_init('sha256');
+        $write = self::canonicalWriter($hash);
+        hash_update($hash, '[');
+        $write($game->state, 2);
+        hash_update($hash, ',');
+        $write($game->rosters, 2);
+        hash_update($hash, ',[');
+        $first = true;
+        foreach (ExhibitionHistory::entries($game) as $play) {
+            if (! $first) {
+                hash_update($hash, ',');
+            }
+            $first = false;
+            $write($play, 3);
+        }
+        hash_update($hash, ']');
+        foreach ([$game->home_team_id, $game->away_team_id, $game->world_id] as $value) {
+            hash_update($hash, ',');
+            $write($value, 2);
+        }
+        hash_update($hash, ']');
+
+        return hash_final($hash);
+    }
+
+    private static function canonicalWriter(HashContext $hash): Closure
+    {
         $flags = JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION;
         $write = function (mixed $data, int $depth = 1) use (&$write, $hash, $flags): void {
             if (! is_array($data)) {
@@ -113,8 +155,7 @@ final readonly class ArcadeContext
             }
             hash_update($hash, $list ? ']' : '}');
         };
-        $write($value);
 
-        return hash_final($hash);
+        return $write;
     }
 }

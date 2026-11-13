@@ -8,6 +8,7 @@ use App\Services\Simulation\CpuCoach;
 use App\Services\Simulation\ExhibitionEngine;
 use App\Services\Simulation\GameClock;
 use App\Services\Simulation\RosterBuilder;
+use App\Support\ExhibitionHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -105,7 +106,7 @@ class ExhibitionController extends Controller
             $arcadeReturnUrl = route('exhibitions.arcade.show', $exhibition);
         }
 
-        return view('exhibitions.show', compact('arcadeFlow', 'arcadeFlowUrl', 'arcadeReturnUrl', 'replayOnly', 'highlights', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel'));
+        return view('exhibitions.show', compact('arcadeFlow', 'arcadeFlowUrl', 'arcadeReturnUrl', 'replayOnly', 'highlights', 'historyLog', 'breakHistory', 'historyCount', 'exhibition', 'appearance', 'animation', 'last', 'calls', 'defenseOptions', 'controls', 'offenseSide', 'defenseSide', 'cpuOffense', 'cpuDefense', 'cpuPlan', 'humanDefenseOptions', 'boxScore', 'personnel', 'coachSuggestion', 'coachDefense', 'sidelineRoster', 'nextAnimation', 'unitChange', 'substitutionChange', 'formationPersonnel'));
     }
 
     public function finish(Request $request, Exhibition $exhibition)
@@ -134,12 +135,19 @@ class ExhibitionController extends Controller
         $data = $request->validate(['number' => ['required', 'integer', 'min:1'], 'return_replay' => ['sometimes', 'boolean']]);
         DB::transaction(function () use ($exhibition, $data) {
             $game = Exhibition::whereKey($exhibition->id)->lockForUpdate()->firstOrFail();
-            $history = $game->history;
-            $index = array_search((int) $data['number'], array_column($history, 'number'), true);
-            abort_unless($index !== false && isset($history[$index]['animation']), 404, 'This saved replay is unavailable.');
-            abort_if($history[$index]['after']['penalty_pending'] ?? false, 409, 'Decide the penalty before saving this highlight.');
-            $history[$index]['saved_highlight'] = true;
-            $game->update(['history' => $history]);
+            $index = null;
+            $selected = null;
+            foreach (ExhibitionHistory::entries($game) as $key => $play) {
+                if (($play['number'] ?? null) === (int) $data['number']) {
+                    $index = $key;
+                    $selected = $play;
+                    break;
+                }
+            }
+            abort_unless($index !== null && isset($selected['animation']), 404, 'This saved replay is unavailable.');
+            abort_if($selected['after']['penalty_pending'] ?? false, 409, 'Decide the penalty before saving this highlight.');
+            $selected['saved_highlight'] = true;
+            ExhibitionHistory::replace($game, $index, $selected);
         }, 3);
 
         return redirect()->route('exhibitions.show', array_filter(['exhibition' => $exhibition, 'replay' => ($data['return_replay'] ?? false) ? $data['number'] : null, 'watch' => ($data['return_replay'] ?? false) ? 1 : 0]));
@@ -319,16 +327,14 @@ class ExhibitionController extends Controller
             }
             abort_if($game->state['coin_toss']['pending'] ?? false, 409, 'Choose kick or receive before continuing.');
             if ($request->input('action') === 'penalty') {
-                $history = $game->history;
-                $index = count($history) - 1;
-                $last = $history[$index] ?? [];
+                $index = ExhibitionHistory::count($game) - 1;
+                $last = ExhibitionHistory::at($game, $index) ?? [];
                 abort_unless($game->state['penalty_pending'] ?? false, 409, 'This penalty was already decided.');
                 $beneficiary = $last['penalty']['beneficiary'];
                 abort_unless(app(CpuCoach::class)->controls($game->state)[$beneficiary] === 'human', 422, 'The CPU decides this penalty.');
                 $option = $last['penalty_options'][$data['decision']];
                 $option['play']['penalty']['decided'] = true;
-                $history[$index] = $option['play'];
-                $game->update(['state' => $option['state'], 'history' => $history]);
+                ExhibitionHistory::replace($game, $index, $option['play'], ['state' => $option['state']]);
                 app(\App\Services\Seasons\SeasonGames::class)->record($game);
 
                 return;
@@ -436,9 +442,7 @@ class ExhibitionController extends Controller
                     }
                 }
             }
-            $history = $game->history;
-            $history[] = $result['play'];
-            $game->update(['state' => $result['state'], 'history' => $history]);
+            ExhibitionHistory::append($game, $result['play'], ['state' => $result['state']]);
             app(\App\Services\Seasons\SeasonGames::class)->record($game);
         }, 3);
 

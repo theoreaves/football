@@ -187,7 +187,7 @@ test('human penalty choices retain the recorded play and are exactly once', func
     enableFlow($game);
     $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'fast']))->assertConflict();
     $payload = flowCommand($game, ['action' => 'penalty', 'decision' => $decision]);
-    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk();
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('receipt.indices', [0]);
     $saved = $game->fresh();
     expect($saved->history)->toHaveCount(1)->and($saved->history[0]['arcade_recording'])->toBe($recording)->and($saved->history[0]['penalty']['accepted'])->toBe($decision === 'accept');
     $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('replayed', true);
@@ -225,7 +225,7 @@ test('shared Coach form automatic defaults do not block human defense', function
     $id = $game->rosters['home']['players']['CB1']['id'];
     $payload = flowCommand($game, ['action' => 'play', 'defense' => 'man_to_man', 'defense_formation' => 'base_4_3',
         'team_play' => ['home' => '', 'away' => ''], 'one_play' => ['home' => ['CB1' => $id], 'away' => ['QB' => null, 'RB' => '']]]);
-    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk();
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('receipt.indices', [0]);
     $saved = $game->fresh();
     expect($saved->history)->toHaveCount(1)->and($saved->history[0]['before']['_snap_lineup']['home']['CB1'])->toBe($id);
     $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('replayed', true);
@@ -523,3 +523,31 @@ test('delegated defense preference never skips the human kickoff after a score',
     $this->postJson(route('exhibitions.arcade.flow', $game), $next)->assertOk()->assertJsonPath('replayed', true);
     expect($game->fresh()->state)->toBe($saved->state)->and($game->fresh()->history)->toBe($saved->history);
 })->with(['watch', 'fast']);
+
+test('flow receipts include only appended plays and never unchanged saved history', function () {
+    $game = flowTestGame(['possession' => 'away']);
+    $history = [['number' => 1, 'summary' => 'Legacy recording', 'arcade_recording' => ['frames' => [[0, 0.0, -0.0]], 'ordered' => ['z' => 1, 'a' => '1']]]];
+    $game->update(['history' => $history]);
+    $persisted = $game->fresh()->history;
+    $preferences = flowCommand($game, ['action' => 'preferences', 'human_side' => 'home', 'defense_mode' => 'fast']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $preferences)->assertOk()->assertJsonPath('receipt.indices', []);
+    $payload = flowCommand($game, ['action' => 'fast']);
+    $response = $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk();
+    $saved = $game->fresh();
+    expect($saved->history[0])->toBe($persisted[0])
+        ->and($response->json('receipt.indices'))->toBe(range(1, count($saved->history) - 1));
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->state)->toBe($saved->state)->and($game->fresh()->history)->toBe($saved->history);
+});
+
+test('legacy keyed history keeps exact receipt indices when appending a Coach play', function () {
+    $game = flowTestGame(['possession' => 'away']);
+    $play = ['summary' => 'Legacy keyed play', 'arcade_recording' => ['frames' => [[0, 1, 2]]]];
+    $game->update(['history' => [3 => $play, 8 => $play]]);
+    $preferences = flowCommand($game, ['action' => 'preferences', 'human_side' => 'home', 'defense_mode' => 'watch']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $preferences)->assertOk()->assertJsonPath('receipt.indices', []);
+    $payload = flowCommand($game, ['action' => 'advance']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('receipt.indices', [9]);
+    expect(array_keys($game->fresh()->history))->toBe([3, 8, 9]);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('receipt.indices', [9]);
+});

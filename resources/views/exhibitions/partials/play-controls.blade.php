@@ -327,15 +327,6 @@
         </div>
     </dialog>
     @endif
-    <?php
-        $breakHistory = collect($exhibition->history)->map(function ($play) {
-            $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap', 'gain', 'penalty']);
-            foreach (['before', 'after'] as $when) {
-                $item[$when] = \Illuminate\Support\Arr::only($play[$when] ?? [], ['stats', 'quarter', 'clock', 'phase', 'possession', 'status', 'home_score', 'away_score', 'penalty_pending', 'down', 'distance']);
-            }
-            return $item;
-        })->values();
-    ?>
     <script type="application/json" data-break-history>@json($breakHistory)</script>
     @if(!request()->boolean('summary') && !$replayOnly && $last)
     <dialog data-drive-dialog class="game-dialog m-auto bg-gray-800 text-white rounded-xl border border-gray-600 p-6 max-w-lg backdrop:bg-black/70">
@@ -461,7 +452,7 @@
     </dialog>
     <dialog data-highlights-dialog class="game-dialog"><form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Highlight reel</h2>
         <p class="text-gray-300 mb-4">Gains over 20 yards, scoring plays, turnovers, and your saved plays.</p>
-        <ol class="space-y-4">@forelse($highlights as $highlight)<li @if(!$replayOnly && $highlight['number'] === ($last['number'] ?? null)) data-hidden-result @if($watching) hidden @endif @endif>#{{ $highlight['number'] }} · {{ implode(' · ', \App\Support\PlayHighlights::reasons($highlight)) }}{{ ($highlight['saved_highlight'] ?? false) ? ' · Saved by you' : '' }}<p>{{ $highlight['summary'] }}</p><a class="text-blue-300 underline" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $highlight['number'], 'watch' => 1]) }}">Watch highlight</a></li>@empty<li>No highlights yet. You can save any play beside the Replay button.</li>@endforelse</ol>
+        <ol class="space-y-4">@forelse($highlights as $highlight)<li @if(!$replayOnly && $highlight['number'] === ($last['number'] ?? null)) data-hidden-result @if($watching) hidden @endif @endif>#{{ $highlight['number'] }} · {{ implode(' · ', $highlight['reasons']) }}{{ ($highlight['saved_highlight'] ?? false) ? ' · Saved by you' : '' }}<p>{{ $highlight['summary'] }}</p><a class="text-blue-300 underline" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $highlight['number'], 'watch' => 1]) }}">Watch highlight</a></li>@empty<li>No highlights yet. You can save any play beside the Replay button.</li>@endforelse</ol>
     </dialog>
     <dialog data-stats-dialog class="game-dialog" style="width:min(94vw,1100px);max-width:1100px;max-height:90vh;overflow:auto;">
         <form method="dialog"><button class="float-right">Close</button></form><h2 class="text-2xl font-semibold mb-4">Stats</h2>
@@ -472,9 +463,9 @@
         <section data-stats-panel="drives" hidden><h3>Drive summary</h3><div class="overflow-x-auto"><table class="w-full mt-3 text-sm"><thead><tr class="text-left"><th class="p-2">Drive</th><th class="p-2">Team</th><th class="p-2">Started</th><th class="p-2">Plays</th><th class="p-2">Yards</th><th class="p-2">Result</th></tr></thead><tbody data-game-drives data-team-names="{{ json_encode($teamNames) }}"></tbody></table></div></section>
         <section data-stats-panel="lineups" hidden>@include('exhibitions.partials.lineups')</section>
         <section data-stats-panel="box" hidden>@include('exhibitions.box-score')</section>
-        <section data-stats-panel="log" hidden><ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($exhibition->history, true) as $historyIndex => $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · {{ $play['before']['quarter'] >= 5 ? 'OT'.($play['before']['quarter'] > 5 ? $play['before']['quarter'] - 4 : '') : 'Q'.$play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
-@if(config('arcade.enabled') && ($play['source'] ?? null) === 'arcade' && isset($play['arcade_recording']) && ! $exhibition->seasonFixture && ! isset($state['playoff']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.arcade.show', ['exhibition' => $exhibition, 'play' => $historyIndex + 1]) }}">Replay Arcade recording</a>@endif
-@if(isset($play['animation']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $play['number'], 'watch' => 1]) }}">Replay{{ \App\Support\PlayHighlights::saved($play) ? ' · Highlight' : '' }}</a>@endif</li>@endforeach</ol>
+        <section data-stats-panel="log" hidden><ol class="space-y-2 mt-3 text-sm text-gray-400">@foreach(array_reverse($historyLog, true) as $historyIndex => $play)<li @if($loop->first && !$replayOnly) data-hidden-result @if($watching) hidden @endif @endif>#{{ $play['number'] }} · {{ $play['before']['quarter'] >= 5 ? 'OT'.($play['before']['quarter'] > 5 ? $play['before']['quarter'] - 4 : '') : 'Q'.$play['before']['quarter'] }} {{ gmdate('i:s', $play['before']['clock']) }} · {{ $play['before']['possession'] }} · {{ $play['summary'] }}
+@if(config('arcade.enabled') && ($play['source'] ?? null) === 'arcade' && $play['has_recording'] && ! $exhibition->seasonFixture && ! isset($state['playoff']))<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.arcade.show', ['exhibition' => $exhibition, 'play' => $historyIndex + 1]) }}">Replay Arcade recording</a>@endif
+@if($play['has_animation'])<a class="text-blue-300 underline ml-2" href="{{ route('exhibitions.show', ['exhibition' => $exhibition, 'replay' => $play['number'], 'watch' => 1]) }}">Replay{{ $play['highlight'] ? ' · Highlight' : '' }}</a>@endif</li>@endforeach</ol>
     </section>
     </dialog>
 

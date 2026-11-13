@@ -146,3 +146,92 @@ and directs the player to cancel the reservation instead of offering submission.
 This wording correction is separate from the HTTP 500. A reservation that expires
 while diagnosing a failed submission must still be cancelled; do not extend it or
 manufacture an accepted result. The saved game remains at the prior accepted play.
+
+
+## Extended-history memory reliability
+
+The extended disposable-game check found two further allocation problems after the
+initial fingerprint correction: Fast Sim retained full decoded before/after histories
+while calling Coach, and a later result save decoded both old and new histories for
+Eloquent dirty checking. These were request failures, not lost client clicks. Failed
+transactions left the prior state and result receipts unchanged.
+
+`ExhibitionHistory` now reads the existing JSON one play at a time and appends or
+replaces only the required raw segment. Normal model events, timestamps, ownership,
+transactions and existing storage format remain in place. Session/flow fingerprints
+retain the exact canonical hashes, and result retries reuse the original receipt.
+Presentation, historical replay and box-score paths consume bounded history reads;
+the screen keeps only compact log/highlight/break metadata plus the selected play.
+No recordings are truncated, reconstructed or resimulated. No schema migration,
+clock/speed/difficulty adjustment or PHP worker-limit increase is part of this fix.
+
+The implementation bounds decoded history, not all memory: raw JSON, the current
+play/receipt and the response still occupy memory. Legacy object-root histories keep
+their prior compatibility behavior. Synthetic storage-growth tests are memory
+regressions, not gameplay-balance benchmarks or a guarantee for unlimited histories.
+
+
+The longer-game run also exposed a separate full-team validation edge: a broken
+tackle and final tackle can be recorded at distinct fractional times in the same
+simulation tick. Terminal ownership validation now identifies the actual last
+frame by index instead of treating every frame in that tick as terminal. Legal
+recordings are accepted; forged final holders and premature dead-ball states remain
+rejected. This does not alter movement, contact resolution or official accounting.
+
+
+Use `APP_DEBUG=false` for long-game memory verification and local gameplay review.
+Laravel's debug exception renderer retains prepared SQL bindings for its query
+trace, including successive multi-megabyte history updates during Fast Sim. This
+instrumentation can exceed a 128 MiB worker even when the application streams the
+history correctly. It is independent of Laravel's optional database query log.
+The diagnostic comparison changes debug collection only in the disposable test
+process; do not change someone's local app settings or live game as part of a test.
+No vendor/debug-listener patch or transaction-boundary change is included.
+
+
+The extended regression also exposed a pre-existing randomized season test: it
+left the game in opening-kickoff phase at Q4 0:00 but assumed the final snap could
+never score. A legal return touchdown made the saved result 14–6, not 14–0.
+The test now uses explicit deterministic non-scoring and scoring final snaps,
+checks each exact score against the saved season fixture, and retains the pending
+penalty guard. Both cases also pass with the previous `4d3971d` engine. No Coach,
+clock, kickoff, season-finalization or RNG rule was changed to satisfy the test.
+
+
+Final regression coverage for this follow-up:
+
+- Unit suite: 181 passed, 2 opt-in benchmark skips.
+- Feature suite: 660 passed, 3 opt-in pacing skips across an interrupted run and
+  its verified remaining tail. The interrupted log contained 641 passes and
+  3 skips; the remaining 19 cases passed in complete-file reruns, with 6 boundary
+  cases and both deterministic season-finalization cases also repeated.
+- All 148 Coach characterization cases are included and pass.
+- Graphics: 529 passed. Production build and Pint pass; the existing large-chunk
+  build warning remains.
+
+Earlier full PHP runs exposed the obsolete whole-history-cast assertion and the
+randomized final-kickoff fixture described above. Both are corrected and covered
+by the final checks; do not describe the interrupted Feature process itself as a
+completed aggregate run. No fresh Chrome interaction is claimed for this backend
+follow-up. Live browser/performance and hands-on balance remain separate checks.
+
+
+The disposable continuation from the preserved 21-play checkpoint reached the
+final whistle normally with 900-second quarters, 184 saved history entries and
+17,236,533 bytes of raw history. After that checkpoint it added 42 accepted Arcade
+results and 53 flow-command receipts, with 163 new history entries. Fresh PHP
+HTTP-kernel requests used `APP_DEBUG=false` and the unchanged 128 MiB worker cap;
+the observed maximum was 110.95 MiB. Final current-view, presentation and both old
+and larger saved-replay reads returned 200. An aged identical result retry returned
+the original receipt; complete saved-state/history hashes remained unchanged
+through the final read/retry checks. No live review-game result was submitted.
+
+This is continuation testing across preserved checkpoints, not a fresh browser run
+from the opening. The harness interruption was reconciled on a recovered disposable
+copy before its known-uncommitted body was retried. Manual timeout/mode-selection
+UI and overtime were not exercised by this long-game script; the focused suites
+cover those paths separately. Performance is not yet optimized: a late Fast Sim
+request took about 16.7 seconds, and final read endpoints took about 5–7 seconds
+in the fresh-process checks. These are server timings, not browser FPS measurements
+or gameplay-balance acceptance. No Stage C work or live-app configuration change is
+included.

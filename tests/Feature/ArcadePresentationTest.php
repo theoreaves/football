@@ -173,3 +173,63 @@ test('historical Coach fragment uses selected play and cannot expose current dec
     expect($xpath->query('//form[translate(@method,"post","POST")="POST"]')->length)->toBe(0)->and($html)->not->toContain('data-ot-dialog', 'data-coin-dialog', 'data-penalty-form', 'data-call-form')->and($html)->toContain('game-replay-return');
     expect($game->fresh()->getAttributes())->toBe($before);
 });
+
+test('presentation and box score stream history while preserving display metadata and selected replay', function () {
+    $game = presentationGame();
+    $first = app(ExhibitionEngine::class)->resolve($game->state, $game->rosters, 'inside_run', 'man_to_man');
+    $second = app(ExhibitionEngine::class)->resolve($first['state'], $game->rosters, 'inside_run', 'man_to_man');
+    $old = $first['play'];
+    $old['source'] = 'arcade';
+    $old['saved_highlight'] = true;
+    $old['arcade_recording'] = ['version' => 1, 'marker' => 'exact embedded historical recording', 'frames' => [[0, 0, 0, [], []]]];
+    $old['animation']['recording'] = $old['arcade_recording'];
+    $history = [$old, $second['play']];
+    $game->update(['state' => $second['state'], 'history' => $history]);
+    $game->refresh();
+    $history = $game->history;
+    $old = $history[0];
+    $expectedBox = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game);
+    $streamed = new class extends Exhibition
+    {
+        protected $table = 'exhibitions';
+
+        public function getForeignKey()
+        {
+            return 'exhibition_id';
+        }
+
+        public function getAttribute($key)
+        {
+            if ($key === 'history') {
+                throw new LogicException('Presentation must not decode the whole history cast.');
+            }
+
+            return parent::getAttribute($key);
+        }
+    };
+    $streamed->setRawAttributes($game->getAttributes(), true);
+    $streamed->exists = true;
+    $data = app(ExhibitionPresentation::class)->viewData($streamed);
+    expect($data['historyCount'])->toBe(2)->and($data['last'])->toBe($history[1])
+        ->and($data['boxScore'])->toBe($expectedBox)
+        ->and($data['historyLog'][0])->toEqual([
+            'number' => $old['number'], 'summary' => $old['summary'], 'source' => 'arcade',
+            'before' => \Illuminate\Support\Arr::only($old['before'], ['quarter', 'clock', 'possession']),
+            'has_recording' => true, 'has_animation' => true, 'highlight' => true,
+        ])->and($data['highlights'][0]['reasons'])->toBe(\App\Support\PlayHighlights::reasons($old));
+    $expectedBreaks = collect($history)->map(function ($play) {
+        $item = \Illuminate\Support\Arr::only($play, ['number', 'call', 'outcome', 'clock_seconds', 'no_snap', 'gain', 'penalty']);
+        foreach (['before', 'after'] as $when) {
+            $item[$when] = \Illuminate\Support\Arr::only($play[$when] ?? [], ['stats', 'quarter', 'clock', 'phase', 'possession', 'status', 'home_score', 'away_score', 'penalty_pending', 'down', 'distance']);
+        }
+
+        return $item;
+    })->all();
+    expect($data['breakHistory'])->toBe($expectedBreaks)
+        ->and(json_encode([$data['historyLog'], $data['highlights'], $data['breakHistory']]))->not->toContain('exact embedded historical recording');
+    $replay = app(ExhibitionPresentation::class)->viewData($streamed, $old['number'], false, true);
+    expect($replay['last'])->toBe($old)->and($replay['animation']['recording'])->toBe($old['arcade_recording']);
+    $this->get(route('exhibitions.show', $game))->assertOk()->assertSee('Replay Arcade recording');
+    $this->get(route('exhibitions.show', ['exhibition' => $game, 'replay' => $old['number']]))->assertOk();
+    $this->get(route('exhibitions.arcade.show', ['exhibition' => $game, 'play' => 1]))->assertOk()->assertViewHas('lastRecording', $old['arcade_recording']);
+});

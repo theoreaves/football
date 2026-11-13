@@ -199,8 +199,9 @@ final class FullTeamLivePlayContract
         } else {
             $this->check(! $catch && ! $intercept && ! isset($byType['incomplete']) && $carrier === ($handoff ? $handoff[4] : $initial), 'Possession changed without pass or handoff.');
         }
-        foreach ($frames as $f) {
-            $isLast = $f[0] === $last[0];
+        foreach ($frames as $frameIndex => $f) {
+            // Contact samples can precede the terminal sample within the same tick.
+            $isLast = $frameIndex === array_key_last($frames);
             $holder = $catch && $f[1] >= $catch[1] ? $receiver : ($handoff && $f[1] >= $handoff[1] ? $handoff[4] : $initial);
             $flight = $throw && $f[0] >= $throw[0] && (! $catch || $f[1] < $catch[1]);
             if (! $isLast) {

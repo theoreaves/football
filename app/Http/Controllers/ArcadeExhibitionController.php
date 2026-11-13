@@ -6,6 +6,7 @@ use App\Http\Requests\ArcadeExhibitionRequest;
 use App\Models\ArcadePlaySession;
 use App\Models\Exhibition;
 use App\Services\Arcade\ExhibitionSessions;
+use App\Support\ExhibitionHistory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 
@@ -19,11 +20,17 @@ class ArcadeExhibitionController extends Controller
             $value = $request->query('play');
             abort_unless(is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1 && strlen($value) <= 9, 404);
             $selectedPlay = (int) $value;
-            $play = $exhibition->history[$selectedPlay - 1] ?? null;
+            $play = ExhibitionHistory::at($exhibition, $selectedPlay - 1);
             abort_unless(is_array($play) && ($play['source'] ?? null) === 'arcade' && is_array($play['arcade_recording'] ?? null), 404);
             $lastRecording = $play['arcade_recording'];
         } else {
-            $lastRecording = collect($exhibition->history)->reverse()->first(fn (array $play) => ($play['source'] ?? null) === 'arcade' && is_array($play['arcade_recording'] ?? null))['arcade_recording'] ?? null;
+            $lastRecording = null;
+            foreach (ExhibitionHistory::entries($exhibition) as $entry) {
+                if (($entry['source'] ?? null) === 'arcade' && is_array($entry['arcade_recording'] ?? null)) {
+                    $lastRecording = $entry['arcade_recording'];
+                }
+            }
+            unset($entry);
         }
         $status = $sessions->status($exhibition);
         if ($selectedPlay === null) {

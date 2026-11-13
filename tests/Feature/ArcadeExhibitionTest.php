@@ -151,7 +151,21 @@ test('live generated movement commits once and identical receipt retries survive
     $state['phase'] = 'extra_point';
     $saved->update(['state' => $state]);
     $this->travel(181)->seconds();
-    $this->postJson($session['submit_url'], $data)->assertOk()->assertJsonPath('receipt', $first->json('receipt'));
+    $receiptJson = ArcadePlaySession::first()->getRawOriginal('receipt');
+    $receiptCasts = 0;
+    \Illuminate\Database\Eloquent\Casts\Json::decodeUsing(function ($value, $associative = true) use ($receiptJson, &$receiptCasts) {
+        if ($value === $receiptJson) {
+            $receiptCasts++;
+        }
+
+        return json_decode($value, $associative);
+    });
+    try {
+        $this->postJson($session['submit_url'], $data)->assertOk()->assertJsonPath('receipt', $first->json('receipt'));
+    } finally {
+        \Illuminate\Database\Eloquent\Casts\Json::decodeUsing(null);
+    }
+    expect($receiptCasts)->toBe(1);
     expect($game->fresh()->history)->toHaveCount(1)->and($game->fresh()->state['version'])->toBe(2);
     $changed = $data;
     $changed['recording']['result']['yards'] = 999;
