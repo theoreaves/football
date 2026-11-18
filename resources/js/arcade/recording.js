@@ -51,7 +51,7 @@ export function createDrillRecording(initialState, { appearance = initialState.a
     const indexFor = key => actorIndex.get(key) ?? -1;
     const recording = {
         version: fullTeam ? 2 : RECORDING_VERSION,
-        ...(fullTeam ? { contractVersion: 'live-recording-2', catalogVersion: 'arcade-fullteam-1', fullTeam: true, call: initialState.call } : {}), mode: initialState.mode || 'running', direction: initialState.direction,
+        ...(fullTeam ? { contractVersion: 'live-recording-2', catalogVersion: initialState.catalogVersion ?? 'arcade-fullteam-1', fullTeam: true, call: initialState.call } : {}), mode: initialState.mode || 'running', direction: initialState.direction,
         seed: initialState.seed ?? null, tuningVersion: initialState.tuningVersion ?? null,
         speedScale: initialState.speedScale ?? null, routeSet: initialState.routeSet ?? null,
         tickRate: RECORDING_LIMITS.tickRate, sampleRate: RECORDING_LIMITS.sampleRate,

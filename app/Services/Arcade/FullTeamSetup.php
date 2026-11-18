@@ -12,7 +12,20 @@ final class FullTeamSetup
 
     public const QB_ONLY_TUNING = 'arcade-fullteam-2';
 
-    public const CALLS = ['inside_run', 'outside_run', 'short_pass', 'medium_pass', 'deep_pass'];
+    public const LEGACY_CALLS = ['inside_run', 'outside_run', 'short_pass', 'medium_pass', 'deep_pass'];
+
+    public const CATALOG_VERSION = 'arcade-fullteam-2';
+
+    public const RUN_CALLS = ['inside_run', 'outside_run', 'hb_draw', 'qb_sneak'];
+
+    public const PLAYBOOK_CALLS = ['inside_run', 'outside_run', 'hb_draw', 'qb_sneak', 'quick_slants', 'te_stick', 'hb_swing', 'hb_screen', 'mesh_crossers', 'curl_flat', 'play_action_boot', 'four_verticals', 'post_corner'];
+
+    public const CALLS = [...self::PLAYBOOK_CALLS, 'short_pass', 'medium_pass', 'deep_pass'];
+
+    public static function kind(string $call): string
+    {
+        return in_array($call, self::RUN_CALLS, true) ? 'run' : 'pass';
+    }
 
     public const LIMITS = ['actors' => 22, 'frames' => 858, 'events' => 256, 'bytes' => 2097152, 'nodes' => 250000, 'seconds' => 20];
 
@@ -36,14 +49,15 @@ final class FullTeamSetup
                 abort_if($injury && ($injury['return_snap'] === null || ($state['personnel_snaps'] ?? 0) < $injury['return_snap']), 409, 'An assigned player is unavailable. Continue in Coach.');
                 $seen[$player['id']] = true;
                 $key = $unit.'_'.$role;
+                $offset = $unit === 'offense' && $role === 'QB' && $call === 'qb_sneak' ? -1.8 : $offset;
                 $x = max(0, min(120, $line + $direction * $offset));
                 $actors[$key] = ['replay_key' => $key, 'player_id' => (int) $player['id'], 'side' => $team, 'role' => $role, 'x' => $x, 'y' => $z];
                 $players[] = array_replace($player, ['key' => $key, 'side' => $team, 'role' => $role, 'x' => $x, 'z' => $z]);
             }
         }
-        $running = in_array($call, ['inside_run', 'outside_run'], true);
+        $running = self::kind($call) === 'run';
 
-        return ['fullTeam' => true, 'contractVersion' => 'live-recording-2', 'catalogVersion' => 'arcade-fullteam-1', 'tuningVersion' => self::QB_ONLY_TUNING, 'limits' => self::LIMITS,
+        return ['fullTeam' => true, 'contractVersion' => 'live-recording-2', 'catalogVersion' => self::CATALOG_VERSION, 'tuningVersion' => self::QB_ONLY_TUNING, 'limits' => self::LIMITS,
             'kind' => $running ? 'run' : 'pass', 'mode' => $running ? 'running' : 'passing', 'call' => $call, 'offenseSide' => $side,
             'direction' => $direction, 'seed' => LivePlaySeed::forState($state), 'speedScale' => .925, 'routeSet' => $running ? null : $call,
             'offenseFormation' => 'shotgun', 'defenseFormation' => 'base_4_3', 'eligibleReceiverKeys' => ['offense_WR1', 'offense_WR2', 'offense_WR3', 'offense_TE', 'offense_RB'],

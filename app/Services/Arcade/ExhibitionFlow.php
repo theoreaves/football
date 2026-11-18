@@ -67,7 +67,7 @@ class ExhibitionFlow
         unset($last);
         $flow = ['enabled' => (bool) $meta, 'revision' => $meta?->revision ?? 0, 'state_hash' => $this->fingerprint($game), 'human_side' => $human,
             'defense_mode' => $meta?->defense_mode ?? 'coach', 'phase' => $final ? 'final' : ($required ? 'decision' : ($offense ? 'offense' : ($special ? 'special' : 'defense'))),
-            'required_decision' => $required, 'can_advance' => (bool) $advance, 'can_fast' => (bool) $advance,
+            'required_decision' => $required, 'can_advance' => (bool) $advance, 'can_fast' => (bool) ($advance || ($meta && ! $active && $this->fastPenaltyDecision($game, $meta->human_side) !== null)),
             'can_spike' => (bool) ($meta && ! $active && ! $final && ! $required && $offense && in_array('spike', ExhibitionEngine::callsForState($s), true)),
             'can_timeout' => (bool) ($meta && ! $active && app(TimeoutRules::class)->canCall($s, $human)), 'timeout_team' => $human,
             'intro_seen' => $meta?->intro_seen ?? true, 'opening_enabled' => $meta?->opening_enabled ?? false,
@@ -110,7 +110,7 @@ class ExhibitionFlow
             $legacyBefore = ExhibitionHistory::isList($game) ? null : iterator_to_array(ExhibitionHistory::entries($game));
             $beforeCount = $legacyBefore === null ? ExhibitionHistory::count($game) : count($legacyBefore);
             $lastIndex = $beforeCount > 0 ? $beforeCount - 1 : null;
-            $beforeLast = $action === 'penalty' || ($flow['required_decision'] === 'penalty' && ! $meta)
+            $beforeLast = $action === 'penalty' || $flow['required_decision'] === 'penalty'
                 ? ExhibitionHistory::last($game) : null;
             $penaltyBeneficiary = $beforeLast['penalty']['beneficiary'] ?? null;
             if ($action === 'preferences') {
@@ -140,11 +140,16 @@ class ExhibitionFlow
                 if ($action === 'intro_seen') {
                     $meta->intro_seen = true;
                 } elseif (in_array($action, ['advance', 'fast'], true)) {
-                    abort_unless($flow['can_advance'], 409, 'A player decision is required.');
+                    abort_unless($action === 'fast' ? $flow['can_fast'] : $flow['can_advance'], 409, 'A player decision is required.');
                     if ($action === 'fast') {
                         $meta->defense_mode = 'fast';
                     }
                     for ($i = 0; $i < 512; $i++) {
+                        // Settle the exact saved options before testing possession or finality:
+                        // an enforcement preview can temporarily change either.
+                        if ($action === 'fast' && ($decision = $this->fastPenaltyDecision($game, $meta->human_side)) !== null) {
+                            $this->coachAction($game, $request, ['action' => 'penalty', 'decision' => $decision]);
+                        }
                         if (! $this->cpuBoundary($game->state, $meta->human_side)) {
                             break;
                         }
@@ -161,6 +166,9 @@ class ExhibitionFlow
                         if ($action === 'advance') {
                             break;
                         }
+                    }
+                    if ($action === 'fast' && ($decision = $this->fastPenaltyDecision($game, $meta->human_side)) !== null) {
+                        $this->coachAction($game, $request, ['action' => 'penalty', 'decision' => $decision]);
                     }
                 } else {
                     $args = $request->only(['action', 'call', 'defense', 'offense_formation', 'defense_formation', 'tempo', 'clock_strategy', 'timeout_team', 'timeout_timing', 'decision', 'choice', 'toss_call', 'team', 'role', 'player', 'expect', 'blitz', 'motion', 'one_play', 'team_play']);
@@ -217,7 +225,7 @@ class ExhibitionFlow
                     }
                 }
             } else {
-                if ($action === 'penalty' && $lastIndex !== null && $beforeLast !== ExhibitionHistory::at($game, $lastIndex)) {
+                if ($beforeLast !== null && $lastIndex !== null && $beforeLast !== ExhibitionHistory::at($game, $lastIndex)) {
                     $indices[] = $lastIndex;
                 }
                 if ($afterCount > $beforeCount) {
@@ -230,6 +238,21 @@ class ExhibitionFlow
 
             return $this->response($game, $result, false);
         }, 3);
+    }
+
+    /** Use the canonical rules' saved CPU recommendation, never re-simulate a play. */
+    private function fastPenaltyDecision(Exhibition $game, string $human): ?string
+    {
+        if (! ($game->state['penalty_pending'] ?? false)) return null;
+        $play = ExhibitionHistory::last($game);
+        // Defense preferences alone must never decide a human QB's flag.
+        if (! $play || ($play['before']['possession'] ?? $human) === $human
+            || ($play['source'] ?? '') === 'arcade' || isset($play['arcade_recording'])
+            || ($play['penalty']['beneficiary'] ?? null) !== $human
+            || ! isset($play['penalty_options']['accept'], $play['penalty_options']['decline'])
+            || ! is_bool($play['penalty']['accepted'] ?? null)) return null;
+
+        return $play['penalty']['accepted'] ? 'accept' : 'decline';
     }
 
     private function cpuBoundary(array $state, string $human): bool

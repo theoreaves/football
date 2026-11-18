@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {performance} from 'node:perf_hooks';
 import {createFullTeamPlay, startFullTeamPlay, pauseFullTeamPlay, stepFullTeamPlay, getFullTeamPassTrajectory} from '../../resources/js/arcade/full-team.js';
 import {createDrillRecording} from '../../resources/js/arcade/recording.js';
+import {fullTeamPlay} from '../../resources/js/arcade/full-team-plays.js';
 import {actorSpeed, rating} from '../../resources/js/arcade/tuning.js';
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const distance = (a, b) => Math.hypot(a.x-b.x, a.z-b.z);
@@ -31,7 +32,7 @@ function candidates(state, outlet = false) {
         const separation=Math.min(...state.defenders.map(d=>distance(target,projected(d,duration))));
         const laneClearance=Math.min(...trajectory.slice(8).flatMap((p,i)=>p.y<=2.55 ? state.defenders.map(d=>distance(p,projected(d,duration*(i+8)/15))) : []));
         const gain=(target.x-state.startX)*state.direction;
-        const desired={short_pass:5,medium_pass:10,deep_pass:20}[state.call];
+        const desired={short_pass:5,medium_pass:10,deep_pass:20}[state.call] ?? ({'Short Pass':5,'Medium Pass':10,'Deep Pass':20}[fullTeamPlay(state.call)?.group] ?? 5);
         return {key:receiver.key,target,duration,separation,laneClearance,gain,score:Math.min(separation,laneClearance)-Math.abs(gain-desired)*.12};
     }).filter(Boolean).sort((a,b)=>b.score-a.score || a.key.localeCompare(b.key));
 }
@@ -42,6 +43,7 @@ function createPolicy(profile) {
             return state.tick===5 ? {pass:{x:state.startX+state.direction*4,z:36}} : {};
         }
         if(profile==='hold')return {};
+        if(state.mechanic==='sneak')return {x:state.direction};
         if(state.mode==='running' && !state.handoffComplete)return {};
         if(state.controlledKey!==state.quarterback.key) {
             // Follow the called run lane, then take a nearby visible gap, without predicting RNG.
@@ -51,7 +53,7 @@ function createPolicy(profile) {
             return {x:state.direction,z:clamp((desired-state.runner.z)*.2+avoid,-.65,.65)};
         }
         if(state.mode==='running' || state.ball.phase!=='held')return {};
-        const earliest={short_pass:42,medium_pass:66,deep_pass:90}[state.call];
+        const earliest={short_pass:42,medium_pass:66,deep_pass:90}[state.call] ?? ({'Short Pass':42,'Medium Pass':66,'Deep Pass':90}[fullTeamPlay(state.call)?.group] ?? 42);
         const pressure=Math.min(...state.defenders.map(d=>distance(d,state.quarterback)));
         if(state.tick>=earliest && state.tick%6===0) {
             const best=candidates(state,profile==='outlet')[0];

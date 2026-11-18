@@ -1,8 +1,9 @@
 // New exhibition reservations opt in explicitly. Recovery never rewrites a saved body.
-export const ARCADE_CALLS = Object.freeze({inside_run:'Inside run',outside_run:'Outside run',short_pass:'Short pass',medium_pass:'Medium pass',deep_pass:'Deep pass'});
+import {FULL_TEAM_PLAYBOOK, fullTeamPlay} from './full-team-plays.js';
+export const ARCADE_CALLS = Object.freeze(Object.fromEntries(FULL_TEAM_PLAYBOOK.map(play=>[play.id,play.label])));
 export function exhibitionReservation({version,call,tempo}) {
-    if(!Object.hasOwn(ARCADE_CALLS,call))throw new Error('Choose one of the five Arcade plays.');
-    return {version,kind:call.endsWith('_run')?'run':'pass',call,tempo,contract_version:'live-recording-2'};
+    if(!Object.hasOwn(ARCADE_CALLS,call))throw new Error('Choose an available Arcade play.');
+    return {version,kind:fullTeamPlay(call).kind,call,tempo,contract_version:'live-recording-2'};
 }
 export function exhibitionUsesQbControl(state) {
     return !!state?.fullTeam && Object.hasOwn(state, 'inputActorKey');
@@ -21,6 +22,7 @@ export function exhibitionControlHint(state) {
     if(state.status==='finished')return state.result?.reason==='interception' ? 'Interception ends at the catch. Replay or submit the recorded result.' : 'Play finished. Replay or submit the recorded result.';
     if(exhibitionUsesQbControl(state)){
         if(state.ball?.phase==='flight')return 'Pass in flight.';
+        if(fullTeamPlay(state.config?.call || state.call)?.mechanic==='sneak')return 'QB Sneak: WASD / arrows to move, Q / E to juke. No forward pass on this designed run.';
         if(state.mode!=='passing'){
             return state.ball?.holderKey===state.quarterback?.key
                 ? 'Automatic handoff. The CPU runs with the ball.'

@@ -551,3 +551,81 @@ test('legacy keyed history keeps exact receipt indices when appending a Coach pl
     expect(array_keys($game->fresh()->history))->toBe([3, 8, 9]);
     $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('receipt.indices', [9]);
 });
+
+function flowPendingCpuPenalty(bool $turnover = false, array $changes = []): Exhibition
+{
+    $game = flowTestGame(array_replace(['possession' => 'away', 'rules' => ['penalties' => true, 'injuries' => false]], $changes));
+    $before = $game->state;
+    $after = array_replace($before, $turnover ? ['possession' => 'home', 'spot' => 60, 'down' => 1, 'distance' => 10] : ['spot' => $before['spot'] + 2, 'down' => 2, 'distance' => 8]);
+    $play = ['call' => 'inside_run', 'outcome' => $turnover ? 'fumble' : 'tackle', 'gain' => 2, 'flip' => $turnover,
+        'summary' => $turnover ? 'Recovered fumble' : 'Two yard run', 'carrier' => 'RB', 'target' => 0,
+        'defense' => 'man_to_man', 'offense_formation' => 'shotgun', 'defense_formation' => 'base_4_3', 'dev_force_flag' => true];
+    $result = app(\App\Services\Simulation\PlayFinalizer::class)->finish($after, $before, $play, $game->rosters, 5,
+        ['events' => [[0, 'Snap'], [5, 'Tackle']], 'players' => [], 'ball' => []]);
+    $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
+    return $game;
+}
+
+test('Fast Sim settles the canonical advantageous pending choice and preserves receipts', function (bool $turnover) {
+    $game = flowPendingCpuPenalty($turnover);
+    enableFlow($game, 'watch');
+    $pending = $game->fresh()->history[0];
+    expect($pending['penalty']['accepted'])->toBe(! $turnover);
+    $decision = $turnover ? 'decline' : 'accept';
+    $expected = $pending['penalty_options'][$decision]['play'];
+    $expected['penalty']['decided'] = true;
+    $status = app(ExhibitionFlow::class)->status($game->fresh());
+    expect($status['flow']['can_fast'])->toBeTrue()->and($status['flow']['can_advance'])->toBeFalse();
+    // Merely selecting Fast must not resolve a pending play or change history.
+    enableFlow($game, 'fast');
+    expect($game->fresh()->history[0])->toBe($pending);
+    $command = flowCommand($game, ['action' => 'fast']);
+    $stale = flowCommand($game, ['action' => 'fast']);
+    $response = $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk();
+    expect($response->json('receipt.indices'))->toContain(0);
+    $saved = $game->fresh()->only(['state', 'history']);
+    expect($saved['history'][0])->toBe($expected)->and($saved['state']['penalty_pending'] ?? false)->toBeFalse()
+        ->and($saved['state']['controls'])->toBe(['home' => 'human', 'away' => 'cpu']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->only(['state', 'history']))->toBe($saved);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $stale)->assertConflict();
+})->with([false, true]);
+
+test('Fast Sim resolves a zero-clock penalty before moving through the quarter boundary', function () {
+    $game = flowPendingCpuPenalty(false, ['clock' => 0, 'quarter' => 1]);
+    enableFlow($game, 'fast');
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'fast']))->assertOk();
+    $saved = $game->fresh();
+    expect($saved->history[0]['penalty']['decided'])->toBeTrue()->and($saved->state['quarter'])->toBeGreaterThan(1)
+        ->and($saved->state['penalty_pending'] ?? false)->toBeFalse();
+});
+
+test('Fast defense preference cannot auto-decide an Arcade-origin pending flag after a turnover', function () {
+    $game = flowPendingCpuPenalty(true);
+    $history = $game->history;
+    $history[0]['source'] = 'arcade';
+    $history[0]['arcade_recording'] = ['frames' => [[0, 1, 2]]];
+    $game->update(['history' => $history]);
+    enableFlow($game, 'fast');
+    expect(app(ExhibitionFlow::class)->status($game->fresh())['flow']['can_fast'])->toBeFalse();
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, ['action' => 'fast']))->assertConflict();
+    expect($game->fresh()->history)->toBe($history);
+});
+
+test('Fast Sim continues through newly generated human-beneficiary flags and no-snap penalties', function () {
+    // Find a deterministic initial false start; the loop then exercises normal live flags.
+    $seed = collect(range(1, 1000))->first(fn ($seed) => ((int) sprintf('%u', crc32("penalty-v1:{$seed}:0:pre"))) % 100 < 2);
+    $game = flowTestGame(['possession' => 'away', 'seed' => $seed, 'rules' => ['penalties' => true, 'injuries' => false]]);
+    enableFlow($game, 'fast');
+    $command = flowCommand($game, ['action' => 'fast']);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk();
+    $saved = $game->fresh();
+    expect($saved->history[0]['no_snap'])->toBeTrue()->and($saved->history[0]['penalty']['type'])->toBe('false_start')
+        ->and($saved->state['penalty_pending'] ?? false)->toBeFalse()->and(count($saved->history))->toBeGreaterThan(1);
+    expect(collect($saved->history)->where('penalty.decided', true)->count())->toBeGreaterThan(0);
+    foreach ($saved->history as $play) {
+        expect($play)->not->toHaveKey('penalty_options');
+    }
+    $this->postJson(route('exhibitions.arcade.flow', $game), $command)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->history)->toBe($saved->history);
+});

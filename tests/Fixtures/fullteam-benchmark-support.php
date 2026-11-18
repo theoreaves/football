@@ -55,6 +55,7 @@ function fullteamBenchmarkFixture(string $call, int $direction = 1, int $seed = 
     // This named Stage B benchmark remains a historical full-team policy
     // baseline. Stage 1 integration tests pass the newly reserved setup.
     unset($setup['tuningVersion']);
+    $setup['catalogVersion'] = FullTeamSetup::LEGACY_TUNING;
 
     return compact('state', 'rosters', 'setup', 'variant', 'seed');
 }

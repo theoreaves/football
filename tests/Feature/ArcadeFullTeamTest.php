@@ -37,7 +37,7 @@ function fullTeamTestGame(array $changes = []): Exhibition
 
 test('full team reservation pins exactly twenty two active identities and selected call', function (string $call) {
     $game = fullTeamTestGame();
-    $kind = in_array($call, ['inside_run', 'outside_run'], true) ? 'run' : 'pass';
+    $kind = FullTeamSetup::kind($call);
     $data = ['version' => 0, 'kind' => $kind, 'tempo' => 'normal', 'contract_version' => 'live-recording-2', 'call' => $call];
     $response = $this->postJson(route('exhibitions.arcade.start', $game), $data)->assertOk();
     $session = $response->json('session');
@@ -45,7 +45,7 @@ test('full team reservation pins exactly twenty two active identities and select
         ->and(array_unique(array_column($session['setup']['players'], 'id')))->toHaveCount(22)
         ->and($session['setup']['call'])->toBe($call)->and($session['envelope']['call'])->toBe($call)
         ->and($session['envelope']['contract_version'])->toBe('live-recording-2')->and($session['setup']['speedScale'])->toBe(.925)
-        ->and($session['setup']['catalogVersion'])->toBe('arcade-fullteam-1')
+        ->and($session['setup']['catalogVersion'])->toBe(FullTeamSetup::CATALOG_VERSION)
         ->and($session['setup']['tuningVersion'])->toBe('arcade-fullteam-2')
         ->and($session['envelope']['runtime_tuning_version'])->toBe('arcade-fullteam-2');
     foreach (['home', 'away'] as $side) {
@@ -106,10 +106,10 @@ test('full team snapshot uses authoritative fatigue lineup and injury selection'
 
 });
 
-test('full team recorded result commits once and rejects changed bound call or missing actor', function (string $call) {
+test('full team recorded result commits once and rejects changed bound call or missing actor', function (string $call, int $direction) {
     require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
-    $game = fullTeamTestGame(['spot' => 35]);
-    $kind = in_array($call, ['inside_run', 'outside_run'], true) ? 'run' : 'pass';
+    $game = fullTeamTestGame(['spot' => 35, 'quarter' => $direction === 1 ? 1 : 2]);
+    $kind = FullTeamSetup::kind($call);
     $session = $this->postJson(route('exhibitions.arcade.start', $game), ['version' => 0, 'kind' => $kind, 'tempo' => 'normal', 'contract_version' => 'live-recording-2', 'call' => $call])->assertOk()->json('session');
     $recording = fullteamBenchmarkRun(['setup' => $session['setup']])['recording'];
     $body = ['envelope' => $session['envelope'], 'recording' => $recording];
@@ -138,10 +138,26 @@ test('full team recorded result commits once and rejects changed bound call or m
     $saved = $game->fresh();
     expect($saved->history)->toHaveCount(1)->and($saved->history[0]['arcade_recording']['actors'])->toHaveCount(22)
         ->and($saved->history[0]['animation']['players'])->toHaveCount(22)->and($saved->state['personnel_snaps'])->toBe(1);
+    $official = $saved->history[0];
+    $box = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($saved);
+    expect($box['teams']['home']['plays'])->toBe(1)->and($official['kind'])->toBe($kind);
+    if ($kind === 'run' || $official['scramble']) {
+        expect($box['players']['home'][$official['carrier']]['rushes'])->toBe(1)
+            ->and($box['players']['home']['QB']['pass_attempts'])->toBe(0)
+            ->and($box['players']['home']['QB']['sacks'])->toBe(0);
+    } elseif ($official['outcome'] === 'sack') {
+        expect($box['players']['home']['QB']['sacks'])->toBe(1);
+    } else {
+        expect($box['players']['home']['QB']['pass_attempts'])->toBe(1);
+        if (! in_array($official['outcome'], ['interception', 'incomplete'], true)) {
+            expect($box['players']['home'][$official['carrier']]['receptions'])->toBe(1)
+                ->and($box['players']['home']['QB']['completions'])->toBe(1);
+        }
+    }
     $this->postJson($session['submit_url'], $body)->assertOk();
     expect($game->fresh()->getAttributes())->toBe($saved->getAttributes());
     $this->postJson($session['submit_url'], $bad)->assertConflict();
-})->with(FullTeamSetup::CALLS);
+})->with(FullTeamSetup::CALLS)->with([1, -1]);
 
 test('called run stopped before handoff credits QB rush not sack or RB carry', function () {
     require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
@@ -256,6 +272,8 @@ test('historical v2 reservation remains resumable and accepts its original recor
     $envelope = array_replace($session['envelope'], ['runtime_tuning_version' => FullTeamSetup::LEGACY_TUNING]);
     $setup = $session['setup'];
     unset($setup['tuningVersion']);
+    $setup['catalogVersion'] = FullTeamSetup::LEGACY_TUNING;
+    $envelope['catalog_version'] = FullTeamSetup::LEGACY_TUNING;
     ArcadePlaySession::findOrFail($session['envelope']['session_id'])->update(['binding' => $envelope, 'setup' => $setup]);
 
     $resumed = $this->postJson(route('exhibitions.arcade.start', $game), $request)->assertOk()->json('session');

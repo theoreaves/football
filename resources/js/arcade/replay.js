@@ -75,7 +75,7 @@ function validate(input) {
     if (!object(data)) fail('expected a recording object.');
     if (![1, 2].includes(data.version)) fail('unsupported recording version.');
     const fullTeam = data.version === 2, poses = fullTeam ? [...POSES, 'block', 'handoff'] : POSES;
-    if (fullTeam && (data.fullTeam !== true || data.contractVersion !== 'live-recording-2' || data.catalogVersion !== 'arcade-fullteam-1')) fail('unsupported full-team contract.');
+    if (fullTeam && (data.fullTeam !== true || data.contractVersion !== 'live-recording-2' || !['arcade-fullteam-1','arcade-fullteam-2'].includes(data.catalogVersion))) fail('unsupported full-team contract.');
     if (sourceBytes > limits.bytes || (fullTeam && new TextEncoder().encode(JSON.stringify(data)).length > limits.bytes)) fail('file exceeds version size limit.');
     if (!['running', 'passing'].includes(data.mode) || ![1, -1].includes(data.direction)) fail('unknown drill mode or direction.');
     if (data.tickRate !== 60 || data.sampleRate !== 30 || !object(data.scales)

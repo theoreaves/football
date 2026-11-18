@@ -1,3 +1,4 @@
+import {mountArcadePlaybook} from '../../resources/js/arcade/playbook.js';
 import {exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from '../../resources/js/arcade/exhibition-play-selection.js';
 import {requiredDecisionReady} from '../../resources/js/practice/play-mode-presentation.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from '../../resources/js/arcade/exhibition-flow.js';
@@ -14,7 +15,7 @@ const source = readFileSync(new URL('../../resources/js/arcade/exhibition.js', i
 const node = () => ({disabled:false, hidden:false, textContent:'', value:'', listeners:new Map(),
     addEventListener(type,fn){this.listeners.set(type,fn);}, removeEventListener(type){this.listeners.delete(type);}, focus(){}});
 function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions={},terminalReason='tackle'}={}) {
-    const nodes=Object.fromEntries(['reserve','start','pause','cancel','submit','replay','score','state','live','status','kind','tempo','coach','empty','preferences','side','defense','advance','fast','timeout','spike','retry-flow','flow-status','clock','notices'].map(key=>[key,node()]));
+    const nodes=Object.fromEntries(['playbook','reserve','start','pause','cancel','submit','replay','score','state','live','status','kind','tempo','coach','empty','preferences','side','defense','advance','fast','timeout','spike','retry-flow','flow-status','clock','notices'].map(key=>[key,node()]));
     nodes.kind.value='inside_run';nodes.tempo.value='normal';
     const official={version:0,possession:'home',phase:'scrimmage',status:'playing',quarter:1,clock:180,down:1,distance:10,spot:25};
     const root={dataset:{exhibition:JSON.stringify({flow,flowUrl:flow?'/exhibitions/3/arcade/flow':null,state:official,available:true,startUrl:'/exhibitions/3/arcade/sessions',csrf:'test',pendingSession:pending})},isConnected:true,
@@ -23,7 +24,7 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions
     const queue=[],requests=[],views=[],recording={version:1,frames:[[0]],events:[],actors:[],result:{reason:terminalReason}};
     let frame,transport,opened,step,inputCallbacks,replayActive=false;
     const document=node(),window={...node(),location:{origin:'http://test',pathname:'/exhibitions/3/arcade',assign(url){this.destination=url;}},localStorage:{getItem(key){return key.startsWith('arcade-flow:')?flowSaved:stored?JSON.stringify(stored):null;},setItem(){},removeItem(){}}};
-    const deps={exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel,createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
+    const deps={mountArcadePlaybook,exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel,createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
         requestAnimationFrame(fn){frame=fn;return 1;},cancelAnimationFrame(){},
         async fetch(url,options){requests.push({url,body:options.body});const response=queue.shift();if(response instanceof Error)throw response;return {ok:!response?.httpError,status:response?.status || 200,json:async()=>response?.httpError?{message:response.httpError}:response};},
         createDrill(config){return {status:'ready',mode:'running',direction:1,startX:config.exhibition.startX,firstDownX:config.exhibition.firstDownX,runner:{x:config.exhibition.startX},elapsed:0};},

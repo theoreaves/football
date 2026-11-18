@@ -275,3 +275,54 @@ receiving touchdowns. No newly confirmed pursuit/tackle recovery defect justifie
 a physics or rating change; no broad balancing or speed change was made. The
 accepted 0.925 movement baseline remains. Stage 3 mode selectors, expanded playbook,
 season integration and deployment are not included.
+
+## I Am QB Stage 3: offensive playbook and Fast Sim penalties
+
+The Arcade offense picker is now a Coach-style modal with four groups and thirteen
+calls: Inside Run, Outside Run, HB Draw, QB Sneak; Quick Slants, TE Stick / Outlet,
+HB Swing, HB Screen; Mesh Crossers, Curl / Flat, Play-Action Boot; Four Verticals,
+and Post / Corner. HB Toss is deferred. Selecting a card only selects a call;
+Reserve play and Start play remain explicit. Close/Escape preserves selection,
+returns focus, and does not advance the official clock. Active reservations,
+recording submission/recovery, replay and presentation handoffs gate the picker.
+Diagrams read the same formation, route, mesh and blocking assignments as runtime.
+They describe intent, not guaranteed outcomes against live defenders.
+
+New reservations use catalog `arcade-fullteam-2`, still with QB-only tuning and
+0.925 movement. The five legacy call IDs and catalog-1 outstanding reservations
+remain readable without changing their routes or recorded frames. Catalog identity,
+call kind, handoff ownership and QB-only actions are server validated. All newly
+advertised routes use real movement; Draw delays the physical mesh, Sneak keeps
+human input with the QB and cannot throw, Screen releases guards into real lead
+movement, and Play-Action performs a physical fake before returning QB input.
+Autonomous carriers, player ratings, contact and pursuit continue to determine
+results. Replays use saved actor frames, not a new simulation of the catalog.
+
+Fast Sim now settles routine human-beneficiary penalty choices during the
+opponent's simulated possession using the canonical saved CPU recommendation
+(accept **or** decline) and existing Coach enforcement. It also handles a legally
+eligible already-pending flag before evaluating possession or period boundaries.
+The transaction/receipt includes an updated previous history entry and any new
+plays; retries remain exactly-once. It does not decide a human offensive/Arcade
+flag merely because Fast defense is selected. Coach and Watch remain manual where
+previously manual, and coin toss, overtime and other required decisions retain
+existing policy. Separate offense/defense mode selectors and broad balance work
+are not part of this checkpoint.
+
+Stage 3 validation: full isolated PHP suite 904 passed, 5 existing opt-in skips
+(720,596 assertions), including all 148 Coach characterizations; complete graphics/
+JavaScript suite 563 passed; production build and diff whitespace checks passed.
+Mirrored authoritative catalog tests cover all thirteen advertised and three legacy
+pass IDs, exactly-once retries and individual rushing/passing/receiving accounting.
+Actual Chrome/WebGL disposable games covered modal selection/dismissal and gates,
+HB Draw handoff/tackle/save/replay, human QB Sneak movement and rushing result,
+Play-Action Boot sack, HB Screen throwing/submission and replay after reload, plus
+Fast Sim from a pending holding flag through another flag and no-snap penalty to
+the next human possession. All thirteen calls have automated physics/replay and
+server-submission coverage; browser sampling is not exhaustive gameplay balancing.
+
+Limitations: no offsetting-penalty rule exists in the canonical engine, so this
+checkpoint does not invent or claim coverage for one. Play-Action's physical fake
+ends in human QB control; the user chooses the rollout rather than an automatic
+boot path. Broad balance work, mode-selector expansion, HB Toss and HUD cleanup
+remain later checkpoints. The production build retains its large-chunk warning.

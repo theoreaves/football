@@ -35,7 +35,7 @@ test('full team actual recordings validate all calls and directions with one par
             expect($resolved['participants']['tackler']['player_id'])->toBe($recording['actors'][$event[4]]['id']);
         }
     }
-})->with(FullTeamSetup::CALLS)->with([1, -1]);
+})->with(FullTeamSetup::LEGACY_CALLS)->with([1, -1]);
 
 test('full team synthetic seed replay is exact and rating interventions alter only one field', function () {
     $fixture = fullteamBenchmarkFixture('short_pass');
@@ -60,7 +60,7 @@ test('full team opt in synthetic live snap QA benchmark report', function () {
     }
     foreach (['baseline', 'lg_blocking_90', 'qb_throwing_90', 'wr1_catching_90', 'lb2_tackling_90'] as $variant) {
         foreach ([42, 137, 2026] as $seed) {
-            foreach (FullTeamSetup::CALLS as $call) {
+            foreach (FullTeamSetup::LEGACY_CALLS as $call) {
                 foreach ([1, -1] as $direction) {
                     $fixture = fullteamBenchmarkFixture($call, $direction, $seed, $variant);
                     $generated = fullteamBenchmarkRun($fixture);
@@ -90,7 +90,7 @@ test('full team opt in representative saved roster single snap report', function
     }
     $saved = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
     foreach ([42, 137, 2026] as $seed) {
-        foreach (FullTeamSetup::CALLS as $call) {
+        foreach (FullTeamSetup::LEGACY_CALLS as $call) {
             foreach ([1, -1] as $direction) {
                 $fixture = fullteamBenchmarkFixture($call, $direction, $seed, 'baseline', $saved);
                 $generated = fullteamBenchmarkRun($fixture);

@@ -76,8 +76,12 @@ class ExhibitionBoxScore
             $gain = $play['gain'];
             $carrier = $play['carrier'];
             $scramble = $play['scramble'] ?? false;
-            $pass = ! $scramble && in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'spike'], true);
-            if ($scramble || $pass || in_array($call, ['inside_run', 'outside_run', 'kneel'], true)) {
+            // Arcade's kind is derived from the server-reserved catalog, not a client label.
+            // Legacy history and every Coach call retain the existing classification.
+            $arcadeKind = ($play['source'] ?? null) === 'arcade' ? ($play['kind'] ?? null) : null;
+            $pass = ! $scramble && ($arcadeKind === 'pass' || in_array($call, ['slant', 'short_pass', 'medium_pass', 'deep_pass', 'spike'], true));
+            $run = $arcadeKind === 'run' || in_array($call, ['inside_run', 'outside_run'], true);
+            if ($scramble || $pass || $run || $call === 'kneel') {
                 $teams[$side]['plays']++;
                 $yards = in_array($outcome, ['interception', 'incomplete', 'spike'], true) ? 0 : $gain;
                 $teams[$side]['yards'] += $yards;
@@ -114,7 +118,7 @@ class ExhibitionBoxScore
                     }
                 }
             }
-            if ($scramble || $pass || in_array($call, ['inside_run', 'outside_run'], true)) {
+            if ($scramble || $pass || $run) {
                 $arcade = ($play['source'] ?? null) === 'arcade';
                 $tackler = $arcade ? ($play['arcade_participants']['tackler']['role'] ?? null) : ($carrier === 'WR1' ? 'CB1' : 'LB2');
                 if (in_array($outcome, ['tackle', 'sack', 'fumble', 'safety'], true) && ! ($play['out_of_bounds'] ?? false) && $call !== 'spike' && (! $arcade || $tackler !== null)) {

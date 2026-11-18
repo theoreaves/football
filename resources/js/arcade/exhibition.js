@@ -1,3 +1,4 @@
+import {mountArcadePlaybook} from './playbook.js';
 import {createFullTeamPlay,stepFullTeamPlay} from './full-team.js';
 import {exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from './exhibition-play-selection.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from './exhibition-flow.js';
@@ -24,6 +25,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     let official = data.state, allowed = data.available, busy = false, stopped = false;
     let flow = data.flow, flowBlocked = false;
     let state = null, recorder = null, view = null, input = null, replay = null, aim = null, observer = null;
+    let playbook=null;
     let recording = data.lastRecording, frameId, lastTime = null, disposed = false, completed = false, recovered = false;
     const driveSide = official.possession;
     let storageWarning = '';
@@ -49,7 +51,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (flow.required_decision || (flow.phase === 'special' && !flow.can_advance)) return 'A football decision is required. Continue in Coach to choose, then return to Arcade.';
         if (flow.phase === 'special') return 'Opponent special teams play. Watch the next simulated play or Fast Sim to your next decision.';
         if (flow.phase === 'defense') return flow.defense_mode === 'coach' ? 'Opponent possession. Continue in Coach to call your defense.' : 'Opponent possession. Watch the next simulated play or Fast Sim to your next decision.';
-        return 'Choose one of five plays, then Reserve play to load the field.';
+        return 'Choose a play from the playbook, then Reserve play to load the field.';
     }
     function flowHud() {
         if (!flow || !find('preferences')) return;
@@ -85,7 +87,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!empty.hidden) empty.textContent = recovered
             ? (transport.pending?.body ? 'Your recorded play is recovered. Submit / retry same result, or review its replay.' : 'A reserved play was recovered. Choose Cancel reserved play before reserving a new play.')
             : flow ? flowGuidance() : stopped || !allowed ? 'This drive needs a Coach decision. Choose Continue in Coach.' + (recording ? ' You can still replay the recorded play.' : '')
-            : 'Choose one of five plays, then Reserve play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
+            : 'Choose a play from the playbook, then Reserve play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
         const snapshot = transport.pending?.session.prepared_state || official;
         const clock = Number(snapshot.clock || 0);
         find('score').textContent = `Home ${snapshot.home_score ?? 0} · Away ${snapshot.away_score ?? 0}`;
@@ -100,9 +102,11 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         buttons.submit.disabled = !!replay?.active || busy || !transport.pending?.body;
         buttons.replay.disabled = sharedHost?.staging || sharedHost?.cameraDirector.transitioning || !recording || state?.status === 'running' || busy;
         find('kind').disabled = find('tempo').disabled = !!replay?.active || !!transport.pending || busy || stopped || !allowed;
+        playbook?.refresh();
         find('coach').hidden = false;
         flowHud();
     }
+    playbook=mountArcadePlaybook(root,{value:find('kind'),trigger:find('playbook'),canOpen:()=>!buttons.reserve.disabled,onChoose:()=>{input?.clear();}});
     const stepper = createFixedStepper(() => {
         if (!state || state.status !== 'running' || replay?.active) return;
         (state.fullTeam ? stepFullTeamPlay : state.mode === 'passing' ? stepPassingDrill : stepDrill)(state, input.sample());
@@ -204,7 +208,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if(replay.active){stepper.reset();replay.advance(delta);}else{stepper.advance(delta);view?.render(state,{aim,refreshAim:()=>input?.refreshAim()});} hud();
         if(!sharedHost) frameId=requestAnimationFrame(frame);
     }
-    function dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(frameId);clearView();replay.dispose();abort.abort();delete root.dataset.mounted;}
+    function dispose(){if(disposed)return;disposed=true;playbook?.dispose();cancelAnimationFrame(frameId);clearView();replay.dispose();abort.abort();delete root.dataset.mounted;}
     document.addEventListener('livewire:navigating',dispose,options);window.addEventListener('pagehide',dispose,options);
     hud();if(!sharedHost) frameId=requestAnimationFrame(frame);
     Object.assign(dispose,{tick:frame,pause,flowAction,reconcile,openReplay:value=>replay.open(value)});

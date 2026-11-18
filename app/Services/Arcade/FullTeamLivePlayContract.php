@@ -16,6 +16,8 @@ final class FullTeamLivePlayContract
         $tuning = $setup['tuningVersion'] ?? FullTeamSetup::LEGACY_TUNING;
         $qbOnly = $tuning === FullTeamSetup::QB_ONLY_TUNING;
         $this->check(($setup['contractVersion'] ?? null) === 'live-recording-2' && ($r['contractVersion'] ?? null) === $setup['contractVersion'] && ($r['fullTeam'] ?? null) === true && ($r['mode'] ?? null) === $setup['mode'] && ($r['seed'] ?? null) === $setup['seed'] && ($r['routeSet'] ?? null) === $setup['routeSet'] && ($r['call'] ?? null) === $setup['call'] && ($r['catalogVersion'] ?? null) === $setup['catalogVersion'], 'Full-team catalog mismatch.');
+        $expanded = ($setup['catalogVersion'] ?? null) === FullTeamSetup::CATALOG_VERSION;
+        $this->check(in_array($setup['call'], $expanded ? FullTeamSetup::CALLS : FullTeamSetup::LEGACY_CALLS, true) && $setup['kind'] === FullTeamSetup::kind($setup['call']), 'Invalid reserved catalog call.');
         $nodes = 0;
         $walk = function ($value, int $depth = 0) use (&$walk, &$nodes): void {
             $this->check(++$nodes <= FullTeamSetup::LIMITS['nodes'] && $depth <= 16, 'Recording structure exceeds limits.');
@@ -125,7 +127,7 @@ final class FullTeamLivePlayContract
         $initial = $frames[0][2];
         $this->check($frames[0][4][3] === 0 && $frames[0][4][4] === $initial && $events[0][3] === $initial && $events[0][4] === -1, 'Invalid snap possession.');
         $handoff = $byType['handoff'][0] ?? null;
-        $this->check(count($byType['handoff'] ?? []) <= 1 && (! $handoff || $r['mode'] === 'running'), 'Invalid handoff count.');
+        $this->check(count($byType['handoff'] ?? []) <= 1 && (! $handoff || ($r['mode'] === 'running' && $setup['call'] !== 'qb_sneak')), 'Invalid handoff count.');
         if ($handoff) {
             $at = $this->sample($frames, $handoff[1]);
             $this->check($handoff[3] === $initial && $handoff[4] >= 0 && $actors[$handoff[4]]['side'] === $context->side && $actors[$handoff[4]]['role'] === 'RB' && $handoff[1] > 0 && $this->distance($at[3][$initial], $at[3][$handoff[4]]) <= 1.02, 'Invalid handoff contact.');
@@ -157,18 +159,19 @@ final class FullTeamLivePlayContract
             // The v2 wire field at index 2 remains a historical carrier alias,
             // not a statement about who was steered. Check actions/possession.
             $passing = $r['mode'] === 'passing';
+            $qbInput = $passing || ($expanded && $setup['call'] === 'qb_sneak');
             $qbHasBall = true;
             foreach ($events as $event) {
                 if (in_array($event[2], ['throw', 'handoff'], true)) {
                     $qbHasBall = false;
                 }
                 if ($event[2] === 'juke') {
-                    $this->check($passing && $qbHasBall && $event[3] === $initial && $event[4] === -1, 'Only the quarterback with possession may juke.');
+                    $this->check($qbInput && $qbHasBall && $event[3] === $initial && $event[4] === -1, 'Only the quarterback with possession may juke.');
                 }
             }
             foreach ($frames as $f) {
                 foreach ($f[3] as $i => $pose) {
-                    $this->check($pose[3] !== 2 || ($passing && $i === $initial), 'Only the quarterback may use a juke pose.');
+                    $this->check($pose[3] !== 2 || ($qbInput && $i === $initial), 'Only the quarterback may use a juke pose.');
                 }
                 if ($passing && $f[4][3] === 0 && $f[4][4] === $initial
                     && (! $throw || $f[1] < $throw[1])

@@ -36,7 +36,8 @@ class PenaltyRules
         if ($roll < 6) {
             return 'holding';
         }
-        if ($roll < 10 && in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true) && $play['carrier'] !== 'QB') {
+        if ($roll < 10 && (in_array($play['call'], ['slant', 'short_pass', 'medium_pass', 'deep_pass'], true)
+            || (($play['source'] ?? null) === 'arcade' && ($play['kind'] ?? null) === 'pass')) && $play['carrier'] !== 'QB') {
             return 'defensive_pass_interference';
         }
 

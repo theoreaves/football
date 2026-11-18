@@ -54,7 +54,7 @@ class ExhibitionSessions
         return $this->locked($game, $userId, function (Exhibition $game) use ($userId, $data): array {
             $fullTeam = ($data['contract_version'] ?? 'live-recording-1') === 'live-recording-2';
             $call = $fullTeam ? ($data['call'] ?? '') : ($data['kind'] === 'run' ? 'inside_run' : 'short_pass');
-            abort_unless(! $fullTeam || (in_array($call, FullTeamSetup::CALLS, true) && ($data['kind'] === 'run') === in_array($call, ['inside_run', 'outside_run'], true)), 422, 'Call and play kind do not match.');
+            abort_unless(! $fullTeam || (in_array($call, FullTeamSetup::CALLS, true) && $data['kind'] === FullTeamSetup::kind($call)), 422, 'Call and play kind do not match.');
             abort_unless($this->available($game), 409, 'Continue this decision or phase in Coach mode.');
             abort_unless($game->state['version'] === (int) $data['version'], 409, 'The game has changed. Reload before starting.');
             $active = ArcadePlaySession::where('active_slot', $game->id)->lockForUpdate()->first();

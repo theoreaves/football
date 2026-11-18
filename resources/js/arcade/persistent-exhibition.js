@@ -37,6 +37,8 @@ export async function mountPersistentExhibition(root) {
     const sendFlow=(action,fields={},hooks={})=>Promise.resolve(arcade.flowAction(action,fields,{onDeclined:()=>say('Decision was not sent. Wait for the current presentation, or retry the saved decision if one is pending.'),...hooks})).finally(resetFeedback);
     const liveInputEnabled=()=>!readBlocked && !loading && !opening && !coachHistory && !presentation?.recorded;
     const flowEnabled=action=>{
+        const fastPenalty=action==='fast' && snapshot?.flow.required_decision==='penalty' && snapshot?.flow.can_fast;
+        if(fastPenalty)action='penalty';
         const required=['penalty','coin','ot_call','ot_choice'].includes(action);
         if(!required)return liveInputEnabled();
         const selector=action==='penalty'?'[data-penalty-dialog]':action==='coin'?'[data-coin-dialog]':'[data-ot-dialog]';
@@ -64,6 +66,22 @@ export async function mountPersistentExhibition(root) {
         const template=document.createElement('template');template.innerHTML=next.controls_html;
         const phaseRoot=template.content.querySelector('[data-practice]');if(!phaseRoot)throw new Error('Game controls are missing. Reload saved state.');
         phaseRoot.classList.add('persistent-phase-controls');
+        // An already-pending CPU-play flag may have opened the manual modal.
+        // Expose an explicit Fast Sim choice without changing Watch/manual defaults.
+        const penaltyDialog=phaseRoot.querySelector('[data-penalty-dialog]');
+        if(next.flow.required_decision==='penalty' && next.flow.can_fast && penaltyDialog){
+            const fast=document.createElement('button');fast.type='button';fast.textContent='Let CPU decide and continue Fast Sim';fast.setAttribute('data-fast-penalty','');
+            fast.addEventListener('click',()=>{
+                if(fast.disabled)return;
+                sendFlow('fast',{}, {onPrepared:()=>{fast.disabled=true;}}).finally(()=>{
+                    if(!fast.isConnected)return;
+                    fast.disabled=!!arcade.pendingFlow;
+                    if(arcade.pendingFlow)decisionFeedback(fast,'Fast Sim decision is unconfirmed. Retry the same saved decision.',true);
+                });
+            });
+            penaltyDialog.append(fast);
+        }
+
         refreshSharedCpuSpecial(phaseRoot,next.scene?.next_animation);
         // Keep timeout forms in normal flow below the defense choices, not in
         // Coach's independent absolute tray which shares the panel's coordinates.

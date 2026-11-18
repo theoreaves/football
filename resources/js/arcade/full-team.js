@@ -5,7 +5,7 @@ import { STEP_SECONDS, FIELD_WIDTH, DRILL_SECONDS, CONTACT_RADIUS, JUKE_COOLDOWN
 import { DEFAULT_SPEED_SCALE, clamp, finite, rating, actorSpeed, actorAcceleration } from './tuning.js';
 import { passPosition, PASS_GRAVITY } from './passing.js';
 import { FULL_TEAM_VERSION, FULL_TEAM_CALLS, OFFENSIVE_ROLES, DEFENSIVE_ROLES,
-    ELIGIBLE_ROLES, fullTeamRoute, defensiveAssignment } from './full-team-plays.js';
+    ELIGIBLE_ROLES, fullTeamRoute, defensiveAssignment, ALL_FULL_TEAM_CALLS, FULL_TEAM_CATALOG_VERSION, fullTeamPlay, fullTeamMesh, fullTeamBlocking } from './full-team-plays.js';
 
 export { FULL_TEAM_VERSION, FULL_TEAM_CALLS } from './full-team-plays.js';
 export const QB_ONLY_TUNING_VERSION = 'arcade-fullteam-2';
@@ -21,7 +21,11 @@ const at = (before, actor, t) => ({ x: lerp(before.x, actor.x, t), z: lerp(befor
 export function createFullTeamPlay(setup) {
     const { players, call, offenseSide, direction, seed = 1, exhibition, tuningVersion = FULL_TEAM_VERSION } = setup;
     if (![FULL_TEAM_VERSION, QB_ONLY_TUNING_VERSION].includes(tuningVersion)) throw new Error('Unsupported full-team gameplay policy.');
-    if (!FULL_TEAM_CALLS.includes(call) || ![1, -1].includes(direction) || !['home', 'away'].includes(offenseSide)
+    const catalogVersion=setup.catalogVersion ?? FULL_TEAM_VERSION;
+    const expanded=catalogVersion===FULL_TEAM_CATALOG_VERSION;
+    const descriptor=fullTeamPlay(call);
+    if (![FULL_TEAM_VERSION,FULL_TEAM_CATALOG_VERSION].includes(catalogVersion) || (expanded && tuningVersion!==QB_ONLY_TUNING_VERSION)) throw new Error('Unsupported full-team catalog policy.');
+    if (!(expanded ? ALL_FULL_TEAM_CALLS : FULL_TEAM_CALLS).includes(call) || ![1, -1].includes(direction) || !['home', 'away'].includes(offenseSide)
         || !exhibition || !['startX', 'goalX', 'rearX'].every(key => Number.isFinite(exhibition[key]))
         || !Array.isArray(players) || players.length !== 22 || (setup.speedScale ?? .925) !== .925) {
         throw new Error('Full-team play requires a valid server-selected 22-player setup at .925 speed.');
@@ -38,11 +42,11 @@ export function createFullTeamPlay(setup) {
         seen.add(player.id); keys.add(player.key);
     }
     if (players.filter(player => player.side === offenseSide).length !== 11) throw new Error('Exactly eleven players per side are required.');
-    const state = { fullTeam: true, mode: call.endsWith('_run') ? 'running' : 'passing', kind: call.endsWith('_run') ? 'run' : 'pass', call,
-        contractVersion: 'live-recording-2', routeSet: call.endsWith('_run') ? null : call, catalogVersion: FULL_TEAM_VERSION, tuningVersion, speedScale: DEFAULT_SPEED_SCALE,
+    const state = { fullTeam: true, mode: descriptor.kind==='run' ? 'running' : 'passing', kind: descriptor.kind, call, mechanic:descriptor.mechanic,
+        contractVersion: 'live-recording-2', routeSet: descriptor.kind==='run' ? null : call, catalogVersion, tuningVersion, speedScale: DEFAULT_SPEED_SCALE,
         status: 'ready', tick: 0, elapsed: 0, direction, offenseSide, seed: seed >>> 0, randomState: seed >>> 0,
         ...exhibition, exhibition: true, result: null, passOutcome: null, events: [], brokenTackles: 0,
-        handoffComplete: false, blocks: [], pressureKeys: [], observations: [], actors: [] };
+        handoffComplete: descriptor.mechanic==='sneak', fakeComplete:descriptor.mechanic!=='play_action', blocks: [], pressureKeys: [], observations: [], actors: [] };
     state.actors = players.map(player => ({ ...createActor(player, player.x, player.z, player.side === offenseSide ? (direction === 1 ? 0 : Math.PI) : (direction === 1 ? Math.PI : 0)),
         key: player.key, origin: point(player), assignment: player.side === offenseSide ? (isLine(player.role) ? 'block' : 'route') : defensiveAssignment(player.role),
         observed: null, nextReadTick: 0, readCount: 0, shedProgress: 0, blockTicks: 0, blockedBy: null, blockingKey: null,
@@ -51,9 +55,9 @@ export function createFullTeamPlay(setup) {
     state.quarterback = own(state, 'QB'); state.runner = state.quarterback;
     state.defenders = state.actors.filter(actor => actor.side !== offenseSide);
     state.receivers = state.actors.filter(actor => actor.side === offenseSide && ELIGIBLE_ROLES.includes(actor.role));
-    if (state.mode === 'running') {
+    if (state.mode === 'running' && state.mechanic!=='sneak' || state.mechanic==='play_action') {
         const rb = own(state, 'RB'), qb = state.quarterback;
-        const mesh = {x: (qb.x + rb.x) / 2, z: (qb.z + rb.z) / 2 + (call === 'outside_run' ? 1.5 : 0)};
+        const mesh = fullTeamMesh(call,qb,rb);
         qb.facing = Math.atan2(mesh.z - qb.z, mesh.x - qb.x);
         rb.facing = Math.atan2(mesh.z - rb.z, mesh.x - rb.x);
     }
@@ -61,7 +65,7 @@ export function createFullTeamPlay(setup) {
     // in flight), not who may receive human inputs. Keep that wire contract.
     state.controlledKey = state.quarterback.key;
     if (tuningVersion === QB_ONLY_TUNING_VERSION) {
-        state.inputActorKey = state.mode === 'passing' ? state.quarterback.key : null;
+        state.inputActorKey = (state.mode === 'passing' && state.fakeComplete) || state.mechanic==='sneak' ? state.quarterback.key : null;
         state.qbCommitted = false;
         state.carrierRead = null;
     }
@@ -201,21 +205,28 @@ function defend(state, defender) {
     steer(state, defender, target, readReady ? 1 : .35, ['man', 'short_zone', 'deep_zone'].includes(defender.assignment));
 }
 function blockerTarget(state, actor) {
-    const mapping = { LT: 'DE1', LG: 'DT1', C: 'DT2', RG: 'LB2', RT: 'DE2', TE: 'LB3', WR1: 'CB1', WR2: 'CB2', WR3: 'LB1', QB: 'LB2' };
-    if (state.call === 'outside_run') { mapping.C = 'LB2'; mapping.RG = 'DT2'; }
+    const mapping = fullTeamBlocking(state.call);
     const assigned = other(state, mapping[actor.role]);
     const threats = state.defenders.filter(defender => !defender.blockedBy || defender.blockedBy === actor.key);
     const defender = assigned && threats.includes(assigned) ? assigned : threats.sort((a, b) => distance(a, actor) - distance(b, actor))[0];
     if (!defender) return actor.origin;
+    if (state.mechanic==='screen' && ['LG','RG'].includes(actor.role) && !state.passOutcome && state.ball.phase==='held') return {x:state.startX-state.direction*1.5,z:defender.z};
     if (state.mode === 'passing' && state.ball.phase !== 'held' && !state.passOutcome) return actor.origin;
-    if (state.mode === 'passing' && !state.passOutcome) return { x: clamp(defender.x - state.direction * .8, state.startX - 5, state.startX + 5), z: defender.z };
+    if ((state.mode === 'passing' || state.mechanic==='draw' && !state.handoffComplete) && !state.passOutcome) return { x: clamp(defender.x - state.direction * .8, state.startX - 5, state.startX + 5), z: defender.z };
     return { x: defender.x - state.direction * .5, z: defender.z + (state.call === 'outside_run' ? 1.1 : 0) };
 }
 function offense(state, actor) {
-    if (state.mode === 'running' && !state.handoffComplete && [state.quarterback.key, own(state, 'RB').key].includes(actor.key)) {
-        // Both players physically meet at a fixed mesh point before the carrier changes.
-        const rb = own(state, 'RB'), mesh = { x: (state.quarterback.origin.x + rb.origin.x) / 2, z: (state.quarterback.origin.z + rb.origin.z) / 2 + (state.call === 'outside_run' ? 1.5 : 0) };
-        steer(state, actor, mesh); return;
+    if ((state.mode === 'running' && !state.handoffComplete || !state.fakeComplete) && [state.quarterback.key, own(state, 'RB').key].includes(actor.key)) {
+        // A draw visibly holds its pass set before both actors physically mesh.
+        const rb=own(state,'RB');
+        if(state.mechanic==='draw' && state.elapsed<.75) { steer(state,actor,actor.origin); return; }
+        steer(state,actor,fullTeamMesh(state.call,state.quarterback.origin,rb.origin)); return;
+    }
+    if (screenReleased(state,actor) && !state.passOutcome) {
+        // Lead without running illegally downfield before the pass. Geometry and
+        // movement limits still apply; releasing a rush is not a teleport.
+        const forward=state.ball.phase==='flight'?2:-1.5;
+        steer(state,actor,{x:state.startX+state.direction*forward,z:actor.role==='LG'?35:40},1,true); return;
     }
     const blocking = isLine(actor.role) || state.mode === 'running' || state.passOutcome === 'complete';
     if (blocking) { steer(state, actor, blockerTarget(state, actor)); return; }
@@ -281,11 +292,16 @@ function steerCarrier(state, carrier) {
     steer(state, carrier, choice);
 }
 
+function screenReleased(state,actor) { return state.mechanic==='screen' && ['LG','RG'].includes(actor.role) && state.elapsed>=.65; }
 function advanceBlocks(state) {
     const held = new Set();
     for (const block of state.blocks) {
         const blocker = state.actorByKey[block.blocker], defender = state.actorByKey[block.defender];
         if (block.ended) continue;
+        if (screenReleased(state,blocker) && !blocker.screenReleased && !state.passOutcome) {
+            block.ended=true; blocker.screenReleased=true; blocker.blockingKey=null; defender.blockedBy=null;
+            record(state,'block_shed',{actorKey:blocker.key,targetKey:defender.key}); continue;
+        }
         const progress = .3 + rating(defender, 'strength') * .009 + rating(defender, 'awareness') * .002 - rating(blocker, 'blocking') * .006 - rating(blocker, 'strength') * .003;
         defender.shedProgress += STEP_SECONDS * clamp(progress, .16, 1.5);
         if (defender.shedProgress >= 1 || distance(blocker, defender) > 1.45 || blocker.key === state.controlledKey) {
@@ -309,9 +325,10 @@ function advanceBlocks(state) {
 }
 function engageBlocks(state, previous) {
     const blockers = state.actors.filter(actor => actor.side === state.offenseSide && actor.key !== state.controlledKey
-        && (isLine(actor.role) || state.mode === 'running' && actor.role !== 'RB' || state.passOutcome === 'complete'));
+        && (isLine(actor.role) || state.mode === 'running' && (actor.role !== 'RB' || state.mechanic==='sneak') || state.passOutcome === 'complete'));
     const contacts = [];
     for (const blocker of blockers) for (const defender of state.defenders) {
+        if (screenReleased(state,blocker) && !state.passOutcome && state.ball.phase==='held') continue;
         if (blocker.blockingKey || defender.blockedBy || defender.shedFrom === blocker.key && defender.shedUntil > state.elapsed) continue;
         const time = sweptContactTime(previous[blocker.key], blocker, previous[defender.key], defender, 1.05);
         if (time !== null) contacts.push({ blocker, defender, time });
@@ -327,7 +344,7 @@ function engageBlocks(state, previous) {
 }
 
 function validPass(state, target) {
-    return state.mode === 'passing' && !state.qbCommitted && (state.inputActorKey === undefined || state.inputActorKey === state.quarterback.key) && state.controlledKey === state.quarterback.key && state.ball.phase === 'held' && !state.ball.flight
+    return state.fakeComplete && state.mode === 'passing' && !state.qbCommitted && (state.inputActorKey === undefined || state.inputActorKey === state.quarterback.key) && state.controlledKey === state.quarterback.key && state.ball.phase === 'held' && !state.ball.flight
         && Number.isFinite(target?.x) && Number.isFinite(target?.z) && target.x >= 0 && target.x <= 120 && target.z >= 0 && target.z <= FIELD_WIDTH
         && (state.quarterback.x - state.startX) * state.direction <= 0 && (target.x - state.quarterback.x) * state.direction >= 1
         && distance(state.quarterback, target) >= 2 && distance(state.quarterback, target) <= 42;
@@ -476,12 +493,19 @@ export function stepFullTeamPlay(state, input = {}) {
         else defend(state, actor);
     }
     engageBlocks(state, previous);
+    if (!state.fakeComplete && state.ball.phase==='held') {
+        const rb=own(state,'RB'),qb=state.quarterback;
+        if(distance(qb,rb)<=1 && state.elapsed>=.35) {
+            state.fakeComplete=true; qb.handoffRemaining=rb.handoffRemaining=.3;
+            state.inputActorKey=qb.key;
+        }
+    }
     if (state.mode === 'running' && !state.handoffComplete) {
         // Resolve pre-handoff QB contact first, so a tackled QB cannot credit the RB.
         carrierContacts(state, previous);
         if (state.status === 'finished') return finalizeTick(state);
         const rb = own(state, 'RB'), qb = state.quarterback;
-        if (distance(qb, rb) <= 1) {
+        if (distance(qb, rb) <= 1 && (state.mechanic!=='draw' || state.elapsed>=.75)) {
             qb.handoffRemaining = rb.handoffRemaining = .25;
             state.handoffComplete = true; state.runner = rb; state.controlledKey = rb.key; state.ball.holderKey = rb.key;
             record(state, 'handoff', { actorKey: qb.key, targetKey: rb.key });

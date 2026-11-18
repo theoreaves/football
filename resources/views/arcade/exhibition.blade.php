@@ -17,15 +17,16 @@
     <p data-exhibition-notices role="status" aria-live="polite" style="white-space:pre-line"></p>
     @endunless
     <div class="arcade-setup">
-        <label>Play<select data-exhibition-kind><option value="inside_run">Inside run</option><option value="outside_run">Outside run</option><option value="short_pass">Short pass</option><option value="medium_pass">Medium pass</option><option value="deep_pass">Deep pass</option></select></label>
+        <input type="hidden" data-exhibition-kind value="inside_run">
+        <button type="button" data-exhibition-playbook aria-haspopup="dialog">Playbook · Inside Run</button>
         <label>Tempo<select data-exhibition-tempo><option value="normal">Normal</option><option value="hurry">Hurry</option><option value="drain">Drain</option></select></label>
         <button type="button" data-exhibition-reserve>Reserve play</button>
         <a data-exhibition-coach href="{{ $coachUrl }}">Continue in Coach</a>
         <a href="{{ $startUrl ? url()->full() : $coachUrl }}">Reload saved state</a>
     </div>
     <div class="arcade-stage">
-        <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="{{ ($replayOnly ?? false) ? 'Recorded exhibition field' : 'Arcade exhibition. Control only the quarterback on pass plays.' }}" @unless($replayOnly ?? false) aria-describedby="exhibition-controls" @endunless></div>
-        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose one of five plays, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
+        <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="{{ ($replayOnly ?? false) ? 'Recorded exhibition field' : 'Arcade exhibition. Control only the quarterback.' }}" @unless($replayOnly ?? false) aria-describedby="exhibition-controls" @endunless></div>
+        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose a play from the playbook, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
         <div class="arcade-toolbar">
             <button type="button" data-exhibition-start disabled>Start play</button>
             <button type="button" data-exhibition-pause disabled>Pause</button>
@@ -34,9 +35,9 @@
             <button type="button" data-exhibition-replay disabled>Replay recorded play</button>
         </div>
     </div>
-    <p data-exhibition-status role="status" aria-live="polite">{{ $available ? 'Choose one of five plays and reserve your play.' : 'This game needs a Coach decision before Arcade offense can continue.' }}</p>
+    <p data-exhibition-status role="status" aria-live="polite">{{ $available ? 'Choose a play from the playbook and reserve your play.' : 'This game needs a Coach decision before Arcade offense can continue.' }}</p>
     @unless($replayOnly ?? false)
-    <p id="exhibition-controls" class="arcade-help">You control only the QB on pass plays. WASD / arrows: move · Q / E: juke · Click a target or hold + drag: aim and throw from behind the line. The CPU handles handoffs, runs and yards after a catch. Space: start/resume · Esc: pause.</p>
+    <p id="exhibition-controls" class="arcade-help">You control only the QB, including QB Sneak. WASD / arrows: move · Q / E: juke · Click a target or hold + drag: aim and throw from behind the line. The CPU handles handoffs, runs and yards after a catch. Space: start/resume · Esc: pause.</p>
     @endunless
     <p class="arcade-help">92.5% movement speed. Cyan: line of scrimmage. Yellow: first-down and goal lines. White field lines: every 5 yards. Live plays continue when the game clock expires. A local recording timeout is not a football result: cancel and reserve again. Choose Coach Defense to call defensive plays, Watch Simulation to view committed 3D plays, or Fast Sim to reach your next offensive opportunity. Required kick, try, penalty and half decisions open in Coach, then return here. No game action runs simply by loading this page.</p>
 </div>

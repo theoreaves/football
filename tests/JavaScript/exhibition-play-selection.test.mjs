@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {ARCADE_CALLS,exhibitionReservation,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from '../../resources/js/arcade/exhibition-play-selection.js';
 
-test('five explicit full-team calls preserve reservation identity and tempo',()=>{
- assert.equal(Object.keys(ARCADE_CALLS).length,5);
+test('thirteen explicit full-team calls preserve reservation identity and tempo',()=>{
+ assert.equal(Object.keys(ARCADE_CALLS).length,13);
  for(const call of Object.keys(ARCADE_CALLS))for(const tempo of ['normal','hurry','drain']){
-  assert.deepEqual(exhibitionReservation({version:17,call,tempo}),{version:17,call,kind:call.endsWith('_run')?'run':'pass',tempo,contract_version:'live-recording-2'});
+  assert.deepEqual(exhibitionReservation({version:17,call,tempo}),{version:17,call,kind:['inside_run','outside_run','hb_draw','qb_sneak'].includes(call)?'run':'pass',tempo,contract_version:'live-recording-2'});
  }
- assert.throws(()=>exhibitionReservation({version:17,call:'punt',tempo:'normal'}),/five Arcade plays/);
+ assert.throws(()=>exhibitionReservation({version:17,call:'punt',tempo:'normal'}),/available Arcade play/);
  const blade=readFileSync(new URL('../../resources/views/arcade/exhibition.blade.php',import.meta.url),'utf8');
- for(const [call,label] of Object.entries(ARCADE_CALLS))assert.ok(blade.includes(`<option value="${call}">${label}</option>`));
+ assert.ok(blade.includes('data-exhibition-playbook'));
+ assert.ok(blade.includes('type="hidden" data-exhibition-kind'));
+ assert.equal(Object.hasOwn(ARCADE_CALLS,'hb_toss'),false);
 });
 test('passing uses actual full-team quarterback identity, never a receiver after catch',()=>{
  const state={fullTeam:true,mode:'passing',status:'running',quarterback:{key:'offense_QB'},ball:{phase:'held',holderKey:'offense_QB'}};
@@ -61,6 +63,6 @@ test('QB-only help distinguishes passing control from CPU handoff, flight and ya
   assert.doesNotMatch(exhibitionControlHint(passive),/WASD|Q \/ E|Click|aim/);
  }
  const blade=readFileSync(new URL('../../resources/views/arcade/exhibition.blade.php',import.meta.url),'utf8');
- assert.match(blade,/You control only the QB on pass plays/);
+ assert.match(blade,/You control only the QB, including QB Sneak/);
  assert.doesNotMatch(blade,/then control the RB|then the receiver after a catch/);
 });
