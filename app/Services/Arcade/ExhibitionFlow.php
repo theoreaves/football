@@ -243,14 +243,18 @@ class ExhibitionFlow
     /** Use the canonical rules' saved CPU recommendation, never re-simulate a play. */
     private function fastPenaltyDecision(Exhibition $game, string $human): ?string
     {
-        if (! ($game->state['penalty_pending'] ?? false)) return null;
+        if (! ($game->state['penalty_pending'] ?? false)) {
+            return null;
+        }
         $play = ExhibitionHistory::last($game);
         // Defense preferences alone must never decide a human QB's flag.
         if (! $play || ($play['before']['possession'] ?? $human) === $human
             || ($play['source'] ?? '') === 'arcade' || isset($play['arcade_recording'])
             || ($play['penalty']['beneficiary'] ?? null) !== $human
             || ! isset($play['penalty_options']['accept'], $play['penalty_options']['decline'])
-            || ! is_bool($play['penalty']['accepted'] ?? null)) return null;
+            || ! is_bool($play['penalty']['accepted'] ?? null)) {
+            return null;
+        }
 
         return $play['penalty']['accepted'] ? 'accept' : 'decline';
     }

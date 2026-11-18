@@ -563,6 +563,7 @@ function flowPendingCpuPenalty(bool $turnover = false, array $changes = []): Exh
     $result = app(\App\Services\Simulation\PlayFinalizer::class)->finish($after, $before, $play, $game->rosters, 5,
         ['events' => [[0, 'Snap'], [5, 'Tackle']], 'players' => [], 'ball' => []]);
     $game->update(['state' => $result['state'], 'history' => [$result['play']]]);
+
     return $game;
 }
 

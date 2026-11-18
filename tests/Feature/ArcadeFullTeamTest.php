@@ -308,7 +308,9 @@ test('QB crossing then retreating before a tackle is a scramble, not a sack, in 
             $target = $first[3][$qb][$axis] + ($axis === 0 ? 80 * $direction : 0);
             $frame[3][$defender][$axis] = (int) round($first[3][$defender][$axis] + ($target - $first[3][$defender][$axis]) * $tick / 120);
         }
-        if ($tick === 120) $frame[4][3] = 2;
+        if ($tick === 120) {
+            $frame[4][3] = 2;
+        }
         $r['frames'][] = $frame;
     }
     $position = [$first[3][$qb][0] / 100, $first[3][$qb][1] / 100];
