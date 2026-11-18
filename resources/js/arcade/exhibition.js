@@ -133,6 +133,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         view = createArcadeView(host, config, {sharedHost});
         input = createArcadeInput(root, host, {start,pause,retry:pause, enabled:()=>inputEnabled() && !sharedHost?.cameraDirector.transitioning && !sharedHost?.staging && !replay?.active && !busy,
             canControl:()=>exhibitionCanControl(state), canPass:()=>exhibitionCanPass(state),
+            transformMovement:movement=>config.fullTeam ? {x:-movement.z*(state.direction ?? state.config?.direction ?? 1),z:movement.x*(state.direction ?? state.config?.direction ?? 1)} : movement,
             aimAt:(x,y)=>view.groundPoint(x,y),onAim:point=>{aim=point;}});
         if(!sharedHost) { observer = new ResizeObserver(()=>view.resize()); observer.observe(host); } view.render(state); sharedHost?.stageNextFrame?.();
     }
@@ -200,7 +201,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     function frame(time) {
         if(disposed)return; if(!root.isConnected){dispose();return;}
         const delta=lastTime===null?0:(time-lastTime)/1000;lastTime=time;
-        if(replay.active){stepper.reset();replay.advance(delta);}else{stepper.advance(delta);view?.render(state,{aim});} hud();
+        if(replay.active){stepper.reset();replay.advance(delta);}else{stepper.advance(delta);view?.render(state,{aim,refreshAim:()=>input?.refreshAim()});} hud();
         if(!sharedHost) frameId=requestAnimationFrame(frame);
     }
     function dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(frameId);clearView();replay.dispose();abort.abort();delete root.dataset.mounted;}

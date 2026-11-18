@@ -111,7 +111,7 @@ function validate(input) {
     if (fullTeam && (keys.size !== 22 || FULL_TEAM_KEYS.some((key, index) => data.actors[index]?.key !== key))) fail('missing full-team actor.');
     if (fullTeam && data.actors.some(actor => (actor.key.startsWith('offense_') ? actor.side !== data.actors[0].side : actor.side === data.actors[0].side))) fail('invalid full-team sides.');
     if (!keys.has(fullTeam ? 'offense_QB' : data.mode === 'running' ? 'runner' : 'qb')) fail('missing starting actor.');
-    if (typeof data.truncated !== 'boolean' || !object(data.appearance)) fail('invalid recording metadata.');
+    if (typeof data.truncated !== 'boolean' || !emptyMap(data.appearance)) fail('invalid recording metadata.');
     for (const side of ['home', 'away']) {
         const team = data.appearance[side];
         if (team == null) continue;

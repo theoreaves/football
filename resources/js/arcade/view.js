@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {quarterbackCameraFrame, quarterbackCameraActor, createQuarterbackCameraFollow} from './qb-camera.js';
 import { buildFootballPlayer, animateFootballPlayer } from '../practice/player-model.js';
 import { buildFieldSurface } from '../practice/field-scene.js';
 import { getPassTrajectory } from './passing.js';
@@ -165,7 +166,9 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     }
     const canvas = renderer.domElement;
     const scene = sharedHost ? sharedHost.createLayer('arcade-live') : new THREE.Scene();
-    const camera = sharedHost?.cameras.arcade ?? new THREE.OrthographicCamera(-24, 24, 19, -19, .1, 300);
+    const camera = sharedHost?.cameras.arcade ?? (fullTeam ? new THREE.PerspectiveCamera(58, 1, .1, 350) : new THREE.OrthographicCamera(-24, 24, 19, -19, .1, 300));
+    const perspective = camera.isPerspectiveCamera;
+    const follow = perspective ? createQuarterbackCameraFollow(camera) : null;
     let disposed = false, direction = 1, lastState = null, lastTick = -1, lastElapsed = 0, aim = null;
     let cameraX = exhibition ? exhibitionCameraX(exhibition.startX, 1) : null;
     let lastBallPhase = null, throwStartedAt = null, labelUnits = 1;
@@ -313,6 +316,11 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         if (disposed) return;
         const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
         if (!sharedHost) renderer.setSize(width, height, false);
+        if (perspective) {
+            follow.update(quarterbackCameraFrame(width, height, lastState ? quarterbackCameraActor(lastState) : {x: exhibition?.startX ?? 60, z: 26.665}, direction));
+            labelUnits = 32 / height;
+            return;
+        }
         const frame = arcadeCameraFrame(width, height, direction, cameraX);
         Object.assign(camera, { left: frame.left, right: frame.right, top: frame.top, bottom: frame.bottom });
         camera.position.set(...frame.position); camera.lookAt(...frame.target); camera.updateProjectionMatrix(); camera.updateMatrixWorld();
@@ -325,18 +333,17 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         if (disposed) return;
         if (Object.hasOwn(options, 'aim')) aim = options.aim;
         const nextDirection = state.direction ?? state.config?.direction ?? 1;
-        if (direction !== nextDirection) {
+        if (perspective) {
+            const elapsed = lastState && state.tick >= lastTick ? state.elapsed - lastElapsed : 0;
+            follow.update(quarterbackCameraFrame(host.clientWidth, host.clientHeight, quarterbackCameraActor(state), nextDirection), elapsed, !lastState || state.tick < lastTick || direction !== nextDirection);
             direction = nextDirection;
+        } else {
+            direction = nextDirection;
+            if (exhibition) cameraX = exhibitionCameraX(state.runner.x, direction);
             const x = cameraX ?? (direction < 0 ? 24 : 96);
             camera.position.x = x; camera.lookAt(x, 0, 26.665); camera.updateMatrixWorld();
         }
-        if (exhibition) {
-            const nextX = exhibitionCameraX(state.runner.x, direction);
-            if (cameraX !== nextX) {
-                cameraX = nextX;
-                camera.position.x = cameraX; camera.lookAt(cameraX, 0, 26.665); camera.updateMatrixWorld();
-            }
-        }
+        if (options.refreshAim) aim = options.refreshAim();
         firstDownLine.visible = Number.isFinite(state.firstDownX);
         if (firstDownLine.visible) firstDownLine.position.x = state.firstDownX;
         startLine.position.x = state.startX ?? (direction < 0 ? 40 : 80);
@@ -394,7 +401,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
     if (sharedHost) sharedHost.cameraDirector.use(camera);
     const releaseResize=sharedHost?.subscribeResize(resize);
     return { render, resize,
-        groundPoint(clientX, clientY) { return disposed ? null : arcadeGroundPoint(camera, canvas.getBoundingClientRect(), clientX, clientY); },
+        groundPoint(clientX, clientY) { return disposed || sharedHost?.cameraDirector.transitioning ? null : arcadeGroundPoint(sharedHost?.cameraDirector.camera ?? camera, canvas.getBoundingClientRect(), clientX, clientY); },
         setAim(target, state = lastState) {
             if (disposed) return;
             aim = target && Number.isFinite(target.x) && Number.isFinite(target.z) ? { x: target.x, z: target.z } : null;

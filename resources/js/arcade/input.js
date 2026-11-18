@@ -49,18 +49,23 @@ export function createArcadeInput(root, host, callbacks) {
         if (event.button !== 0 || event.isPrimary === false || drag || !canPass()) return;
         event.preventDefault();
         gesture = 'Aiming';
-        drag = {id: event.pointerId};
+        drag = {id: event.pointerId, clientX: event.clientX, clientY: event.clientY};
         host.setPointerCapture?.(event.pointerId);
         updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
     }, options);
     host.addEventListener('pointermove', event => {
         if (!drag || event.pointerId !== drag.id) return;
         if (!canPass()) { cancelAim(); return; }
+        drag.clientX = event.clientX; drag.clientY = event.clientY;
         updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
     }, options);
     host.addEventListener('pointerup', event => {
         if (!drag || event.pointerId !== drag.id) return;
-        updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
+        // A stationary release uses the most recently displayed world target.
+        // A moving camera must not silently replace it between frames.
+        if (event.clientX !== drag.clientX || event.clientY !== drag.clientY) {
+            updateAim(callbacks.aimAt?.(event.clientX, event.clientY));
+        }
         if (aim && canPass() && event.button === 0 && event.isPrimary !== false) {
             pass = {...aim}; gesture = `Released at ${aim.x.toFixed(1)}, ${aim.z.toFixed(1)}`;
         } else gesture = 'Cancelled aim';
@@ -79,9 +84,17 @@ export function createArcadeInput(root, host, callbacks) {
         if (document.hidden) { clear(); callbacks.pause(); }
     }, options);
     return {
+        // Called after camera follow is updated and before drawing its indicator.
+        refreshAim() {
+            if (!drag) return aim;
+            if (!canPass()) { cancelAim(); return null; }
+            updateAim(callbacks.aimAt?.(drag.clientX, drag.clientY));
+            return aim;
+        },
         sample() {
             if (!canControl()) { clear(); return {x: 0, z: 0, juke: 0}; }
-            const value = {...movementForKeys(keys), juke};
+            const movement = movementForKeys(keys);
+            const value = {...(callbacks.transformMovement?.(movement) ?? movement), juke};
             if (canPass()) {
                 if (pass) value.pass = {...pass};
             } else if (drag) cancelAim();

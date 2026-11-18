@@ -60,7 +60,7 @@ export function createDrillRecording(initialState, { appearance = initialState.a
         field: { startX: initialState.startX, goalX: initialState.goalX, rearX: initialState.rearX },
         actors: entries.map(([key, actor]) => ({ key, ...Object.fromEntries(PLAYER_FIELDS
             .filter(field => actor[field] !== undefined).map(field => [field, clone(actor[field])])) })),
-        appearance: clone(appearance), frames: [], events: [], result: null, truncated: false,
+        appearance: Array.isArray(appearance) && appearance.length === 0 ? {} : clone(appearance), frames: [], events: [], result: null, truncated: false,
     };
     const gait = entries.map(() => 0), juking = entries.map(() => false);
     let lastTick = -1, lastTime = 0, eventCursor = 0, brokenTackles = 0, closed = false, lastBallBoundary = null, qbCommitted = false;

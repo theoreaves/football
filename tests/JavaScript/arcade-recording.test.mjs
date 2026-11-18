@@ -210,3 +210,12 @@ test('real passing simulation records flight and terminal poses without changing
         assert.equal(data.frames[index][3].length, 6);
     }
 });
+
+test('empty PHP appearance is canonicalized without altering recorded motion', () => {
+    const state = drill();
+    const normal = createDrillRecording(state, {appearance: {}}).export();
+    const php = createDrillRecording(state, {appearance: []}).export();
+    assert.deepEqual(php, normal);
+    const appearance = {home: {name: 'Home'}};
+    assert.deepEqual(createDrillRecording(state, {appearance}).export().appearance, appearance);
+});

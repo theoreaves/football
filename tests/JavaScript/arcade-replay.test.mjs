@@ -216,3 +216,16 @@ test('empty-map compatibility does not admit non-map event payloads or unsafe ne
     const malformed = fixture(); malformed.events[0][5] = {nested: Array(1)};
     assert.throws(() => createReplayTimeline(malformed), /dense array/);
 });
+
+
+test('PHP empty top-level appearance is safe while populated arrays remain invalid', () => {
+    const data = fixture(); data.appearance = [];
+    const replay = createReplayTimeline(data);
+    assert.deepEqual(replay.recording.frames, data.frames);
+    assert.deepEqual(replay.recording.events, data.events);
+    assert.deepEqual(replay.recording.result, data.result);
+    for (const value of [[{}], ['home'], null, '']) {
+        data.appearance = value;
+        assert.throws(() => createReplayTimeline(data), /Invalid replay/);
+    }
+});

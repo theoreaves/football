@@ -40,7 +40,7 @@ export function createExhibitionSceneHost(host,{appearance={},crowd={},sidelineR
     const canvas=renderer.domElement;canvas.style.cssText='display:block;width:100%;height:100%';canvas.setAttribute('aria-label','WebSports exhibition field');host.append(canvas);
     const rendererId=THREE.MathUtils.generateUUID(),canvasId=THREE.MathUtils.generateUUID();canvas.setAttribute('data-presentation-canvas',canvasId);
     const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x101a2b,160,280);
-    const cameras={broadcast:new THREE.PerspectiveCamera(42,1,.1,350),arcade:new THREE.OrthographicCamera(-24,24,19,-19,.1,300),replay:new THREE.PerspectiveCamera(48,1,.1,500)};
+    const cameras={broadcast:new THREE.PerspectiveCamera(42,1,.1,350),arcade:new THREE.PerspectiveCamera(58,1,.1,350),replay:new THREE.PerspectiveCamera(48,1,.1,500)};
     cameras.broadcast.position.set(60,48,91.665);cameras.broadcast.lookAt(60,0,26.665);
     const cameraDirector=createExhibitionCameraDirector(cameras.broadcast);
     const textures=new Map(),loader=deps.textureLoader || new THREE.TextureLoader(),cache=new Map(),layers=new Set(),resizeListeners=new Set();
@@ -69,7 +69,7 @@ export function createExhibitionSceneHost(host,{appearance={},crowd={},sidelineR
     const sidelineCheerleaders=buildSidelineCheerleaders(scene,appearance,textureFor);
     const championshipAwayEntourage=buildChampionshipAwayEntourage(scene,appearance,textureFor);
     const audio=(deps.audioFactory || stadiumAudio)(audioRoot,win);
-    const resize=()=>{if(disposed)return;const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);renderer.setSize(w,h,false);for(const camera of [cameras.broadcast,cameras.replay]){camera.aspect=w/h;camera.updateProjectionMatrix();}resizeListeners.forEach(listener=>listener(w,h));};
+    const resize=()=>{if(disposed)return;const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);renderer.setSize(w,h,false);for(const camera of [cameras.broadcast,cameras.arcade,cameras.replay]){camera.aspect=w/h;camera.updateProjectionMatrix();}resizeListeners.forEach(listener=>listener(w,h));};
     const Observer=deps.ResizeObserver || win.ResizeObserver;const observer=new Observer(resize);observer.observe(host);
     const raf=deps.requestAnimationFrame || win.requestAnimationFrame.bind(win),cancel=deps.cancelAnimationFrame || win.cancelAnimationFrame.bind(win);
     const render=()=>{if(!disposed)renderer.render(scene,cameraDirector.camera);};

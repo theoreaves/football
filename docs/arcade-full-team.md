@@ -18,9 +18,9 @@ On your offensive possession:
 1. Choose **Inside run**, **Outside run**, **Short pass**, **Medium pass** or **Deep pass**.
 2. **Reserve play** pins the saved state, lineup, fatigue-adjusted ratings and selected call.
 3. **Start play**. WASD/arrows move; Q/E juke; Escape pauses; Space resumes.
-4. Runs physically hand off QB to RB before control transfers. Passes begin under QB
-   control: click the field to throw, or hold and drag to preview aim. After a catch,
-   control transfers to that receiver. Every passing call includes a short outlet.
+4. Runs physically hand off QB to a CPU-controlled RB. Human control stays with the
+   QB: click the field to throw, or hold and drag to preview aim. After a catch, the
+   receiver runs under CPU control. Every passing call includes a short outlet.
 5. Replay if desired, then **Submit / retry same result**. Only an accepted result
    advances the official game. Do not replay a snap to retry a failed network request.
 6. Cancel an unfinished reservation to change calls. A local 20-second recording limit
@@ -235,3 +235,43 @@ request took about 16.7 seconds, and final read endpoints took about 5–7 secon
 in the fresh-process checks. These are server timings, not browser FPS measurements
 or gameplay-balance acceptance. No Stage C work or live-app configuration change is
 included.
+
+
+## I Am QB Stage 2: perspective camera and passing
+
+Full-team exhibition Arcade now uses the existing persistent stadium's perspective
+camera behind and above the quarterback. It follows the QB through dropbacks,
+rollouts and scrambles; after a handoff/catch it smoothly follows the actual ball
+holder. During pass flight it stays with the QB. Camera ownership never transfers
+human input. Both directions, including quarter changes, use the same framing.
+W/up moves downfield and D/right moves screen-right, transformed into recorded
+world coordinates. The legacy drills retain their existing camera and controls.
+
+Coach and Arcade share one scene host, renderer and canvas. The existing camera
+director interpolates between broadcast and QB perspective; input is gated during
+the transition. Aim is reprojected from the stored pointer after camera movement
+on every rendered frame. A stationary release uses the last displayed world target;
+a changed release coordinate is projected once. Actual rating-based throw error
+remains intentional, rather than forcing every pass to hit its aim marker.
+
+Saved movement, events, identities and authoritative results remain unchanged.
+Exact replay uses recorded frames and existing replay camera modes, not a rerun of
+the simulation. Empty PHP appearance maps (serialized as `[]`) are accepted as
+empty replay metadata, and new recordings normalize them to `{}`. Nonempty arrays
+and invalid metadata remain rejected.
+
+Validation: 847 PHP tests passed, 5 existing opt-in skips (719,762 assertions),
+including all 148 Coach characterization cases; 549 JavaScript/graphics tests passed;
+production build passed. Actual Chrome/WebGL disposable-game checks covered
+Coach/QB presentation, both play directions, CPU handoff running, click passing,
+lateral movement with drag/release passing, CPU receiving runs through the goal
+line, a sideline QB scramble/tackle with forward passing disabled past the line,
+and both live and persisted exact replay. Automated projection tests cover
+goal-line/sideline bounds and landscape/portrait ratios. Browser sampling is not
+a comprehensive hardware, FPS or long-session acceptance test.
+
+Breakaways remain a review concern: the synthetic equal-rated roster produced long
+receiving touchdowns. No newly confirmed pursuit/tackle recovery defect justified
+a physics or rating change; no broad balancing or speed change was made. The
+accepted 0.925 movement baseline remains. Stage 3 mode selectors, expanded playbook,
+season integration and deployment are not included.

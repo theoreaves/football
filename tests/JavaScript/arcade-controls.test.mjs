@@ -249,3 +249,38 @@ test('CPU possession clears queued gameplay inputs but retains pause and resume 
         input.dispose(); globalThis.document = oldDocument; globalThis.window = oldWindow;
     }
 });
+
+
+test('moving-camera refresh preserves the visible target at release and invalid rays cancel', () => {
+    const oldDocument = globalThis.document, oldWindow = globalThis.window;
+    const document = new EventTarget(), window = new EventTarget(), root = new EventTarget(), host = new EventTarget();
+    const field = {closest: () => null};
+    document.activeElement = field; root.contains = x => x === field; host.focus = () => {};
+    globalThis.document = document; globalThis.window = window;
+    let offset = 0, shown = null, valid = true, enabled = true;
+    const input = createArcadeInput(root, host, {start() {}, pause() {}, retry() {},
+        enabled: () => enabled, canPass: () => true,
+        aimAt: (x, y) => valid ? {x: x + offset, z: y} : null,
+        onAim: aim => { shown = aim; },
+        transformMovement: ({x, z}) => ({x: -z, z: x}),
+    });
+    const pointer = type => {
+        const e = new Event(type, {cancelable:true});
+        for (const [key, value] of Object.entries({clientX:10, clientY:20, pointerId:1, button:0, isPrimary:true})) Object.defineProperty(e,key,{value});
+        host.dispatchEvent(e);
+    };
+    try {
+        pointer('pointerdown'); assert.deepEqual(shown, {x:10,z:20});
+        offset = 5; input.refreshAim(); assert.deepEqual(shown, {x:15,z:20});
+        offset = 9; pointer('pointerup');
+        assert.deepEqual(input.sample().pass, {x:15,z:20}, 'no unseen camera target on stationary release');
+        assert.equal(input.sample().pass, undefined);
+        pointer('pointerdown'); valid=false; input.refreshAim(); pointer('pointerup');
+        assert.equal(input.sample().pass,undefined); assert.equal(shown,null);
+        valid=true; pointer('pointerdown'); enabled=false; input.refreshAim(); pointer('pointerup');
+        assert.equal(input.sample().pass,undefined);
+        enabled=true;
+        const e=new Event('keydown',{cancelable:true}); Object.defineProperties(e,{code:{value:'KeyW'},target:{value:field}}); document.dispatchEvent(e);
+        assert.equal(input.sample().x,1); assert.equal(input.sample().z,0);
+    } finally { input.dispose(); globalThis.document=oldDocument; globalThis.window=oldWindow; }
+});

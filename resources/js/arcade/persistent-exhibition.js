@@ -1,3 +1,4 @@
+import {quarterbackCameraFrame} from './qb-camera.js';
 import {acceptQueuedPlay,rejectQueuedPlay} from '../practice/queued-play-call.js';
 import {mountButtonFeedback} from '../button-feedback.js';
 import {presentationHandoffNotice} from './presentation-handoff.js';
@@ -10,7 +11,6 @@ import {mountExhibition} from './exhibition.js';
 import {createExhibitionSceneHost} from '../practice/exhibition-scene-host.js';
 import {mountPractice} from '../practice/field.js';
 import {claimPlayOpening, serializePlayForm, watchMayAdvance, requiredDecisionReady} from '../practice/play-mode-presentation.js';
-import {arcadeCameraFrame, exhibitionCameraX} from './view.js';
 import './persistent-exhibition.css';
 
 // Read-only reconciliation never reserves a snap or repeats an accepted outcome.
@@ -55,7 +55,7 @@ export async function mountPersistentExhibition(root) {
     const canSubmitPlay=()=>!readBlocked && !coachHistory && !loading && !opening && !sharedHost.staging && !sharedHost.cameraDirector.transitioning && !arcade.busy && !arcade.pending && !arcade.replaying && !presentation?.recorded && !presentation?.dialogOpen;
     const handoffNotice=()=>presentationHandoffNotice({presentation,opening,staging:sharedHost.staging,transitioning:sharedHost.cameraDirector.transitioning,requiredDecision:snapshot.flow.required_decision});
     async function read(target){const parsed=new URL(target,window.location.origin);if(parsed.origin!==window.location.origin)throw new Error('Invalid game presentation URL.');const response=await fetch(parsed,{credentials:'same-origin',headers:{Accept:'application/json'},signal:abort.signal});if(!response.ok)throw new Error(response.status===401||response.status===419?'Sign-in expired. Reload to sign in; your pending result is retained.':`Presentation unavailable (${response.status}). Retry loading saved state.`);return response.json();}
-    function arcadeCamera(){if(!sharedHost)return;const state=snapshot.state;const direction=(state.possession==='home'?1:-1)*(state.quarter%2===0?-1:1);const x=direction===1?10+state.spot:110-state.spot;const frame=arcadeCameraFrame(canvasHost.clientWidth,canvasHost.clientHeight,direction,exhibitionCameraX(x,direction));const camera=sharedHost.cameras.arcade;Object.assign(camera,{left:frame.left,right:frame.right,top:frame.top,bottom:frame.bottom});camera.position.set(...frame.position);camera.lookAt(...frame.target);camera.updateProjectionMatrix();sharedHost.cameraDirector.use(camera);}
+    function arcadeCamera(){if(!sharedHost)return;const state=snapshot.state;const direction=(state.possession==='home'?1:-1)*(state.quarter%2===0?-1:1);const x=direction===1?10+state.spot:110-state.spot;const frame=quarterbackCameraFrame(canvasHost.clientWidth,canvasHost.clientHeight,{x:x-direction*4,z:26.665},direction);const camera=sharedHost.cameras.arcade;camera.aspect=frame.aspect;camera.fov=frame.fov;camera.position.set(...frame.position);camera.lookAt(...frame.target);camera.updateProjectionMatrix();sharedHost.cameraDirector.use(camera);}
     function setMode(){const offense=snapshot?.flow.phase==='offense' && !opening && !forcedCoach && !coachHistory && !presentation?.recorded;root.classList.toggle('persistent-arcade-active',offense);root.classList.toggle('persistent-coach-active',!offense);if(offense && !arcade?.hasLive && mode!=='arcade')arcadeCamera();if(!offense && mode!=='coach' && sharedHost)sharedHost.cameraDirector.use(sharedHost.cameras.broadcast);mode=offense?'arcade':'coach';}
     function onFrame(value){presentation=value;opening=Boolean(value.opening);if(!coachHistory && value.completed && value.ready && !value.dialogOpen) {presentation={...value,recorded:false};}setMode();
         if(watchMayAdvance({flow:snapshot?.flow,...value,visible:!document.hidden,busy:readBlocked||coachHistory||sharedHost?.staging||sharedHost?.cameraDirector.transitioning||loading||autoPending||arcade?.pending||arcade?.replaying,paused:watchPaused}) && !autoPending){autoPending=true;queueMicrotask(async()=>{try{if(!disposed)await sendFlow('advance');}finally{autoPending=false;}});}}
