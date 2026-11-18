@@ -1,5 +1,5 @@
 import {createFullTeamPlay,stepFullTeamPlay} from './full-team.js';
-import {exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from './exhibition-play-selection.js';
+import {exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from './exhibition-play-selection.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from './exhibition-flow.js';
 import {createDrill, startDrill, pauseDrill, stepDrill, STEP_SECONDS} from './simulation.js';
 import {createPassingDrill, stepPassingDrill} from './passing.js';
@@ -120,7 +120,9 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     function start() {
         if (!inputEnabled() || sharedHost?.cameraDirector.transitioning || sharedHost?.staging || busy || recovered || replay?.active || !state || !['ready','paused'].includes(state.status)) return;
         startDrill(state); stepper.reset(); lastTime=null; host.focus({preventScroll:true});
-        say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone. ${exhibitionControlHint(state)}${state.mode === 'passing' ? ' Click a target to pass, or hold and drag to aim. Stay behind the cyan line to throw. After a catch, run with the receiver.' : ''}`); hud();
+        if (exhibitionUsesQbControl(state)) say('Play live.');
+        else say(`Play live. Move ${state.direction === 1 ? 'right' : 'left'} toward the end zone. ${exhibitionControlHint(state)}${state.mode === 'passing' ? ' Click a target to pass, or hold and drag to aim. Stay behind the cyan line to throw. After a catch, run with the receiver.' : ''}`);
+        hud();
     }
     function clearView() { input?.dispose(); observer?.disconnect(); view?.dispose(); input=null; view=null; }
     function setup(session) {
@@ -130,7 +132,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         recorder = createDrillRecording(state, {appearance:config.appearance});
         view = createArcadeView(host, config, {sharedHost});
         input = createArcadeInput(root, host, {start,pause,retry:pause, enabled:()=>inputEnabled() && !sharedHost?.cameraDirector.transitioning && !sharedHost?.staging && !replay?.active && !busy,
-            canPass:()=>exhibitionCanPass(state),
+            canControl:()=>exhibitionCanControl(state), canPass:()=>exhibitionCanPass(state),
             aimAt:(x,y)=>view.groundPoint(x,y),onAim:point=>{aim=point;}});
         if(!sharedHost) { observer = new ResizeObserver(()=>view.resize()); observer.observe(host); } view.render(state); sharedHost?.stageNextFrame?.();
     }
@@ -176,7 +178,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!result.session) {say(noSnapNotice(result.play, stopped)); if(onCanonical) await onCanonical(result,{kind:'no-snap'}); return;}
         transport.reserve(result.session);
         try { setup(result.session); } catch (error) { clearView(); state=null; recovered=true; throw new Error(`Field unavailable: ${error.message}. Cancel the reserved play or reload to recover.`); }
-        say('Play reserved with the saved roster. Start when ready. '+exhibitionControlHint(state)+' Pausing and replaying do not drain the official clock.');
+        say('Play reserved with the saved roster. Start when ready. '+(exhibitionUsesQbControl(state)?'':exhibitionControlHint(state)+' ')+'Pausing and replaying do not drain the official clock.');
     }),options);
     buttons.start.addEventListener('click',start,options);
     buttons.pause.addEventListener('click',pause,options);

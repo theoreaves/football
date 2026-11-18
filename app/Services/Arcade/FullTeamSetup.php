@@ -8,6 +8,10 @@ use App\Services\Simulation\FieldOrientation;
 /** Pinned initial assignments, not a second simulated outcome. */
 final class FullTeamSetup
 {
+    public const LEGACY_TUNING = 'arcade-fullteam-1';
+
+    public const QB_ONLY_TUNING = 'arcade-fullteam-2';
+
     public const CALLS = ['inside_run', 'outside_run', 'short_pass', 'medium_pass', 'deep_pass'];
 
     public const LIMITS = ['actors' => 22, 'frames' => 858, 'events' => 256, 'bytes' => 2097152, 'nodes' => 250000, 'seconds' => 20];
@@ -39,7 +43,7 @@ final class FullTeamSetup
         }
         $running = in_array($call, ['inside_run', 'outside_run'], true);
 
-        return ['fullTeam' => true, 'contractVersion' => 'live-recording-2', 'catalogVersion' => 'arcade-fullteam-1', 'limits' => self::LIMITS,
+        return ['fullTeam' => true, 'contractVersion' => 'live-recording-2', 'catalogVersion' => 'arcade-fullteam-1', 'tuningVersion' => self::QB_ONLY_TUNING, 'limits' => self::LIMITS,
             'kind' => $running ? 'run' : 'pass', 'mode' => $running ? 'running' : 'passing', 'call' => $call, 'offenseSide' => $side,
             'direction' => $direction, 'seed' => LivePlaySeed::forState($state), 'speedScale' => .925, 'routeSet' => $running ? null : $call,
             'offenseFormation' => 'shotgun', 'defenseFormation' => 'base_4_3', 'eligibleReceiverKeys' => ['offense_WR1', 'offense_WR2', 'offense_WR3', 'offense_TE', 'offense_RB'],

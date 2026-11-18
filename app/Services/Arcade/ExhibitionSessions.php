@@ -88,7 +88,7 @@ class ExhibitionSessions
             $binding = $context->binding() + ['contract_version' => $fullTeam ? 'live-recording-2' : 'live-recording-1', 'session_id' => $id, 'result_id' => (string) Str::uuid(), 'expires_at' => $expires->timestamp,
                 'setup_hash' => ArcadeContext::hash($setup)];
             if ($fullTeam) {
-                $binding += ['call' => $call, 'catalog_version' => $setup['catalogVersion'], 'runtime_tuning_version' => 'arcade-fullteam-1', 'eligible_receiver_keys' => $setup['eligibleReceiverKeys'], 'limits' => $setup['limits']];
+                $binding += ['call' => $call, 'catalog_version' => $setup['catalogVersion'], 'runtime_tuning_version' => $setup['tuningVersion'], 'eligible_receiver_keys' => $setup['eligibleReceiverKeys'], 'limits' => $setup['limits']];
             }
             $session = ArcadePlaySession::create(['id' => $id, 'result_id' => $binding['result_id'], 'exhibition_id' => $game->id,
                 'world_id' => $game->world_id, 'user_id' => $userId, 'active_slot' => $game->id, 'status' => 'active',
@@ -131,6 +131,10 @@ class ExhibitionSessions
                 && ($data['recording']['routeSet'] ?? null) === ($snap['kind'] === 'pass' ? $session->setup['routeSet'] : null)
                 && ($data['recording']['speedScale'] ?? null) === $session->setup['speedScale'], 422, 'Recording setup does not match the reservation.');
             $fullTeam = $session->binding['contract_version'] === 'live-recording-2';
+            if ($fullTeam) {
+                $tuning = $session->binding['runtime_tuning_version'] ?? FullTeamSetup::LEGACY_TUNING;
+                abort_unless($tuning === ($session->setup['tuningVersion'] ?? FullTeamSetup::LEGACY_TUNING), 422, 'Stored Arcade gameplay configuration mismatch.');
+            }
             $resolved = $fullTeam ? app(FullTeamLivePlayContract::class)->derive($context, $data['recording'], $session->setup) : app(LivePlayContract::class)->derive($context, $data['recording']);
             abort_unless(($resolved['kind'] ?? (in_array($resolved['call'], ['inside_run', 'outside_run'], true) ? 'run' : 'pass')) === $snap['kind'], 422, 'Recording play kind does not match.');
             $accounted = app(ScrimmageAccounting::class)->apply($snap['state'], $snap['state'], $resolved['outcome'], $resolved['gain'], $resolved['flip'], $resolved['summary']);

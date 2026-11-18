@@ -23,14 +23,16 @@ export function createArcadeInput(root, host, callbacks) {
         const pointer = drag?.id;
         drag = null;
         if (pointer !== undefined && host.hasPointerCapture?.(pointer)) host.releasePointerCapture(pointer);
-        updateAim(null);
+        if (pointer !== undefined || aim !== null) updateAim(null);
     };
     const clear = () => { keys.clear(); juke = 0; pass = null; cancelAim(); };
-    const canPass = () => callbacks.enabled?.() !== false && callbacks.canPass?.();
+    const canControl = () => callbacks.canControl?.() !== false;
+    const canPass = () => callbacks.enabled?.() !== false && canControl() && callbacks.canPass?.();
     const options = {signal: abort.signal};
     document.addEventListener('keydown', event => {
         if (callbacks.enabled?.() === false || event.metaKey || event.ctrlKey || event.altKey || !root.contains(document.activeElement) || editableTarget(event.target) || !ACTIONS.has(event.code)) return;
         if ((event.code === 'Space' || event.code === 'Enter') && event.target.closest?.('button, a')) return;
+        if ((MOVEMENT.has(event.code) || event.code === 'KeyQ' || event.code === 'KeyE') && !canControl()) return;
         event.preventDefault();
         if (MOVEMENT.has(event.code)) keys.add(event.code);
         if (event.repeat) return;
@@ -78,8 +80,11 @@ export function createArcadeInput(root, host, callbacks) {
     }, options);
     return {
         sample() {
+            if (!canControl()) { clear(); return {x: 0, z: 0, juke: 0}; }
             const value = {...movementForKeys(keys), juke};
-            if (pass && canPass()) value.pass = {...pass};
+            if (canPass()) {
+                if (pass) value.pass = {...pass};
+            } else if (drag) cancelAim();
             juke = 0; pass = null;
             return value;
         },

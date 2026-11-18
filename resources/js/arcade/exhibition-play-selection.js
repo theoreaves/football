@@ -4,14 +4,35 @@ export function exhibitionReservation({version,call,tempo}) {
     if(!Object.hasOwn(ARCADE_CALLS,call))throw new Error('Choose one of the five Arcade plays.');
     return {version,kind:call.endsWith('_run')?'run':'pass',call,tempo,contract_version:'live-recording-2'};
 }
+export function exhibitionUsesQbControl(state) {
+    return !!state?.fullTeam && Object.hasOwn(state, 'inputActorKey');
+}
+export function exhibitionCanControl(state) {
+    return !exhibitionUsesQbControl(state)
+        || (state.status === 'running' && state.inputActorKey === state.quarterback?.key);
+}
 export function exhibitionCanPass(state) {
-    return state?.mode==='passing' && state.status==='running' && state.ball?.phase==='held'
+    return exhibitionCanControl(state) && !(exhibitionUsesQbControl(state) && state.qbCommitted) && state?.mode==='passing' && state.status==='running' && state.ball?.phase==='held'
         && state.ball.holderKey===(state.fullTeam?state.quarterback?.key:'qb');
 }
 export function exhibitionControlHint(state) {
     if(!state?.fullTeam)return '';
     if(state.status==='finished' && state.result?.reason==='timeout')return 'Local recording limit reached. No football result was saved. Cancel the reserved play, then reserve again.';
     if(state.status==='finished')return state.result?.reason==='interception' ? 'Interception ends at the catch. Replay or submit the recorded result.' : 'Play finished. Replay or submit the recorded result.';
+    if(exhibitionUsesQbControl(state)){
+        if(state.ball?.phase==='flight')return 'Pass in flight.';
+        if(state.mode!=='passing'){
+            return state.ball?.holderKey===state.quarterback?.key
+                ? 'Automatic handoff. The CPU runs with the ball.'
+                : 'The CPU is running with the ball.';
+        }
+        if(state.ball?.holderKey && state.ball.holderKey!==state.quarterback?.key)return 'The CPU runs after the catch.';
+        if(state.qbCommitted)return 'QB scramble: WASD / arrows to move, Q / E to juke. Passing is no longer available.';
+        if(state.status==='ready' || state.status==='paused' || exhibitionCanControl(state)){
+            return 'QB controls: WASD / arrows to move, Q / E to juke. Click or drag to aim and throw from behind the line.';
+        }
+        return 'Waiting for the quarterback to take the snap.';
+    }
     if(state.mode!=='passing' && state.ball?.holderKey===state.quarterback?.key)return 'Automatic handoff: control transfers to your running back when he takes the ball.';
     if(state.mode==='passing' && state.ball?.holderKey===state.quarterback?.key)return 'Control your quarterback. Click a target to throw; control transfers to the receiver after a catch.';
     if(state.ball?.phase==='flight')return 'Pass in flight. Control transfers automatically after a catch.';

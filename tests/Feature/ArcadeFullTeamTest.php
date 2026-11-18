@@ -44,7 +44,10 @@ test('full team reservation pins exactly twenty two active identities and select
     expect($session['setup']['players'])->toHaveCount(22)->and($session['setup']['actors'])->toHaveCount(22)
         ->and(array_unique(array_column($session['setup']['players'], 'id')))->toHaveCount(22)
         ->and($session['setup']['call'])->toBe($call)->and($session['envelope']['call'])->toBe($call)
-        ->and($session['envelope']['contract_version'])->toBe('live-recording-2')->and($session['setup']['speedScale'])->toBe(.925);
+        ->and($session['envelope']['contract_version'])->toBe('live-recording-2')->and($session['setup']['speedScale'])->toBe(.925)
+        ->and($session['setup']['catalogVersion'])->toBe('arcade-fullteam-1')
+        ->and($session['setup']['tuningVersion'])->toBe('arcade-fullteam-2')
+        ->and($session['envelope']['runtime_tuning_version'])->toBe('arcade-fullteam-2');
     foreach (['home', 'away'] as $side) {
         expect(array_filter($session['setup']['players'], fn ($p) => $p['side'] === $side))->toHaveCount(11);
     }
@@ -222,3 +225,118 @@ test('interception terminal carrier is the actual defender even while control re
     $box = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game->fresh());
     expect($box['players']['away']['DT1']['defensive_interceptions'])->toBe(1)->and($box['players']['home']['QB']['interceptions'])->toBe(1);
 });
+
+test('QB-only submission rejects a runner juke and a recording from the older tuning', function () {
+    require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
+    $game = fullTeamTestGame(['spot' => 35]);
+    $session = $this->postJson(route('exhibitions.arcade.start', $game), ['version' => 0, 'kind' => 'run', 'tempo' => 'normal', 'contract_version' => 'live-recording-2', 'call' => 'inside_run'])->assertOk()->json('session');
+    $r = fullteamBenchmarkRun(['setup' => $session['setup']])['recording'];
+    $body = ['envelope' => $session['envelope'], 'recording' => $r];
+
+    $bad = $body;
+    $bad['recording']['tuningVersion'] = FullTeamSetup::LEGACY_TUNING;
+    $this->postJson($session['submit_url'], $bad)->assertUnprocessable()->assertJsonPath('message', 'Gameplay configuration mismatch.');
+    $runner = array_search('offense_RB', array_column($r['actors'], 'key'), true);
+    $bad = $body;
+    $bad['recording']['frames'][1][3][$runner][3] = 2;
+    $this->postJson($session['submit_url'], $bad)->assertUnprocessable()->assertJsonPath('message', 'Only the quarterback may use a juke pose.');
+    $bad = $body;
+    $frame = $r['frames'][1];
+    array_splice($bad['recording']['events'], 1, 0, [[$frame[0], $frame[1], 'juke', $runner, -1, []]]);
+    $this->postJson($session['submit_url'], $bad)->assertUnprocessable()->assertJsonPath('message', 'Only the quarterback with possession may juke.');
+    expect($game->fresh()->history)->toBe([]);
+    $this->postJson($session['submit_url'], $body)->assertOk()->assertJsonPath('state.version', 1);
+});
+
+test('historical v2 reservation remains resumable and accepts its original recorded tuning', function () {
+    require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
+    $game = fullTeamTestGame(['spot' => 35]);
+    $request = ['version' => 0, 'kind' => 'run', 'tempo' => 'normal', 'contract_version' => 'live-recording-2', 'call' => 'inside_run'];
+    $session = $this->postJson(route('exhibitions.arcade.start', $game), $request)->assertOk()->json('session');
+    $envelope = array_replace($session['envelope'], ['runtime_tuning_version' => FullTeamSetup::LEGACY_TUNING]);
+    $setup = $session['setup'];
+    unset($setup['tuningVersion']);
+    ArcadePlaySession::findOrFail($session['envelope']['session_id'])->update(['binding' => $envelope, 'setup' => $setup]);
+
+    $resumed = $this->postJson(route('exhibitions.arcade.start', $game), $request)->assertOk()->json('session');
+    expect($resumed['envelope'])->toBe($envelope)->and($resumed['setup'])->not->toHaveKey('tuningVersion');
+    $r = fullteamBenchmarkRun(['setup' => $resumed['setup']])['recording'];
+    expect($r['tuningVersion'])->toBe(FullTeamSetup::LEGACY_TUNING);
+    $runner = array_search('offense_RB', array_column($r['actors'], 'key'), true);
+    $r['frames'][1][3][$runner][3] = 2;
+    $body = ['envelope' => $envelope, 'recording' => $r];
+    $this->postJson($session['submit_url'], $body)->assertOk()->assertJsonPath('state.version', 1);
+    $this->postJson($session['submit_url'], $body)->assertOk()->assertJsonPath('state.version', 1);
+    expect($game->fresh()->history)->toHaveCount(1);
+});
+
+test('QB crossing then retreating before a tackle is a scramble, not a sack, in either field direction', function (int $quarter) {
+    require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
+    $game = fullTeamTestGame(['spot' => 35, 'quarter' => $quarter]);
+    $session = $this->postJson(route('exhibitions.arcade.start', $game), ['version' => 0, 'kind' => 'pass', 'tempo' => 'normal', 'contract_version' => 'live-recording-2', 'call' => 'short_pass'])->assertOk()->json('session');
+    $r = fullteamBenchmarkRun(['setup' => $session['setup']])['recording'];
+    $first = $r['frames'][0];
+    $qb = 0;
+    $defender = 11;
+    $direction = $r['direction'];
+    $r['frames'] = [];
+    for ($tick = 0; $tick <= 120; $tick += 2) {
+        $frame = $first;
+        $frame[0] = $tick;
+        $frame[1] = (int) round($tick * 1000000 / 60);
+        $frame[3][$qb][0] += (int) round(600 * min($tick, 120 - $tick) / 60) * $direction;
+        $frame[4][0] = $frame[3][$qb][0];
+        foreach ([0, 1] as $axis) {
+            $target = $first[3][$qb][$axis] + ($axis === 0 ? 80 * $direction : 0);
+            $frame[3][$defender][$axis] = (int) round($first[3][$defender][$axis] + ($target - $first[3][$defender][$axis]) * $tick / 120);
+        }
+        if ($tick === 120) $frame[4][3] = 2;
+        $r['frames'][] = $frame;
+    }
+    $position = [$first[3][$qb][0] / 100, $first[3][$qb][1] / 100];
+    $r['events'] = [[0, 0, 'start', $qb, -1, []], [120, 2000000, 'tackle', $qb, $defender, []], [120, 2000000, 'finished', $qb, -1, ['reason' => 'tackle', 'position' => $position]]];
+    $r['result'] = ['reason' => 'tackle'];
+    $body = ['envelope' => $session['envelope'], 'recording' => $r];
+    $bad = $body;
+    $bad['recording']['events'][2][5]['reason'] = 'sack';
+    $bad['recording']['result']['reason'] = 'sack';
+    $this->postJson($session['submit_url'], $bad)->assertUnprocessable()->assertJsonPath('message', 'Invalid sack classification.');
+    $late = $body;
+    $release = $r['frames'][58];
+    array_splice($late['recording']['events'], 1, 0, [[$release[0], $release[1], 'throw', $qb, -1,
+        ['actualTarget' => [$release[3][$qb][0] + 600 * $direction, $release[3][$qb][1]]]]]);
+    $this->postJson($session['submit_url'], $late)->assertUnprocessable()->assertJsonPath('message', 'Pass after quarterback scramble commitment.');
+    $this->postJson($session['submit_url'], $body)->assertOk()->assertJsonPath('play.scramble', true)
+        ->assertJsonPath('play.carrier', 'QB')->assertJsonPath('play.gain', -5);
+})->with([1, 2]);
+
+test('autonomous yards after catch credit the recorded receiver and replay without another play', function (int $quarter) {
+    require_once base_path('tests/Fixtures/fullteam-benchmark-support.php');
+    $game = fullTeamTestGame(['quarter' => $quarter, 'spot' => 23]);
+    $session = $this->postJson(route('exhibitions.arcade.start', $game), [
+        'version' => 0, 'kind' => 'pass', 'tempo' => 'normal', 'contract_version' => 'live-recording-2', 'call' => 'short_pass',
+    ])->assertOk()->json('session');
+    $run = fullteamBenchmarkRun(['setup' => $session['setup']], 'early_yac');
+    $recording = $run['recording'];
+    expect($run['metrics']['passOutcome'])->toBe('complete')->and($run['metrics']['yac'])->toBeGreaterThan(0);
+    $catch = collect($recording['events'])->first(fn ($event) => $event[2] === 'catch');
+    $receiverId = $recording['actors'][$catch[3]]['id'];
+    $body = ['envelope' => $session['envelope'], 'recording' => $recording];
+    $response = $this->postJson($session['submit_url'], $body)->assertOk()
+        ->assertJsonPath('play.arcade_participants.receiver.player_id', $receiverId)
+        ->assertJsonPath('play.arcade_participants.carrier.player_id', $receiverId);
+    $game->refresh();
+    $saved = $game->getAttributes();
+    $box = app(\App\Services\Simulation\ExhibitionBoxScore::class)->build($game);
+    $receiver = collect($box['players']['home'])->firstWhere('id', $receiverId);
+    $qb = collect($box['players']['home'])->firstWhere('role', 'QB');
+    expect($receiver['receptions'])->toBe(1)->and($receiver['rushes'])->toBe(0)
+        ->and($receiver['receiving_yards'])->toBe($response->json('play.gain'))
+        ->and($qb['pass_attempts'])->toBe(1)->and($qb['completions'])->toBe(1);
+    $persistedRecording = $game->history[0]['arcade_recording'];
+    $this->getJson(route('exhibitions.arcade.playback', ['exhibition' => $game, 'number' => 1]))
+        ->assertOk()->assertJsonPath('recording.frames', $persistedRecording['frames'])
+        ->assertJsonPath('recording.events', $persistedRecording['events']);
+    $this->postJson($session['submit_url'], $body)->assertOk()->assertJsonPath('receipt', $response->json('receipt'));
+    expect($game->fresh()->getAttributes())->toBe($saved);
+})->with([1, 2]);

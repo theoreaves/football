@@ -24,7 +24,7 @@
         <a href="{{ $startUrl ? url()->full() : $coachUrl }}">Reload saved state</a>
     </div>
     <div class="arcade-stage">
-        <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="Arcade exhibition. WASD or arrow keys move. Click a target to pass, or hold and drag to aim. Q or E juke. Escape pauses." aria-describedby="exhibition-controls"></div>
+        <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="{{ ($replayOnly ?? false) ? 'Recorded exhibition field' : 'Arcade exhibition. Control only the quarterback on pass plays.' }}" @unless($replayOnly ?? false) aria-describedby="exhibition-controls" @endunless></div>
         <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose one of five plays, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
         <div class="arcade-toolbar">
             <button type="button" data-exhibition-start disabled>Start play</button>
@@ -35,7 +35,9 @@
         </div>
     </div>
     <p data-exhibition-status role="status" aria-live="polite">{{ $available ? 'Choose one of five plays and reserve your play.' : 'This game needs a Coach decision before Arcade offense can continue.' }}</p>
-    <p id="exhibition-controls" class="arcade-help">Runs: automatic QB-to-RB handoff, then control the RB · Passes: control the QB, then the receiver after a catch · WASD / arrows: move · Click target: pass · Hold + drag: aim · Q / E: juke · Space: start/resume · Escape: pause</p>
+    @unless($replayOnly ?? false)
+    <p id="exhibition-controls" class="arcade-help">You control only the QB on pass plays. WASD / arrows: move · Q / E: juke · Click a target or hold + drag: aim and throw from behind the line. The CPU handles handoffs, runs and yards after a catch. Space: start/resume · Esc: pause.</p>
+    @endunless
     <p class="arcade-help">92.5% movement speed. Cyan: line of scrimmage. Yellow: first-down and goal lines. White field lines: every 5 yards. Live plays continue when the game clock expires. A local recording timeout is not a football result: cancel and reserve again. Choose Coach Defense to call defensive plays, Watch Simulation to view committed 3D plays, or Fast Sim to reach your next offensive opportunity. Required kick, try, penalty and half decisions open in Coach, then return here. No game action runs simply by loading this page.</p>
 </div>
 </x-layouts.app>

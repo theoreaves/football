@@ -215,3 +215,37 @@ test('target clicks enter the real passing runtime once, only while the QB is li
         input.dispose(); globalThis.document = oldDocument; globalThis.window = oldWindow;
     }
 });
+
+test('CPU possession clears queued gameplay inputs but retains pause and resume shortcuts', () => {
+    const oldDocument = globalThis.document, oldWindow = globalThis.window;
+    const document = new EventTarget(), window = new EventTarget(), root = new EventTarget(), host = new EventTarget();
+    const field = {closest: () => null};
+    document.activeElement = field;
+    root.contains = element => element === field;
+    globalThis.document = document; globalThis.window = window;
+    let canControl = true, starts = 0, pauses = 0;
+    const input = createArcadeInput(root, host, {
+        canControl: () => canControl, start() { starts++; }, pause() { pauses++; }, retry() {},
+    });
+    const key = code => {
+        const event = new Event('keydown', {cancelable: true});
+        Object.defineProperties(event, {code: {value: code}, target: {value: field}});
+        document.dispatchEvent(event);
+        return event.defaultPrevented;
+    };
+    try {
+        assert.equal(key('KeyD'), true);
+        key('KeyQ');
+        canControl = false;
+        assert.deepEqual(input.sample(), {x: 0, z: 0, juke: 0});
+        assert.equal(key('ArrowRight'), false);
+        assert.equal(key('KeyE'), false);
+        assert.equal(key('Escape'), true);
+        assert.equal(key('Space'), true);
+        assert.deepEqual([pauses, starts], [1, 1]);
+        canControl = true;
+        assert.deepEqual(input.sample(), {x: 0, z: 0, juke: 0});
+    } finally {
+        input.dispose(); globalThis.document = oldDocument; globalThis.window = oldWindow;
+    }
+});

@@ -63,7 +63,7 @@ export function createDrillRecording(initialState, { appearance = initialState.a
         appearance: clone(appearance), frames: [], events: [], result: null, truncated: false,
     };
     const gait = entries.map(() => 0), juking = entries.map(() => false);
-    let lastTick = -1, lastTime = 0, eventCursor = 0, brokenTackles = 0, closed = false, lastBallBoundary = null;
+    let lastTick = -1, lastTime = 0, eventCursor = 0, brokenTackles = 0, closed = false, lastBallBoundary = null, qbCommitted = false;
     function addEvent(state, type, actorKey, targetKey, data = {}, time = state.elapsed, terminal = false) {
         // Keep one event slot available for the final result, even after a flood.
         if (recording.events.length >= limits.events - (terminal ? 0 : 1)) {
@@ -132,7 +132,9 @@ export function createDrillRecording(initialState, { appearance = initialState.a
             closed = true;
         }
         const ballBoundary = `${state.ball?.phase}:${state.ball?.holderKey}:${state.controlledKey}`;
-        const sample = lastTick < 0 || state.tick % 2 === 0 || closed
+        const committedThisStep = fullTeam && state.qbCommitted === true && !qbCommitted;
+        qbCommitted = qbCommitted || committedThisStep;
+        const sample = lastTick < 0 || state.tick % 2 === 0 || closed || committedThisStep
             || (eventAdded && (!fullTeam || boundaries.length === 0))
             || (fullTeam && boundaries.length === 0 && ballBoundary !== lastBallBoundary);
         lastBallBoundary = ballBoundary;

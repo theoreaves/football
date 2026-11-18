@@ -38,6 +38,9 @@ function candidates(state, outlet = false) {
 function createPolicy(profile) {
     let decision=null;
     return {get decision(){return decision;}, input(state){
+        if(profile==='early_yac') {
+            return state.tick===5 ? {pass:{x:state.startX+state.direction*4,z:36}} : {};
+        }
         if(profile==='hold')return {};
         if(state.mode==='running' && !state.handoffComplete)return {};
         if(state.controlledKey!==state.quarterback.key) {

@@ -1,4 +1,4 @@
-import {exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from '../../resources/js/arcade/exhibition-play-selection.js';
+import {exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel} from '../../resources/js/arcade/exhibition-play-selection.js';
 import {requiredDecisionReady} from '../../resources/js/practice/play-mode-presentation.js';
 import {createExhibitionFlowTransport, exhibitionStateLabel, exhibitionClockLabel, canonicalExhibitionNotices} from '../../resources/js/arcade/exhibition-flow.js';
 import test from 'node:test';
@@ -21,18 +21,19 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions
         querySelector(selector){return selector==='[data-arcade-field]'?host:nodes[selector.match(/data-exhibition-([^\]]+)/)[1]];}};
     const host={...node(),clientWidth:800,clientHeight:500};
     const queue=[],requests=[],views=[],recording={version:1,frames:[[0]],events:[],actors:[],result:{reason:terminalReason}};
-    let frame,transport,opened,step,replayActive=false;
+    let frame,transport,opened,step,inputCallbacks,replayActive=false;
     const document=node(),window={...node(),location:{origin:'http://test',pathname:'/exhibitions/3/arcade',assign(url){this.destination=url;}},localStorage:{getItem(key){return key.startsWith('arcade-flow:')?flowSaved:stored?JSON.stringify(stored):null;},setItem(){},removeItem(){}}};
-    const deps={exhibitionReservation,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel,createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
+    const deps={exhibitionReservation,exhibitionUsesQbControl,exhibitionCanControl,exhibitionCanPass,exhibitionControlHint,exhibitionLiveLabel,createExhibitionFlowTransport,exhibitionStateLabel,exhibitionClockLabel,canonicalExhibitionNotices,document,window,AbortController,ResizeObserver:class{observe(){}disconnect(){}},
         requestAnimationFrame(fn){frame=fn;return 1;},cancelAnimationFrame(){},
         async fetch(url,options){requests.push({url,body:options.body});const response=queue.shift();if(response instanceof Error)throw response;return {ok:!response?.httpError,status:response?.status || 200,json:async()=>response?.httpError?{message:response.httpError}:response};},
         createDrill(config){return {status:'ready',mode:'running',direction:1,startX:config.exhibition.startX,firstDownX:config.exhibition.firstDownX,runner:{x:config.exhibition.startX},elapsed:0};},
-        createFullTeamPlay(config){return {...deps.createDrill(config),fullTeam:true,quarterback:{key:'offense_QB'},ball:{phase:'held',holderKey:'offense_QB'}};},stepFullTeamPlay(s){deps.stepDrill(s);},
+        createFullTeamPlay(config){return {...deps.createDrill(config),mode:config.mode,fullTeam:true,quarterback:{key:'offense_QB'},ball:{phase:'held',holderKey:'offense_QB'},
+            ...(config.tuningVersion==='arcade-fullteam-2'?{inputActorKey:config.mode==='passing'?'offense_QB':null}:{})};},stepFullTeamPlay(s){deps.stepDrill(s);},
         createPassingDrill(){assert.fail('not a passing test');},startDrill(s){s.status='running';},pauseDrill(s){if(s.status==='running')s.status='paused';},
         stepDrill(s){s.runner.x+=14;s.elapsed=terminalReason==='timeout'?20:2;s.status='finished';s.result={reason:terminalReason,yards:14};},stepPassingDrill(){},STEP_SECONDS:1/60,
         createFixedStepper(fn){step=fn;return {reset(){},advance(){step();}};},
         createDrillRecording(){return {capture(){},export(){return recording;}};},
-        createArcadeInput(){return {sample(){return {};},clear(){},dispose(){}};},
+        createArcadeInput(root,host,callbacks){inputCallbacks=callbacks;return {sample(){return {};},clear(){},dispose(){}};},
         createArcadeView(host,config){const view={config,disposed:0,render(s){this.last=s;},resize(){},dispose(){this.disposed++;}};views.push(view);return view;},
         createReplayPanel(){return {get active(){return replayActive;},open(value){opened=value;},advance(){},dispose(){}};},
         createExhibitionTransport(options){transport=createExhibitionTransport(options);return transport;},canContinueExhibitionDrive,noSnapNotice,
@@ -40,7 +41,7 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions
     const dispose=new Function(...Object.keys(deps),source+'\nreturn mountExhibition;')(...Object.values(deps))(root,mountOptions);
     const state={...official,version:1,spot:39,clock:177};
     const session=(startX=35)=>({envelope:{session_id:'s'+startX,result_id:'r'+startX},setup:{mode:'running',exhibition:{startX,firstDownX:startX+10}},prepared_state:{...official,spot:startX-10},submit_url:`/exhibitions/3/arcade/sessions/s${startX}/submit`,cancel_url:`/exhibitions/3/arcade/sessions/s${startX}/cancel`});
-    return {dispose,window,nodes,views,requests,recording,state,session,queue,get transport(){return transport;},get opened(){return opened;},
+    return {dispose,window,nodes,views,requests,recording,state,session,queue,get transport(){return transport;},get opened(){return opened;},get inputCallbacks(){return inputCallbacks;},
         setReplayActive(value){replayActive=value;},click(key){return nodes[key].listeners.get('click')();},frame(){frame(16);}};
 }
 async function finishPlay(h){h.queue.push({session:h.session()});await h.click('reserve');h.click('start');h.frame();assert.ok(h.transport.pending.body);}
@@ -191,4 +192,26 @@ test('local recording timeout keeps submission disabled and consistently offers 
     h.queue.push({cancelled:true});await h.click('cancel');
     assert.equal(h.transport.pending,null);assert.equal(h.requests[1].url,session.cancel_url);
     assert.equal(h.nodes.reserve.disabled,false);
+});
+
+test('QB-only mount switches gameplay input and HUD between QB and CPU phases',async()=>{
+ const h=harness(),session=h.session();
+ Object.assign(session.setup,{fullTeam:true,tuningVersion:'arcade-fullteam-2',mode:'passing'});
+ h.queue.push({session});await h.click('reserve');h.click('start');
+ const state=h.views[0].last;
+ assert.equal(h.inputCallbacks.canControl(),true);
+ assert.equal(h.inputCallbacks.canPass(),true);
+ assert.match(h.nodes.live.textContent,/QB controls/);
+ assert.equal(h.nodes.status.textContent,'Play live.');
+ state.qbCommitted=true;h.click('pause');h.click('start');
+ assert.equal(h.inputCallbacks.canControl(),true);
+ assert.equal(h.inputCallbacks.canPass(),false);
+ assert.match(h.nodes.live.textContent,/QB scramble/);
+ Object.assign(state,{qbCommitted:false,inputActorKey:null,ball:{phase:'held',holderKey:'offense_WR1'}});
+ h.click('pause');h.click('start');
+ assert.equal(h.inputCallbacks.canControl(),false);
+ assert.equal(h.inputCallbacks.canPass(),false);
+ assert.match(h.nodes.live.textContent,/CPU runs after the catch/);
+ assert.doesNotMatch(h.nodes.live.textContent,/aim|Q \/ E|WASD/);
+ assert.equal(h.nodes.pause.disabled,false);
 });

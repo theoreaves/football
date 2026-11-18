@@ -357,6 +357,7 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
         models.forEach(({ model, ring }, key) => { model.visible = activeKeys.has(key); ring.visible = model.visible; });
         const holderKey = attachArcadeBall(ball, sharedHost?.scene ?? scene, models, state);
         const controlledKey = state.fullTeam || state.mode === 'passing' ? state.controlledKey : 'runner';
+        const inputActorKey = state.fullTeam && Object.hasOwn(state, 'inputActorKey') ? state.inputActorKey : controlledKey;
         entries.forEach(([key, actor], index) => {
             const entry = models.get(key), { model, ring } = entry, pose = arcadePlayerPose(actor, state);
             resetArcadePlayerPose(model);
@@ -378,9 +379,9 @@ export function createArcadeView(host, { appearance = {}, mode = 'running', runn
             }
             if (state.fullTeam && !pose.tackled) applyArcadeInteractionPose(model, actor.handoffRemaining > 0 ? 'handoff' : (actor.blockingKey || actor.blockedBy) ? 'block' : null);
             const receiverIndex = key.startsWith('receiver:') ? Number(key.split(':')[1]) : -1;
-            ring.visible = !state.fullTeam || key === controlledKey || key === holderKey;
-            ring.material.color.setHex(key === controlledKey ? 0xffda6a : receiverIndex >= 0 ? ROUTE_COLORS[receiverIndex % ROUTE_COLORS.length] : key === 'qb' ? 0x6ee7ff : 0xff867d);
-            ring.scale.setScalar(key === controlledKey ? 1 : .85);
+            ring.visible = !state.fullTeam || key === inputActorKey || key === holderKey;
+            ring.material.color.setHex(key === inputActorKey ? 0xffda6a : receiverIndex >= 0 ? ROUTE_COLORS[receiverIndex % ROUTE_COLORS.length] : key === 'qb' ? 0x6ee7ff : 0xff867d);
+            ring.scale.setScalar(key === inputActorKey ? 1 : .85);
             ring.position.set(actor.x, .11, actor.z);
         });
         ballShadow.visible = !holderKey && ball.visible;

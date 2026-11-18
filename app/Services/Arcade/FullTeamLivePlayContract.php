@@ -12,6 +12,9 @@ final class FullTeamLivePlayContract
     {
         $context->assertPlayable();
         $r = $recording;
+        // A reservation made before the QB-only policy keeps its original rules.
+        $tuning = $setup['tuningVersion'] ?? FullTeamSetup::LEGACY_TUNING;
+        $qbOnly = $tuning === FullTeamSetup::QB_ONLY_TUNING;
         $this->check(($setup['contractVersion'] ?? null) === 'live-recording-2' && ($r['contractVersion'] ?? null) === $setup['contractVersion'] && ($r['fullTeam'] ?? null) === true && ($r['mode'] ?? null) === $setup['mode'] && ($r['seed'] ?? null) === $setup['seed'] && ($r['routeSet'] ?? null) === $setup['routeSet'] && ($r['call'] ?? null) === $setup['call'] && ($r['catalogVersion'] ?? null) === $setup['catalogVersion'], 'Full-team catalog mismatch.');
         $nodes = 0;
         $walk = function ($value, int $depth = 0) use (&$walk, &$nodes): void {
@@ -29,7 +32,7 @@ final class FullTeamLivePlayContract
             && ($r['poses'] ?? null) === ['idle', 'run', 'juke', 'tackled', 'throw', 'block', 'handoff'] && ($r['ballPhases'] ?? null) === ['held', 'flight', 'dead']
             && ($r['truncated'] ?? true) === false, 'Unsupported recording header.');
         $this->check(in_array($r['mode'] ?? null, ['running', 'passing'], true) && ($r['speedScale'] ?? null) === .925
-            && ($r['tuningVersion'] ?? null) === 'arcade-fullteam-1' && ($r['direction'] ?? null) === FieldOrientation::direction($context->state), 'Gameplay configuration mismatch.');
+            && in_array($tuning, [FullTeamSetup::LEGACY_TUNING, FullTeamSetup::QB_ONLY_TUNING], true) && ($r['tuningVersion'] ?? null) === $tuning && ($r['direction'] ?? null) === FieldOrientation::direction($context->state), 'Gameplay configuration mismatch.');
         foreach (['startX' => $context->state['spot'], 'goalX' => 100, 'rearX' => 0] as $key => $spot) {
             $this->check((is_int($r['field'][$key] ?? null) || is_float($r['field'][$key] ?? null)) && abs($r['field'][$key] - FieldPosition::physical($spot, $context->state)) < .00001, 'Field mismatch.');
         }
@@ -149,6 +152,32 @@ final class FullTeamLivePlayContract
         $tackler = null;
         $interceptor = null;
         $this->check($actors[$initial]['side'] === $context->side && ($r['actors'][$initial]['key'] === 'offense_QB'), 'Invalid initial carrier.');
+        $qbCrossed = false;
+        if ($qbOnly) {
+            // The v2 wire field at index 2 remains a historical carrier alias,
+            // not a statement about who was steered. Check actions/possession.
+            $passing = $r['mode'] === 'passing';
+            $qbHasBall = true;
+            foreach ($events as $event) {
+                if (in_array($event[2], ['throw', 'handoff'], true)) {
+                    $qbHasBall = false;
+                }
+                if ($event[2] === 'juke') {
+                    $this->check($passing && $qbHasBall && $event[3] === $initial && $event[4] === -1, 'Only the quarterback with possession may juke.');
+                }
+            }
+            foreach ($frames as $f) {
+                foreach ($f[3] as $i => $pose) {
+                    $this->check($pose[3] !== 2 || ($passing && $i === $initial), 'Only the quarterback may use a juke pose.');
+                }
+                if ($passing && $f[4][3] === 0 && $f[4][4] === $initial
+                    && (! $throw || $f[1] < $throw[1])
+                    && FieldPosition::official($f[3][$initial][0] / 100, $context->state) > $context->state['spot'] + .005001) {
+                    $qbCrossed = true;
+                }
+            }
+            $this->check(! $throw || ! $qbCrossed, 'Pass after quarterback scramble commitment.');
+        }
         if ($throw) {
             $this->check($r['mode'] === 'passing' && $throw[3] === $initial && $actors[$initial]['role'] === 'QB', 'Invalid passer.');
             $release = $this->sample($frames, $throw[1]);
@@ -229,7 +258,7 @@ final class FullTeamLivePlayContract
             $this->check($event !== null && $event[1] === $last[1] && $event[3] === $carrier && $event[4] >= 0, 'Missing actual tackle participant.');
             $tackler = $event[4];
             $this->check($actors[$tackler]['side'] !== $context->side && $this->distance($point, $last[3][$tackler]) <= .93 && $boundary !== 'touchdown' && ! $this->out($exactPoint[1]), 'Invalid tackle contact.');
-            $this->check($reason === 'safety' || ($reason === 'sack') === ($r['mode'] === 'passing' && ! $throw && $continuous <= $context->state['spot']), 'Invalid sack classification.');
+            $this->check($reason === 'safety' || ($reason === 'sack') === ($r['mode'] === 'passing' && ! $throw && ! $qbCrossed && $continuous <= $context->state['spot']), 'Invalid sack classification.');
             $outcome = $boundary ?? $reason;
         } elseif ($reason === 'incomplete') {
             $this->check($throw !== null && isset($byType['incomplete']) && ! $catch && ! $intercept, 'Invalid incompletion.');
@@ -283,7 +312,7 @@ final class FullTeamLivePlayContract
             'touchdown' => 100,'safety' => 0,'incomplete' => $context->state['spot'], default => ($interceptor !== null && $continuous >= 100 - 1e-8 ? 100 : ($interceptor !== null && $continuous <= 1e-8 ? 0 : max(1, min(99, (int) round($continuous)))))
         };
         $gain = $spot - $context->state['spot'];
-        $scramble = $r['mode'] === 'passing' && ! $throw && $reason !== 'sack' && ! ($reason === 'safety' && $tackler !== null && $continuous <= $context->state['spot']);
+        $scramble = $r['mode'] === 'passing' && ! $throw && $reason !== 'sack' && ! ($reason === 'safety' && $tackler !== null && ! $qbCrossed && $continuous <= $context->state['spot']);
         $role = $actors[$receiver ?? $targetReceiver ?? $carrier]['role'];
         if ($throw && $receiver === null && $targetReceiver === null) {
             $role = '';

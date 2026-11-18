@@ -8,6 +8,7 @@ import { FULL_TEAM_VERSION, FULL_TEAM_CALLS, OFFENSIVE_ROLES, DEFENSIVE_ROLES,
     ELIGIBLE_ROLES, fullTeamRoute, defensiveAssignment } from './full-team-plays.js';
 
 export { FULL_TEAM_VERSION, FULL_TEAM_CALLS } from './full-team-plays.js';
+export const QB_ONLY_TUNING_VERSION = 'arcade-fullteam-2';
 const point = actor => ({ x: actor.x, z: actor.z });
 const lerp = (a, b, t) => a + (b - a) * t;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -18,7 +19,8 @@ const other = (state, role) => state.defenders.find(actor => actor.role === role
 const at = (before, actor, t) => ({ x: lerp(before.x, actor.x, t), z: lerp(before.z, actor.z, t) });
 
 export function createFullTeamPlay(setup) {
-    const { players, call, offenseSide, direction, seed = 1, exhibition } = setup;
+    const { players, call, offenseSide, direction, seed = 1, exhibition, tuningVersion = FULL_TEAM_VERSION } = setup;
+    if (![FULL_TEAM_VERSION, QB_ONLY_TUNING_VERSION].includes(tuningVersion)) throw new Error('Unsupported full-team gameplay policy.');
     if (!FULL_TEAM_CALLS.includes(call) || ![1, -1].includes(direction) || !['home', 'away'].includes(offenseSide)
         || !exhibition || !['startX', 'goalX', 'rearX'].every(key => Number.isFinite(exhibition[key]))
         || !Array.isArray(players) || players.length !== 22 || (setup.speedScale ?? .925) !== .925) {
@@ -37,7 +39,7 @@ export function createFullTeamPlay(setup) {
     }
     if (players.filter(player => player.side === offenseSide).length !== 11) throw new Error('Exactly eleven players per side are required.');
     const state = { fullTeam: true, mode: call.endsWith('_run') ? 'running' : 'passing', kind: call.endsWith('_run') ? 'run' : 'pass', call,
-        contractVersion: 'live-recording-2', routeSet: call.endsWith('_run') ? null : call, catalogVersion: FULL_TEAM_VERSION, tuningVersion: FULL_TEAM_VERSION, speedScale: DEFAULT_SPEED_SCALE,
+        contractVersion: 'live-recording-2', routeSet: call.endsWith('_run') ? null : call, catalogVersion: FULL_TEAM_VERSION, tuningVersion, speedScale: DEFAULT_SPEED_SCALE,
         status: 'ready', tick: 0, elapsed: 0, direction, offenseSide, seed: seed >>> 0, randomState: seed >>> 0,
         ...exhibition, exhibition: true, result: null, passOutcome: null, events: [], brokenTackles: 0,
         handoffComplete: false, blocks: [], pressureKeys: [], observations: [], actors: [] };
@@ -55,7 +57,14 @@ export function createFullTeamPlay(setup) {
         qb.facing = Math.atan2(mesh.z - qb.z, mesh.x - qb.x);
         rb.facing = Math.atan2(mesh.z - rb.z, mesh.x - rb.x);
     }
+    // Frame slot 2 and replay historically identify the carrier (or passer
+    // in flight), not who may receive human inputs. Keep that wire contract.
     state.controlledKey = state.quarterback.key;
+    if (tuningVersion === QB_ONLY_TUNING_VERSION) {
+        state.inputActorKey = state.mode === 'passing' ? state.quarterback.key : null;
+        state.qbCommitted = false;
+        state.carrierRead = null;
+    }
     state.eligibleReceiverKeys = state.receivers.map(actor => actor.key);
     state.ball = { x: state.runner.x, y: 1.65, z: state.runner.z, phase: 'held', holderKey: state.runner.key, flight: null };
     captureObservation(state);
@@ -204,7 +213,7 @@ function blockerTarget(state, actor) {
 }
 function offense(state, actor) {
     if (state.mode === 'running' && !state.handoffComplete && [state.quarterback.key, own(state, 'RB').key].includes(actor.key)) {
-        // Both players physically meet at a fixed mesh point. User RB steering begins on transfer.
+        // Both players physically meet at a fixed mesh point before the carrier changes.
         const rb = own(state, 'RB'), mesh = { x: (state.quarterback.origin.x + rb.origin.x) / 2, z: (state.quarterback.origin.z + rb.origin.z) / 2 + (state.call === 'outside_run' ? 1.5 : 0) };
         steer(state, actor, mesh); return;
     }
@@ -220,6 +229,56 @@ function offense(state, actor) {
         target = { x: future.x, z: future.z };
     }
     steer(state, actor, target);
+}
+
+// This local controller picks a lane from visible geometry using the same
+// acceleration, turning and contact solver as every other player. It neither
+// assigns a gain nor sees future collisions/catch RNG. Read cadence and how
+// far ahead to consider pursuit use the saved carrier awareness rating.
+function steerCarrier(state, carrier) {
+    const awareness = rating(carrier, 'awareness') / 100;
+    const memory = state.carrierRead;
+    if (memory?.key === carrier.key && state.tick < memory.nextTick) {
+        steer(state, carrier, memory.target);
+        return;
+    }
+
+    const delay = Math.round(3 + (1 - awareness) * 11);
+    const observed = state.observations.findLast(sample => sample.tick <= state.tick - delay) ?? state.observations[0];
+    const look = .32 + awareness * .18;
+    const stride = actorSpeed(carrier) * (.46 + awareness * .18);
+    const handoff = state.mode === 'running';
+    const nearMesh = handoff && (carrier.x - state.startX) * state.direction < 3;
+    const straightZ = nearMesh && state.call === 'outside_run' ? clamp(carrier.origin.z + 4, 4, FIELD_WIDTH - 4) : carrier.z;
+    const lanes = [0, -2.6, 2.6, -4.3, 4.3].map(offset => ({
+        x: carrier.x + state.direction * (stride - (Math.abs(offset) > 3 ? .9 : Math.abs(offset) * .15)),
+        z: clamp(straightZ + offset, .65, FIELD_WIDTH - .65),
+    }));
+    const defenders = state.defenders.map(defender => {
+        const seen = observed.actors[defender.key];
+        const screened = defender.blockedBy !== null;
+        return {
+            x: seen.x + seen.vx * look * (screened ? .3 : 1),
+            z: seen.z + seen.vz * look * (screened ? .3 : 1),
+            weight: screened ? .38 : 1,
+        };
+    });
+    let choice = lanes[0], best = -Infinity;
+    for (const lane of lanes) {
+        let pressure = 0;
+        for (const defender of defenders) {
+            // Penalize pursuit toward the path, not just proximity to its endpoint.
+            const gap = Math.min(distance(lane, defender), distance(at(carrier, lane, .56), defender));
+            pressure = Math.max(pressure, Math.max(0, 5.4 - gap) * defender.weight);
+        }
+        const sideline = Math.min(lane.z, FIELD_WIDTH - lane.z);
+        const score = (lane.x - carrier.x) * state.direction - pressure * (1.05 + awareness * .24)
+            - Math.abs(lane.z - straightZ) * .13 - Math.max(0, 3 - sideline) * .9
+            - (memory?.key === carrier.key ? Math.min(4, Math.abs(memory.target.z - lane.z)) * .10 : 0);
+        if (score > best) { best = score; choice = lane; }
+    }
+    state.carrierRead = { key: carrier.key, target: choice, nextTick: state.tick + Math.round(5 + (1 - awareness) * 8) };
+    steer(state, carrier, choice);
 }
 
 function advanceBlocks(state) {
@@ -268,7 +327,7 @@ function engageBlocks(state, previous) {
 }
 
 function validPass(state, target) {
-    return state.mode === 'passing' && state.controlledKey === state.quarterback.key && state.ball.phase === 'held' && !state.ball.flight
+    return state.mode === 'passing' && !state.qbCommitted && (state.inputActorKey === undefined || state.inputActorKey === state.quarterback.key) && state.controlledKey === state.quarterback.key && state.ball.phase === 'held' && !state.ball.flight
         && Number.isFinite(target?.x) && Number.isFinite(target?.z) && target.x >= 0 && target.x <= 120 && target.z >= 0 && target.z <= FIELD_WIDTH
         && (state.quarterback.x - state.startX) * state.direction <= 0 && (target.x - state.quarterback.x) * state.direction >= 1
         && distance(state.quarterback, target) >= 2 && distance(state.quarterback, target) <= 42;
@@ -290,6 +349,7 @@ function release(state, target) {
     const actual = { x: target.x + (nextRandom(state) * 2 - 1) * spread * state.direction, z: target.z + (nextRandom(state) * 2 - 1) * spread };
     const flight = { ...plan(state, actual), attemptedKeys: [] };
     state.ball = { ...passPosition(flight, 0), phase: 'flight', holderKey: null, flight };
+    if (state.inputActorKey !== undefined) { state.inputActorKey = null; qb.jukeRemaining = 0; }
     record(state, 'throw', { actorKey: qb.key, target: { ...target }, actualTarget: actual }, 0);
 }
 function finish(state, reason, fraction, previous) {
@@ -300,6 +360,7 @@ function finish(state, reason, fraction, previous) {
         time: state.elapsed, passOutcome: state.passOutcome };
     if (state.ball.holderKey) Object.assign(state.ball, point(state.actorByKey[state.ball.holderKey]), { y: 1.65 });
     state.ball.phase = 'dead';
+    if (state.inputActorKey !== undefined) state.inputActorKey = null;
     state.events = state.events.filter(event => event.time <= state.elapsed + 1e-10);
     record(state, 'finished', { reason, actorKey: state.controlledKey }, fraction);
 }
@@ -388,7 +449,7 @@ function carrierContacts(state, previous, after = 0) {
         const escape = clamp(.16 + (rating(runner, 'strength') - rating(defender, 'tackling')) * .006 + (1 - square) * .42, .02, .85);
         if (nextRandom(state) >= escape) {
             record(state, 'tackle', { actorKey: runner.key, targetKey: defender.key }, event.time);
-            const sack = state.mode === 'passing' && !state.ball.flight && runner.key === state.quarterback.key && (r.x - state.startX) * state.direction <= 0;
+            const sack = state.mode === 'passing' && !state.ball.flight && runner.key === state.quarterback.key && !state.qbCommitted && (r.x - state.startX) * state.direction <= 0;
             finish(state, sack ? 'sack' : 'tackle', event.time, previous); return;
         }
         defender.contactLatched = true; state.brokenTackles++;
@@ -403,10 +464,14 @@ export function stepFullTeamPlay(state, input = {}) {
     for (const actor of state.actors) actor.handoffRemaining = Math.max(0, (actor.handoffRemaining ?? 0) - STEP_SECONDS);
     state.tick++; state.elapsed = state.tick * STEP_SECONDS;
     if (input.pass) release(state, input.pass);
+    const qbOnly = state.inputActorKey !== undefined;
     const held = advanceBlocks(state);
     for (const actor of state.actors) {
         if (held.has(actor.key)) continue;
-        if (actor.key === state.controlledKey && !(state.mode === 'running' && !state.handoffComplete)) controlled(state, input);
+        if (qbOnly && actor.key === state.inputActorKey) controlled(state, input);
+        else if (qbOnly && actor === state.runner && actor !== state.quarterback && state.ball.phase === 'held') steerCarrier(state, actor);
+        else if (qbOnly && actor === state.quarterback && state.ball.phase === 'flight') move(state, actor, 0, 0);
+        else if (!qbOnly && actor.key === state.controlledKey && !(state.mode === 'running' && !state.handoffComplete)) controlled(state, input);
         else if (actor.side === state.offenseSide) offense(state, actor);
         else defend(state, actor);
     }
@@ -428,6 +493,9 @@ export function stepFullTeamPlay(state, input = {}) {
         if (state.status === 'running' && caughtAt !== null) carrierContacts(state, previous, caughtAt);
     } else carrierContacts(state, previous);
     if (state.status === 'running' && state.mode === 'passing' && state.ball.phase === 'held' && !state.passOutcome) {
+        if (qbOnly && (Math.round(state.quarterback.x * 100) - Math.round(state.startX * 100)) * state.direction > 0) {
+            state.qbCommitted = true;
+        }
         for (const defender of state.defenders) if (!state.pressureKeys.includes(defender.key) && distance(defender, state.quarterback) <= 3.5) {
             state.pressureKeys.push(defender.key); record(state, 'pressure', { actorKey: defender.key, targetKey: state.quarterback.key });
         }

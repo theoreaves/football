@@ -52,6 +52,9 @@ function fullteamBenchmarkFixture(string $call, int $direction = 1, int $seed = 
     $rosters = app(GamePersonnel::class)->active($rosters, $state, $call, 'shotgun');
     $game = new Exhibition(['state' => $state, 'rosters' => $rosters]);
     $setup = app(FullTeamSetup::class)->build($game, $state, $rosters, $call);
+    // This named Stage B benchmark remains a historical full-team policy
+    // baseline. Stage 1 integration tests pass the newly reserved setup.
+    unset($setup['tuningVersion']);
 
     return compact('state', 'rosters', 'setup', 'variant', 'seed');
 }
