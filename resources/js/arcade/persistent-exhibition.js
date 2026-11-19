@@ -99,11 +99,11 @@ export async function mountPersistentExhibition(root) {
             sharedHost=createExhibitionSceneHost(canvasHost,{appearance:next.appearance,crowd:next.crowd,sidelineRoster:next.scene?.sideline_roster,audioRoot:root});
             root.classList.add('persistent-play');
             root.dataset.exhibition=JSON.stringify({...data,state:next.state,available:next.available,flow:next.flow,pendingSession:next.pending_session});
-            compact=mountCompactHud(root,{metrics:()=>presentationMetrics(sharedHost.metrics())});compact.setTeams(next.team_names);
+            compact=mountCompactHud(root,{metrics:()=>presentationMetrics(sharedHost.metrics()),onSpecial:call=>{const select=controls.querySelector('[data-call-form] select[name=call]');if(!canSubmitPlay() || arcade.hasLive || snapshot.state.down!==4 || snapshot.flow.phase!=='offense' || ![...select?.options || []].some(option=>option.value===call))return;sendFlow('play',{call,tempo:root.querySelector('[data-exhibition-tempo]').value});}});compact.setTeams(next.team_names);
             arcade=mountExhibition(root,{sharedHost,onHud:value=>compact.update({...value,coachHistory}),inputEnabled:liveInputEnabled,flowEnabled,onCanonical:async(response,context)=>{await refresh({...context,result:response});}});
             sharedHost.activate({tick(now,delta){if(!disposed){if(arcade.hasLive && liveSuspendedCoach!==coach){coach?.suspend?.();liveSuspendedCoach=coach;}else if(!arcade.hasLive && liveSuspendedCoach===coach){coach?.resume?.();liveSuspendedCoach=null;if(mode==='arcade')arcadeCamera();}coach?.setInteractive?.(mode==='coach' && !readBlocked && !loading && !arcade.replaying && !arcade.hasLive && !sharedHost.staging && !sharedHost.cameraDirector.transitioning);if(!arcade.replaying && !arcade.hasLive)coach?.tick(now);else sharedHost.tickIdleAtmosphere?.(delta);arcade.tick(now);}}});
         }
-        coach?.dispose();controls.replaceChildren(phaseRoot);snapshot=next;compact.setTeams(next.team_names);presentation={recorded:shouldWatch};mode=null;forcedCoach=false;
+        coach?.dispose();controls.replaceChildren(phaseRoot);snapshot=next;compact.setTeams(next.team_names);compact.setSpecialCalls([...phaseRoot.querySelector('[data-call-form] select[name=call]')?.options || []].map(option=>option.value));presentation={recorded:shouldWatch};mode=null;forcedCoach=false;
         if(coachHistory){const back=document.createElement('button');back.type='button';back.textContent='Return to game';back.className='persistent-history-return';back.addEventListener('click',()=>{coachHistory=false;refresh();});controls.append(back);}
         arcade.reconcile({state:next.state,available:next.available,flow:next.flow,coach_url:next.flow.coach_url});
         mountGameSettings(phaseRoot);

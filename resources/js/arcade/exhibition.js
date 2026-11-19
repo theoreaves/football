@@ -51,7 +51,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (flow.required_decision || (flow.phase === 'special' && !flow.can_advance)) return 'A football decision is required. Continue in Coach to choose, then return to Arcade.';
         if (flow.phase === 'special') return 'Opponent special teams play. Watch the next simulated play or Fast Sim to your next decision.';
         if (flow.phase === 'defense') return flow.defense_mode === 'coach' ? 'Opponent possession. Continue in Coach to call your defense.' : 'Opponent possession. Watch the next simulated play or Fast Sim to your next decision.';
-        return 'Choose a play from the playbook, then Reserve play to load the field.';
+        return 'Choose a play from the playbook, then Call Play to load the field.';
     }
     function flowHud() {
         if (!flow || !find('preferences')) return;
@@ -87,7 +87,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!empty.hidden) empty.textContent = recovered
             ? (transport.pending?.body ? 'Your recorded play is recovered. Submit / retry same result, or review its replay.' : 'A reserved play was recovered. Choose Cancel reserved play before reserving a new play.')
             : flow ? flowGuidance() : stopped || !allowed ? 'This drive needs a Coach decision. Choose Continue in Coach.' + (recording ? ' You can still replay the recorded play.' : '')
-            : 'Choose a play from the playbook, then Reserve play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
+            : 'Choose a play from the playbook, then Call Play to load the field.' + (recording ? ' Replay recorded play shows the previous recording.' : '');
         const snapshot = transport.pending?.session.prepared_state || official;
         const clock = Number(snapshot.clock || 0);
         find('score').textContent = `Home ${snapshot.home_score ?? 0} · Away ${snapshot.away_score ?? 0}`;

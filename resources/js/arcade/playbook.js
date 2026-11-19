@@ -28,7 +28,7 @@ export function mountArcadePlaybook(root,{value,trigger,canOpen=()=>true,onChoos
         const options={signal:(dialogAbort=new AbortController()).signal};
         dialog=make('dialog',null,{class:'arcade-playbook','aria-label':'Arcade offensive playbook'});
         const header=make('header'),title=make('h2','Choose your offensive play'),exit=make('button','Close',{type:'button','aria-label':'Close playbook'});
-        header.append(title,exit);dialog.append(header,make('p','Choose a call, then Reserve play and Start play. Diagrams show intended assignments, not guaranteed movement.'));
+        header.append(title,exit);dialog.append(header,make('p','Choose a call, then Call Play and Start play. Diagrams show intended assignments, not guaranteed movement.'));
         const choices=[];
         for(const group of ['Run','Short Pass','Medium Pass','Deep Pass']){
             const section=make('section'),grid=make('div',null,{class:'arcade-playbook-grid'});section.append(make('h3',group),grid);

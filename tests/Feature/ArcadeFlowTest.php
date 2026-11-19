@@ -395,13 +395,23 @@ test('human fourth down retains Arcade go for it and explicit punt and field goa
     $game = flowTestGame(['down' => 4, 'spot' => 75, 'distance' => 8]);
     $baseline = $game->replicate();
     $baseline->save();
-    $args = ['action' => 'play', 'call' => $call, 'offense_formation' => 'singleback'];
+    $args = ['action' => 'play', 'call' => $call, 'tempo' => 'normal'];
     $this->post(route('exhibitions.play', $baseline), $args + ['version' => $baseline->state['version']])->assertRedirect();
     enableFlow($game);
     $status = app(ExhibitionFlow::class)->status($game->fresh());
     expect($status['available'])->toBeTrue()->and($status['flow']['phase'])->toBe('offense');
-    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, $args))->assertOk();
+    $session = $this->postJson(route('exhibitions.arcade.start', $game), ['version' => $game->fresh()->state['version'], 'kind' => 'run', 'tempo' => 'normal'])->assertOk()->json('session');
+    $reservedState = $game->fresh()->state;
+    $this->postJson(route('exhibitions.arcade.flow', $game), flowCommand($game, $args))->assertConflict();
+    expect($game->fresh()->state)->toBe($reservedState)->and($game->fresh()->history)->toBe([]);
+    $this->postJson($session['cancel_url'])->assertOk();
+    $payload = flowCommand($game, $args);
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk();
     expect($game->fresh()->state)->toBe($baseline->fresh()->state)->and($game->fresh()->history)->toBe($baseline->fresh()->history);
+    $savedState = $game->fresh()->state;
+    $savedHistory = $game->fresh()->history;
+    $this->postJson(route('exhibitions.arcade.flow', $game), $payload)->assertOk()->assertJsonPath('replayed', true);
+    expect($game->fresh()->state)->toBe($savedState)->and($game->fresh()->history)->toBe($savedHistory);
 })->with(['punt', 'field_goal']);
 
 test('new exhibition durations still require a supported explicit value or mode default', function (?string $duration) {

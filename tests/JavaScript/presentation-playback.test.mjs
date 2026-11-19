@@ -68,3 +68,25 @@ test('shared repeated punt classification uses canonical CPU plan when no unit a
  const blade=readFileSync(new URL('../../resources/views/exhibitions/partials/play-controls.blade.php',import.meta.url),'utf8');
  assert.match(blade,/@if\(\$playContext && \$cpuOffense && \$cpuPlan\) data-shared-cpu-call="\{\{ \$cpuPlan\['call'\] \}\}"/);
 });
+
+
+test('recorded playback binds its own penalty and clears an unrelated decided-result shortcut',()=>{
+ const old={type:'holding',decided:true,accepted:true};
+ const dataset={penalty:JSON.stringify(old),penaltyResult:'true'};
+ const penalty={type:'defensive_pass_interference',accepted:false};
+ applyPresentationPlayback(dataset,{animation:{call:'short_pass'},before:{version:2},after:{version:3},penalty});
+ assert.deepEqual(JSON.parse(dataset.penalty),penalty);
+ assert.equal(dataset.penaltyResult,'false');
+ assert.equal(dataset.autoplay,'true');
+ applyPresentationPlayback(dataset,{animation:{call:'inside_run'},before:{version:4},after:{version:5}});
+ assert.equal(dataset.penalty,'null','a clean saved play must not inherit a flag');
+});
+
+test('ordinary saved-state refresh preserves its current pending penalty metadata',()=>{
+ const pending={type:'holding',decided:false};
+ const dataset={penalty:JSON.stringify(pending),penaltyResult:'true'};
+ applyPresentationPlayback(dataset);
+ assert.deepEqual(JSON.parse(dataset.penalty),pending);
+ assert.equal(dataset.penaltyResult,'true');
+ assert.equal(dataset.autoplay,'false');
+});

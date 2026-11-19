@@ -48,7 +48,7 @@ function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions
 async function finishPlay(h){h.queue.push({session:h.session()});await h.click('reserve');h.click('start');h.frame();assert.ok(h.transport.pending.body);}
 
 test('unreserved and recovered fields explain the next action instead of showing mysterious blank space',()=>{
-    const h=harness();assert.equal(h.nodes.empty.hidden,false);assert.match(h.nodes.empty.textContent,/Reserve play/);
+    const h=harness();assert.equal(h.nodes.empty.hidden,false);assert.match(h.nodes.empty.textContent,/Call Play/);
     const recovered=harness({pending:h.session()});
     assert.match(recovered.nodes.empty.textContent,/Cancel reserved play/);
 });
@@ -59,7 +59,7 @@ test('accepted submission clears old field markers, retains exact replay, and re
     h.queue.push({state:h.state,available:true});await h.click('submit');
     assert.equal(old.disposed,1,'old LOS and first-down markers must not remain beneath the next-down HUD');
     assert.match(h.nodes.state.textContent,/Down 1 & 10 · Ball 39/);assert.equal(h.nodes.live.textContent,'');
-    assert.equal(h.nodes.empty.hidden,false);assert.match(h.nodes.empty.textContent,/Reserve play/);
+    assert.equal(h.nodes.empty.hidden,false);assert.match(h.nodes.empty.textContent,/Call Play/);
     assert.equal(h.nodes.replay.disabled,false);h.click('replay');assert.equal(h.opened,h.recording);
     h.queue.push({session:h.session(49)});await h.click('reserve');
     assert.equal(h.views[1].last.startX,49);assert.equal(h.views[1].last.firstDownX,59);assert.equal(h.nodes.empty.hidden,true);

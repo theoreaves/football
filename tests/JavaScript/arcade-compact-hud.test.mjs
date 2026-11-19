@@ -38,7 +38,7 @@ class Element {
     querySelector(s){return this.querySelectorAll(s)[0]??null;}
     closest(s){return this.matches(s)?this:this.parent?.closest(s)??null;}
 }
-function fixture(){
+function fixture(options={}){
     const doc={createElement:t=>new Element(t,doc),createTextNode:t=>{const e=new Element('#text',doc);e.textContent=t;return e;}};
     const root=new Element('main',doc),score=new Element('div',doc);score.className='arcade-scoreboard';root.append(score);
     const setup=new Element('div',doc);setup.className='arcade-setup';root.append(setup);
@@ -47,7 +47,7 @@ function fixture(){
         const n=nodes[k]=new Element(['score','state','live','flow-status','clock','notices','status'].includes(k)?'span':'button',doc);n.setAttribute(`data-exhibition-${k}`,'');(k==='score'||k==='state'?score:toolbar).append(n);
     }
     for(const k of ['tempo','side','defense']){const label=new Element('label',doc),n=nodes[k]=new Element('select',doc);n.setAttribute(`data-exhibition-${k}`,'');label.append(n);setup.append(label);}
-    const hud=mountCompactHud(root);const base={official:{home_score:0,away_score:0,clock:180,quarter:1,down:1,distance:10,spot:25},flow:{enabled:true,phase:'offense'},state:null,pending:null,busy:false,replaying:false,recovered:false,recording:null};
+    const hud=mountCompactHud(root,options);const base={official:{home_score:0,away_score:0,clock:180,quarter:1,down:1,distance:10,spot:25},flow:{enabled:true,phase:'offense'},state:null,pending:null,busy:false,replaying:false,recovered:false,recording:null};
     return {root,nodes,hud,base,update:v=>hud.update({...base,...v})};
 }
 test('compact toolbar preserves original handlers and disabled gates while presenting contextual controls',()=>{
@@ -127,4 +127,17 @@ test('developer trace reads only the currently mounted phase status without reta
         old.remove();phase('New phase');now+=1000;f.update({});assert.equal(JSON.parse(f.root.querySelector('.compact-trace').textContent).phaseStatus,'New phase');
         assert.equal(old.querySelector('[data-status]').textContent,'Old phase');
     }finally{Date.now=originalNow;f.hud.dispose();}
+});
+
+test('fourth-down kick shortcuts use canonical offered calls and reservation/transition gates',()=>{
+ const calls=[],f=fixture({onSpecial:call=>calls.push(call)});try{
+ const punt=f.root.all().find(n=>n.textContent==='Punt'),fg=f.root.all().find(n=>n.textContent==='Field Goal');
+ f.hud.setSpecialCalls(['punt','field_goal']);f.update({});assert.equal(punt.hidden,true);
+ const fourth={official:{...f.base.official,down:4}};f.update(fourth);assert.equal(punt.hidden,false);assert.equal(fg.hidden,false);punt.fire('click');fg.fire('click');assert.deepEqual(calls,['punt','field_goal']);
+ f.update({...fourth,pending:{session:{}}});assert.equal(punt.disabled,true);punt.fire('click');assert.equal(calls.length,2);
+ f.nodes.reserve.disabled=true;f.update(fourth);assert.equal(fg.disabled,true);f.nodes.reserve.disabled=false;
+ for(const gate of [{busy:true},{flowPending:true},{flowBlocked:true},{replaying:true}]){f.update({...fourth,...gate});assert.equal(punt.disabled,true);}
+ f.hud.setSpecialCalls(['punt']);f.update(fourth);assert.equal(fg.hidden,true);assert.equal(punt.hidden,false);
+ f.update({...fourth,flow:{phase:'defense'}});assert.equal(punt.hidden,true);
+ }finally{f.hud.dispose();}
 });

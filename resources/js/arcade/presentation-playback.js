@@ -18,6 +18,10 @@ export function applyPresentationPlayback(dataset, playback=null) {
         dataset.animation=JSON.stringify(playback.animation);
         dataset.beforeState=JSON.stringify(playback.before);
         dataset.afterState=JSON.stringify(playback.after);
+        // Foul timing and announcement state belong to this recording, not to
+        // the latest snapshot (or a previous accept/decline session flash).
+        dataset.penalty=JSON.stringify(playback.penalty ?? null);
+        dataset.penaltyResult='false';
     }
 }
 

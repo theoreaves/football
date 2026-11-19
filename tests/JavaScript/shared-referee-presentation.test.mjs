@@ -37,3 +37,28 @@ test('actual timeout submit handler leaves shared choice usable before transport
         if(shared){submit(form,shared,()=>saved++,value=>auto=value);assert.equal(button.disabled,false,'transiently declined shared timeout remains selectable');}
     }
 });
+
+
+test('shared flag retires after its announcement, hides while suspended, and resets for replay',()=>{
+ const f=fixture(),scene=new THREE.Scene();
+ const view=buildPenaltyPresentation(f.root,scene,{team:'home',type:'holding',yards:10,accepted:true},{home:'Home'},false,{inset:false,retireFlagAfterAnnouncement:true});
+ const badge=f.root.children[0],panel=f.root.children[1];
+ const moment={at:1,origin:{x:0,y:1.5,z:0},point:{x:1,z:1}};
+ const update=(time,announcing=false)=>view.update({moment,time,announcing,announcementTime:0});
+ update(.5);assert.equal(badge.hidden,true);
+ update(1.2);assert.equal(badge.hidden,false);
+ update(4,true);assert.equal(badge.hidden,true);assert.equal(panel.hidden,false);
+ update(5);assert.equal(badge.hidden,true,'no late duplicate FLAG after ruling');
+ update(-1);update(1.2);assert.equal(badge.hidden,false,'replaying the foul shows its flag again');
+ view.hide();assert.equal(badge.hidden,true);assert.equal(panel.hidden,true);assert.equal(scene.children[0].visible,false);
+ update(1.3);assert.equal(badge.hidden,false,'resumed playback restores the current cue');
+ view.dispose();
+});
+
+test('standalone Coach flag behavior remains unchanged by shared notice retirement',()=>{
+ const f=fixture(),view=buildPenaltyPresentation(f.root,new THREE.Scene(),{team:'home',type:'holding'}, {},false,{inset:false});
+ const moment={at:1,origin:{x:0,y:1,z:0},point:{x:1,z:1}};
+ view.update({moment,time:4,announcing:true,announcementTime:0});
+ view.update({moment,time:5,announcing:false,announcementTime:0});
+ assert.equal(f.root.children[0].hidden,false);view.dispose();
+});

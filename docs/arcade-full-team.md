@@ -355,3 +355,24 @@ window, reserve/start/cancel, passing, CPU carriers, result save, defense menus,
 timeout/penalty decisions, and Stats → Game Log → Replay → Return. Toggle the
 Developer HUD to inspect diagnostics, then turn it off. No Stage 4 mode-selection
 UI, balancing, season integration or deployment is included.
+
+### Fourth-down shortcuts and penalty presentation follow-up
+
+On eligible fourth-down QB offense, the compact bottom toolbar offers **Punt**
+and **Field Goal** directly. Eligibility comes from the canonical Coach call list;
+buttons share the reservation/transition/replay/retry gates and recheck the current
+snapshot before executing the existing flow `play` command. The selected tempo is
+preserved. These are canonical special-teams plays, not Arcade recorded snaps.
+The ordinary playbook and **Call Play** action remain available to go for it.
+Call Play is the former Reserve play label only; session IDs, reservation,
+Start play, cancellation and exactly-once result submission are unchanged.
+
+Arcade fouls are adjudicated on submission of the completed recording. A live
+recording therefore cannot show a server-selected flag before Save result. This
+checkpoint does not change that adjudication boundary or penalty rules.
+
+Two presentation corrections accompany the shortcuts: watched playback now takes
+its penalty metadata and announcement state from that same recording, not the
+latest snapshot; shared-stadium FLAG badges retire after the referee announcement
+and hide while their Coach layer is suspended. Replay pre-snap resets the badge.
+Standalone Coach flag behavior and canonical enforcement remain unchanged.

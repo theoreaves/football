@@ -16,7 +16,7 @@ export function createHudNotice({show,hide,setTimer=setTimeout,clearTimer=clearT
     },dispose(){generation++;clearTimer(timer);}};
 }
 
-export function mountCompactHud(root,{metrics=()=>null,document=root.ownerDocument}={}) {
+export function mountCompactHud(root,{metrics=()=>null,onSpecial=()=>{},document=root.ownerDocument}={}) {
     const find=name=>root.querySelector(`[data-exhibition-${name}]`), abort=new AbortController(),options={signal:abort.signal};
     const make=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls;if(text)e.textContent=text;return e;};
     const moved=[],hiddenBefore=[];let restoring=false;
@@ -31,6 +31,8 @@ export function mountCompactHud(root,{metrics=()=>null,document=root.ownerDocume
     for(const key of ['flow-status','clock','notices','status'])move(dev,find(key));
     for(const key of ['playbook','reserve','start','pause','cancel','submit','replay'])move(offense,find(key));
     move(offense,find('tempo')?.closest('label'));
+    const kicks={};for(const [call,label]of [['punt','Punt'],['field_goal','Field Goal']]){const button=make('button','',label);button.type='button';button.hidden=true;button.addEventListener('click',()=>{if(!button.disabled)onSpecial(call);},options);offense.append(button);kicks[call]=button;}
+    let specialCalls=[];
     for(const key of ['retry-flow'])move(recovery,find(key));
     const decision=make('span','compact-decision');decision.setAttribute('role','status');recovery.append(decision);
     for(const key of ['timeout','spike','coach'])move(more.panel,find(key));
@@ -59,6 +61,7 @@ export function mountCompactHud(root,{metrics=()=>null,document=root.ownerDocume
         offense.hidden=coachMode || replaying;
         const visible={playbook:!reserved,reserve:!reserved,start:reserved&&!recovered&&['ready','paused'].includes(state?.status),pause:live,cancel:reserved,submit:!!pending?.body,replay:!live&&!busy&&!!v.recording};
         for(const [key,value]of Object.entries(visible))find(key).hidden=!value;
+        for(const [call,button]of Object.entries(kicks)){button.hidden=official.down!==4 || flow?.phase!=='offense' || !specialCalls.includes(call);button.disabled=find('reserve').disabled || reserved || flowPending || flowBlocked || busy || replaying;}
         const tempo=find('tempo')?.closest('label');if(tempo)tempo.hidden=reserved;
         find('submit').textContent=recovered?'Retry saved result':'Save result';
         find('cancel').textContent='Cancel play';find('replay').textContent='Replay';
@@ -92,7 +95,7 @@ export function mountCompactHud(root,{metrics=()=>null,document=root.ownerDocume
         // Keep the original required dialogs and handlers mounted in their owner root.
         phaseRoot.append(dock);for(const type of ['pointerdown','pointerup','keydown'])dock.addEventListener(type,interactive,options);
     }
-    return {update,attachPhase,setTeams:value=>{teams=value || {};},dispose(){if(restoring)return;restoring=true;notice.dispose();abort.abort();
+    return {update,attachPhase,setSpecialCalls:value=>{specialCalls=value || [];},setTeams:value=>{teams=value || {};},dispose(){if(restoring)return;restoring=true;notice.dispose();abort.abort();
         for(const {node,parent,next} of moved.reverse())if(parent)parent.insertBefore(node,next?.parentNode===parent?next:null);
         for(const [node,hidden]of hiddenBefore)node.hidden=hidden;
         root.classList.remove('compact-game-hud','compact-debug-on','compact-replaying');score.classList.remove('compact-scoreboard');

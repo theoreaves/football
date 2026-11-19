@@ -56,7 +56,7 @@ export function penaltyText(penalty, names, pending = false) {
     return `${labels[penalty.type] ?? 'Penalty'} — ${team}. ${ruling}.`;
 }
 
-export function buildPenaltyPresentation(root, scene, penalty, names, pending, {inset = true} = {}) {
+export function buildPenaltyPresentation(root, scene, penalty, names, pending, {inset = true, retireFlagAfterAnnouncement = false} = {}) {
     const document = root.ownerDocument || globalThis.document;
     const flag = new THREE.Group(); scene.add(flag); flag.visible = false;
     const yellow = new THREE.MeshStandardMaterial({color: 0xffdf00, roughness: .85, side: THREE.DoubleSide});
@@ -86,7 +86,13 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending, {
         } catch { /* Keep the readable announcement if a second WebGL context is unavailable. */ }
     }
     panel.append(caption); if (!embedded) root.append(panel);
+    let announced = false;
+    const hide = () => { flag.visible = false; badge.hidden = true; if (!embedded) panel.hidden = true; };
     const update = ({moment, time, announcing, announcementTime}) => {
+        // A replay resets at pre-snap. Once reported, the shared live notice
+        // must not return as a second FLAG during the result screen.
+        if (time < 0) announced = false;
+        if (announcing) announced = true;
         const position = flagPosition(moment,time);
         flag.visible = Boolean(position);
         if (position) {
@@ -94,7 +100,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending, {
             flag.rotation.set(position.landed ? 0 : (time-moment.at)*5, 0, position.landed ? 0 : (time-moment.at)*7);
         }
         if (!embedded && panel.hidden === announcing) panel.hidden = !announcing;
-        badge.hidden = !position || announcing;
+        badge.hidden = !position || announcing || (retireFlagAfterAnnouncement && announced);
         if (announcing && renderer && insetRefs) {
             const poses = refereeFormation(0,1); poses[0] = {x:0,z:0,velocity:0,travel:0};
             insetRefs.update({poses, penalty: penalty?.type, penaltyTime: announcementTime, active: true});
@@ -107,7 +113,7 @@ export function buildPenaltyPresentation(root, scene, penalty, names, pending, {
         insetScene?.traverse(object => {object.geometry?.dispose(); object.material?.dispose();});
         renderer?.dispose(); renderer?.forceContextLoss();
     };
-    return {update,dispose};
+    return {update,hide,dispose};
 }
 
 export function illegalFormationRoles(animation) {

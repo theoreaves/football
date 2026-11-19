@@ -20,13 +20,13 @@
         <input type="hidden" data-exhibition-kind value="inside_run">
         <button type="button" data-exhibition-playbook aria-haspopup="dialog">Playbook · Inside Run</button>
         <label>Tempo<select data-exhibition-tempo><option value="normal">Normal</option><option value="hurry">Hurry</option><option value="drain">Drain</option></select></label>
-        <button type="button" data-exhibition-reserve>Reserve play</button>
+        <button type="button" data-exhibition-reserve>Call Play</button>
         <a data-exhibition-coach href="{{ $coachUrl }}">Continue in Coach</a>
         <a href="{{ $startUrl ? url()->full() : $coachUrl }}">Reload saved state</a>
     </div>
     <div class="arcade-stage">
         <div data-arcade-field class="arcade-field" tabindex="0" role="application" aria-label="{{ ($replayOnly ?? false) ? 'Recorded exhibition field' : 'Arcade exhibition. Control only the quarterback.' }}" @unless($replayOnly ?? false) aria-describedby="exhibition-controls" @endunless></div>
-        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose a play from the playbook, then Reserve play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
+        <p data-exhibition-empty class="arcade-overlay arcade-empty">{{ ($replayOnly ?? false) ? 'Choose Replay recorded play to watch this saved play.' : ($available ? 'Choose a play from the playbook, then Call Play to load the field.' : 'Choose Continue in Coach before reserving another play.') }}</p>
         <div class="arcade-toolbar">
             <button type="button" data-exhibition-start disabled>Start play</button>
             <button type="button" data-exhibition-pause disabled>Pause</button>

@@ -348,7 +348,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
     const penalty = JSON.parse(root.dataset.penalty || 'null');
     const foul = penaltyMoment(animation, penalty, refereePaths);
     const penaltyContact = buildPenaltyContact(animation, foul);
-    const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending),{inset:!shared});
+    const penaltyPresentation = buildPenaltyPresentation(root, scene, penalty, teamNames ?? {}, Boolean(afterState?.penalty_pending),{inset:!shared,retireFlagAfterAnnouncement:Boolean(shared)});
     let audioTime = -2, mascotCueTime = -2;
     const bigPlayMascotCue = mascotBigPlayCue(animation,beforeState,afterState,penalty);
     const mascotCues = bigPlayMascotCue ? [...cues,bigPlayMascotCue] : cues;
@@ -2138,7 +2138,7 @@ export function mountPractice(root, onReady = () => {}, {sharedHost = null, onFr
         },
     });
     if (shared) return {tick:animate,dispose:cleanup,getPresentationState:()=>presentationState,
-        suspend(){if(!suspended)suspendedTarget=controls.target.clone();suspended=true;controls.enabled=false;scene.visible=false;lastTime=null;audio.setPlayback(false,false);audio.stopPlayerVoices();},
+        suspend(){if(!suspended)suspendedTarget=controls.target.clone();suspended=true;controls.enabled=false;scene.visible=false;penaltyPresentation.hide();lastTime=null;audio.setPlayback(false,false);audio.stopPlayerVoices();},
         resume(){if(suspendedTarget){controls.target.copy(suspendedTarget);suspendedTarget=null;}suspended=false;scene.visible=true;lastTime=null;shared.cameraDirector.use(camera);},
         setVisible(enabled){setCoachLayerVisible(scene,enabled && !suspended && !disposed);},
         setInteractive(enabled){sharedInteractive=Boolean(enabled);controls.enabled=Boolean(enabled) && !disposed && !suspended && !shared.cameraDirector.transitioning && !shared.staging;},
