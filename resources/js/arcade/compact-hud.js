@@ -85,7 +85,10 @@ export function mountCompactHud(root,{metrics=()=>null,onSpecial=()=>{},document
         const move=(target,node)=>{if(node)target.append(node);};
         const dock=make('div','compact-phase-dock');dock.setAttribute('data-compact-hud-interactive','');
         const call=phaseRoot.querySelector('[data-call-form]');
-        if(call){const choices=menu('Call play','compact-call-menu');move(choices.panel,call);dock.append(choices.e);}
+        if(call?.closest('dialog')){
+            // Preserve Coach's modal form; compact only its launcher.
+            move(dock,phaseRoot.querySelector('.game-play-panel'));
+        }else if(call){const choices=menu('Call play','compact-call-menu');move(choices.panel,call);dock.append(choices.e);}
         const flow=phaseRoot.querySelector('[data-play-flow-panel]');
         if(flow){const defense=menu('Defense / simulation');move(defense.panel,flow);dock.append(defense.e);}
         const actions=phaseRoot.querySelector('.game-actions');if(actions){const tools=menu('Game');move(tools.panel,actions);dock.append(tools.e);}

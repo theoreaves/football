@@ -154,3 +154,10 @@ test('visible kick buttons dispatch through captured canonical eligibility after
  assert.deepEqual(sent,[['play',{call:'punt',tempo:'normal'}],['play',{call:'field_goal',tempo:'normal'}]]);
  }finally{f.hud.dispose();}
 });
+
+test('phase compaction preserves kickoff and defense wizard form inside its modal',()=>{
+ const f=fixture(),doc=f.root.ownerDocument,phase=new Element('section',doc),dialog=new Element('dialog',doc),form=new Element('form',doc),launcher=new Element('div',doc),button=new Element('button',doc);
+ f.root.append(phase);form.setAttribute('data-call-form','');dialog.append(form);launcher.className='game-play-panel';launcher.append(button);phase.append(launcher,dialog);
+ let opens=0;button.addEventListener('click',()=>{dialog.open=true;opens++;});
+ try{f.hud.attachPhase(phase);assert.equal(form.parent,dialog);assert.equal(dialog.parent,phase);assert.ok(launcher.closest('.compact-phase-dock'));button.fire('click');assert.equal(dialog.open,true);assert.equal(opens,1);assert.equal(dialog.querySelector('[data-call-form]'),form);assert.equal(phase.querySelector('.compact-call-menu'),null);}finally{f.hud.dispose();}
+});

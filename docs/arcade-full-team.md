@@ -382,3 +382,8 @@ Coach dropdown to the selected formation. Both toolbar visibility and click
 execution use that captured canonical list; rereading the filtered dropdown would
 silently reject valid kicks from ordinary formations. Blocked kicks retain safety
 gates and show an explanation rather than silently returning.
+
+Coach's play wizard owns its form inside a modal (including kickoff and defense
+choices). HUD compaction moves only the existing launcher once that wizard is
+mounted. Moving its form into a collapsed menu would leave an empty auto-opened
+modal after a score; modal ownership and original handlers must remain intact.
