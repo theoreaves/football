@@ -326,3 +326,32 @@ checkpoint does not invent or claim coverage for one. Play-Action's physical fak
 ends in human QB control; the user chooses the rollout rather than an automatic
 boot path. Broad balance work, mode-selector expansion, HB Toss and HUD cleanup
 remain later checkpoints. The production build retains its large-chunk warning.
+
+## Compact Play HUD and camera pitch trim
+
+The persistent Play stadium mounts `compact-hud.js`. It relocates the existing
+control nodes, retaining event handlers, server forms, disabled gates and owner
+roots. It does not introduce a second game controller, renderer or result writer.
+Disposal restores root controls for a browser back/forward remount.
+
+- Top: one authoritative scorebar. The prepared reservation snapshot remains the
+  source while a snap is reserved; no optimistic clock or score is invented.
+- Bottom: contextual QB controls and collapsible Coach call/defense/game/replay
+  tools. Required coin toss, penalty, timeout and other decisions remain intact.
+- More → Controls contains keyboard help. More → Developer HUD is off on each
+  mount and reveals status, reservation/recovery/flow and renderer metrics.
+- Routine notices expire after 5.5 seconds. Errors and pending recovery warnings
+  use explicit persistence markers and never expire because a prose regex failed.
+- Toolbar interaction cannot become a field throw or movement key. Pending result
+  submission, retry, cancellation and saved replay still use their original owners.
+
+`QB_CAMERA_LEVEL_TILT_DEGREES` is 5. Setting it to 0 restores the Stage 2 pitch.
+Camera position, follow distance, smoothing and field targeting are unchanged.
+The pitch trim applies to both directions and ball-carrier camera following only;
+it does not transfer human controls or change the 92.5% movement baseline.
+
+Local review: open a disposable exhibition in Play mode. Check the 13-play
+window, reserve/start/cancel, passing, CPU carriers, result save, defense menus,
+timeout/penalty decisions, and Stats → Game Log → Replay → Return. Toggle the
+Developer HUD to inspect diagnostics, then turn it off. No Stage 4 mode-selection
+UI, balancing, season integration or deployment is included.

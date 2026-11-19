@@ -31,3 +31,47 @@
 @media (max-width:950px) {
     .persistent-phase-controls [data-play-flow-panel] {max-height:30vh;}
 }
+
+/* Compact Play presentation only. Coach-only pages retain their original layout. */
+.persistent-play.compact-game-hud [hidden] {display:none!important;}
+.persistent-play.compact-game-hud > .compact-scoreboard {display:flex;position:absolute;top:10px;left:50%;transform:translateX(-50%);align-items:center;gap:14px;padding:7px 14px;width:max-content;max-width:calc(100vw - 24px);font-size:13px;line-height:1.25;pointer-events:none;box-shadow:0 2px 12px #0008;}
+.compact-game-hud .compact-scoreboard > * {margin:0;font-size:inherit;}
+.persistent-play.compact-game-hud > .compact-hud-bar {display:flex;position:absolute;bottom:10px;right:12px;max-width:calc(100vw - 24px);align-items:center;gap:6px;padding:6px;border-radius:10px;background:#101827ed;z-index:60;}
+.compact-offense-controls,.compact-recovery-controls {display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.compact-game-hud button,.compact-game-hud summary,.compact-game-hud select {font-size:12px;}
+.compact-hud-bar button,.compact-menu summary {padding:6px 9px;min-height:32px;border:1px solid #718096;border-radius:6px;cursor:pointer;}
+.compact-menu {position:relative;}
+.compact-menu > summary {list-style:none;white-space:nowrap;}
+.compact-menu[open] > summary {background:#264766;}
+.compact-menu-panel {position:absolute;bottom:calc(100% + 8px);right:0;display:flex;flex-direction:column;gap:8px;min-width:220px;max-width:min(600px,90vw);max-height:65vh;overflow:auto;background:#101827fa;border:1px solid #63728b;border-radius:10px;padding:12px;box-shadow:0 4px 24px #000a;color:#eee;}
+.compact-menu-panel .compact-menu-panel {position:static;margin-top:8px;min-width:0;box-shadow:none;}
+.compact-menu-panel .arcade-help {display:block;max-width:340px;margin:0;font-size:12px;}
+.compact-menu-panel label {display:flex;align-items:center;gap:6px;font-size:12px;}
+.persistent-play.compact-game-hud > .compact-toast {display:block;position:absolute;top:56px;left:50%;transform:translateX(-50%);max-width:min(600px,90vw);padding:7px 14px;background:#101827e8;border-radius:8px;font-size:13px;text-align:center;pointer-events:none;}
+.persistent-play.compact-game-hud > .compact-developer {display:block;position:absolute;right:12px;top:92px;max-width:360px;max-height:55vh;overflow:auto;padding:8px;background:#081421ee;color:#bdfdc9;font-size:10px;}
+.compact-developer pre {white-space:pre-wrap;}
+.compact-game-hud .persistent-phase-controls > .game-scoreboard,.compact-game-hud .persistent-phase-controls > .game-coaches,.compact-game-hud .persistent-phase-controls > .game-watermark,.compact-game-hud .persistent-phase-controls > .game-help,.compact-game-hud .persistent-phase-controls > .game-stats,.compact-game-hud .persistent-phase-controls > .game-last-result,.compact-game-hud .persistent-phase-controls > .game-status,.compact-game-hud .persistent-phase-controls > .game-action-exit {display:none;}
+.compact-game-hud .compact-phase-dock {position:absolute;bottom:10px;left:12px;display:flex;gap:6px;padding:6px;background:#101827ed;border-radius:10px;z-index:55;}
+.compact-phase-dock > .compact-menu > .compact-menu-panel {left:0;right:auto;}
+.compact-phase-dock .game-play-panel,.compact-phase-dock [data-play-flow-panel],.compact-phase-dock .game-actions,.compact-phase-dock .game-timeouts,.compact-phase-dock .game-camera-controls,.compact-phase-dock .game-timeline {position:static!important;inset:auto!important;width:auto!important;max-width:100%;margin:0;max-height:none;transform:none;background:transparent;}
+.compact-phase-dock .game-play-panel {min-width:min(420px,80vw);}
+.compact-phase-dock .game-actions {display:flex;flex-wrap:wrap;gap:6px;}
+.compact-game-hud .arcade-replay-shared h2 {font-size:14px;}
+.compact-game-hud .arcade-replay-shared {font-size:12px;padding:8px;}
+@media(max-width:750px){
+ .persistent-play.compact-game-hud > .compact-scoreboard {flex-wrap:wrap;justify-content:center;gap:3px 10px;font-size:11px;}
+ .persistent-play.compact-game-hud > .compact-hud-bar {bottom:8px;right:8px;padding:4px;}
+ .compact-game-hud .compact-phase-dock {bottom:55px;left:8px;padding:4px;}
+ .compact-offense-controls {gap:3px;}
+ .compact-hud-bar button,.compact-menu summary {padding:5px;}
+}
+.persistent-play.compact-game-hud.persistent-coach-active > .compact-scoreboard,.persistent-play.compact-game-hud.persistent-coach-active > .compact-hud-bar {display:flex;}
+.persistent-play.compact-game-hud.persistent-coach-active > .compact-toast:not([hidden]),.persistent-play.compact-game-hud.persistent-coach-active > .compact-developer:not([hidden]) {display:block;}
+.compact-phase-dock .game-camera-controls > span {display:none;}
+.persistent-play.compact-game-hud.persistent-coach-active > .compact-scoreboard,.persistent-play.compact-game-hud.persistent-coach-active > .compact-hud-bar {display:flex!important;}
+.compact-game-hud.compact-replaying .compact-phase-dock {display:none;}
+.compact-game-hud .arcade-replay-shared .arcade-replay-header {padding:3px 6px;}
+.compact-game-hud .arcade-replay-shared .arcade-replay-controls {padding:5px 6px;gap:8px;}
+.compact-game-hud .arcade-replay-shared .arcade-replay-notice {display:none;}
+.compact-game-hud .arcade-replay-shared .arcade-replay-events {min-height:0;padding:3px 6px;}
+.compact-game-hud .arcade-replay-shared select {padding:4px;}

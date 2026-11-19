@@ -14,7 +14,7 @@ import {createExhibitionTransport, canContinueExhibitionDrive, noSnapNotice} fro
 import './style.css';
 import './replay-panel.css';
 
-export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputEnabled=()=>true, flowEnabled=inputEnabled} = {}) {
+export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputEnabled=()=>true, flowEnabled=inputEnabled, onHud=()=>{}} = {}) {
     if (!root || root.dataset.mounted) return;
     root.dataset.mounted = 'true';
     const data = JSON.parse(root.dataset.exhibition), find = name => root.querySelector(`[data-exhibition-${name}]`);
@@ -29,7 +29,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     let recording = data.lastRecording, frameId, lastTime = null, disposed = false, completed = false, recovered = false;
     const driveSide = official.possession;
     let storageWarning = '';
-    const say = text => { status.textContent = `${text}${storageWarning ? ` ${storageWarning}` : ''}`; };
+    const say = (text, {persistent=false}={}) => { status.textContent = `${text}${storageWarning ? ` ${storageWarning}` : ''}`; status.dataset.noticePersistent=String(persistent || !!storageWarning); };
     let storage = null;
     try { storage = window.localStorage; } catch { /* Transport provides a recoverable warning. */ }
     async function request(url, body) {
@@ -38,8 +38,8 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (!response.ok) { const error = new Error(result.message || `Request failed (${response.status}). Reload to reconcile the saved game before starting another play.`); error.status=response.status; throw error; }
         return result;
     }
-    const transport = createExhibitionTransport({storage, startUrl:data.startUrl, origin:window.location.origin, onWarning:message=>{storageWarning=message; status.textContent=message;}, key:`arcade-exhibition:${data.startUrl}`, request});
-    const flowTransport = data.flowUrl ? createExhibitionFlowTransport({url:data.flowUrl, origin:window.location.origin, storage, key:`arcade-flow:${data.flowUrl}`, request, onWarning:message=>{storageWarning=message;}}) : null;
+    const transport = createExhibitionTransport({storage, startUrl:data.startUrl, origin:window.location.origin, onWarning:message=>{storageWarning=message; say(message,{persistent:true});}, key:`arcade-exhibition:${data.startUrl}`, request});
+    const flowTransport = data.flowUrl ? createExhibitionFlowTransport({url:data.flowUrl, origin:window.location.origin, storage, key:`arcade-flow:${data.flowUrl}`, request, onWarning:message=>{storageWarning=message;say(message,{persistent:true});}}) : null;
     function showNotices(result) {
         if (find('notices')) find('notices').textContent = canonicalExhibitionNotices(result).join('\n');
     }
@@ -78,7 +78,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     if (transport.pending) {
         recovered = true;
         if (transport.pending.body) recording = JSON.parse(transport.pending.body).recording;
-        say(transport.pending.body ? 'An unconfirmed recorded play is saved. Retry submission with the same result, or reload to reconcile. Do not play it again.' : 'An unfinished reserved play exists. Cancel it before choosing a new play.');
+        say(transport.pending.body ? 'An unconfirmed recorded play is saved. Retry submission with the same result, or reload to reconcile. Do not play it again.' : 'An unfinished reserved play exists. Cancel it before choosing a new play.', {persistent:true});
     }
     function hud() {
         const empty = find('empty');
@@ -105,6 +105,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         playbook?.refresh();
         find('coach').hidden = false;
         flowHud();
+        onHud({official:snapshot,flow,state,busy,pending:transport.pending,recovered,recording,replaying:!!replay?.active,flowPending:!!flowTransport?.pending,flowBlocked});
     }
     playbook=mountArcadePlaybook(root,{value:find('kind'),trigger:find('playbook'),canOpen:()=>!buttons.reserve.disabled,onChoose:()=>{input?.clear();}});
     const stepper = createFixedStepper(() => {
@@ -113,10 +114,10 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         recorder.capture(state);
         if (state.status === 'finished' && !completed) {
             completed = true; input.clear(); recording = recorder.export();
-            if (state.result.reason === 'timeout') say('This play reached the local recording limit. No football result was saved. Cancel the session, then reserve a new play.');
+            if (state.result.reason === 'timeout') say('This play reached the local recording limit. No football result was saved. Cancel the session, then reserve a new play.',{persistent:true});
             else {
                 try { transport.prepare(recording); say(`${state.result.reason.replaceAll('_',' ')}. Review the actual replay, then submit this recorded play.`); }
-                catch (error) { say(`Could not save the submission safely: ${error.message}. Keep this page open.`); }
+                catch (error) { say(`Could not save the submission safely: ${error.message}. Keep this page open.`,{persistent:true}); }
             }
         }
     }, STEP_SECONDS);
@@ -150,7 +151,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         if (result.coach_url) find('coach').href = result.coach_url;
         if (!flow) stopped ||= !canContinueExhibitionDrive(official, allowed, driveSide);
     }
-    async function action(callback) { if(busy || replay?.active) return; busy=true; pause(); try { await callback(); } catch(error) {say(error.message);} finally {busy=false;hud();} }
+    async function action(callback) { if(busy || replay?.active) return; busy=true; pause(); try { await callback(); } catch(error) {say(error.message,{persistent:true});} finally {busy=false;hud();} }
     async function flowAction(actionName, extra={}, {onPrepared=()=>{},onPrepareError=()=>{},onDeclined=()=>{}}={}) {
         if (!flowTransport || busy || replay?.active || !flowEnabled(actionName || flowTransport?.pending?.action) || transport.pending || flowBlocked || (actionName && flowTransport.pending)) {onDeclined();return;}
         return action(async()=>{
@@ -201,7 +202,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
         // Keep exact local recording for replay; the server never supplies a replacement simulation.
     }),options);
     replay = createReplayPanel(root,{sharedHost,onOpen:pause,onClose(){lastTime=null;stepper.reset();hud();}});
-    buttons.replay.addEventListener('click',()=>{try{replay.open(recording);}catch(error){say(error.message);}},options);
+    buttons.replay.addEventListener('click',()=>{try{replay.open(recording);}catch(error){say(error.message,{persistent:true});}},options);
     function frame(time) {
         if(disposed)return; if(!root.isConnected){dispose();return;}
         const delta=lastTime===null?0:(time-lastTime)/1000;lastTime=time;
@@ -211,7 +212,7 @@ export function mountExhibition(root, {sharedHost=null, onCanonical=null, inputE
     function dispose(){if(disposed)return;disposed=true;playbook?.dispose();cancelAnimationFrame(frameId);clearView();replay.dispose();abort.abort();delete root.dataset.mounted;}
     document.addEventListener('livewire:navigating',dispose,options);window.addEventListener('pagehide',dispose,options);
     hud();if(!sharedHost) frameId=requestAnimationFrame(frame);
-    Object.assign(dispose,{tick:frame,pause,flowAction,reconcile,openReplay:value=>replay.open(value)});
+    Object.assign(dispose,{tick:frame,pause,notify:say,flowAction,reconcile,openReplay:value=>replay.open(value)});
     Object.defineProperties(dispose,{busy:{get:()=>busy},hasLive:{get:()=>!!state},pendingFlow:{get:()=>!!flowTransport?.pending},pending:{get:()=>!!transport.pending || !!flowTransport?.pending},replaying:{get:()=>!!replay?.active}});
     return dispose;
 }

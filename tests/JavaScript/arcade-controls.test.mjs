@@ -284,3 +284,23 @@ test('moving-camera refresh preserves the visible target at release and invalid 
         assert.equal(input.sample().x,1); assert.equal(input.sample().z,0);
     } finally { input.dispose(); globalThis.document=oldDocument; globalThis.window=oldWindow; }
 });
+
+test('compact toolbar and menu focus never steers QB and preserves native keyboard activation',()=>{
+    const oldDocument=globalThis.document,oldWindow=globalThis.window;
+    const document=new EventTarget(),window=new EventTarget(),root=new EventTarget(),host=new EventTarget();
+    const field={closest:()=>null};
+    const control={closest:selector=>selector.includes('[data-compact-hud-interactive]')?{}:null};
+    document.activeElement=field;root.contains=e=>e===field||e===control;host.focus=()=>{document.activeElement=field;};
+    globalThis.document=document;globalThis.window=window;
+    let started=0,paused=0,retried=0;
+    const input=createArcadeInput(root,host,{start(){started++;},pause(){paused++;},retry(){retried++;},canControl:()=>true});
+    const key=(code,target)=>{const e=new Event('keydown',{cancelable:true});Object.defineProperties(e,{code:{value:code},target:{value:target}});document.dispatchEvent(e);return e;};
+    try {
+        key('KeyD',field);assert.equal(input.sample().x,1);
+        const blur=new Event('focusout');Object.defineProperty(blur,'relatedTarget',{value:control});root.dispatchEvent(blur);
+        assert.equal(paused,1);assert.equal(input.sample().x,0);document.activeElement=control;
+        for(const code of ['KeyD','KeyQ','KeyR','Space','Enter','Escape','ArrowDown'])assert.equal(key(code,control).defaultPrevented,false,code);
+        assert.deepEqual(input.sample(),{x:0,z:0,juke:0});assert.equal(started,0);assert.equal(retried,0);assert.equal(paused,1);
+        document.activeElement=field;key('Space',field);assert.equal(started,1);key('KeyD',field);assert.equal(input.sample().x,1);
+    } finally {input.dispose();globalThis.document=oldDocument;globalThis.window=oldWindow;}
+});

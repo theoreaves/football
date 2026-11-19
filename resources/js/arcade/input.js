@@ -9,7 +9,7 @@ export function movementForKeys(keys) {
 }
 
 export function editableTarget(target) {
-    return Boolean(target?.closest?.('input, select, textarea, [contenteditable="true"]'));
+    return Boolean(target?.closest?.('input, select, textarea, [contenteditable="true"], [data-compact-hud-interactive]'));
 }
 
 export function createArcadeInput(root, host, callbacks) {

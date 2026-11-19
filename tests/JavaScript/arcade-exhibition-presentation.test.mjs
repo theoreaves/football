@@ -12,7 +12,7 @@ import {createExhibitionTransport, canContinueExhibitionDrive, noSnapNotice} fro
 const source = readFileSync(new URL('../../resources/js/arcade/exhibition.js', import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '').replace('export function mountExhibition', 'function mountExhibition')
     .replace(/^window.addEventListener\('pageshow'.*$/m, '');
-const node = () => ({disabled:false, hidden:false, textContent:'', value:'', listeners:new Map(),
+const node = () => ({dataset:{},disabled:false, hidden:false, textContent:'', value:'', listeners:new Map(),
     addEventListener(type,fn){this.listeners.set(type,fn);}, removeEventListener(type){this.listeners.delete(type);}, focus(){}});
 function harness({pending=null,stored=null,flow=null,flowSaved=null,mountOptions={},terminalReason='tackle'}={}) {
     const nodes=Object.fromEntries(['playbook','reserve','start','pause','cancel','submit','replay','score','state','live','status','kind','tempo','coach','empty','preferences','side','defense','advance','fast','timeout','spike','retry-flow','flow-status','clock','notices'].map(key=>[key,node()]));
@@ -215,4 +215,58 @@ test('QB-only mount switches gameplay input and HUD between QB and CPU phases',a
  assert.match(h.nodes.live.textContent,/CPU runs after the catch/);
  assert.doesNotMatch(h.nodes.live.textContent,/aim|Q \/ E|WASD/);
  assert.equal(h.nodes.pause.disabled,false);
+});
+
+test('scoreboard uses reserved canonical snap state and never guesses a live official result',async()=>{
+    const h=harness(),session=h.session(70);
+    Object.assign(session.prepared_state,{home_score:14,away_score:7,quarter:3,clock:63,down:2,distance:6,spot:60});
+    h.queue.push({session});await h.click('reserve');
+    assert.match(h.nodes.score.textContent,/14/);assert.match(h.nodes.score.textContent,/7/);
+    assert.match(h.nodes.state.textContent,/Q3/);assert.match(h.nodes.state.textContent,/1:03/);
+    assert.match(h.nodes.state.textContent,/2.*6/);assert.match(h.nodes.state.textContent,/60/);
+    const score=h.nodes.score.textContent,label=h.nodes.state.textContent;
+    h.click('start');h.frame();
+    assert.equal(h.nodes.score.textContent,score);assert.equal(h.nodes.state.textContent,label);
+    h.queue.push(new Error('Disconnected while saving'));await h.click('submit');
+    assert.equal(h.nodes.score.textContent,score);assert.equal(h.nodes.state.textContent,label);
+    assert.equal(h.nodes.submit.disabled,false);assert.equal(h.nodes.reserve.disabled,true);
+});
+
+test('failed cancellation preserves the recovered reservation and the explicit retry path',async()=>{
+    const h=harness();h.queue.push({session:h.session()});await h.click('reserve');
+    const reserved=h.transport.pending;
+    h.queue.push(new Error('Cancellation unconfirmed'));await h.click('cancel');
+    assert.equal(h.transport.pending,reserved);assert.equal(h.nodes.reserve.disabled,true);
+    assert.equal(h.nodes.cancel.disabled,false);assert.match(h.nodes.status.textContent,/Cancellation unconfirmed/);
+    h.queue.push({cancelled:true});await h.click('cancel');
+    assert.equal(h.transport.pending,null);assert.equal(h.nodes.reserve.disabled,false);
+});
+
+test('compact HUD receives canonical snapshots and pending submission state through retries',async()=>{
+    const updates=[];const h=harness({mountOptions:{onHud:value=>updates.push(value)}});
+    assert.ok(updates.length>0);assert.equal(updates.at(-1).official.version,0);
+    const session=h.session(70);session.prepared_state.clock=91;h.queue.push({session});await h.click('reserve');
+    assert.equal(updates.at(-1).official.clock,91);assert.equal(updates.at(-1).pending,h.transport.pending);
+    h.click('start');assert.equal(updates.at(-1).state.status,'running');h.frame();
+    assert.equal(updates.at(-1).state.status,'finished');assert.ok(updates.at(-1).pending.body);
+    h.queue.push(new Error('Unconfirmed save'));await h.click('submit');
+    assert.ok(updates.at(-1).pending.body);assert.equal(updates.at(-1).busy,false);
+    h.queue.push({state:h.state,available:true});await h.click('submit');
+    assert.equal(updates.at(-1).official.version,1);assert.equal(updates.at(-1).pending,null);assert.equal(updates.at(-1).state,null);
+});
+
+test('compact HUD retains unknown game-decision retries and replay blocking without sending actions',async()=>{
+    const updates=[],h=harness({flow:flowState,mountOptions:{onHud:value=>updates.push(value)}});
+    h.queue.push(new Error('Lost response'));await h.click('fast');
+    assert.ok(updates.at(-1).flowPending);assert.equal(updates.at(-1).flowBlocked,false);assert.equal(h.requests.length,1);
+    h.setReplayActive(true);h.frame();assert.equal(updates.at(-1).replaying,true);assert.equal(h.requests.length,1);
+    h.setReplayActive(false);h.frame();assert.ok(updates.at(-1).flowPending);assert.equal(h.nodes['retry-flow'].disabled,false);
+});
+
+test('HUD notification persistence is explicit for arbitrary errors and cleared after a successful retry',async()=>{
+    const h=harness();await finishPlay(h);
+    h.queue.push(new Error('Connection refused'));await h.click('submit');assert.equal(h.nodes.status.dataset.noticePersistent,'true');
+    h.queue.push({state:h.state,available:true});await h.click('submit');assert.equal(h.nodes.status.dataset.noticePersistent,'false');
+    h.dispose.notify('Custom external warning',{persistent:true});assert.equal(h.nodes.status.dataset.noticePersistent,'true');
+    h.dispose.notify('External success');assert.equal(h.nodes.status.dataset.noticePersistent,'false');
 });

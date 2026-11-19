@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 
 const clamp = THREE.MathUtils.clamp;
+// Presentation-only pitch trim. Set to 0 to restore the original Stage 2 view.
+// Keep the camera position/follow distance and FOV unchanged.
+export const QB_CAMERA_LEVEL_TILT_DEGREES = 5;
 // View-only ownership: input always remains with the quarterback.
 export function quarterbackCameraActor(state) {
     const actors = state.actors || state.players || [];
@@ -14,10 +17,15 @@ export function quarterbackCameraFrame(width, height, actor, direction = 1) {
     const sign = direction < 0 ? -1 : 1;
     const x = Number.isFinite(actor?.x) ? actor.x : 60;
     const z = Number.isFinite(actor?.z) ? actor.z : 26.665;
+    const position = [clamp(x - sign * 17, -17, 137), 18, clamp(z, 4, 49.33)];
+    const targetX = x + sign * 19;
+    const downfieldDistance = Math.abs(targetX - position[0]);
+    const pitch = Math.atan2(position[1], downfieldDistance)
+        - THREE.MathUtils.degToRad(QB_CAMERA_LEVEL_TILT_DEGREES);
     return {
         aspect, fov: aspect < 1 ? 72 : 58,
-        position: [clamp(x - sign * 17, -17, 137), 18, clamp(z, 4, 49.33)],
-        target: [x + sign * 19, 0, clamp(z, 4, 49.33)],
+        position,
+        target: [targetX, position[1] - Math.tan(pitch) * downfieldDistance, position[2]],
     };
 }
 
