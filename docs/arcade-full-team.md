@@ -376,3 +376,9 @@ its penalty metadata and announcement state from that same recording, not the
 latest snapshot; shared-stadium FLAG badges retire after the referee announcement
 and hide while their Coach layer is suspended. Replay pre-snap resets the badge.
 Standalone Coach flag behavior and canonical enforcement remain unchanged.
+
+Fourth-down eligibility is captured before `mountPractice` narrows its private
+Coach dropdown to the selected formation. Both toolbar visibility and click
+execution use that captured canonical list; rereading the filtered dropdown would
+silently reject valid kicks from ordinary formations. Blocked kicks retain safety
+gates and show an explanation rather than silently returning.

@@ -1,3 +1,4 @@
+import {createFourthDownActions} from '../../resources/js/arcade/fourth-down.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compactScore,createHudNotice,mountCompactHud} from '../../resources/js/arcade/compact-hud.js';
@@ -139,5 +140,17 @@ test('fourth-down kick shortcuts use canonical offered calls and reservation/tra
  for(const gate of [{busy:true},{flowPending:true},{flowBlocked:true},{replaying:true}]){f.update({...fourth,...gate});assert.equal(punt.disabled,true);}
  f.hud.setSpecialCalls(['punt']);f.update(fourth);assert.equal(fg.hidden,true);assert.equal(punt.hidden,false);
  f.update({...fourth,flow:{phase:'defense'}});assert.equal(punt.hidden,true);
+ }finally{f.hud.dispose();}
+});
+
+test('visible kick buttons dispatch through captured canonical eligibility after Coach filters its own options',()=>{
+ const sent=[],calls=['inside_run','punt','field_goal'];
+ const actions=createFourthDownActions({blocked:()=>false,tempo:()=> 'normal',send:(...args)=>sent.push(args)});
+ const f=fixture({onSpecial:call=>actions.execute(call)});try{
+ const fourth={official:{...f.base.official,down:4}};
+ actions.update({state:fourth.official,flow:f.base.flow},calls);f.hud.setSpecialCalls(actions.offered);
+ calls.splice(0,calls.length,'inside_run');f.update(fourth);
+ for(const label of ['Punt','Field Goal'])f.root.all().find(n=>n.textContent===label).fire('click');
+ assert.deepEqual(sent,[['play',{call:'punt',tempo:'normal'}],['play',{call:'field_goal',tempo:'normal'}]]);
  }finally{f.hud.dispose();}
 });
